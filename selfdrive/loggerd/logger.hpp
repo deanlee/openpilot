@@ -12,9 +12,10 @@ class LoggerHandle {
   LoggerHandle() {
   }
   ~LoggerHandle() {
+    close();
   }
   bool open(const char* segment_path, const char* log_name, int part, bool has_qlog);
-  void log(uint8_t* data, size_t data_size, bool in_qlog);
+  void log(uint8_t* data, size_t data_size, bool in_qlog = false);
   void close();
   std::mutex mutex;
   int refcnt = 0;

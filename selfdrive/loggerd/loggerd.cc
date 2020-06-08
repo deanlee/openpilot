@@ -1,17 +1,11 @@
 #include <cstdio>
-#include <cstdlib>
-#include <cstdint>
 #include <cassert>
-#include <unistd.h>
 #include <signal.h>
 #include <errno.h>
 #include <poll.h>
-#include <string.h>
-#include <inttypes.h>
 #include <libyuv.h>
 #include <sys/resource.h>
 
-#include <string>
 #include <iostream>
 #include <thread>
 #include <mutex>
@@ -60,7 +54,6 @@ double randrange(double a, double b) {
   std::uniform_real_distribution<> dist(a, b);
   return dist(gen);
 }
-
 
 volatile sig_atomic_t do_exit = 0;
 static void set_do_exit(int sig) {
@@ -379,7 +372,7 @@ int lidar_thread() {
     // log it
     auto words = capnp::messageToFlatArray(msg);
     auto bytes = words.asBytes();
-    logger_log(&s.logger, bytes.begin(), bytes.size());
+    s.logger.log(bytes.begin(), bytes.size());
   }
   return 0;
 }
@@ -431,10 +424,8 @@ static void bootlog() {
 
     auto words = capnp::messageToFlatArray(msg);
     auto bytes = words.asBytes();
-    s.logger.log(bytes.begin(), bytes.size(), false);
+    s.logger.log(bytes.begin(), bytes.size());
   }
-
-  s.logger.close();
 }
 
 int main(int argc, char** argv) {
@@ -592,8 +583,6 @@ int main(int argc, char** argv) {
   lidar_thread_handle.join();
   LOGW("lidar joined");
 #endif
-
-  s.logger.close();
 
   for (auto s : socks){
     delete s;
