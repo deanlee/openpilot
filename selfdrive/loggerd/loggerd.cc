@@ -100,7 +100,7 @@ void encoder_thread(bool is_streaming, bool raw_clips, bool front) {
   PubSocket *idx_sock = PubSocket::create(s.ctx, front ? "frontEncodeIdx" : "encodeIdx");
   assert(idx_sock != NULL);
 
-  LoggerHandle *lh = NULL;
+  std::shared_ptr<LoggerHandle> lh;
 
   while (!do_exit) {
     VisionStreamBufs buf_info;
@@ -189,9 +189,6 @@ void encoder_thread(bool is_streaming, bool raw_clips, bool front) {
           }
 
           encoder_segment = s.logger.getPart();
-          if (lh) {
-            lh->close();
-          }
           lh = s.logger.getHandle();
         }
       }
@@ -275,11 +272,6 @@ void encoder_thread(bool is_streaming, bool raw_clips, bool front) {
       }
 
       cnt++;
-    }
-
-    if (lh) {
-      lh->close();
-      lh = NULL;
     }
 
     if (raw_clips) {
@@ -403,7 +395,7 @@ static void bootlog() {
   int err;
   s.logger.init("bootlog", false);
 
-  err = s.logger.next(LOG_ROOT);
+  err = s.logger.open(LOG_ROOT);
   assert(err == 0);
   LOGW("bootlog to %s", s.logger.getSegmentPath());
 
@@ -484,9 +476,8 @@ int main(int argc, char** argv) {
     is_streaming = true;
     is_logging = false;
   }
-
   if (is_logging) {
-    err = s.logger.next(LOG_ROOT);
+    err = s.logger.open(LOG_ROOT);
     assert(err == 0);
     LOGW("logging to %s", s.logger.getSegmentPath());
   }
@@ -559,7 +550,7 @@ int main(int argc, char** argv) {
       s.rotate_last_frame_id = s.last_frame_id;
 
       if (is_logging) {
-        err = s.logger.next(LOG_ROOT);
+        err = s.logger.open(LOG_ROOT);
         assert(err == 0);
         LOGW("rotated to %s", s.logger.getSegmentPath());
       }
