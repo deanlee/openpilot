@@ -128,10 +128,8 @@ void encoder_thread(bool is_streaming, bool raw_clips, int cam_idx) {
 
   VisionStream stream;
 
-  bool encoder_inited = false;
-  EncoderState encoder;
-  EncoderState encoder_alt;
-  bool has_encoder_alt = false;
+  EncoderState *encoder = nullptr;
+  EncoderState *encoder_alt = nullptr;
 
   pthread_mutex_lock(&s.rotate_lock);
   int my_idx = s.num_encoder;
@@ -161,18 +159,16 @@ void encoder_thread(bool is_streaming, bool raw_clips, int cam_idx) {
       continue;
     }
 
-    if (!encoder_inited) {
+    if (!encoder) {
       LOGD("encoder init %dx%d", buf_info.width, buf_info.height);
-      encoder_init(&encoder, cam_idx == CAM_IDX_DCAM ? "dcamera.hevc" : (cam_idx == CAM_IDX_ECAM ? "ecamera.hevc" : "fcamera.hevc"), buf_info.width, buf_info.height, CAMERA_FPS, cam_idx == CAM_IDX_DCAM ? DCAM_BITRATE:MAIN_BITRATE, true, false);
+      encoder = new EncodeState(cam_idx == CAM_IDX_DCAM ? "dcamera.hevc" : (cam_idx == CAM_IDX_ECAM ? "ecamera.hevc" : "fcamera.hevc"), buf_info.width, buf_info.height, CAMERA_FPS, cam_idx == CAM_IDX_DCAM ? DCAM_BITRATE:MAIN_BITRATE, true, false);
 
       #ifndef QCOM2
       // TODO: fix qcamera on tici
       if (cam_idx == CAM_IDX_FCAM) {
-        encoder_init(&encoder_alt, "qcamera.ts", 480, 360, CAMERA_FPS, 128000, false, true);
-        has_encoder_alt = true;
+        encoder_alt = new EncodeState("qcamera.ts", 480, 360, CAMERA_FPS, 128000, false, true);
       }
       #endif
-      encoder_inited = true;
       if (is_streaming) {
         encoder.zmq_ctx = zmq_ctx_new();
         encoder.stream_sock_raw = zmq_socket(encoder.zmq_ctx, ZMQ_PUB);
@@ -187,7 +183,7 @@ void encoder_thread(bool is_streaming, bool raw_clips, int cam_idx) {
     RawLogger *rawlogger = NULL;
 
     if (raw_clips) {
-      rawlogger = new RawLogger("prcamera", buf_info.width, buf_info.height, CAMERA_FPS);
+      rawlogger = new RawLogger("prcamera.mkv", buf_info.width, buf_info.height, CAMERA_FPS);
     }
 
     while (!do_exit) {
@@ -203,10 +199,11 @@ void encoder_thread(bool is_streaming, bool raw_clips, int cam_idx) {
       //double msdiff = (double) diff / 1000000.0;
       // printf("logger latency to tsEof: %f\n", msdiff);
 
+      FrameLogger *frame_loggers[] = {encoder, encoder_alt, rawlogger};
+      
       uint8_t *y = (uint8_t*)buf->addr;
       uint8_t *u = y + (buf_info.width*buf_info.height);
       uint8_t *v = u + (buf_info.width/2)*(buf_info.height/2);
-
       {
         // all the rotation stuff
         bool should_rotate = false;
@@ -377,16 +374,14 @@ void encoder_thread(bool is_streaming, bool raw_clips, int cam_idx) {
 
   delete idx_sock;
 
-  if (encoder_inited) {
+  if (encoder) {
     LOG("encoder destroy");
-    encoder_close(&encoder);
-    encoder_destroy(&encoder);
+    delete encoder;
   }
 
-  if (has_encoder_alt) {
+  if (encoder_alt) {
     LOG("encoder alt destroy");
-    encoder_close(&encoder_alt);
-    encoder_destroy(&encoder_alt);
+    delete encoder_alt;
   }
 }
 #endif

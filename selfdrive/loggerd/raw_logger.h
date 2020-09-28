@@ -1,13 +1,10 @@
-#ifndef FFV1LOGGER_H
-#define FFV1LOGGER_H
+#pragma once
 
 #include <cstdio>
 #include <cstdlib>
 
 #include <string>
 #include <vector>
-#include <mutex>
-#include <condition_variable>
 
 extern "C" {
 #include <libavutil/imgutils.h>
@@ -20,17 +17,13 @@ extern "C" {
 class RawLogger : public FrameLogger {
 public:
   RawLogger(const std::string &filename, int awidth, int aheight, int afps);
-  ~RawLogger();
+  virtual ~RawLogger();
 
-  int ProcessFrame(uint64_t ts, const uint8_t *y_ptr, const uint8_t *u_ptr, const uint8_t *v_ptr);
+  bool ProcessFrame(uint64_t ts, const uint8_t *y_ptr, const uint8_t *u_ptr, const uint8_t *v_ptr, int width, int height, VIPCBufExtra *extra);
   void Open(const std::string &path);
   void Close();
 
 private:
-  std::string filename;
-  int width, height, fps;
-  int counter = 0;
-
   AVCodec *codec = NULL;
   AVCodecContext *codec_ctx = NULL;
 
@@ -39,5 +32,3 @@ private:
 
   AVFrame *frame = NULL;
 };
-
-#endif

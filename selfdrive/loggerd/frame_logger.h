@@ -1,81 +1,64 @@
-#ifndef FRAMELOGGER_H
-#define FRAMELOGGER_H
+#pragma once
 
 #include <cstdint>
-
-#include <string>
 #include <mutex>
+#include <string>
 
+#include "common/visionipc.h"
 class FrameLogger {
-public:
-  virtual ~FrameLogger() {}
+ public:
+  FrameLogger(const std::string &afilename, int awidth, int aheight, int afps)
+      : filename(afilename), width(awidth), height(aheight), fps(afps) {}
+  virtual ~FrameLogger() { closeFile(); }
 
-  virtual void Open(const std::string &path) = 0;
-  virtual void Close() = 0;
+  int LogFrame(uint64_t ts, const uint8_t *y_ptr, const uint8_t *u_ptr, const uint8_t *v_ptr, int width, int height, VIPCBufExtra *extra) {
+    if (rotating) {
+      closeFile();
 
-  int LogFrame(uint64_t ts, const uint8_t *y_ptr, const uint8_t *u_ptr, const uint8_t *v_ptr, int *frame_segment) {
-    std::lock_guard<std::recursive_mutex> guard(lock);
+      // create camera lock file
+      lock_path = util::string_format("%s/%s.lock", next_path.c_str(), filename.c_str());
+      int lock_fd = open(lock_path.c_str(), O_RDWR | O_CREAT, 0777);
+      assert(lock_fd >= 0);
+      close(lock_fd);
 
-    if (opening) {
-      Open(next_path);
-      opening = false;
+      std::string vid_path = util::string_format("%s/%s", next_path.c_str(), filename.c_str());
+      Open(vid_path);
+
+      counter = 0;
+      rotating = false;
+      is_open = true;
     }
 
     if (!is_open) return -1;
 
-    if (rotating) {
-      Close();
-      Open(next_path);
-      segment = next_segment;
-      rotating = false;
+    if (ProcessFrame(ts, y_ptr, u_ptr, v_ptr, width, height, extra)) {
+      counter++;
     }
-
-    int ret = ProcessFrame(ts, y_ptr, u_ptr, v_ptr);
-
-    if (ret >= 0 && frame_segment) {
-      *frame_segment = segment;
-    }
-
-    if (closing) {
-      Close();
-      closing = false;
-    }
-
-    return ret;
+    return counter;
   }
 
   void Rotate(const std::string &new_path, int new_segment) {
-    std::lock_guard<std::recursive_mutex> guard(lock);
-
     next_path = new_path;
-    next_segment = new_segment;
-    if (is_open) {
-      if (next_segment == -1) {
-        closing = true;
-      } else {
-        rotating = true;
-      }
-    } else {
-      segment = next_segment;
-      opening = true;
-    }
+    rotating = true;
   }
 
-protected:
-
-  virtual int ProcessFrame(uint64_t ts, const uint8_t *y_ptr, const uint8_t *u_ptr, const uint8_t *v_ptr) = 0;
-
-  std::recursive_mutex lock;
+ protected:
+  virtual void Open(const std::string &path) = 0;
+  virtual void Close() = 0;
+  virtual bool ProcessFrame(uint64_t ts, const uint8_t *y_ptr, const uint8_t *u_ptr, const uint8_t *v_ptr, int width, int height, VIPCBufExtra *extra) = 0;
 
   bool is_open = false;
-  int segment = -1;
+  int width, height, fps;
+  int counter = 0;
 
-  std::string vid_path, lock_path;
-
-private:
-  int next_segment = -1;
-  bool opening = false, closing = false, rotating = false;
-  std::string next_path;
+ private:
+  void closeFile() {
+    if (is_open) {
+      Close();
+      unlink(lock_path.c_str());
+      is_open = false;
+    }
+  }
+  std::string next_path, filename, lock_path;
+  bool rotating = false;
 };
-
-#endif
