@@ -160,8 +160,8 @@ private:
 
 struct LoggerdState {
   Context *ctx;
-  LoggerState logger = {};
-  char segment_path[4096];
+  std::unique_ptr<Logger> logger;
+  std::string segment_path;
   int rotate_segment;
   pthread_mutex_t rotate_lock;
   RotateState rotate_state[LOG_CAMERA_ID_MAX-1];
@@ -177,7 +177,7 @@ void encoder_thread(int cam_idx) {
   set_thread_name(cam_info.filename);
 
   int cnt = 0;
-  LoggerHandle *lh = NULL;
+  std::shared_ptr<LoggerHandle> lh = NULL;
   std::vector<Encoder *> encoders;
   VisionIpcClient vipc_client = VisionIpcClient("camerad", cam_info.stream_type, false);
 
@@ -226,18 +226,13 @@ void encoder_thread(int cam_idx) {
 
         // rotate the encoder if the logger is on a newer segment
         if (rotate_state.should_rotate) {
-          LOGW("camera %d rotate encoder to %s", cam_idx, s.segment_path);
+          LOGW("camera %d rotate encoder to %s", cam_idx, s.segment_path.c_str());
 
           if (!rotate_state.initialized) {
             rotate_state.last_rotate_frame_id = extra.frame_id - 1;
             rotate_state.initialized = true;
           }
-
-          // get new logger handle for new segment
-          if (lh) {
-            lh_close(lh);
-          }
-          lh = logger_get_handle(&s.logger);
+          lh = s.logger->get_handle();
 
           // wait for all to start rotating
           rotate_state.rotating = true;
@@ -248,7 +243,7 @@ void encoder_thread(int cam_idx) {
           pthread_mutex_lock(&s.rotate_lock);
           for (auto &e : encoders) {
             e->encoder_close();
-            e->encoder_open(s.segment_path, s.rotate_segment);
+            e->encoder_open(s.segment_path.c_str(), s.rotate_segment);
           }
           rotate_state.cur_seg = s.rotate_segment;
           pthread_mutex_unlock(&s.rotate_lock);
@@ -296,11 +291,7 @@ void encoder_thread(int cam_idx) {
 
       cnt++;
     }
-
-    if (lh) {
-      lh_close(lh);
-      lh = NULL;
-    }
+    lh = nullptr;
   }
 
   LOG("encoder destroy");
@@ -358,7 +349,7 @@ int main(int argc, char** argv) {
   }
 
   // init logger
-  logger_init(&s.logger, "rlog", true);
+  s.logger = std::make_unique<Logger>("rlog", gen_init_data(), true);
 
   // init encoders
   pthread_mutex_init(&s.rotate_lock, NULL);
@@ -404,7 +395,7 @@ int main(int argc, char** argv) {
         last_msg = msg;
 
         QlogState& qs = qlog_states[sock];
-        logger_log(&s.logger, (uint8_t*)msg->getData(), msg->getSize(), qs.counter == 0 && qs.freq != -1);
+        s.logger->write((uint8_t*)msg->getData(), msg->getSize(), qs.counter == 0 && qs.freq != -1);
         if (qs.freq != -1) {
           qs.counter = (qs.counter + 1) % qs.freq;
         }
@@ -451,8 +442,8 @@ int main(int argc, char** argv) {
       delete last_msg;
     }
 
-    bool new_segment = s.logger.part == -1;
-    if (s.logger.part > -1) {
+    bool new_segment = s.logger->part == -1;
+    if (s.logger->part > -1) {
       double tms = millis_since_boot();
       if (tms - last_camera_seen_tms <= NO_CAMERA_PATIENCE && encoder_threads.size() > 0) {
         new_segment = true;
@@ -478,9 +469,8 @@ int main(int argc, char** argv) {
       pthread_mutex_lock(&s.rotate_lock);
       last_rotate_tms = millis_since_boot();
 
-      int err = logger_next(&s.logger, LOG_ROOT.c_str(), s.segment_path, sizeof(s.segment_path), &s.rotate_segment);
-      assert(err == 0);
-      LOGW((s.logger.part == 0) ? "logging to %s" : "rotated to %s", s.segment_path);
+      s.segment_path = s.logger->next(LOG_ROOT, &s.rotate_segment);
+      LOGW((s.logger->part == 0) ? "logging to %s" : "rotated to %s", s.segment_path.c_str());
 
       // rotate encoders
       for (auto &r : s.rotate_state) r.rotate();
@@ -493,7 +483,6 @@ int main(int argc, char** argv) {
   for (auto &t : encoder_threads) t.join();
 
   LOGW("closing logger");
-  logger_close(&s.logger);
 
   // messaging cleanup
   for (auto sock : socks) delete sock;
