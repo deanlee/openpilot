@@ -227,7 +227,7 @@ LoggerHandle::LoggerHandle(const std::string& segment_path, const std::string& l
 }
 
 void LoggerHandle::write(uint8_t* data, size_t data_size, bool in_qlog) {
-  std::scoped_lock lk(lock);
+  std::lock_guard lk(lock);
   int bzerror;
   BZ2_bzWrite(&bzerror, bz_file, data, data_size);
   if (in_qlog && bz_qlog != NULL) {
