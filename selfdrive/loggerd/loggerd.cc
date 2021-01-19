@@ -1,6 +1,4 @@
-#include <cstdio>
 #include <cassert>
-#include <unistd.h>
 #include <sys/resource.h>
 
 #include <string>
@@ -8,8 +6,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
-#include <random>
-
 #include <ftw.h>
 
 #include "common/timing.h"
@@ -18,13 +14,11 @@
 #include "common/util.h"
 #include "camerad/cameras/camera_common.h"
 #include "logger.h"
-#include "messaging.hpp"
 #include "services.h"
 
 #include "visionipc.h"
 #include "visionipc_client.h"
 #include "encoder.h"
-
 #if defined(QCOM) || defined(QCOM2)
 #include "omx_encoder.h"
 #define Encoder OmxEncoder
@@ -37,10 +31,10 @@ namespace {
 
 constexpr int MAIN_BITRATE = 5000000;
 constexpr int MAIN_FPS = 20;
-#ifdef QCOM2
-const bool IS_QCOM2 = true;
-#else
+#ifndef QCOM2
 const bool IS_QCOM2 = false;
+#else
+const bool IS_QCOM2 = true;
 #endif
 
 #define NO_CAMERA_PATIENCE 500 // fall back to time-based rotation if all cameras are dead
@@ -55,7 +49,8 @@ LogCameraInfo cameras_logged[] = {
     .bitrate = MAIN_BITRATE,
     .is_h265 = true,
     .downscale = false,
-    .has_qcamera = true},
+    .has_qcamera = true
+  },
   {.id = D_CAMERA,
     .stream_type = VISION_STREAM_YUV_FRONT,
     .filename = "dcamera.hevc",
@@ -64,7 +59,8 @@ LogCameraInfo cameras_logged[] = {
     .bitrate = IS_QCOM2 ? MAIN_BITRATE : 2500000,
     .is_h265 = true,
     .downscale = false,
-    .has_qcamera = false},
+    .has_qcamera = false
+  },
 #ifdef QCOM2
   {.id = E_CAMERA,
     .stream_type = VISION_STREAM_YUV_WIDE,
@@ -78,7 +74,6 @@ LogCameraInfo cameras_logged[] = {
   },
 #endif
 };
-
 const LogCameraInfo qcam_info = {
     .filename = "qcamera.ts",
     .fps = MAIN_FPS,
@@ -223,9 +218,10 @@ void encoder_thread(EncoderState *es) {
         eidx.setEncodeId(total_frame_cnt);
         eidx.setSegmentNum(out_segment);
         eidx.setSegmentId(out_id);
-
-        auto bytes = msg.toBytes();
-        lh_log(lh, bytes.begin(), bytes.size(), false);
+        if (lh) {
+          auto bytes = msg.toBytes();
+          lh_log(lh, bytes.begin(), bytes.size(), false);
+        }
       }
       ++segment_frame_cnt;
       ++total_frame_cnt;
