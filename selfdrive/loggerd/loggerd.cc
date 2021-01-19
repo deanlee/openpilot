@@ -122,13 +122,9 @@ struct LoggerdState {
 };
 LoggerdState s;
 
-
-
 void drain_socket(LoggerHandle *lh, SubSocket *sock, QlogState &qs) {
-  while (!do_exit) {
-    Message *msg = sock->receive(true);
-    if (!msg) break;
-
+  Message *msg = nullptr;
+  while (!do_exit && (msg = sock->receive(true))) {
     logger_log(&s.logger, (uint8_t *)msg->getData(), msg->getSize(), qs.counter == 0 && qs.freq != -1);
     if (qs.freq != -1) {
       qs.counter = (qs.counter + 1) % qs.freq;
@@ -176,7 +172,6 @@ void encoder_thread(EncoderState *es) {
       if (buf == nullptr) continue;
 
       s.last_camera_seen_tms = millis_since_boot();
-
       bool should_rotate = false;
       {
         std::unique_lock lk(s.rotate_lock);
@@ -187,9 +182,8 @@ void encoder_thread(EncoderState *es) {
           should_rotate = true;
           s.encoders_waiting++;
           s.cv.wait(lk, [&] { return s.encoders_waiting == 0 || do_exit; });
+          if (do_exit) break;
         }
-        if (do_exit) break;
-
         if (should_rotate) {
           encoder_segment = s.rotate_segment;
           segment_path = s.segment_path;
@@ -210,7 +204,6 @@ void encoder_thread(EncoderState *es) {
 
       // log frame socket
       drain_socket(lh, es->frame_sock, es->qlog_state);
-
       // encode frame
       for (int i = 0; i < encoders.size() && !do_exit; ++i) {
         int out_segment = -1;
@@ -266,7 +259,6 @@ void clear_locks() {
 } // namespace
 
 int main(int argc, char** argv) {
-
   setpriority(PRIO_PROCESS, 0, -12);
 
   clear_locks();
@@ -300,9 +292,8 @@ int main(int argc, char** argv) {
     qlog_states[sock] = qs;
   }
 
-  // init logger
+  // init and open logger
   logger_init(&s.logger, "rlog", true);
-
   loggerd_logger_next();
   // start encoders
   std::vector<std::thread> encoder_threads;
@@ -310,9 +301,8 @@ int main(int argc, char** argv) {
     s.encoders_max_waiting += es->need_waiting;
     encoder_threads.push_back(std::thread(encoder_thread, es));
   }
-
+  // poll for new messages on all sockets
   while (!do_exit) {
-    // poll for new messages on all sockets
     for (auto sock : poller->poll(1000)) {
       drain_socket(s.logger.cur_handle, sock, qlog_states[sock]);
     }
@@ -321,15 +311,12 @@ int main(int argc, char** argv) {
 
   LOGW("closing encoders");
   s.cv.notify_all();
-
   for (auto &[sock, qs] : qlog_states) delete sock;
   delete poller;
-  
   for (auto &t : encoder_threads) t.join();
 
   LOGW("closing logger");
   logger_close(&s.logger);
-
   for (auto &es : s.encoder_states) {
     delete es->frame_sock;
     delete es;
