@@ -135,50 +135,49 @@ kj::Array<capnp::word> logger_build_init_data() {
   return capnp::messageToFlatArray(msg);
 }
 
-void log_init_data(LoggerState *s) {
-  auto bytes = s->init_data.asBytes();
-  logger_log(s, bytes.begin(), bytes.size(), s->has_qlog);
+  return capnp::messageToFlatArray(msg);
 }
 
 
-static void log_sentinel(LoggerState *s, cereal::Sentinel::SentinelType type) {
+static void log_sentinel(Logger *s, cereal::Sentinel::SentinelType type) {
   MessageBuilder msg;
   auto sen = msg.initEvent().initSentinel();
   sen.setType(type);
   auto bytes = msg.toBytes();
 
-  logger_log(s, bytes.begin(), bytes.size(), true);
+  s->write(bytes.begin(), bytes.size(), true);
 }
 
 // ***** logging functions *****
 
-void logger_init(LoggerState *s, const char* log_name, bool has_qlog) {
+// Logger
+
+Logger::Logger(const std::string &log_root, const std::string& log_name, bool has_qlog)
+    : log_name(log_name), has_qlog(has_qlog), part(-1) {
   umask(0);
 
   time_t rawtime = time(NULL);
   struct tm timeinfo;
+  char route_name[64] = {};
   localtime_r(&rawtime, &timeinfo);
   strftime(route_name, sizeof(route_name), "%Y-%m-%d--%H-%M-%S", &timeinfo);
+  route_path = util::string_format("%s/%s", log_root.c_str(), route_name);
+  init_data = get_init_data();
 }
 
-std::string Logger::next(const std::string& root_path, int* out_part) {
+std::string Logger::next(int* out_part) {
   bool is_start_of_route = !cur_handle;
   if (!is_start_of_route) log_sentinel(this, cereal::Sentinel::SentinelType::END_OF_SEGMENT);
 
-  ++part;
-
-  segment_path = util::string_format("%s/%s--%d", root_path.c_str(), route_name, part);
+  segment_path = util::string_format("%s--%d", route_path.c_str(), ++part);
   cur_handle = std::make_shared<LoggerHandle>(segment_path, log_name, has_qlog);
-
-  if (init_data.size() > 0) {
-    auto bytes = init_data.asBytes();
-    cur_handle->write(bytes.begin(), bytes.size(), has_qlog);
-  }
 
   if (out_part) {
     *out_part = part;
   }
 
+  auto bytes = init_data.asBytes();
+  write(bytes.begin(), bytes.size(), has_qlog);
   log_sentinel(this, is_start_of_route ? cereal::Sentinel::SentinelType::START_OF_ROUTE : cereal::Sentinel::SentinelType::START_OF_SEGMENT);
   return segment_path;
 }

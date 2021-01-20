@@ -349,7 +349,7 @@ int main(int argc, char** argv) {
   }
 
   // init logger
-  s.logger = std::make_unique<Logger>("rlog", gen_init_data(), true);
+  s.logger = std::make_unique<Logger>(LOG_ROOT, "rlog", true);
 
   // init encoders
   pthread_mutex_init(&s.rotate_lock, NULL);
@@ -469,7 +469,7 @@ int main(int argc, char** argv) {
       pthread_mutex_lock(&s.rotate_lock);
       last_rotate_tms = millis_since_boot();
 
-      s.segment_path = s.logger->next(LOG_ROOT, &s.rotate_segment);
+      s.segment_path = s.logger->next(&s.rotate_segment);
       LOGW((s.logger->part == 0) ? "logging to %s" : "rotated to %s", s.segment_path.c_str());
 
       // rotate encoders

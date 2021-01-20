@@ -51,21 +51,17 @@ class BZFile {
   BZFILE* bz_file = nullptr;
 };
 
-typedef struct LoggerHandle {
-  pthread_mutex_t lock;
-  int refcnt;
-  char segment_path[4096];
-  char log_path[4096];
-  char qlog_path[4096];
-  char lock_path[4096];
-  std::unique_ptr<BZFile> log, q_log;
-} LoggerHandle;
-
-typedef struct LoggerState {
-  pthread_mutex_t lock;
+class Logger {
+public:
+  Logger(const std::string &log_root, const std::string& log_name, bool has_qlog);
+  ~Logger();
+  std::shared_ptr<LoggerHandle> get_handle();
+  void write(uint8_t* data, size_t data_size, bool in_qlog);
+  std::string next(int* out_part);
   int part;
-  kj::Array<capnp::word> init_data;
-  char route_name[64];
+
+private:
+  std::string segment_path, route_path, log_name;
   bool has_qlog;
   kj::Array<capnp::word> init_data;
   std::shared_ptr<LoggerHandle> cur_handle;

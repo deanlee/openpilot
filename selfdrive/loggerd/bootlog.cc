@@ -4,10 +4,9 @@
 #include "logger.h"
 
 int main(int argc, char** argv) {
-  char filename[64] = {'\0'};
-
-  time_t rawtime = time(NULL);
-  struct tm timeinfo;
+  Logger logger(LOG_ROOT, "bootlog", false);
+  std::string segment_path = logger.next(nullptr);
+  LOGW("bootlog to %s", segment_path.c_str());
 
   localtime_r(&rawtime, &timeinfo);
   strftime(filename, sizeof(filename),
@@ -25,8 +24,7 @@ int main(int argc, char** argv) {
   // Write initdata
   bz_file.write(logger_build_init_data().asBytes());
 
-  // Write bootlog
-  bz_file.write(logger_build_boot().asBytes());
-
+  auto bytes = msg.toBytes();
+  logger.write(bytes.begin(), bytes.size(), false);
   return 0;
 }
