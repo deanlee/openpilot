@@ -28,8 +28,10 @@ constexpr int MAIN_BITRATE = 5000000;
 constexpr int MAIN_FPS = 20;
 #ifndef QCOM2
 const bool IS_QCOM2 = false;
+constexpr int DCAM_BITRATE = 2500000;
 #else
 const bool IS_QCOM2 = true;
+constexpr int DCAM_BITRATE = MAIN_BITRATE;
 #endif
 
 #define NO_CAMERA_PATIENCE 500 // fall back to time-based rotation if all cameras are dead
@@ -50,7 +52,7 @@ LogCameraInfo cameras_logged[] = {
     .filename = "dcamera.hevc",
     .frame_packet_name = "frontFrame",
     .fps = MAIN_FPS, // on EONs, more compressed this way
-    .bitrate = IS_QCOM2 ? MAIN_BITRATE : 2500000,
+    .bitrate = DCAM_BITRATE,
     .is_h265 = true,
     .downscale = false,
     .has_qcamera = false},
@@ -72,8 +74,11 @@ const LogCameraInfo qcam_info = {
     .bitrate = 128000,
     .is_h265 = false,
     .downscale = true,
-    .frame_width = IS_QCOM2 ? 526 : 480,
-    .frame_height = IS_QCOM2 ? 330 : 360
+#ifndef QCOM2
+    .frame_width = 480, .frame_height = 360
+#else
+    .frame_width = 526, .frame_height = 330 // keep pixel count the same?
+#endif
 };
 
 
@@ -229,7 +234,7 @@ void encoder_thread(EncoderState *es) {
   }
 }
 
-int clear_locks_fn(const char* fpath, const struct stat *sb, int tyupeflag) {
+static int clear_locks_fn(const char* fpath, const struct stat *sb, int tyupeflag) {
   const char* dot = strrchr(fpath, '.');
   if (dot && strcmp(dot, ".lock") == 0) {
     unlink(fpath);
@@ -237,7 +242,7 @@ int clear_locks_fn(const char* fpath, const struct stat *sb, int tyupeflag) {
   return 0;
 }
 
-void clear_locks() {
+static void clear_locks() {
   ftw(LOG_ROOT.c_str(), clear_locks_fn, 16);
 }
 
