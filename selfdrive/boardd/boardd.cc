@@ -337,7 +337,6 @@ void can_health_thread() {
     }
 
     ignition_last = ignition;
-    uint16_t fan_speed_rpm = panda->get_fan_speed();
 
     // set fields
     MessageBuilder msg;
@@ -364,7 +363,7 @@ void can_health_thread() {
     healthData.setHwType(panda->hw_type);
     healthData.setUsbPowerMode(cereal::HealthData::UsbPowerMode(health.usb_power_mode));
     healthData.setSafetyModel(cereal::CarParams::SafetyModel(health.safety_model));
-    healthData.setFanSpeedRpm(fan_speed_rpm);
+    healthData.setFanSpeedRpm(panda->get_fan_speed());
     healthData.setFaultStatus(cereal::HealthData::FaultStatus(health.fault_status));
     healthData.setPowerSaveEnabled((bool)(health.power_save_enabled));
 
