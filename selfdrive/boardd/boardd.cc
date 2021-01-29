@@ -326,6 +326,7 @@ void can_health_thread() {
         LOGW("Safety setter thread already running");
       }
     }
+    ignition_last = ignition;
 
     // Write to rtc once per minute when no ignition present
     if ((panda->has_rtc) && !ignition && (no_ignition_cnt % 120 == 1)){
@@ -335,8 +336,6 @@ void can_health_thread() {
         panda->set_rtc(sys_time);
       }
     }
-
-    ignition_last = ignition;
 
     // set fields
     MessageBuilder msg;
