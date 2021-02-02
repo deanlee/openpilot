@@ -161,32 +161,14 @@ LoggerState::LoggerState(const std::string &log_root, const std::string& log_nam
 }
 
 std::string LoggerState::next(int* out_part) {
-  bool is_start_of_route = !cur_handle;
-  if (!is_start_of_route) log_sentinel(this, cereal::Sentinel::SentinelType::END_OF_SEGMENT);
+  unlink(lock_path.c_str());
+  if (part == 0) log_sentinel(this, cereal::Sentinel::SentinelType::END_OF_SEGMENT);
 
   segment_path = util::string_format("%s--%d", route_path.c_str(), ++part);
-  cur_handle = std::make_shared<LoggerHandle>(segment_path, log_name, has_qlog);
 
-  // log init data
-  write(init_data.asBytes(), has_qlog);
-  log_sentinel(this, is_start_of_route ? cereal::Sentinel::SentinelType::START_OF_ROUTE : cereal::Sentinel::SentinelType::START_OF_SEGMENT);
-
-  if (out_part) *out_part = part;
-
-  return segment_path;
-}
-
-LoggerState::~LoggerState() {
-  log_sentinel(this, cereal::Sentinel::SentinelType::END_OF_ROUTE);
-  cur_handle = nullptr;
-}
-
-// LoggerHandle
-
-LoggerHandle::LoggerHandle(const std::string& segment_path, const std::string& log_name, bool has_qlog) {
   const std::string log_path = util::string_format("%s/%s.bz2", segment_path.c_str(), log_name.c_str());
   lock_path = log_path + ".lock";
-  int err = logger_mkpath((char *)log_path.c_str());
+  int err = logger_mkpath((char*)log_path.c_str());
   assert(err == 0);
 
   FILE* lock_file = fopen(lock_path.c_str(), "wb");
@@ -198,16 +180,25 @@ LoggerHandle::LoggerHandle(const std::string& segment_path, const std::string& l
     const std::string qlog_path = segment_path + "/qlog.bz2";
     q_log = std::make_unique<BZFile>(qlog_path.c_str());
   }
+
+  // log init data
+  write(init_data.asBytes(), has_qlog);
+  log_sentinel(this, part == 0 ? cereal::Sentinel::SentinelType::START_OF_ROUTE : cereal::Sentinel::SentinelType::START_OF_SEGMENT);
+
+  if (out_part) *out_part = part;
+
+  return segment_path;
 }
 
-void LoggerHandle::write(uint8_t* data, size_t data_size, bool in_qlog) {
+LoggerState::~LoggerState() {
+  log_sentinel(this, cereal::Sentinel::SentinelType::END_OF_ROUTE);
+  unlink(lock_path.c_str());
+}
+
+void LoggerState::write(uint8_t* data, size_t data_size, bool in_qlog) {
   std::lock_guard lk(lock);
   log->write(data, data_size);
   if (in_qlog && q_log) {
     q_log->write(data, data_size);
   }
-}
-
-LoggerHandle::~LoggerHandle() {
-  unlink(lock_path.c_str());
 }

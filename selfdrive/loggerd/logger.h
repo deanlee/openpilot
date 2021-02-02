@@ -52,36 +52,21 @@ class BZFile {
   BZFILE* bz_file = nullptr;
 };
 
-class LoggerHandle {
-public:
-  LoggerHandle(const std::string &segment_path, const std::string &log_name, bool has_qlog);
-  ~LoggerHandle();
-  void write(uint8_t* data, size_t data_size, bool in_qlog);
-  inline void write(kj::ArrayPtr<capnp::byte> array, bool in_qlog) { write(array.begin(), array.size(), in_qlog); }
-
- private:
-  std::mutex lock;
-  std::string lock_path;
-  std::unique_ptr<BZFile> log, q_log;
-};
-
 class LoggerState {
 public:
   LoggerState(const std::string &log_root, const std::string& log_name, bool has_qlog);
   ~LoggerState();
-  inline std::shared_ptr<LoggerHandle> get_handle() { return cur_handle; };
-  inline void write(uint8_t* data, size_t data_size, bool in_qlog) {
-    if (cur_handle) cur_handle->write(data, data_size, in_qlog);
-  }
+  void write(uint8_t* data, size_t data_size, bool in_qlog);
   inline void write(kj::ArrayPtr<capnp::byte> array, bool in_qlog) { write(array.begin(), array.size(), in_qlog); }
   std::string next(int* out_part);
   int part;
 
 private:
-  std::string segment_path, route_path, log_name;
+  std::mutex lock;
+  std::string segment_path, route_path, log_name, lock_path;
   bool has_qlog;
   kj::Array<capnp::word> init_data;
-  std::shared_ptr<LoggerHandle> cur_handle;
+  std::unique_ptr<BZFile> log, q_log;
 };
 
 int logger_mkpath(char* file_path);

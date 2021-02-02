@@ -177,7 +177,6 @@ void encoder_thread(int cam_idx) {
   set_thread_name(cam_info.filename);
 
   int cnt = 0;
-  std::shared_ptr<LoggerHandle> lh = NULL;
   std::vector<Encoder *> encoders;
   VisionIpcClient vipc_client = VisionIpcClient("camerad", cam_info.stream_type, false);
 
@@ -232,7 +231,6 @@ void encoder_thread(int cam_idx) {
             rotate_state.last_rotate_frame_id = extra.frame_id - 1;
             rotate_state.initialized = true;
           }
-          lh = s.logger->get_handle();
 
           // wait for all to start rotating
           rotate_state.rotating = true;
@@ -282,13 +280,12 @@ void encoder_thread(int cam_idx) {
           eidx.setEncodeId(cnt);
           eidx.setSegmentNum(out_segment);
           eidx.setSegmentId(out_id);
-          lh->write(msg.toBytes(), false);
+          s.logger->write(msg.toBytes(), false);
         }
       }
 
       cnt++;
     }
-    lh = nullptr;
   }
 
   LOG("encoder destroy");
