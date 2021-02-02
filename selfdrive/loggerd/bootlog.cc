@@ -4,16 +4,7 @@
 #include "logger.h"
 
 int main(int argc, char** argv) {
-  char filename[64] = {'\0'};
-
-  time_t rawtime = time(NULL);
-  struct tm timeinfo;
-
-  localtime_r(&rawtime, &timeinfo);
-  strftime(filename, sizeof(filename),
-           "%Y-%m-%d--%H-%M-%S.bz2", &timeinfo);
-
-  std::string path = LOG_ROOT + "/boot/" + std::string(filename);
+  std::string path = LOG_ROOT + "/boot/" + logger_get_route_name();
   LOGW("bootlog to %s", path.c_str());
 
   // Open bootlog

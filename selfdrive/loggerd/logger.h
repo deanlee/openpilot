@@ -87,4 +87,5 @@ private:
 int logger_mkpath(char* file_path);
 kj::Array<capnp::word> logger_build_boot();
 kj::Array<capnp::word> logger_build_init_data();
+std::string logger_get_route_name();
 

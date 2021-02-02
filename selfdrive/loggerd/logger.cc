@@ -142,18 +142,21 @@ static void log_sentinel(LoggerState *s, cereal::Sentinel::SentinelType type) {
   s->write(msg.toBytes(), true);
 }
 
+std::string logger_get_route_name() {
+  char route_name[64] = {'\0'};
+  time_t rawtime = time(NULL);
+  struct tm timeinfo;
+
+  localtime_r(&rawtime, &timeinfo);
+  strftime(route_name, sizeof(route_name), "%Y-%m-%d--%H-%M-%S.bz2", &timeinfo);
+  return route_name;
+}
 // Logger
 
 LoggerState::LoggerState(const std::string &log_root, const std::string& log_name, bool has_qlog)
     : log_name(log_name), has_qlog(has_qlog), part(-1) {
   umask(0);
-
-  time_t rawtime = time(NULL);
-  struct tm timeinfo;
-  char route_name[64] = {};
-  localtime_r(&rawtime, &timeinfo);
-  strftime(route_name, sizeof(route_name), "%Y-%m-%d--%H-%M-%S", &timeinfo);
-  route_path = util::string_format("%s/%s", log_root.c_str(), route_name);
+  route_path = util::string_format("%s/%s", log_root.c_str(), logger_get_route_name().c_str());
   init_data = logger_build_init_data();
 }
 
