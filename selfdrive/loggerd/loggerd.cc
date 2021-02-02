@@ -160,7 +160,7 @@ private:
 
 struct LoggerdState {
   Context *ctx;
-  std::unique_ptr<Logger> logger;
+  std::unique_ptr<LoggerState> logger;
   std::string segment_path;
   int rotate_segment;
   pthread_mutex_t rotate_lock;
@@ -282,10 +282,7 @@ void encoder_thread(int cam_idx) {
           eidx.setEncodeId(cnt);
           eidx.setSegmentNum(out_segment);
           eidx.setSegmentId(out_id);
-          if (lh) {
-            auto bytes = msg.toBytes();
-            lh_log(lh, bytes.begin(), bytes.size(), false);
-          }
+          lh->write(msg.toBytes(), false);
         }
       }
 
@@ -349,7 +346,7 @@ int main(int argc, char** argv) {
   }
 
   // init logger
-  s.logger = std::make_unique<Logger>(LOG_ROOT, "rlog", true);
+  s.logger = std::make_unique<LoggerState>(LOG_ROOT, "rlog", true);
 
   // init encoders
   pthread_mutex_init(&s.rotate_lock, NULL);

@@ -135,24 +135,16 @@ kj::Array<capnp::word> logger_build_init_data() {
   return capnp::messageToFlatArray(msg);
 }
 
-  return capnp::messageToFlatArray(msg);
-}
-
-
-static void log_sentinel(Logger *s, cereal::Sentinel::SentinelType type) {
+static void log_sentinel(LoggerState *s, cereal::Sentinel::SentinelType type) {
   MessageBuilder msg;
   auto sen = msg.initEvent().initSentinel();
   sen.setType(type);
-  auto bytes = msg.toBytes();
-
-  s->write(bytes.begin(), bytes.size(), true);
+  s->write(msg.toBytes(), true);
 }
-
-// ***** logging functions *****
 
 // Logger
 
-Logger::Logger(const std::string &log_root, const std::string& log_name, bool has_qlog)
+LoggerState::LoggerState(const std::string &log_root, const std::string& log_name, bool has_qlog)
     : log_name(log_name), has_qlog(has_qlog), part(-1) {
   umask(0);
 
@@ -162,37 +154,26 @@ Logger::Logger(const std::string &log_root, const std::string& log_name, bool ha
   localtime_r(&rawtime, &timeinfo);
   strftime(route_name, sizeof(route_name), "%Y-%m-%d--%H-%M-%S", &timeinfo);
   route_path = util::string_format("%s/%s", log_root.c_str(), route_name);
-  init_data = get_init_data();
+  init_data = logger_build_init_data();
 }
 
-std::string Logger::next(int* out_part) {
+std::string LoggerState::next(int* out_part) {
   bool is_start_of_route = !cur_handle;
   if (!is_start_of_route) log_sentinel(this, cereal::Sentinel::SentinelType::END_OF_SEGMENT);
 
   segment_path = util::string_format("%s--%d", route_path.c_str(), ++part);
   cur_handle = std::make_shared<LoggerHandle>(segment_path, log_name, has_qlog);
 
-  if (out_part) {
-    *out_part = part;
-  }
-
-  auto bytes = init_data.asBytes();
-  write(bytes.begin(), bytes.size(), has_qlog);
+  // log init data
+  write(init_data.asBytes(), has_qlog);
   log_sentinel(this, is_start_of_route ? cereal::Sentinel::SentinelType::START_OF_ROUTE : cereal::Sentinel::SentinelType::START_OF_SEGMENT);
+
+  if (out_part) *out_part = part;
+
   return segment_path;
 }
 
-std::shared_ptr<LoggerHandle> Logger::get_handle() {
-  return cur_handle;
-}
-
-void Logger::write(uint8_t* data, size_t data_size, bool in_qlog) {
-  if (cur_handle) {
-    cur_handle->write(data, data_size, in_qlog);
-  }
-}
-
-Logger::~Logger() {
+LoggerState::~LoggerState() {
   log_sentinel(this, cereal::Sentinel::SentinelType::END_OF_ROUTE);
   cur_handle = nullptr;
 }
@@ -201,48 +182,29 @@ Logger::~Logger() {
 
 LoggerHandle::LoggerHandle(const std::string& segment_path, const std::string& log_name, bool has_qlog) {
   const std::string log_path = util::string_format("%s/%s.bz2", segment_path.c_str(), log_name.c_str());
-  const std::string qlog_path = segment_path + "/qlog.bz2";
   lock_path = log_path + ".lock";
-  
-  int err = mkpath((char *)log_path.c_str());
+  int err = logger_mkpath((char *)log_path.c_str());
   assert(err == 0);
 
   FILE* lock_file = fopen(lock_path.c_str(), "wb");
   assert(lock_file != nullptr);
   fclose(lock_file);
 
-  int bzerror;
-  log_file = fopen(log_path.c_str(), "wb");
-  assert(log_file != nullptr);
-  bz_file = BZ2_bzWriteOpen(&bzerror, log_file, 9, 0, 30);
-  assert(bzerror == BZ_OK);
-
+  log = std::make_unique<BZFile>(log_path.c_str());
   if (has_qlog) {
-    qlog_file = fopen(qlog_path.c_str(), "wb");
-    assert(qlog_file != nullptr);
-    bz_qlog = BZ2_bzWriteOpen(&bzerror, qlog_file, 9, 0, 30);
-    assert(bzerror == BZ_OK);
+    const std::string qlog_path = segment_path + "/qlog.bz2";
+    q_log = std::make_unique<BZFile>(qlog_path.c_str());
   }
 }
 
 void LoggerHandle::write(uint8_t* data, size_t data_size, bool in_qlog) {
   std::lock_guard lk(lock);
-  int bzerror;
-  BZ2_bzWrite(&bzerror, bz_file, data, data_size);
-  if (in_qlog && bz_qlog != NULL) {
-    BZ2_bzWrite(&bzerror, bz_qlog, data, data_size);
+  log->write(data, data_size);
+  if (in_qlog && q_log) {
+    q_log->write(data, data_size);
   }
 }
 
 LoggerHandle::~LoggerHandle() {
-  int bzerror;
-  BZ2_bzWriteClose(&bzerror, bz_file, 0, NULL, NULL);
-  fclose(log_file);
-
-  if (bz_qlog){
-    BZ2_bzWriteClose(&bzerror, bz_qlog, 0, NULL, NULL);
-    fclose(qlog_file);
-  }
-
   unlink(lock_path.c_str());
 }
