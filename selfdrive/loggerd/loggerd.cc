@@ -130,11 +130,12 @@ void drain_socket(LoggerHandle *lh, SubSocket *sock, QlogState &qs) {
 void encoder_thread(EncoderState *es) {
   set_thread_name(es->ci.filename);
 
-  uint32_t total_frame_cnt = 0, segment_frame_cnt = 0;
+  uint32_t total_frame_cnt = 0;
   LoggerHandle *lh = NULL;
   std::vector<Encoder *> encoders;
   int encoder_segment = -1;
   std::string segment_path;
+  const int max_segment_frames = SEGMENT_LENGTH * MAIN_FPS;
  
   VisionIpcClient vipc_client = VisionIpcClient("camerad", es->ci.stream_type, false);
   while (!do_exit) {
@@ -168,7 +169,7 @@ void encoder_thread(EncoderState *es) {
         std::unique_lock lk(s.rotate_lock);
         // rotate the encoder if the logger is on a newer segment
         should_rotate = (encoder_segment != s.rotate_segment);
-        if (!should_rotate && es->need_waiting && segment_frame_cnt == SEGMENT_LENGTH * MAIN_FPS) {
+        if (!should_rotate && es->need_waiting && ((total_frame_cnt % max_segment_frames) == 0)) {
           // encoder need rotate
           should_rotate = true;
           s.encoders_waiting++;
@@ -190,7 +191,6 @@ void encoder_thread(EncoderState *es) {
           e->encoder_close();
           e->encoder_open(segment_path.c_str(), encoder_segment);
         }
-        segment_frame_cnt = 0;
       }
 
       // log frame socket
@@ -219,7 +219,6 @@ void encoder_thread(EncoderState *es) {
           }
         }
       }
-      ++segment_frame_cnt;
       ++total_frame_cnt;
     }
 
@@ -261,6 +260,10 @@ int main(int argc, char** argv) {
 
   clear_locks();
 
+  // init and open logger
+  logger_init(&s.logger, "rlog", true);
+  loggerd_logger_next();
+
   // setup messaging
   std::map<SubSocket*, QlogState> qlog_states;
   s.ctx = Context::create();
@@ -280,15 +283,12 @@ int main(int argc, char** argv) {
     if (cam != std::end(cameras_logged)) {
       bool need_waiting = (IS_QCOM2 || cam->id != D_CAMERA);
       s.encoder_states.push_back(std::make_unique<EncoderState>(*cam, sock, qs, need_waiting));
-      continue;
+    } else {
+      poller->registerSocket(sock);
+      qlog_states[sock] = qs;
     }
-    poller->registerSocket(sock);
-    qlog_states[sock] = qs;
   }
 
-  // init and open logger
-  logger_init(&s.logger, "rlog", true);
-  loggerd_logger_next();
   // start encoders
   std::vector<std::thread> encoder_threads;
   for (auto &es : s.encoder_states) {
