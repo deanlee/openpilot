@@ -95,14 +95,23 @@ public:
       : ci(ci), frame_sock(sock), qlog_state(qs), need_waiting(need_waiting) {
     thread = std::thread(&EncoderState::encoder_thread, this);
   }
-  ~EncoderState() { thread.join(); }
+  ~EncoderState() {
+    thread.join();
+   
+  }
+  void rotate_if_needed();
   void encoder_thread();
   LogCameraInfo ci;
-  std::unique_ptr<SubSocket> frame_sock;
-  QlogState qlog_state;
-  std::atomic<double> last_camera_seen_tms;
-  std::thread thread;
+  int segment = -1;
   const bool need_waiting;
+  uint32_t total_frame_cnt = 0;
+  LoggerHandle *lh = NULL;
+  QlogState qlog_state;
+
+  std::thread thread;
+  std::unique_ptr<SubSocket> frame_sock;
+  std::atomic<double> last_camera_seen_tms;
+  std::vector<Encoder *> encoders;
 };
 
 struct LoggerdState {
@@ -132,16 +141,85 @@ void drain_socket(LoggerHandle *lh, SubSocket *sock, QlogState &qs) {
   }
 }
 
+void loggerd_should_rotate() {
+  bool should_rotate = s.rotate_segment == -1 || s.encoders_waiting >= s.encoders_max_waiting;
+  if (!should_rotate) {
+    const double tms = millis_since_boot();
+    if ((tms - s.last_rotate_tms) >= (SEGMENT_LENGTH * 1000)) {
+      auto timeout_encoder = std::find_if(s.encoder_states.begin(), s.encoder_states.end(), [&](EncoderState *es) {
+        return es->need_waiting && (tms - es->last_camera_seen_tms) >= NO_CAMERA_PATIENCE;
+      });
+      if (timeout_encoder != s.encoder_states.end()) {
+        should_rotate = true;
+        LOGW("no camera %d packet seen. auto rotated", (*timeout_encoder)->ci.id);
+      }
+    }
+  }
+  if (should_rotate && !do_exit) {
+    {  // rotate to new segment
+      std::unique_lock lk(s.rotate_lock);
+      s.last_rotate_tms = millis_since_boot();
+      assert(0 == logger_next(&s.logger, LOG_ROOT.c_str(), s.segment_path, sizeof(s.segment_path), &s.rotate_segment));
+      LOGW((s.rotate_segment == 0) ? "logging to %s" : "rotated to %s", s.segment_path);
+      s.encoders_waiting = 0;
+    }
+    s.cv.notify_all();
+  }
+}
+
+int clear_locks_fn(const char* fpath, const struct stat *sb, int tyupeflag) {
+  const char* dot = strrchr(fpath, '.');
+  if (dot && strcmp(dot, ".lock") == 0) {
+    unlink(fpath);
+  }
+  return 0;
+}
+
+void clear_locks() {
+  ftw(LOG_ROOT.c_str(), clear_locks_fn, 16);
+}
+
+void EncoderState::rotate_if_needed() {
+  bool should_rotate = false;
+  const int max_segment_frames = SEGMENT_LENGTH * MAIN_FPS;
+  {
+    std::unique_lock lk(s.rotate_lock);
+    last_camera_seen_tms = millis_since_boot();
+    // rotate the encoder if the logger is on a newer segment
+    should_rotate = (segment != s.rotate_segment);
+    if (!should_rotate && need_waiting && ((total_frame_cnt % max_segment_frames) == 0)) {
+      // max_segment_frames have been recorded, need to rotate
+      should_rotate = true;
+      s.encoders_waiting++;
+    }
+  }
+  if (should_rotate && !do_exit) {
+    if (lh) {
+      lh_close(lh);
+      lh = nullptr;
+    }
+    for (auto &e : encoders) {
+      e->encoder_close();
+    }
+
+    { // wait logger rotated
+      std::unique_lock lk(s.rotate_lock);
+      s.cv.wait(lk, [&] { return s.rotate_segment > segment || do_exit; });
+      segment = s.rotate_segment;
+    }
+    if (!do_exit) {
+      LOGW("camera %d rotate encoder to %s", ci.id, s.segment_path);
+      lh = logger_get_handle(&s.logger);
+      for (auto &e : encoders) {
+        e->encoder_open(s.segment_path, s.rotate_segment);
+      }
+    }
+  }
+}
+
 void EncoderState::encoder_thread() {
   set_thread_name(ci.filename);
 
-  uint32_t total_frame_cnt = 0;
-  LoggerHandle *lh = NULL;
-  std::vector<Encoder *> encoders;
-  int encoder_segment = -1;
-  std::string segment_path;
-  const int max_segment_frames = SEGMENT_LENGTH * MAIN_FPS;
- 
   VisionIpcClient vipc_client = VisionIpcClient("camerad", ci.stream_type, false);
   while (!do_exit) {
     if (!vipc_client.connect(false)){
@@ -168,35 +246,8 @@ void EncoderState::encoder_thread() {
       VisionBuf* buf = vipc_client.recv(&extra);
       if (buf == nullptr) continue;
 
-      bool should_rotate = false;
-      {
-        std::unique_lock lk(s.rotate_lock);
-        last_camera_seen_tms = millis_since_boot();
-        // rotate the encoder if the logger is on a newer segment
-        should_rotate = (encoder_segment != s.rotate_segment);
-        if (!should_rotate && need_waiting && ((total_frame_cnt % max_segment_frames) == 0)) {
-          // max_segment_frames have been recorded, need to rotate
-          should_rotate = true;
-          s.encoders_waiting++;
-          s.cv.wait(lk, [&] { return s.encoders_waiting == 0 || do_exit; });
-          if (do_exit) break;
-        }
-        if (should_rotate) {
-          encoder_segment = s.rotate_segment;
-          segment_path = s.segment_path;
-        }
-      }
-      if (should_rotate) {
-        LOGW("camera %d rotate encoder to %s", ci.id, segment_path.c_str());
-        if (lh) {
-          lh_close(lh);
-        }
-        lh = logger_get_handle(&s.logger);
-        for (auto &e : encoders) {
-          e->encoder_close();
-          e->encoder_open(segment_path.c_str(), encoder_segment);
-        }
-      }
+      rotate_if_needed();
+      if (do_exit) break;
 
       // log frame socket
       drain_socket(lh, frame_sock.get(), qlog_state);
@@ -227,7 +278,6 @@ void EncoderState::encoder_thread() {
       }
       ++total_frame_cnt;
     }
-
     if (lh) {
       lh_close(lh);
       lh = NULL;
@@ -241,51 +291,12 @@ void EncoderState::encoder_thread() {
   }
 }
 
-int clear_locks_fn(const char* fpath, const struct stat *sb, int tyupeflag) {
-  const char* dot = strrchr(fpath, '.');
-  if (dot && strcmp(dot, ".lock") == 0) {
-    unlink(fpath);
-  }
-  return 0;
-}
-
-void clear_locks() {
-  ftw(LOG_ROOT.c_str(), clear_locks_fn, 16);
-}
-
-void loggerd_logger_next() {
-  s.last_rotate_tms = millis_since_boot();
-  assert(0 == logger_next(&s.logger, LOG_ROOT.c_str(), s.segment_path, sizeof(s.segment_path), &s.rotate_segment));
-  LOGW((s.rotate_segment == 0) ? "logging to %s" : "rotated to %s", s.segment_path);
-}
-
-bool loggerd_should_rotate() {
-  bool should_rotate = s.encoders_waiting >= s.encoders_max_waiting;
-  if (!should_rotate) {
-    const double tms = millis_since_boot();
-    if ((tms - s.last_rotate_tms) >= (SEGMENT_LENGTH * 1000)) {
-      auto timeout_encoder = std::find_if(s.encoder_states.begin(), s.encoder_states.end(), [&](EncoderState *es) {
-        return es->need_waiting && (tms - es->last_camera_seen_tms) >= NO_CAMERA_PATIENCE;
-      });
-      if (timeout_encoder != s.encoder_states.end()) {
-        should_rotate = true;
-        LOGW("no camera %d packet seen. auto rotated", (*timeout_encoder)->ci.id);
-      }
-    }
-  }
-  return should_rotate && !do_exit;
-}
-
 } // namespace
 
 int main(int argc, char** argv) {
   setpriority(PRIO_PROCESS, 0, -12);
 
   clear_locks();
-
-  // init and open logger
-  logger_init(&s.logger, "rlog", true);
-  loggerd_logger_next();
 
   // setup messaging
   std::map<SubSocket*, QlogState> qlog_states;
@@ -313,19 +324,14 @@ int main(int argc, char** argv) {
       qlog_states[sock] = qs;
     }
   }
+  
+  logger_init(&s.logger, "rlog", true);
 
   while (!do_exit) {
+    loggerd_should_rotate();
+
     for (auto sock : poller->poll(1000)) {
       drain_socket(s.logger.cur_handle, sock, qlog_states[sock]);
-    }
-
-    if (loggerd_should_rotate()) {
-      { // rotate to new segment
-        std::unique_lock lk(s.rotate_lock);
-        loggerd_logger_next();
-        s.encoders_waiting = 0;
-      }
-      s.cv.notify_all();
     }
   }
 
