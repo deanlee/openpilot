@@ -300,6 +300,8 @@ selfdrive/logcatd/logcatd_systemd.cc
 selfdrive/proclogd/SConscript
 selfdrive/proclogd/proclogd.cc
 
+tools/*
+selfdrive/loggerd/tests/*
 selfdrive/loggerd/SConscript
 selfdrive/loggerd/encoder.h
 selfdrive/loggerd/omx_encoder.cc

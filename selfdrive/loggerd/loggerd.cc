@@ -129,8 +129,6 @@ struct LoggerdState {
 LoggerdState s;
 
 void drain_socket(LoggerHandle *lh, SubSocket *sock, QlogState &qs) {
-  if (!lh) return;
-
   Message *msg = nullptr;
   while (!do_exit && (msg = sock->receive(true))) {
     lh_log(lh, (uint8_t *)msg->getData(), msg->getSize(), qs.counter == 0 && qs.freq != -1);
@@ -194,6 +192,7 @@ void EncoderState::rotate_if_needed() {
     }
   }
   if (should_rotate && !do_exit) {
+    // close encoders
     if (lh) {
       lh_close(lh);
       lh = nullptr;
@@ -202,16 +201,21 @@ void EncoderState::rotate_if_needed() {
       e->encoder_close();
     }
 
-    { // wait logger rotated
+    // wait logger rotated
+    std::string segment_path;
+    { 
       std::unique_lock lk(s.rotate_lock);
       s.cv.wait(lk, [&] { return s.rotate_segment > segment || do_exit; });
       segment = s.rotate_segment;
+      segment_path = s.segment_path;
     }
+
+    // rotate
     if (!do_exit) {
-      LOGW("camera %d rotate encoder to %s", ci.id, s.segment_path);
+      LOGW("camera %d rotate encoder to %s", ci.id, segment_path.c_str());
       lh = logger_get_handle(&s.logger);
       for (auto &e : encoders) {
-        e->encoder_open(s.segment_path, s.rotate_segment);
+        e->encoder_open(segment_path.c_str(), segment);
       }
     }
   }
@@ -326,7 +330,6 @@ int main(int argc, char** argv) {
   }
   
   logger_init(&s.logger, "rlog", true);
-
   while (!do_exit) {
     loggerd_should_rotate();
 
