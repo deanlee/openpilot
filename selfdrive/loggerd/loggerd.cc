@@ -260,20 +260,20 @@ void loggerd_logger_next() {
 }
 
 bool loggerd_should_rotate() {
-  bool new_segment = s.encoders_waiting >= s.encoders_max_waiting;
-  if (!new_segment) {
+  bool should_rotate = s.encoders_waiting >= s.encoders_max_waiting;
+  if (!should_rotate) {
     const double tms = millis_since_boot();
     if ((tms - s.last_rotate_tms) >= (SEGMENT_LENGTH * 1000)) {
       auto timeout_encoder = std::find_if(s.encoder_states.begin(), s.encoder_states.end(), [&](EncoderState *es) {
         return es->need_waiting && (tms - es->last_camera_seen_tms) >= NO_CAMERA_PATIENCE;
       });
       if (timeout_encoder != s.encoder_states.end()) {
-        new_segment = true;
+        should_rotate = true;
         LOGW("no camera %d packet seen. auto rotated", (*timeout_encoder)->ci.id);
       }
     }
   }
-  return new_segment && !do_exit;
+  return should_rotate && !do_exit;
 }
 
 } // namespace
@@ -300,14 +300,14 @@ int main(int argc, char** argv) {
     assert(sock != NULL);
     QlogState qs = {.counter = 0, .freq = it.decimation};
 
-    auto cam = std::find_if(std::begin(cameras_logged), std::end(cameras_logged), [&](LogCameraInfo &ci) {
+    auto camra_info = std::find_if(std::begin(cameras_logged), std::end(cameras_logged), [&](LogCameraInfo &ci) {
       return strcmp(it.name, ci.frame_packet_name) == 0 && (ci.id != D_CAMERA || record_front);
     });
-    if (cam != std::end(cameras_logged)) {
+    if (camra_info != std::end(cameras_logged)) {
       // init and start encoder thread
-      const bool need_waiting = (IS_QCOM2 || cam->id != D_CAMERA);
+      const bool need_waiting = (IS_QCOM2 || camra_info->id != D_CAMERA);
       s.encoders_max_waiting += need_waiting;
-      s.encoder_states.push_back(new EncoderState(*cam, sock, qs, need_waiting));
+      s.encoder_states.push_back(new EncoderState(*camra_info, sock, qs, need_waiting));
     } else {
       poller->registerSocket(sock);
       qlog_states[sock] = qs;
@@ -318,7 +318,7 @@ int main(int argc, char** argv) {
     for (auto sock : poller->poll(1000)) {
       drain_socket(s.logger.cur_handle, sock, qlog_states[sock]);
     }
-    
+
     if (loggerd_should_rotate()) {
       { // rotate to new segment
         std::unique_lock lk(s.rotate_lock);
