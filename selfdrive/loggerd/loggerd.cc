@@ -93,6 +93,7 @@ class EncoderState {
 public:
   EncoderState(const LogCameraInfo &ci, SubSocket *sock, const QlogState &qs, bool need_waiting)
       : ci(ci), frame_sock(sock), qlog_state(qs), need_waiting(need_waiting) {
+    last_camera_seen_tms = millis_since_boot();
     thread = std::thread(&EncoderState::encoder_thread, this);
   }
   ~EncoderState() {
@@ -184,7 +185,7 @@ void EncoderState::rotate_if_needed() {
     std::unique_lock lk(s.rotate_lock);
     last_camera_seen_tms = millis_since_boot();
     // rotate the encoder if the logger is on a newer segment
-    should_rotate = (segment != s.rotate_segment);
+    should_rotate = segment == -1 || (segment != s.rotate_segment);
     if (!should_rotate && need_waiting && ((total_frame_cnt % max_segment_frames) == 0)) {
       // max_segment_frames have been recorded, need to rotate
       should_rotate = true;
