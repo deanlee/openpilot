@@ -168,14 +168,14 @@ void EncoderState::encoder_thread() {
       VisionBuf* buf = vipc_client.recv(&extra);
       if (buf == nullptr) continue;
 
-      last_camera_seen_tms = millis_since_boot();
       bool should_rotate = false;
       {
         std::unique_lock lk(s.rotate_lock);
+        last_camera_seen_tms = millis_since_boot();
         // rotate the encoder if the logger is on a newer segment
         should_rotate = (encoder_segment != s.rotate_segment);
         if (!should_rotate && need_waiting && ((total_frame_cnt % max_segment_frames) == 0)) {
-          // max_segment_frames
+          // max_segment_frames have been recorded, need to rotate
           should_rotate = true;
           s.encoders_waiting++;
           s.cv.wait(lk, [&] { return s.encoders_waiting == 0 || do_exit; });
@@ -330,6 +330,7 @@ int main(int argc, char** argv) {
   }
 
   LOGW("closing encoders");
+  s.encoders_waiting = 0;
   s.cv.notify_all();
   for (auto &[sock, qs] : qlog_states) delete sock;
   for (auto &e : s.encoder_states) { delete e; }
