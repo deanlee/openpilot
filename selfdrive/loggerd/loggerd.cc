@@ -135,7 +135,7 @@ void drain_socket(LoggerHandle *lh, SubSocket *sock, QlogState &qs) {
   }
 }
 
-void loggerd_should_rotate() {
+void loggerd_rotate_if_needed() {
   bool should_rotate = s.rotate_segment == -1 || s.encoders_waiting >= s.encoders_max_waiting;
   if (!should_rotate) {
     double tms = millis_since_boot();
@@ -223,8 +223,7 @@ void EncoderState::encoder_thread() {
 
     // encode a frame
     for (int i = 0; i < encoders_.size(); ++i) {
-      int out_id = encoders_[i]->encode_frame(buf->y, buf->u, buf->v,
-                                              buf->width, buf->height, extra.timestamp_eof);
+      int out_id = encoders_[i]->encode_frame(buf->y, buf->u, buf->v, buf->width, buf->height, extra.timestamp_eof);
       if (i == 0 && out_id != -1) {
         // publish encode index
         MessageBuilder msg;
@@ -301,7 +300,7 @@ int main(int argc, char** argv) {
   logger_init(&s.logger, "rlog", true);
   s.last_camera_seen_tms = s.last_rotate_tms =  millis_since_boot();
   while (!do_exit) {
-    loggerd_should_rotate();
+    loggerd_rotate_if_needed();
     for (auto sock : poller->poll(1000)) {
       drain_socket(s.logger.cur_handle, sock, qlog_states[sock]);
     }
