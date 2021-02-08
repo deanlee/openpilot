@@ -90,7 +90,6 @@ class EncoderState {
 public:
   EncoderState(const LogCameraInfo &ci, SubSocket *sock, const QlogState &qs, bool need_waiting)
       : ci_(ci), frame_sock_(sock), qlog_state_(qs), need_waiting_(need_waiting) {
-    last_camera_seen_tms_ = millis_since_boot();
     thread_ = std::thread(&EncoderState::encoder_thread, this);
   }
   ~EncoderState() {
@@ -108,7 +107,6 @@ public:
 
   std::thread thread_;
   std::unique_ptr<SubSocket> frame_sock_;
-  std::atomic<double> last_camera_seen_tms_;
   std::vector<Encoder *> encoders_;
 };
 
@@ -121,6 +119,7 @@ struct LoggerdState {
   std::mutex rotate_lock;
   std::condition_variable cv;
   std::atomic<int> encoders_waiting;
+  std::atomic<double> last_camera_seen_tms;
   std::vector<EncoderState *> encoder_states;
 };
 LoggerdState s;
@@ -139,14 +138,10 @@ void drain_socket(LoggerHandle *lh, SubSocket *sock, QlogState &qs) {
 void loggerd_should_rotate() {
   bool should_rotate = s.rotate_segment == -1 || s.encoders_waiting >= s.encoders_max_waiting;
   if (!should_rotate) {
-    if (double tms = millis_since_boot(); (tms - s.last_rotate_tms) >= (SEGMENT_LENGTH * 1000)) {
-      for (auto &es : s.encoder_states) {
-        if (es->need_waiting_ &&  (tms - es->last_camera_seen_tms_) >= NO_CAMERA_PATIENCE) {
-          should_rotate = true;
-          LOGW("no camera %d packet seen. auto rotated", es->ci_.id);
-          break;
-        }
-      }
+    double tms = millis_since_boot();
+    if ((tms - s.last_rotate_tms) >= (SEGMENT_LENGTH * 1000) && (tms - s.last_camera_seen_tms) >= NO_CAMERA_PATIENCE) {
+      should_rotate = true;
+      LOGW("no camera packet seen. auto rotated");
     }
   }
   if (should_rotate && !do_exit) {
@@ -167,8 +162,6 @@ void EncoderState::rotate_if_needed() {
   bool should_rotate = false;
   {
     std::unique_lock lk(s.rotate_lock);
-
-    last_camera_seen_tms_ = millis_since_boot();
     // rotate the encoder if the logger is on a newer segment
     should_rotate = segment_ == -1 || (segment_ != s.rotate_segment);
     if (!should_rotate && need_waiting_ && ((total_frame_cnt_ % max_segment_frames) == 0)) {
@@ -219,6 +212,8 @@ void EncoderState::encoder_thread() {
     VisionIpcBufExtra extra;
     VisionBuf* buf = vipc_client.recv(&extra);
     if (buf == nullptr) continue;
+
+    s.last_camera_seen_tms = millis_since_boot();
 
     rotate_if_needed();
     if (do_exit) break;
@@ -304,6 +299,7 @@ int main(int argc, char** argv) {
   }
 
   logger_init(&s.logger, "rlog", true);
+  s.last_camera_seen_tms = s.last_rotate_tms =  millis_since_boot();
   while (!do_exit) {
     loggerd_should_rotate();
     for (auto sock : poller->poll(1000)) {
