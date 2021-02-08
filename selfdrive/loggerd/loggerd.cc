@@ -115,7 +115,6 @@ public:
 };
 
 struct LoggerdState {
-  Context *ctx;
   LoggerState logger = {};
   char segment_path[PATH_MAX] = {};
   int encoders_max_waiting = 0;
@@ -179,6 +178,7 @@ void loggerd_should_rotate() {
 void EncoderState::rotate_if_needed() {
   const int max_segment_frames = SEGMENT_LENGTH * MAIN_FPS;
   bool should_rotate = false;
+  std::string segment_path;
   {
     std::unique_lock lk(s.rotate_lock);
     last_camera_seen_tms = millis_since_boot();
@@ -189,30 +189,24 @@ void EncoderState::rotate_if_needed() {
       should_rotate = true;
       s.encoders_waiting++;
     }
-  }
-  if (should_rotate && !do_exit) {
     // wait logger rotated
-    std::string segment_path;
-    { 
-      std::unique_lock lk(s.rotate_lock);
+    if (should_rotate) {
       s.cv.wait(lk, [&] { return s.rotate_segment > segment || do_exit; });
       segment = s.rotate_segment;
       segment_path = s.segment_path;
     }
-
-    // rotate
-    if (!do_exit) {
-      LOGW("camera %d rotate encoder to %s", ci.id, segment_path.c_str());
-      if (lh) {
-        lh_close(lh);
-        lh = nullptr;
-      }
-      lh = logger_get_handle(&s.logger);
-      
-      for (auto &e : encoders) {
-        e->encoder_close();
-        e->encoder_open(segment_path.c_str(), segment);
-      }
+  }
+  if (should_rotate && !do_exit) {
+    LOGW("camera %d rotate encoder to %s", ci.id, segment_path.c_str());
+    if (lh) {
+      lh_close(lh);
+      lh = nullptr;
+    }
+    lh = logger_get_handle(&s.logger);
+    
+    for (auto &e : encoders) {
+      e->encoder_close();
+      e->encoder_open(segment_path.c_str());
     }
   }
 }
@@ -221,68 +215,60 @@ void EncoderState::encoder_thread() {
   set_thread_name(ci.filename);
 
   VisionIpcClient vipc_client = VisionIpcClient("camerad", ci.stream_type, false);
-  while (!do_exit) {
-    if (!vipc_client.connect(false)){
-      util::sleep_for(100);
-      continue;
-    }
+  while (!vipc_client.connect(false)) {
+    if (do_exit) return;
+    util::sleep_for(100);
+  }
 
-    // init encoders
-    if (encoders.empty()) {
-      VisionBuf buf_info = vipc_client.buffers[0];
-      LOGD("encoder init %dx%d", buf_info.width, buf_info.height);
-      // main encoder
-      encoders.push_back(new Encoder(ci.filename, buf_info.width, buf_info.height,
-                                     ci.fps, ci.bitrate, ci.is_h265, ci.downscale));
-      // qcamera encoder
-      if (ci.has_qcamera) {
-        encoders.push_back(new Encoder(qcam_info.filename, qcam_info.frame_width, qcam_info.frame_height,
-                                       qcam_info.fps, qcam_info.bitrate, qcam_info.is_h265, qcam_info.downscale));
-      }
-    }
-
-    while (!do_exit) {
-      VisionIpcBufExtra extra;
-      VisionBuf* buf = vipc_client.recv(&extra);
-      if (buf == nullptr) continue;
-
-      rotate_if_needed();
-      if (do_exit) break;
-
-      // log frame socket
-      drain_socket(lh, frame_sock.get(), qlog_state);
-
-      // encode a frame
-      for (int i = 0; i < encoders.size(); ++i) {
-        int out_segment = -1;
-        int out_id = encoders[i]->encode_frame(buf->y, buf->u, buf->v,
-                                               buf->width, buf->height,
-                                               &out_segment, extra.timestamp_eof);
-        if (i == 0 && out_id != -1) {
-          // publish encode index
-          MessageBuilder msg;
-          // this is really ugly
-          auto eidx = ci.id == D_CAMERA ? msg.initEvent().initFrontEncodeIdx() : (ci.id == E_CAMERA ? msg.initEvent().initWideEncodeIdx() : msg.initEvent().initEncodeIdx());
-          eidx.setFrameId(extra.frame_id);
-          eidx.setTimestampSof(extra.timestamp_sof);
-          eidx.setTimestampEof(extra.timestamp_eof);
-          eidx.setType((IS_QCOM2 || ci.id != D_CAMERA) ? cereal::EncodeIndex::Type::FULL_H_E_V_C : cereal::EncodeIndex::Type::FRONT);
-          eidx.setEncodeId(total_frame_cnt);
-          eidx.setSegmentNum(out_segment);
-          eidx.setSegmentId(out_id);
-          if (lh) {
-            auto bytes = msg.toBytes();
-            lh_log(lh, bytes.begin(), bytes.size(), false);
-          }
-        }
-      }
-      ++total_frame_cnt;
-    }
-    if (lh) {
-      lh_close(lh);
-      lh = NULL;
+  // init encoders
+  if (encoders.empty()) {
+    VisionBuf buf_info = vipc_client.buffers[0];
+    LOGD("encoder init %dx%d", buf_info.width, buf_info.height);
+    // main encoder
+    encoders.push_back(new Encoder(ci.filename, buf_info.width, buf_info.height,
+                                    ci.fps, ci.bitrate, ci.is_h265, ci.downscale));
+    // qcamera encoder
+    if (ci.has_qcamera) {
+      encoders.push_back(new Encoder(qcam_info.filename, qcam_info.frame_width, qcam_info.frame_height,
+                                      qcam_info.fps, qcam_info.bitrate, qcam_info.is_h265, qcam_info.downscale));
     }
   }
+
+  while (!do_exit) {
+    VisionIpcBufExtra extra;
+    VisionBuf* buf = vipc_client.recv(&extra);
+    if (buf == nullptr) continue;
+
+    rotate_if_needed();
+    if (do_exit) break;
+
+    // log frame socket
+    drain_socket(lh, frame_sock.get(), qlog_state);
+
+    // encode a frame
+    for (int i = 0; i < encoders.size(); ++i) {
+      int out_id = encoders[i]->encode_frame(buf->y, buf->u, buf->v,
+                                              buf->width, buf->height, extra.timestamp_eof);
+      if (i == 0 && out_id != -1) {
+        // publish encode index
+        MessageBuilder msg;
+        // this is really ugly
+        auto eidx = ci.id == D_CAMERA ? msg.initEvent().initFrontEncodeIdx() : (ci.id == E_CAMERA ? msg.initEvent().initWideEncodeIdx() : msg.initEvent().initEncodeIdx());
+        eidx.setFrameId(extra.frame_id);
+        eidx.setTimestampSof(extra.timestamp_sof);
+        eidx.setTimestampEof(extra.timestamp_eof);
+        eidx.setType((IS_QCOM2 || ci.id != D_CAMERA) ? cereal::EncodeIndex::Type::FULL_H_E_V_C : cereal::EncodeIndex::Type::FRONT);
+        eidx.setEncodeId(total_frame_cnt);
+        eidx.setSegmentNum(segment);
+        eidx.setSegmentId(out_id);
+        auto bytes = msg.toBytes();
+        lh_log(lh, bytes.begin(), bytes.size(), false);
+      }
+    }
+    ++total_frame_cnt;
+  }
+
+  if (lh) lh_close(lh);
 
   LOG("encoder destroy");
   for(auto &e : encoders) {
@@ -300,14 +286,14 @@ int main(int argc, char** argv) {
 
   // setup messaging
   std::map<SubSocket*, QlogState> qlog_states;
-  s.ctx = Context::create();
+  Context *ctx = Context::create();
   Poller * poller = Poller::create();
   const bool record_front = Params().read_db_bool("RecordFront");
   // subscribe to all socks
   for (const auto& it : services) {
     if (!it.should_log) continue;
 
-    SubSocket * sock = SubSocket::create(s.ctx, it.name);
+    SubSocket * sock = SubSocket::create(ctx, it.name);
     assert(sock != NULL);
     QlogState qs = {.counter = 0, .freq = it.decimation};
 
@@ -335,8 +321,10 @@ int main(int argc, char** argv) {
   }
 
   LOGW("closing encoders");
+  // stop encoder threads
   s.encoders_waiting = 0;
   s.cv.notify_all();
+
   for (auto &[sock, qs] : qlog_states) delete sock;
   for (auto &e : s.encoder_states) { delete e; }
 
@@ -344,7 +332,7 @@ int main(int argc, char** argv) {
   logger_close(&s.logger);
 
   delete poller;
-  delete s.ctx;
+  delete ctx;
 
   return 0;
 }
