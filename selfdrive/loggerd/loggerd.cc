@@ -158,22 +158,19 @@ void loggerd_rotate_if_needed() {
   }
 }
 
-std::tuple<int, std::string> LoggerdState::rotate() {
-  std::unique_lock lk(s.rotate_lock);
-  encoders_waiting++;
-  cv.wait(lk, [&] { return encoders_waiting == 0 || do_exit; });
-  return std::make_tuple(s.rotate_segment, segment_path);
-}
 void EncoderState::rotate_if_needed() {
   const int max_segment_frames = SEGMENT_LENGTH * MAIN_FPS;
   bool should_rotate = false;
   {
     std::unique_lock lk(s.rotate_lock);
     // rotate the encoder if the logger is on a newer segment
-    should_rotate = segment_ == -1 || (segment_ != s.rotate_segment);
+    should_rotate = (segment_ != s.rotate_segment);
     if (!should_rotate && need_waiting_ && (total_frame_cnt_ % max_segment_frames) == 0) {
       // max_segment_frames have been recorded, need to rotate
-      std::tie(segment_, segment_path_) = s.rotate();
+      s.encoders_waiting++;
+      s.cv.wait(lk, [&] { return s.encoders_waiting == 0 || do_exit; });
+      segment_ = s.rotate_segment;
+      segment_path_ = s.segment_path;
     }
   }
   if (should_rotate && !do_exit) {
