@@ -73,6 +73,7 @@ typedef struct CameraState {
   int frame_metadata_idx;
   
   // exposure
+  CameraExpInfo exp_info;
   uint32_t pixel_clock, line_length_pclk;
   unsigned int max_gain;
   float cur_exposure_frac, cur_gain_frac;
@@ -95,7 +96,6 @@ typedef struct CameraState {
   size_t eeprom_size;
   uint8_t *eeprom;
 } CameraState;
-
 
 typedef struct MultiCameraState {
   int device;

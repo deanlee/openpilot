@@ -65,6 +65,7 @@ typedef struct CameraState {
   struct cam_req_mgr_session_info req_mgr_session_info;
 
   CameraBuf buf;
+  CameraExpInfo exp_info;
 } CameraState;
 
 typedef struct MultiCameraState {
