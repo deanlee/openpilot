@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <curl/curl.h>
 
 #include <QLabel>
 #include <QVBoxLayout>
@@ -12,6 +11,20 @@
 #include "qt_window.hpp"
 
 #define USER_AGENT "AGNOSSetup-0.1"
+
+int Setup::download_file_xferinfo(curl_off_t dltotal, curl_off_t dlno, curl_off_t ultotal, curl_off_t ulnow) {
+  if (dltotal != 0) {
+    float progress_frac = ((float)dlno / dltotal) * 100;
+    progress_bar->setValue(progress_frac);
+    progress_bar->repaint();
+  }
+  return 0;
+};
+
+
+size_t download_file_write(void *ptr, size_t size, size_t nmeb, void *up) {
+  return fwrite(ptr, size, nmeb, (FILE *)up);
+}
 
 void Setup::download(QString url) {
   QCoreApplication::processEvents(QEventLoop::AllEvents, 1000);
@@ -25,15 +38,52 @@ void Setup::download(QString url) {
   char tmpfile[] = "/tmp/installer_XXXXXX";
   FILE *fp = fdopen(mkstemp(tmpfile), "w");
 
-  curl_easy_setopt(curl, CURLOPT_URL, url.toStdString().c_str());
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
+  int tries = 4;
+  bool ret = false;
+  long last_resume_from = 0;
+  std::string url_string = url.toStdString();
+  while (true) {
+    long resume_from = ftell(fp);
 
-  int ret = curl_easy_perform(curl);
-  if (ret != CURLE_OK) {
+    curl_easy_setopt(curl, CURLOPT_URL, url_string.c_str());
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 0);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
+    curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
+    curl_easy_setopt(curl, CURLOPT_RESUME_FROM, resume_from);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, download_file_write);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
+    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, this);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, &Setup::download_file_xferinfo);
+
+    CURLcode res = curl_easy_perform(curl);
+
+    long response_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+    // double content_length = 0.0;
+    // curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &content_length);
+
+    qInfo() << QString("download %1 res %2, code %3, resume from %4\n").arg(url).arg(res).arg(response_code).arg(resume_from);
+    if (res == CURLE_OK) {
+      ret = true;
+      break;
+    } else if (res == CURLE_HTTP_RETURNED_ERROR && response_code == 416) {
+      // failed because the file is already complete?
+      ret = true;
+      break;
+    } else if (resume_from == last_resume_from) {
+      // failed and dind't make make forward progress. only retry a couple times
+      tries--;
+      if (tries <= 0) {
+        break;
+      }
+    }
+    last_resume_from = resume_from;
+  }
+
+  if (!ret) {
     emit downloadFailed();
   }
   curl_easy_cleanup(curl);
@@ -118,7 +168,15 @@ QWidget * Setup::software_selection() {
 
 QWidget * Setup::downloading() {
   QVBoxLayout *main_layout = new QVBoxLayout();
+  main_layout->addStretch();
   main_layout->addWidget(title_label("Downloading..."), 0, Qt::AlignCenter);
+
+  progress_bar = new QProgressBar();
+  progress_bar->setRange(5, 100);
+  progress_bar->setTextVisible(false);
+  progress_bar->setFixedHeight(25);
+  main_layout->addWidget(progress_bar);
+  main_layout->addStretch();
 
   QWidget *widget = new QWidget();
   widget->setLayout(main_layout);
@@ -189,6 +247,16 @@ Setup::Setup(QWidget *parent) {
       border: 7px solid white;
       border-radius: 20px;
       font-size: 50px;
+    }
+    QProgressBar {
+      background-color: #373737;
+      width: 1000px;
+      border solid white;
+      border-radius: 10px;
+    }
+    QProgressBar::chunk {
+      border-radius: 10px;
+      background-color: white;
     }
   )");
 }
