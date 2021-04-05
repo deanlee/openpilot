@@ -106,11 +106,7 @@ LogCameraInfo cameras_logged[LOG_CAMERA_ID_MAX] = {
 
 class SocketState {
  public:
-  SocketState(Context *ctx, const char *name, int freq) : freq(freq), counter(0) {
-    sock = SubSocket::create(ctx, name);
-    assert(sock != NULL);
-  }
-  ~SocketState() { delete sock; }
+  SocketState(SubSocket *s, int freq) : sock(s), freq(freq), counter(0) {}
   void log(LoggerHandle *lh) {
     if (!lh) return;
 
@@ -129,7 +125,7 @@ class SocketState {
 
 class RotateState {
 public:
-  SubSocket* fpkt_sock;
+  SocketState* fpkt_sock;
   uint32_t stream_frame_id, last_rotate_frame_id;
   bool enabled, should_rotate, initialized;
   std::atomic<bool> rotating;
@@ -272,7 +268,7 @@ void encoder_thread(int cam_idx) {
       rotate_state.setStreamFrameId(extra.frame_id);
 
       // log frame socket
-      rotate_state.socket_state->log(lh);
+      rotate_state.fpkt_sock->log(lh);
       s.last_camera_seen_tms = millis_since_boot();
 
       // encode a frame
@@ -340,29 +336,22 @@ int main(int argc, char** argv) {
   clear_locks();
 
   // setup messaging
-  typedef struct QlogState {
-    int counter, freq;
-  } QlogState;
-  std::map<SubSocket*, QlogState> qlog_states;
-
   s.ctx = Context::create();
   Poller * poller = Poller::create();
   std::map<SubSocket *, SocketState*> sockets;
-
   // subscribe to all socks
   for (const auto& it : services) {
     if (!it.should_log) continue;
 
     SubSocket * sock = SubSocket::create(s.ctx, it.name);
     assert(sock != NULL);
-    poller->registerSocket(sock);
+    sockets[sock] = new SocketState(sock, it.decimation);
 
     for (int cid=0; cid<=MAX_CAM_IDX; cid++) {
       if (std::string(it.name) == cameras_logged[cid].frame_packet_name) {
-        s.rotate_state[cid].fpkt_sock = sock;
+        s.rotate_state[cid].fpkt_sock = sockets[sock];
       }
     }
-    qlog_states[sock] = {.counter = 0, .freq = it.decimation};
   }
 
   // init logger
@@ -388,12 +377,15 @@ int main(int argc, char** argv) {
   s.rotate_state[LOG_CAMERA_ID_ECAMERA].enabled = true;
 #endif
 #endif
+  for (const auto&[sock, sock_state] : sockets) {
+    const auto it = std::find_if(std::begin(s.rotate_state), std::end(s.rotate_state), [sock_state=sock_state](const auto &rs) {
+      return rs.fpkt_sock == sock_state && rs.enabled;
+    });
+    if (!it) {
+      poller->registerSocket(sock);
+    }
+  }
 
-  uint64_t msg_count = 0;
-  uint64_t bytes_count = 0;
-  AlignedBuffer aligned_buf;
-
-  double start_ts = seconds_since_boot();
   double last_rotate_tms = millis_since_boot();
   s.last_camera_seen_tms = millis_since_boot();
   while (!do_exit) {
@@ -453,7 +445,10 @@ int main(int argc, char** argv) {
   }
 
   // messaging cleanup
-  for (auto sock : socks) delete sock;
+  for (auto [sock, sock_state] : sockets) {
+    delete sock_state;
+    delete sock;
+  }
   delete poller;
   delete s.ctx;
 
