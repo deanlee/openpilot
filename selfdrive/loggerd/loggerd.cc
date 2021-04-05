@@ -290,7 +290,7 @@ void encoder_thread(int cam_idx) {
           eidx.setTimestampEof(extra.timestamp_eof);
     #ifdef QCOM2
           eidx.setType(cereal::EncodeIndex::Type::FULL_H_E_V_C);
-    #else
+    #elsev
           eidx.setType(cam_idx == LOG_CAMERA_ID_DCAMERA ? cereal::EncodeIndex::Type::FRONT : cereal::EncodeIndex::Type::FULL_H_E_V_C);
     #endif
           eidx.setEncodeId(cnt);
@@ -347,7 +347,7 @@ int main(int argc, char** argv) {
 
   s.ctx = Context::create();
   Poller * poller = Poller::create();
-  std::vector<SubSocket*> socks;
+  std::map<SubSocket *, SocketState*> sockets;
 
   // subscribe to all socks
   for (const auto& it : services) {
@@ -356,7 +356,6 @@ int main(int argc, char** argv) {
     SubSocket * sock = SubSocket::create(s.ctx, it.name);
     assert(sock != NULL);
     poller->registerSocket(sock);
-    socks.push_back(sock);
 
     for (int cid=0; cid<=MAX_CAM_IDX; cid++) {
       if (std::string(it.name) == cameras_logged[cid].frame_packet_name) {
