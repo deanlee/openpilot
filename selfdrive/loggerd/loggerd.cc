@@ -104,25 +104,39 @@ LogCameraInfo cameras_logged[LOG_CAMERA_ID_MAX] = {
   },
 };
 
+class SocketState {
+ public:
+  SocketState(Context *ctx, const char *name, int freq) : freq(freq), counter(0) {
+    sock = SubSocket::create(ctx, name);
+    assert(sock != NULL);
+  }
+  ~SocketState() { delete sock; }
+  void log(LoggerHandle *lh) {
+    if (!lh) return;
+
+    Message *msg = nullptr;
+    while (!do_exit && (msg = sock->receive(true))) {
+      lh_log(lh, (uint8_t *)msg->getData(), msg->getSize(), counter == 0 && freq != -1);
+      if (freq != -1) {
+        counter = (counter + 1) % freq;
+      }
+      delete msg;
+    }
+  }
+  SubSocket *sock;
+  int counter, freq;
+};
+
 class RotateState {
 public:
   SubSocket* fpkt_sock;
-  uint32_t stream_frame_id, log_frame_id, last_rotate_frame_id;
+  uint32_t stream_frame_id, last_rotate_frame_id;
   bool enabled, should_rotate, initialized;
   std::atomic<bool> rotating;
   std::atomic<int> cur_seg;
 
-  RotateState() : fpkt_sock(nullptr), stream_frame_id(0), log_frame_id(0),
+  RotateState() : fpkt_sock(nullptr), stream_frame_id(0),
                   last_rotate_frame_id(UINT32_MAX), enabled(false), should_rotate(false), initialized(false), rotating(false), cur_seg(-1) {};
-
-  void waitLogThread() {
-    std::unique_lock<std::mutex> lk(fid_lock);
-    while (stream_frame_id > log_frame_id           // if the log camera is older, wait for it to catch up.
-           && (stream_frame_id - log_frame_id) < 8  // but if its too old then there probably was a discontinuity (visiond restarted)
-           && !do_exit) {
-      cv.wait(lk);
-    }
-  }
 
   void cancelWait() {
     cv.notify_one();
@@ -131,13 +145,6 @@ public:
   void setStreamFrameId(uint32_t frame_id) {
     fid_lock.lock();
     stream_frame_id = frame_id;
-    fid_lock.unlock();
-    cv.notify_one();
-  }
-
-  void setLogFrameId(uint32_t frame_id) {
-    fid_lock.lock();
-    log_frame_id = frame_id;
     fid_lock.unlock();
     cv.notify_one();
   }
@@ -167,6 +174,7 @@ struct LoggerdState {
   int rotate_segment;
   pthread_mutex_t rotate_lock;
   RotateState rotate_state[LOG_CAMERA_ID_MAX-1];
+  std::atomic<double> last_camera_seen_tms;
 };
 LoggerdState s;
 
@@ -221,9 +229,6 @@ void encoder_thread(int cam_idx) {
         pthread_mutex_lock(&s.rotate_lock);
         pthread_mutex_unlock(&s.rotate_lock);
 
-        // wait if camera pkt id is older than stream
-        rotate_state.waitLogThread();
-
         if (do_exit) break;
 
         // rotate the encoder if the logger is on a newer segment
@@ -265,6 +270,10 @@ void encoder_thread(int cam_idx) {
       }
 
       rotate_state.setStreamFrameId(extra.frame_id);
+
+      // log frame socket
+      rotate_state.socket_state->log(lh);
+      s.last_camera_seen_tms = millis_since_boot();
 
       // encode a frame
       for (int i = 0; i < encoders.size(); ++i) {
@@ -387,66 +396,18 @@ int main(int argc, char** argv) {
 
   double start_ts = seconds_since_boot();
   double last_rotate_tms = millis_since_boot();
-  double last_camera_seen_tms = millis_since_boot();
+  s.last_camera_seen_tms = millis_since_boot();
   while (!do_exit) {
     // TODO: fix msgs from the first poll getting dropped
     // poll for new messages on all sockets
     for (auto sock : poller->poll(1000)) {
-
-      // drain socket
-      Message * last_msg = nullptr;
-      while (!do_exit) {
-        Message * msg = sock->receive(true);
-        if (!msg){
-          break;
-        }
-        delete last_msg;
-        last_msg = msg;
-
-        QlogState& qs = qlog_states[sock];
-        logger_log(&s.logger, (uint8_t*)msg->getData(), msg->getSize(), qs.counter == 0 && qs.freq != -1);
-        if (qs.freq != -1) {
-          qs.counter = (qs.counter + 1) % qs.freq;
-        }
-
-        bytes_count += msg->getSize();
-        if ((++msg_count % 1000) == 0) {
-          double ts = seconds_since_boot();
-          LOGD("%lu messages, %.2f msg/sec, %.2f KB/sec", msg_count, msg_count * 1.0 / (ts - start_ts), bytes_count * 0.001 / (ts - start_ts));
-        }
-      }
-
-      if (last_msg) {
-        int fpkt_id = -1;
-        for (int cid = 0; cid <=MAX_CAM_IDX; cid++) {
-          if (sock == s.rotate_state[cid].fpkt_sock) {
-            fpkt_id=cid;
-            break;
-          }
-        }
-        if (fpkt_id >= 0) {
-          // track camera frames to sync to encoder
-          // only process last frame
-          capnp::FlatArrayMessageReader cmsg(aligned_buf.align(last_msg));
-          cereal::Event::Reader event = cmsg.getRoot<cereal::Event>();
-
-          if (fpkt_id == LOG_CAMERA_ID_FCAMERA) {
-            s.rotate_state[fpkt_id].setLogFrameId(event.getRoadCameraState().getFrameId());
-          } else if (fpkt_id == LOG_CAMERA_ID_DCAMERA) {
-            s.rotate_state[fpkt_id].setLogFrameId(event.getDriverCameraState().getFrameId());
-          } else if (fpkt_id == LOG_CAMERA_ID_ECAMERA) {
-            s.rotate_state[fpkt_id].setLogFrameId(event.getWideRoadCameraState().getFrameId());
-          }
-          last_camera_seen_tms = millis_since_boot();
-        }
-      }
-      delete last_msg;
+      sockets.at(sock)->log(s.logger.cur_handle);
     }
 
     bool new_segment = s.logger.part == -1;
     if (s.logger.part > -1) {
       double tms = millis_since_boot();
-      if (tms - last_camera_seen_tms <= NO_CAMERA_PATIENCE && encoder_threads.size() > 0) {
+      if (tms - s.last_camera_seen_tms <= NO_CAMERA_PATIENCE && encoder_threads.size() > 0) {
         new_segment = true;
         for (auto &r : s.rotate_state) {
           // this *should* be redundant on tici since all camera frames are synced
