@@ -33,7 +33,6 @@ void* read_file(const char* path, size_t* out_len);
 int write_file(const char* path, const void* data, size_t size, int flags=O_WRONLY, mode_t mode=0777);
 
 void set_thread_name(const char* name);
-
 int set_realtime_priority(int level);
 int set_core_affinity(int core);
 
@@ -120,7 +119,15 @@ inline bool file_exists(const std::string& fn) {
   return f.good();
 }
 
+inline std::string get_abspath(const char *relative_path) {
+  return util::string_format("%s/%s", OP_SELFDRIVE_PATH, relative_path);
 }
+
+inline std::string get_asserts_path(const char *relative_path) {
+  return util::string_format("%s/assets/%s", OP_SELFDRIVE_PATH, relative_path);
+}
+
+} // namespace util
 
 class ExitHandler {
 public:

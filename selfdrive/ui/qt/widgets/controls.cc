@@ -24,7 +24,7 @@ AbstractControl::AbstractControl(const QString &title, const QString &desc, cons
 
   // left icon
   if (!icon.isEmpty()) {
-    QPixmap pix(icon);
+    QPixmap pix(util::get_asserts_path(icon.toStdString().c_str()));
     QLabel *icon = new QLabel();
     icon->setPixmap(pix.scaledToWidth(80, Qt::SmoothTransformation));
     icon->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));

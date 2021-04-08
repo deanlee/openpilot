@@ -53,6 +53,8 @@ lenv = {
   "PATH": os.environ['PATH'],
 }
 
+cflags = ['-DOP_SELFDRIVE_PATH=\'"%s/selfdrive"\'' % (Dir(".").abspath)]
+cxxflags = ['-DOP_SELFDRIVE_PATH=\'"%s/selfdrive"\'' % (Dir(".").abspath)]
 if arch == "aarch64" or arch == "larch64":
   lenv["LD_LIBRARY_PATH"] = '/data/data/com.termux/files/usr/lib'
 
@@ -79,8 +81,8 @@ if arch == "aarch64" or arch == "larch64":
       "#phonelibs/libyuv/larch64/lib",
       "/usr/lib/aarch64-linux-gnu"
     ]
-    cflags = ["-DQCOM2", "-mcpu=cortex-a57"]
-    cxxflags = ["-DQCOM2", "-mcpu=cortex-a57"]
+    cflags += ["-DQCOM2", "-mcpu=cortex-a57"]
+    cxxflags += ["-DQCOM2", "-mcpu=cortex-a57"]
     rpath = ["/usr/local/lib"]
   else:
     libpath += [
@@ -88,16 +90,14 @@ if arch == "aarch64" or arch == "larch64":
       "#phonelibs/libyuv/lib",
       "/system/vendor/lib64"
     ]
-    cflags = ["-DQCOM", "-mcpu=cortex-a57"]
-    cxxflags = ["-DQCOM", "-mcpu=cortex-a57"]
+    cflags += ["-DQCOM", "-mcpu=cortex-a57"]
+    cxxflags += ["-DQCOM", "-mcpu=cortex-a57"]
     rpath = []
 
     if QCOM_REPLAY:
       cflags += ["-DQCOM_REPLAY"]
       cxxflags += ["-DQCOM_REPLAY"]
 else:
-  cflags = []
-  cxxflags = []
   cpppath = []
 
   if arch == "Darwin":

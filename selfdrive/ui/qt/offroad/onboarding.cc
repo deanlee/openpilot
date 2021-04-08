@@ -27,14 +27,14 @@ void TrainingGuide::mouseReleaseEvent(QMouseEvent *e) {
   if (currentIndex >= boundingBox.size()) {
     emit completedTraining();
   } else {
-    image.load("../assets/training/step" + QString::number(currentIndex) + ".png");
+    image.load(util::get_asserts_path("training/step").c_str() + QString::number(currentIndex) + ".png");
     update();
   }
 }
 
 void TrainingGuide::showEvent(QShowEvent *event) {
   currentIndex = 0;
-  image.load("../assets/training/step0.png");
+  image.load(util::get_asserts_path("training/step0.png").c_str());
 }
 
 void TrainingGuide::paintEvent(QPaintEvent *event) {

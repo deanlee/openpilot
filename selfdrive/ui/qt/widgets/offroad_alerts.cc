@@ -20,7 +20,7 @@ OffroadAlert::OffroadAlert(QWidget* parent) : QFrame(parent) {
   alerts_widget->setStyleSheet("background-color: transparent;");
 
   // setup labels for each alert
-  QString json = QString::fromStdString(util::read_file("../controls/lib/alerts_offroad.json"));
+  QString json = QString::fromStdString(util::read_file(util::get_abspath("controls/lib/alerts_offroad.json"));
   QJsonObject obj = QJsonDocument::fromJson(json.toUtf8()).object();
   for (auto &k : obj.keys()) {
     QLabel *l = new QLabel(this);

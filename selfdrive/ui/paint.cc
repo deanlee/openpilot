@@ -512,33 +512,33 @@ void ui_nvg_init(UIState *s) {
 
   // init fonts
   std::pair<const char *, const char *> fonts[] = {
-      {"sans-regular", "../assets/fonts/opensans_regular.ttf"},
-      {"sans-semibold", "../assets/fonts/opensans_semibold.ttf"},
-      {"sans-bold", "../assets/fonts/opensans_bold.ttf"},
+      {"sans-regular", "fonts/opensans_regular.ttf"},
+      {"sans-semibold", "fonts/opensans_semibold.ttf"},
+      {"sans-bold", "fonts/opensans_bold.ttf"},
   };
   for (auto [name, file] : fonts) {
-    int font_id = nvgCreateFont(s->vg, name, file);
+    int font_id = nvgCreateFont(s->vg, name, util::get_asserts_path(file).c_str());
     assert(font_id >= 0);
   }
 
   // init images
   std::vector<std::pair<const char *, const char *>> images = {
-      {"wheel", "../assets/img_chffr_wheel.png"},
-      {"trafficSign_turn", "../assets/img_trafficSign_turn.png"},
-      {"driver_face", "../assets/img_driver_face.png"},
-      {"button_settings", "../assets/images/button_settings.png"},
-      {"button_home", "../assets/images/button_home.png"},
-      {"battery", "../assets/images/battery.png"},
-      {"battery_charging", "../assets/images/battery_charging.png"},
-      {"network_0", "../assets/images/network_0.png"},
-      {"network_1", "../assets/images/network_1.png"},
-      {"network_2", "../assets/images/network_2.png"},
-      {"network_3", "../assets/images/network_3.png"},
-      {"network_4", "../assets/images/network_4.png"},
-      {"network_5", "../assets/images/network_5.png"},
+      {"wheel", "img_chffr_wheel.png"},
+      {"trafficSign_turn", "img_trafficSign_turn.png"},
+      {"driver_face", "img_driver_face.png"},
+      {"button_settings", "images/button_settings.png"},
+      {"button_home", "images/button_home.png"},
+      {"battery", "images/battery.png"},
+      {"battery_charging", "images/battery_charging.png"},
+      {"network_0", "images/network_0.png"},
+      {"network_1", "images/network_1.png"},
+      {"network_2", "images/network_2.png"},
+      {"network_3", "images/network_3.png"},
+      {"network_4", "images/network_4.png"},
+      {"network_5", "images/network_5.png"},
   };
   for (auto [name, file] : images) {
-    s->images[name] = nvgCreateImage(s->vg, file, 1);
+    s->images[name] = nvgCreateImage(s->vg, util::get_asserts_path(file).c_str(), 1);
     assert(s->images[name] != 0);
   }
 

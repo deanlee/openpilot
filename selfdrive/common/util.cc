@@ -84,3 +84,4 @@ int set_core_affinity(int core) {
   return -1;
 #endif
 }
+
