@@ -358,7 +358,7 @@ static void driver_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs)
 
 static void road_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs) {
 #ifndef QCOM2
-  const ExpRect rect = {291, 850, 1, 322, 636, -1};
+  const ExpRect rect = {291, 850, 1, 322, 636, 1};
 #else
   const ExpRect rect = (cs == &s->road_cam) ? {96, 1830, 2, 160, 1146, 2}
                                             : {96, 1830, 2, 250, 774, 2};
@@ -366,7 +366,7 @@ static void road_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs) {
   camera_autoexposure(cs, set_exposure_target(&cs->buf, rect, -1, false, false));
 }
 
-static void processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback, bool is_frame_stream) {
+static void camera_processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback, bool is_frame_stream) {
   static PubMaster pm({"roadCameraState", "driverCameraState", "thumbnail"
 #ifdef QCOM2
   , "wideRoadCameraState"
@@ -433,5 +433,5 @@ static void processing_thread(MultiCameraState *cameras, CameraState *cs, proces
 }
 
 std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback, bool is_frame_stream) {
-  return std::thread(processing_thread, cameras, cs, callback, is_frame_stream);
+  return std::thread(camera_processing_thread, cameras, cs, callback, is_frame_stream);
 }
