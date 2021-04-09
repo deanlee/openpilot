@@ -1055,39 +1055,39 @@ static void ae_thread(MultiCameraState *s) {
   }
 }
 
-void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) {
-  common_process_driver_camera(s->sm, s->pm, c, cnt);
-}
+// void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) {
+//   common_process_driver_camera(s->sm, s->pm, c, cnt);
+// }
 
 // called by processing_thread
-void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
-  const CameraBuf *b = &c->buf;
+// void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
+//   const CameraBuf *b = &c->buf;
 
-  MessageBuilder msg;
-  auto framed = c == &s->road_cam ? msg.initEvent().initRoadCameraState() : msg.initEvent().initWideRoadCameraState();
-  fill_frame_data(framed, b->cur_frame_data);
-  if ((c == &s->road_cam && env_send_road) || (c == &s->wide_road_cam && env_send_wide_road)) {
-    framed.setImage(get_frame_image(b));
-  }
-  if (c == &s->road_cam) {
-    framed.setTransform(b->yuv_transform.v);
-  }
-  s->pm->send(c == &s->road_cam ? "roadCameraState" : "wideRoadCameraState", msg);
+//   MessageBuilder msg;
+//   auto framed = c == &s->road_cam ? msg.initEvent().initRoadCameraState() : msg.initEvent().initWideRoadCameraState();
+//   fill_frame_data(framed, b->cur_frame_data);
+//   if ((c == &s->road_cam && env_send_road) || (c == &s->wide_road_cam && env_send_wide_road)) {
+//     framed.setImage(get_frame_image(b));
+//   }
+//   if (c == &s->road_cam) {
+//     framed.setTransform(b->yuv_transform.v);
+//   }
+//   s->pm->send(c == &s->road_cam ? "roadCameraState" : "wideRoadCameraState", msg);
 
-  if (cnt % 3 == 0) {
-    const auto [x, y, w, h] = (c == &s->wide_road_cam) ? std::tuple(96, 250, 1734, 524) : std::tuple(96, 160, 1734, 986);
-    const int skip = 2;
-    camera_autoexposure(c, set_exposure_target(b, x, x + w, skip, y, y + h, skip, (int)c->analog_gain, true, true));
-  }
-}
+//   if (cnt % 3 == 0) {
+//     const auto [x, y, w, h] = (c == &s->wide_road_cam) ? std::tuple(96, 250, 1734, 524) : std::tuple(96, 160, 1734, 986);
+//     const int skip = 2;
+//     camera_autoexposure(c, set_exposure_target(b, x, x + w, skip, y, y + h, skip, (int)c->analog_gain, true, true));
+//   }
+// }
 
 void cameras_run(MultiCameraState *s) {
   LOG("-- Starting threads");
   std::vector<std::thread> threads;
   threads.push_back(std::thread(ae_thread, s));
-  threads.push_back(start_process_thread(s, &s->road_cam, process_road_camera));
-  threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
-  threads.push_back(start_process_thread(s, &s->wide_road_cam, process_road_camera));
+  threads.push_back(start_process_thread(s, &s->road_cam));
+  threads.push_back(start_process_thread(s, &s->driver_cam));
+  threads.push_back(start_process_thread(s, &s->wide_road_cam));
 
   // start devices
   LOG("-- Starting devices");
