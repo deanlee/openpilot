@@ -1,4 +1,3 @@
-#include <thread>
 #include <chrono>
 #include <stdio.h>
 #include <assert.h>
@@ -15,7 +14,7 @@
 #endif
 
 #include "camera_common.h"
-#include <libyuv.h>
+// #include <libyuv.h>
 #include <jpeglib.h>
 
 #include "clutil.h"
@@ -23,7 +22,7 @@
 #include "common/swaglog.h"
 #include "common/util.h"
 #include "modeldata.h"
-#include "imgproc/utils.h"
+// #include "imgproc/utils.h"
 
 static cl_program build_debayer_program(cl_device_id device_id, cl_context context, const CameraInfo *ci, const CameraBuf *b, const CameraState *s) {
   char args[4096];

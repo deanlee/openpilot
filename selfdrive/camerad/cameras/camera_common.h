@@ -125,9 +125,6 @@ public:
 };
 
 typedef void (*process_thread_cb)(MultiCameraState *s, CameraState *c, cereal::FrameData::Builder framd, int cnt);
-
-void fill_frame_data(cereal::FrameData::Builder &framed, const FrameMetadata &frame_data);
-kj::Array<uint8_t> get_frame_image(const CameraBuf *b);
 std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback = nullptr, bool is_frame_stream = false);
 
 void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx);
