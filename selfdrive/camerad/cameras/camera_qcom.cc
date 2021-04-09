@@ -1082,42 +1082,24 @@ static void setup_self_recover(CameraState *c, const uint16_t *lapres, size_t la
   c->self_recover.store(self_recover);
 }
 
-// void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) {
-//   common_process_driver_camera(s->sm, s->pm, c, cnt);
-// }
-
 // // called by processing_thread
-// void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
-//   const CameraBuf *b = &c->buf;
-//   const int roi_id = cnt % std::size(s->lapres);  // rolling roi
-//   s->lapres[roi_id] = s->lap_conv->Update(b->q, (uint8_t *)b->cur_rgb_buf->addr, roi_id);
-//   setup_self_recover(c, &s->lapres[0], std::size(s->lapres));
+void process_road_camera(MultiCameraState *s, CameraState *c, cereal::FrameData::Builder& framed, int cnt) {
+  const CameraBuf *b = &c->buf;
+  const int roi_id = cnt % std::size(s->lapres);  // rolling roi
+  s->lapres[roi_id] = s->lap_conv->Update(b->q, (uint8_t *)b->cur_rgb_buf->addr, roi_id);
+  setup_self_recover(c, &s->lapres[0], std::size(s->lapres));
 
-//   MessageBuilder msg;
-//   auto framed = msg.initEvent().initRoadCameraState();
-//   fill_frame_data(framed, b->cur_frame_data);
-//   if (env_send_road) {
-//     framed.setImage(get_frame_image(b));
-//   }
-//   framed.setFocusVal(s->road_cam.focus);
-//   framed.setFocusConf(s->road_cam.confidence);
-//   framed.setRecoverState(s->road_cam.self_recover);
-//   framed.setSharpnessScore(s->lapres);
-//   framed.setTransform(b->yuv_transform.v);
-//   s->pm->send("roadCameraState", msg);
-
-//   if (cnt % 3 == 0) {
-//     const int x = 290, y = 322, width = 560, height = 314;
-//     const int skip = 1;
-//     camera_autoexposure(c, set_exposure_target(b, x, x + width, skip, y, y + height, skip, -1, false, false));
-//   }
-// }
+  framed.setFocusVal(s->road_cam.focus);
+  framed.setFocusConf(s->road_cam.confidence);
+  framed.setRecoverState(s->road_cam.self_recover);
+  framed.setSharpnessScore(s->lapres);
+}
 
 void cameras_run(MultiCameraState *s) {
   std::vector<std::thread> threads;
   threads.push_back(std::thread(ops_thread, s));
   threads.push_back(start_process_thread(s, &s->road_cam, process_road_camera));
-  threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
+  threads.push_back(start_process_thread(s, &s->driver_cam));
 
   CameraState* cameras[2] = {&s->road_cam, &s->driver_cam};
 
