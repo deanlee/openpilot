@@ -221,9 +221,6 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
               /*max_gain=*/510, 10, device_id, ctx,
               VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
 
-  s->sm = new SubMaster({"driverState"});
-  s->pm = new PubMaster({"roadCameraState", "driverCameraState", "thumbnail"});
-
   for (int i = 0; i < FRAME_BUF_COUNT; i++) {
     // TODO: make lengths correct
     s->focus_bufs[i].allocate(0xb80);
@@ -1177,6 +1174,4 @@ void cameras_close(MultiCameraState *s) {
   }
 
   delete s->lap_conv;
-  delete s->sm;
-  delete s->pm;
 }

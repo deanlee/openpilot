@@ -319,9 +319,10 @@ extern ExitHandler do_exit;
 
 struct ExpRect {int x1, x2, x_skip, y1, y2, y_skip;};
 
-static void driver_cam_auto_exposure(CameraState *c, SubMaster &sm) {
+static void driver_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs) {
+  static SubMaster sm({"driverState"});
   static const bool is_rhd = Params().getBool("IsRHD");
-  const CameraBuf *b = &c->buf;
+  const CameraBuf *b = &cs->buf;
 #ifndef QCOM2
   bool hist_ceil = false, hl_weighted = false;
   int analog_gain = -1;
@@ -352,7 +353,7 @@ static void driver_cam_auto_exposure(CameraState *c, SubMaster &sm) {
     }
   }
 
-  camera_autoexposure(c, set_exposure_target(b, rect.x1, rect.x2, rect.x_skip, rect.y1, rect.y2, rect.y_skip, analog_gain, hist_ceil, hl_weighted));
+  camera_autoexposure(cs, set_exposure_target(b, rect.x1, rect.x2, rect.x_skip, rect.y1, rect.y2, rect.y_skip, analog_gain, hist_ceil, hl_weighted));
 }
 
 void road_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs) {
@@ -366,6 +367,11 @@ void road_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs) {
 }
 
 void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback, bool is_frame_stream) {
+  static PubMaster pm({"roadCameraState", "driverCameraState", "thumbnail"
+#ifdef QCOM2
+  , "wideRoadCameraState"
+#endif
+  });
   const char *thread_name, *pub_name;
   bool set_image = false, set_transform = false, pub_thumbnail = false;
   ::cereal::FrameData::Builder (cereal::Event::Builder::*init_cam_state_func)() = nullptr;
@@ -401,11 +407,8 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
     if (set_transform) { framed.setTransform(cs->buf.yuv_transform.v); }
 
     if (cnt % 3 == 0) {
-      if (cs == &cameras->driver_cam) {
-        driver_cam_auto_exposure(cs, *cameras->sm);
-      } else {
-        road_cam_auto_exposure(cameras, cs);
-      }
+      cs == &cameras->driver_cam ? driver_cam_auto_exposure(cameras, cs)
+                                 : road_cam_auto_exposure(cameras, cs);
     }
 
     if (callback) {
@@ -414,10 +417,10 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
 
     if (pub_thumbnail && cnt % 100 == 3) {
       // this takes 10ms???
-      publish_thumbnail(cameras->pm, &(cs->buf));
+      publish_thumbnail(&pm, &(cs->buf));
     }
 
-    cameras->pm->send(pub_name, msg);
+    pm.send(pub_name, msg);
 
     // release camera buffer
     cs->buf.release();
