@@ -185,6 +185,49 @@ static void camera_init(MultiCameraState *cameras, CameraState *s, int camera_id
   s->buf.init(cameras, s, FRAME_BUF_COUNT, rgb_type, yuv_type, camera_release_buffer);
 }
 
+void MultiCameraState::init() {
+  char project_name[1024] = {0};
+  property_get("ro.boot.project_name", project_name, "");
+  assert(strlen(project_name) == 0);
+
+  // sensor is flipped in LP3
+  // IMAGE_ORIENT = 3
+  init_array_imx298[0].reg_data = 3;
+
+  // 0   = ISO 100
+  // 256 = ISO 200
+  // 384 = ISO 400
+  // 448 = ISO 800
+  // 480 = ISO 1600
+  // 496 = ISO 3200
+  // 504 = ISO 6400, 8x digital gain
+  // 508 = ISO 12800, 16x digital gain
+  // 510 = ISO 25600, 32x digital gain
+
+  camera_init(&road_cam, CAMERA_ID_IMX298, 0,
+              /*pixel_clock=*/600000000, /*line_length_pclk=*/5536,
+              /*max_gain=*/510,  //0 (ISO 100)- 448 (ISO 800, max analog gain) - 511 (super noisy)
+#ifdef HIGH_FPS
+              /*fps*/ 60,
+#else
+              /*fps*/ 20,
+#endif
+              VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
+
+  camera_init(&driver_cam, CAMERA_ID_OV8865, 1,
+              /*pixel_clock=*/72000000, /*line_length_pclk=*/1602,
+              /*max_gain=*/510, 10,
+              VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
+
+  for (int i = 0; i < FRAME_BUF_COUNT; i++) {
+    // TODO: make lengths correct
+    focus_bufs[i].allocate(0xb80);
+    stats_bufs[i].allocate(0xb80);
+  }
+  std::fill_n(lapres, std::size(lapres), 16160);
+  lap_conv = new LapConv(device_id, ctx, road_cam.buf.rgb_width, road_cam.buf.rgb_height, 3);
+}
+
 static void set_exposure(CameraState *s, float exposure_frac, float gain_frac) {
   int err = 0;
   uint32_t gain = s->cur_gain;
@@ -1063,51 +1106,6 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
     const int skip = 1;
     camera_autoexposure(c, set_exposure_target(b, x, x + width, skip, y, y + height, skip, -1, false, false));
   }
-}
-
-// MultiCameraState
-
-void MultiCameraState::init() {
-  char project_name[1024] = {0};
-  property_get("ro.boot.project_name", project_name, "");
-  assert(strlen(project_name) == 0);
-
-  // sensor is flipped in LP3
-  // IMAGE_ORIENT = 3
-  init_array_imx298[0].reg_data = 3;
-
-  // 0   = ISO 100
-  // 256 = ISO 200
-  // 384 = ISO 400
-  // 448 = ISO 800
-  // 480 = ISO 1600
-  // 496 = ISO 3200
-  // 504 = ISO 6400, 8x digital gain
-  // 508 = ISO 12800, 16x digital gain
-  // 510 = ISO 25600, 32x digital gain
-
-  camera_init(&road_cam, CAMERA_ID_IMX298, 0,
-              /*pixel_clock=*/600000000, /*line_length_pclk=*/5536,
-              /*max_gain=*/510,  //0 (ISO 100)- 448 (ISO 800, max analog gain) - 511 (super noisy)
-#ifdef HIGH_FPS
-              /*fps*/ 60,
-#else
-              /*fps*/ 20,
-#endif
-              VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
-
-  camera_init(&driver_cam, CAMERA_ID_OV8865, 1,
-              /*pixel_clock=*/72000000, /*line_length_pclk=*/1602,
-              /*max_gain=*/510, 10,
-              VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
-
-  for (int i = 0; i < FRAME_BUF_COUNT; i++) {
-    // TODO: make lengths correct
-    focus_bufs[i].allocate(0xb80);
-    stats_bufs[i].allocate(0xb80);
-  }
-  std::fill_n(lapres, std::size(lapres), 16160);
-  lap_conv = new LapConv(device_id, ctx, road_cam.buf.rgb_width, road_cam.buf.rgb_height, 3);
 }
 
 void MultiCameraState::run() {

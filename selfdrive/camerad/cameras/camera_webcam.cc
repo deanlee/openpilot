@@ -138,6 +138,11 @@ void driver_camera_thread(CameraState *s) {
 
 }  // namespace
 
+void MultiCameraState::init() {
+  camera_init(this, &s->road_cam, CAMERA_ID_LGC920, 20, VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
+  camera_init(this, &s->driver_cam, CAMERA_ID_LGC615, 10, VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
+}
+
 void camera_autoexposure(CameraState *s, float grey_frac) {}
 
 void cameras_open(MultiCameraState *s) {
@@ -145,6 +150,11 @@ void cameras_open(MultiCameraState *s) {
   camera_open(&s->driver_cam, false);
   // LOG("*** open road camera ***");
   camera_open(&s->road_cam, true);
+}
+
+void MultiCameraState::close() {
+  camera_close(&road_cam);
+  camera_close(&driver_cam);
 }
 
 void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) {
@@ -165,13 +175,6 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
   s->pm->send("roadCameraState", msg);
 }
 
-// MultiCameraState
-
-void MultiCameraState::init() {
-  camera_init(this, &s->road_cam, CAMERA_ID_LGC920, 20, VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
-  camera_init(this, &s->driver_cam, CAMERA_ID_LGC615, 10, VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
-}
-
 void MultiCameraState::run() {
   std::vector<std::thread> threads;
   threads.push_back(start_process_thread(this, &road_cam, process_road_camera));
@@ -184,9 +187,4 @@ void MultiCameraState::run() {
   t_rear.join();
 
   for (auto &t : threads) t.join();
-}
-
-void MultiCameraState::close() {
-  camera_close(&road_cam);
-  camera_close(&driver_cam);
 }

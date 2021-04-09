@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <unistd.h>
+
 #if defined(QCOM) && !defined(QCOM_REPLAY)
 #include "cameras/camera_qcom.h"
 #elif QCOM2

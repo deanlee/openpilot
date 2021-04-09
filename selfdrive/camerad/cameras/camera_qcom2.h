@@ -65,6 +65,7 @@ public:
   void open() override;
   void run() override;
   void close() override;
+
   int device;
 
   unique_fd video0_fd;

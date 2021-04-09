@@ -73,13 +73,12 @@ void run_frame_stream(CameraState &camera, const char* frame_pkt) {
 
 }  // namespace
 
-void camera_autoexposure(CameraState *s, float grey_frac) {}
-void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {}
-
 void MultiCameraState::init() {
   camera_init(this, &road_cam, CAMERA_ID_IMX298, 20, VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
   camera_init(this, &driver_cam, CAMERA_ID_OV8865, 10, VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
 }
+void camera_autoexposure(CameraState *s, float grey_frac) {}
+void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {}
 
 void MultiCameraState::run() {
   std::thread t = start_process_thread(this, &road_cam, process_road_camera);
