@@ -278,14 +278,16 @@ static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
   free(thumbnail_buffer);
 }
 
-float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip, int y_start, int y_end, int y_skip, int analog_gain, bool hist_ceil, bool hl_weighted) {
+struct ExpRect {int x1, x2, x_skip, y1, y2, y_skip;};
+
+static float set_exposure_target(const CameraBuf *b, const ExpRect &r, int analog_gain, bool hist_ceil, bool hl_weighted) {
   const uint8_t *pix_ptr = b->cur_yuv_buf->y;
   uint32_t lum_binning[256] = {0};
   unsigned int lum_total = 0;
-  for (int y = y_start; y < y_end; y += y_skip) {
-    for (int x = x_start; x < x_end; x += x_skip) {
+  for (int y = r.y1; y < r.y2; y += r.y_skip) {
+    for (int x = r.x1; x < r.x2; x += r.x_skip) {
       uint8_t lum = pix_ptr[(y * b->rgb_width) + x];
-      if (hist_ceil && lum < 80 && lum_binning[lum] > HISTO_CEIL_K * (y_end - y_start) * (x_end - x_start) / x_skip / y_skip / 256) {
+      if (hist_ceil && lum < 80 && lum_binning[lum] > HISTO_CEIL_K * (r.y2 - r.y1) * (r.x2 - r.x1) / r.x_skip / r.y_skip / 256) {
         continue;
       }
       lum_binning[lum]++;
@@ -316,8 +318,6 @@ float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip
 }
 
 extern ExitHandler do_exit;
-
-struct ExpRect {int x1, x2, x_skip, y1, y2, y_skip;};
 
 static void driver_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs) {
   static SubMaster sm({"driverState"});
@@ -353,80 +353,83 @@ static void driver_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs)
     }
   }
 
-  camera_autoexposure(cs, set_exposure_target(b, rect.x1, rect.x2, rect.x_skip, rect.y1, rect.y2, rect.y_skip, analog_gain, hist_ceil, hl_weighted));
+  camera_autoexposure(cs, set_exposure_target(b, rect, analog_gain, hist_ceil, hl_weighted));
 }
 
-void road_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs) {
+static void road_cam_auto_exposure(MultiCameraState *cameras, CameraState *cs) {
 #ifndef QCOM2
-  const ExpRect r = {291, 850, 1, 322, 636, -1};
+  const ExpRect rect = {291, 850, 1, 322, 636, -1};
 #else
-  const ExpRect r = (cs == &s->wide_road_cam) ? {96, 1830, 2, 250, 774, 2}
-                                              : {96, 1830, 2 160, 1146, 2};
+  const ExpRect rect = (cs == &s->road_cam) ? {96, 1830, 2, 160, 1146, 2}
+                                            : {96, 1830, 2, 250, 774, 2};
 #endif
-  camera_autoexposure(cs, set_exposure_target(&cs->buf, r.x1, r.x2, r.x_skip, r.y1, r.y2, r.y_skip, -1, false, false));
+  camera_autoexposure(cs, set_exposure_target(&cs->buf, rect, -1, false, false));
 }
 
-void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback, bool is_frame_stream) {
+static void processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback, bool is_frame_stream) {
   static PubMaster pm({"roadCameraState", "driverCameraState", "thumbnail"
 #ifdef QCOM2
   , "wideRoadCameraState"
 #endif
   });
-  const char *thread_name, *pub_name;
+  const char *pub_name;
   bool set_image = false, set_transform = false, pub_thumbnail = false;
   ::cereal::FrameData::Builder (cereal::Event::Builder::*init_cam_state_func)() = nullptr;
   if (cs == &cameras->road_cam) {
-    thread_name = "RoadCamera";
+    set_thread_name("RoadCamera");
     pub_name = "roadCameraState";
     set_image = getenv("SEND_ROAD") != NULL;
     pub_thumbnail = set_transform = true;
     init_cam_state_func = &cereal::Event::Builder::initRoadCameraState;
   } else if (cs == &cameras->driver_cam) {
-    thread_name = "DriverCamera";
+    set_thread_name("DriverCamera");
     pub_name = "driverCameraState";
     set_image = getenv("SEND_DRIVER") != NULL;
     init_cam_state_func = &cereal::Event::Builder::initDriverCameraState;
   } else {
-    thread_name = "WideRoadCamera";
+    set_thread_name("WideRoadCamera");
     pub_name = "wideRoadCameraState";
     set_image = getenv("SEND_WIDE_ROAD") != NULL;
     init_cam_state_func = &cereal::Event::Builder::initWideRoadCameraState;
   }
-
-  set_thread_name(thread_name);
 
   uint32_t cnt = 0;
   while (!do_exit) {
     if (!cs->buf.acquire()) continue;
 
     // process camera buffer
-    MessageBuilder msg;
-    cereal::FrameData::Builder framed = (msg.initEvent().*init_cam_state_func)();
-    fill_frame_data(framed, cs->buf.cur_frame_data);
-    if (set_image) { framed.setImage(get_frame_image(&cs->buf)); }
-    if (set_transform) { framed.setTransform(cs->buf.yuv_transform.v); }
+    if (!is_frame_stream) {
+      MessageBuilder msg;
+      cereal::FrameData::Builder framed = (msg.initEvent().*init_cam_state_func)();
 
-    if (cnt % 3 == 0) {
-      cs == &cameras->driver_cam ? driver_cam_auto_exposure(cameras, cs)
-                                 : road_cam_auto_exposure(cameras, cs);
+      fill_frame_data(framed, cs->buf.cur_frame_data);
+      if (set_transform) { 
+        framed.setTransform(cs->buf.yuv_transform.v); 
+      }
+      if (set_image) { 
+        framed.setImage(get_frame_image(&cs->buf)); 
+      }
+
+      if (cnt % 3 == 0) {
+        cs == &cameras->driver_cam ? driver_cam_auto_exposure(cameras, cs)
+                                   : road_cam_auto_exposure(cameras, cs);
+      }
+
+      if (callback) {
+        callback(cameras, cs, framed, cnt);
+      }
+
+      if (pub_thumbnail && cnt % 100 == 3) {
+        // this takes 10ms???
+        publish_thumbnail(&pm, &(cs->buf));
+      }
+
+      pm.send(pub_name, msg);
     }
 
-    if (callback) {
-      callback(cameras, cs, framed, cnt);
-    }
-
-    if (pub_thumbnail && cnt % 100 == 3) {
-      // this takes 10ms???
-      publish_thumbnail(&pm, &(cs->buf));
-    }
-
-    pm.send(pub_name, msg);
-
-    // release camera buffer
     cs->buf.release();
     ++cnt;
   }
-  return NULL;
 }
 
 std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback, bool is_frame_stream) {
