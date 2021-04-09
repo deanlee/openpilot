@@ -58,7 +58,13 @@ typedef struct CameraState {
   CameraBuf buf;
 } CameraState;
 
-typedef struct MultiCameraState {
+class MultiCameraState : public CamerasBase {
+public:
+  MultiCameraState() : CamerasBase() {}
+  void init() override;
+  void open() override;
+  void run() override;
+  void close() override;
   int device;
 
   unique_fd video0_fd;
@@ -73,7 +79,4 @@ typedef struct MultiCameraState {
   CameraState driver_cam;
 
   pthread_mutex_t isp_lock;
-
-  SubMaster *sm;
-  PubMaster *pm;
-} MultiCameraState;
+};

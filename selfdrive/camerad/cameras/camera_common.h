@@ -85,6 +85,21 @@ typedef struct CameraExpInfo {
   float grey_frac;
 } CameraExpInfo;
 
+class CamerasBase {
+public:
+  CamerasBase();
+  ~CamerasBase();
+  virtual void init() {}
+  virtual void open() {}
+  virtual void run() {}
+  virtual void close() {}
+
+  cl_device_id device_id;
+  cl_context context;
+  SubMaster *sm;
+  PubMaster *pm;
+  VisionIpcServer *vipc_server;
+};
 struct MultiCameraState;
 struct CameraState;
 
@@ -118,7 +133,7 @@ public:
 
   CameraBuf() = default;
   ~CameraBuf();
-  void init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt, VisionStreamType rgb_type, VisionStreamType yuv_type, release_cb release_callback=nullptr);
+  void init(CamerasBase *cameras, CameraState *s, int frame_cnt, VisionStreamType rgb_type, VisionStreamType yuv_type, release_cb release_callback=nullptr);
   bool acquire();
   void release();
   void queue(size_t buf_idx);

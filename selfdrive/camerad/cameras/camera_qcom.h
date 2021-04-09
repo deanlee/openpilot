@@ -87,7 +87,9 @@ typedef struct CameraState {
 } CameraState;
 
 
-typedef struct MultiCameraState {
+class MultiCameraState : public Cameras{
+public:
+  MultiCameraState () : Cameras() {}
   unique_fd ispif_fd;
   unique_fd msmcfg_fd;
   unique_fd v4l_fd;
@@ -99,10 +101,12 @@ typedef struct MultiCameraState {
   CameraState road_cam;
   CameraState driver_cam;
 
-  SubMaster *sm;
-  PubMaster *pm;
   LapConv *lap_conv;
-} MultiCameraState;
+  void init() override;
+  void open() override;
+  void run() override;
+  void close override;
+};;
 
 void actuator_move(CameraState *s, uint16_t target);
 int sensor_write_regs(CameraState *s, struct msm_camera_i2c_reg_array* arr, size_t size, int data_type);

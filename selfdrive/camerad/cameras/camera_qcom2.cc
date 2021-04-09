@@ -512,7 +512,7 @@ void enqueue_req_multi(struct CameraState *s, int start, int n, bool dp) {
 
 // ******************* camera *******************
 
-static void camera_init(MultiCameraState *multi_cam_state, VisionIpcServer * v, CameraState *s, int camera_id, int camera_num, unsigned int fps, cl_device_id device_id, cl_context ctx, VisionStreamType rgb_type, VisionStreamType yuv_type) {
+static void camera_init(MultiCameraState *multi_cam_state, CameraState *s, int camera_id, int camera_num, unsigned int fps,  VisionStreamType rgb_type, VisionStreamType yuv_type) {
   LOGD("camera init %d", camera_num);
   s->multi_cam_state = multi_cam_state;
   assert(camera_id < ARRAYSIZE(cameras_supported));
@@ -531,7 +531,7 @@ static void camera_init(MultiCameraState *multi_cam_state, VisionIpcServer * v, 
   s->skipped = true;
   s->ef_filtered = 1.0;
 
-  s->buf.init(device_id, ctx, s, v, FRAME_BUF_COUNT, rgb_type, yuv_type);
+  s->buf.init(multi_cam_state, s, FRAME_BUF_COUNT, rgb_type, yuv_type);
 }
 
 // TODO: refactor this to somewhere nicer, perhaps use in camera_qcom as well
@@ -755,70 +755,6 @@ static void camera_open(CameraState *s) {
   enqueue_req_multi(s, 1, FRAME_BUF_COUNT, 0);
 }
 
-void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
-  camera_init(s, v, &s->road_cam, CAMERA_ID_AR0231, 1, 20, device_id, ctx,
-              VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK); // swap left/right
-  printf("road camera initted \n");
-  camera_init(s, v, &s->wide_road_cam, CAMERA_ID_AR0231, 0, 20, device_id, ctx,
-              VISION_STREAM_RGB_WIDE, VISION_STREAM_YUV_WIDE);
-  printf("wide road camera initted \n");
-  camera_init(s, v, &s->driver_cam, CAMERA_ID_AR0231, 2, 20, device_id, ctx,
-              VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
-  printf("driver camera initted \n");
-
-  s->sm = new SubMaster({"driverState"});
-  s->pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
-}
-
-void cameras_open(MultiCameraState *s) {
-  int ret;
-
-  LOG("-- Opening devices");
-  // video0 is req_mgr, the target of many ioctls
-  s->video0_fd = open("/dev/v4l/by-path/platform-soc:qcom_cam-req-mgr-video-index0", O_RDWR | O_NONBLOCK);
-  assert(s->video0_fd >= 0);
-  LOGD("opened video0");
-
-  // video1 is cam_sync, the target of some ioctls
-  s->video1_fd = open("/dev/v4l/by-path/platform-cam_sync-video-index0", O_RDWR | O_NONBLOCK);
-  assert(s->video1_fd >= 0);
-  LOGD("opened video1");
-
-  // looks like there's only one of these
-  s->isp_fd = open("/dev/v4l-subdev1", O_RDWR | O_NONBLOCK);
-  assert(s->isp_fd >= 0);
-  LOGD("opened isp");
-
-  // query icp for MMU handles
-  LOG("-- Query ICP for MMU handles");
-  static struct cam_isp_query_cap_cmd isp_query_cap_cmd = {0};
-  static struct cam_query_cap_cmd query_cap_cmd = {0};
-  query_cap_cmd.handle_type = 1;
-  query_cap_cmd.caps_handle = (uint64_t)&isp_query_cap_cmd;
-  query_cap_cmd.size = sizeof(isp_query_cap_cmd);
-  ret = cam_control(s->isp_fd, CAM_QUERY_CAP, &query_cap_cmd, sizeof(query_cap_cmd));
-  assert(ret == 0);
-  LOGD("using MMU handle: %x", isp_query_cap_cmd.device_iommu.non_secure);
-  LOGD("using MMU handle: %x", isp_query_cap_cmd.cdm_iommu.non_secure);
-  s->device_iommu = isp_query_cap_cmd.device_iommu.non_secure;
-  s->cdm_iommu = isp_query_cap_cmd.cdm_iommu.non_secure;
-
-  // subscribe
-  LOG("-- Subscribing");
-  static struct v4l2_event_subscription sub = {0};
-  sub.type = 0x8000000;
-  sub.id = 2; // should use boot time for sof
-  ret = ioctl(s->video0_fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
-  printf("req mgr subscribe: %d\n", ret);
-
-  camera_open(&s->road_cam);
-  printf("road camera opened \n");
-  camera_open(&s->wide_road_cam);
-  printf("wide road camera opened \n");
-  camera_open(&s->driver_cam);
-  printf("driver camera opened \n");
-}
-
 static void camera_close(CameraState *s) {
   int ret;
 
@@ -859,15 +795,6 @@ static void camera_close(CameraState *s) {
 
   ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_DESTROY_SESSION, &s->req_mgr_session_info, sizeof(s->req_mgr_session_info));
   LOGD("destroyed session: %d", ret);
-}
-
-void cameras_close(MultiCameraState *s) {
-  camera_close(&s->road_cam);
-  camera_close(&s->wide_road_cam);
-  camera_close(&s->driver_cam);
-
-  delete s->sm;
-  delete s->pm;
 }
 
 // ******************* just a helper *******************
@@ -1081,27 +1008,85 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
   }
 }
 
-void cameras_run(MultiCameraState *s) {
+void MultiCameraState::init() {
+  camera_init(this, &road_cam, CAMERA_ID_AR0231, 1, 20, VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK); // swap left/right
+  printf("road camera initted \n");
+  camera_init(this, &wide_road_cam, CAMERA_ID_AR0231, 0, 20, VISION_STREAM_RGB_WIDE, VISION_STREAM_YUV_WIDE);
+  printf("wide road camera initted \n");
+  camera_init(this, &driver_cam, CAMERA_ID_AR0231, 2, 20, VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
+  printf("driver camera initted \n");
+}
+
+void MultiCameraState::open() {
+  int ret;
+
+  LOG("-- Opening devices");
+  // video0 is req_mgr, the target of many ioctls
+  video0_fd = ::open("/dev/v4l/by-path/platform-soc:qcom_cam-req-mgr-video-index0", O_RDWR | O_NONBLOCK);
+  assert(video0_fd >= 0);
+  LOGD("opened video0");
+
+  // video1 is cam_sync, the target of some ioctls
+  video1_fd = ::open("/dev/v4l/by-path/platform-cam_sync-video-index0", O_RDWR | O_NONBLOCK);
+  assert(video1_fd >= 0);
+  LOGD("opened video1");
+
+  // looks like there's only one of these
+  isp_fd = ::open("/dev/v4l-subdev1", O_RDWR | O_NONBLOCK);
+  assert(isp_fd >= 0);
+  LOGD("opened isp");
+
+  // query icp for MMU handles
+  LOG("-- Query ICP for MMU handles");
+  static struct cam_isp_query_cap_cmd isp_query_cap_cmd = {0};
+  static struct cam_query_cap_cmd query_cap_cmd = {0};
+  query_cap_cmd.handle_type = 1;
+  query_cap_cmd.caps_handle = (uint64_t)&isp_query_cap_cmd;
+  query_cap_cmd.size = sizeof(isp_query_cap_cmd);
+  ret = cam_control(isp_fd, CAM_QUERY_CAP, &query_cap_cmd, sizeof(query_cap_cmd));
+  assert(ret == 0);
+  LOGD("using MMU handle: %x", isp_query_cap_cmd.device_iommu.non_secure);
+  LOGD("using MMU handle: %x", isp_query_cap_cmd.cdm_iommu.non_secure);
+  device_iommu = isp_query_cap_cmd.device_iommu.non_secure;
+  cdm_iommu = isp_query_cap_cmd.cdm_iommu.non_secure;
+
+  // subscribe
+  LOG("-- Subscribing");
+  static struct v4l2_event_subscription sub = {0};
+  sub.type = 0x8000000;
+  sub.id = 2; // should use boot time for sof
+  ret = ioctl(video0_fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
+  printf("req mgr subscribe: %d\n", ret);
+
+  camera_open(&road_cam);
+  printf("road camera opened \n");
+  camera_open(&wide_road_cam);
+  printf("wide road camera opened \n");
+  camera_open(&driver_cam);
+  printf("driver camera opened \n");
+}
+
+void MultiCameraState::run() {
   LOG("-- Starting threads");
   std::vector<std::thread> threads;
-  threads.push_back(std::thread(ae_thread, s));
-  threads.push_back(start_process_thread(s, &s->road_cam, process_road_camera));
-  threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
-  threads.push_back(start_process_thread(s, &s->wide_road_cam, process_road_camera));
+  threads.push_back(std::thread(ae_thread, this));
+  threads.push_back(start_process_thread(this, &road_cam, process_road_camera));
+  threads.push_back(start_process_thread(this, &driver_cam, process_driver_camera));
+  threads.push_back(start_process_thread(this, &wide_road_cam, process_road_camera));
 
   // start devices
   LOG("-- Starting devices");
   int start_reg_len = sizeof(start_reg_array) / sizeof(struct i2c_random_wr_payload);
-  sensors_i2c(&s->road_cam, start_reg_array, start_reg_len, CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
-  sensors_i2c(&s->wide_road_cam, start_reg_array, start_reg_len, CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
-  sensors_i2c(&s->driver_cam, start_reg_array, start_reg_len, CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
+  sensors_i2c(&road_cam, start_reg_array, start_reg_len, CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
+  sensors_i2c(&wide_road_cam, start_reg_array, start_reg_len, CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
+  sensors_i2c(&driver_cam, start_reg_array, start_reg_len, CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
 
   // poll events
   LOG("-- Dequeueing Video events");
   while (!do_exit) {
     struct pollfd fds[1] = {{0}};
 
-    fds[0].fd = s->video0_fd;
+    fds[0].fd = video0_fd;
     fds[0].events = POLLPRI;
 
     int ret = poll(fds, ARRAYSIZE(fds), 1000);
@@ -1120,12 +1105,12 @@ void cameras_run(MultiCameraState *s) {
       // LOGD("v4l2 event: sess_hdl %d, link_hdl %d, frame_id %d, req_id %lld, timestamp 0x%llx, sof_status %d\n", event_data->session_hdl, event_data->u.frame_msg.link_hdl, event_data->u.frame_msg.frame_id, event_data->u.frame_msg.request_id, event_data->u.frame_msg.timestamp, event_data->u.frame_msg.sof_status);
       // printf("sess_hdl %d, link_hdl %d, frame_id %lu, req_id %lu, timestamp 0x%lx, sof_status %d\n", event_data->session_hdl, event_data->u.frame_msg.link_hdl, event_data->u.frame_msg.frame_id, event_data->u.frame_msg.request_id, event_data->u.frame_msg.timestamp, event_data->u.frame_msg.sof_status);
 
-      if (event_data->session_hdl == s->road_cam.req_mgr_session_info.session_hdl) {
-        handle_camera_event(&s->road_cam, event_data);
-      } else if (event_data->session_hdl == s->wide_road_cam.req_mgr_session_info.session_hdl) {
-        handle_camera_event(&s->wide_road_cam, event_data);
-      } else if (event_data->session_hdl == s->driver_cam.req_mgr_session_info.session_hdl) {
-        handle_camera_event(&s->driver_cam, event_data);
+      if (event_data->session_hdl == road_cam.req_mgr_session_info.session_hdl) {
+        handle_camera_event(&road_cam, event_data);
+      } else if (event_data->session_hdl == wide_road_cam.req_mgr_session_info.session_hdl) {
+        handle_camera_event(&wide_road_cam, event_data);
+      } else if (event_data->session_hdl == driver_cam.req_mgr_session_info.session_hdl) {
+        handle_camera_event(&driver_cam, event_data);
       } else {
         printf("Unknown vidioc event source\n");
         assert(false);
@@ -1136,6 +1121,10 @@ void cameras_run(MultiCameraState *s) {
   LOG(" ************** STOPPING **************");
 
   for (auto &t : threads) t.join();
+}
 
-  cameras_close(s);
+void MultiCameraState::close() {
+  camera_close(&road_cam);
+  camera_close(&wide_road_cam);
+  camera_close(&driver_cam);
 }
