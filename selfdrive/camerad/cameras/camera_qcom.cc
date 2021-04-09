@@ -225,7 +225,7 @@ void MultiCameraState::init() {
     stats_bufs[i].allocate(0xb80);
   }
   std::fill_n(lapres, std::size(lapres), 16160);
-  lap_conv = new LapConv(device_id, ctx, road_cam.buf.rgb_width, road_cam.buf.rgb_height, 3);
+  lap_conv = new LapConv(device_id, context, road_cam.buf.rgb_width, road_cam.buf.rgb_height, 3);
 }
 
 static void set_exposure(CameraState *s, float exposure_frac, float gain_frac) {
@@ -1179,7 +1179,7 @@ void MultiCameraState::run() {
   for (auto &t : threads) t.join();
 }
 
-void MultiCameraState::close() {
+void MultiCameraState::~MultiCameraState() {
   camera_close(&road_cam);
   camera_close(&driver_cam);
   for (int i = 0; i < FRAME_BUF_COUNT; i++) {

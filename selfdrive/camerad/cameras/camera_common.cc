@@ -403,7 +403,6 @@ void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, 
 
 CamerasBase::CamerasBase() {
   device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
-
   // TODO: do this for QCOM2 too
 #if defined(QCOM)
   const cl_context_properties props[] = {CL_CONTEXT_PRIORITY_HINT_QCOM, CL_PRIORITY_HINT_HIGH_QCOM, 0};
@@ -418,6 +417,7 @@ CamerasBase::CamerasBase() {
     , "wideRoadCameraState"
 #endif
   });
+
   vipc_server = new VisionIpcServer("camerad", device_id, context);
 
   init();
@@ -426,8 +426,6 @@ CamerasBase::CamerasBase() {
 }
 
 CamerasBase::~CamerasBase() {
-  close();
-  CL_CHECK(clReleaseContext(context));
   delete sm;
   delete pm;
   delete vipc_server;

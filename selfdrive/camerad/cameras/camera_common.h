@@ -92,7 +92,6 @@ public:
   virtual void init() {}
   virtual void open() {}
   virtual void run() {}
-  virtual void close() {}
 
   cl_device_id device_id;
   cl_context context;
@@ -102,7 +101,7 @@ public:
 };
 
 struct CameraState;
-
+class MultiCameraState;
 class CameraBuf {
 private:
   VisionIpcServer *vipc_server;

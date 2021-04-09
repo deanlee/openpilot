@@ -61,11 +61,11 @@ typedef struct CameraState {
 class MultiCameraState : public CamerasBase {
 public:
   MultiCameraState() : CamerasBase() {}
+  virtual ~MultiCameraState();
   void init() override;
   void open() override;
   void run() override;
-  void close() override;
-
+  
   int device;
 
   unique_fd video0_fd;

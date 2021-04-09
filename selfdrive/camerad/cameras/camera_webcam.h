@@ -24,9 +24,10 @@ typedef struct CameraState {
 class MultiCameraState : public CamerasBase {
 public:
   MultiCameraState() : CamerasBase() {}
+  virtual ~MultiCameraState();
   void init() override;
+  void open() override;
   void run() override;
-  void close() override;
 
   CameraState road_cam;
   CameraState driver_cam;

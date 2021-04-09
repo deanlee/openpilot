@@ -59,14 +59,14 @@ void camera_close(CameraState *s) {
   // empty
 }
 
-void camera_init(VisionIpcServer * v, CameraState *s, int camera_id, unsigned int fps, cl_device_id device_id, cl_context ctx, VisionStreamType rgb_type, VisionStreamType yuv_type) {
+void camera_init(MultiCameraState *cameras, CameraState *s, int camera_id, unsigned int fps, VisionStreamType rgb_type, VisionStreamType yuv_type) {
   assert(camera_id < ARRAYSIZE(cameras_supported));
   s->ci = cameras_supported[camera_id];
   assert(s->ci.frame_width != 0);
 
   s->camera_num = camera_id;
   s->fps = fps;
-  s->buf.init(device_id, ctx, s, v, FRAME_BUF_COUNT, rgb_type, yuv_type);
+  s->buf.init(cameras, s, FRAME_BUF_COUNT, rgb_type, yuv_type);
 }
 
 void run_camera(CameraState *s, cv::VideoCapture &video_cap, float *ts) {
@@ -139,20 +139,20 @@ void driver_camera_thread(CameraState *s) {
 }  // namespace
 
 void MultiCameraState::init() {
-  camera_init(this, &s->road_cam, CAMERA_ID_LGC920, 20, VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
-  camera_init(this, &s->driver_cam, CAMERA_ID_LGC615, 10, VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
+  camera_init(this, &road_cam, CAMERA_ID_LGC920, 20, VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
+  camera_init(this, &driver_cam, CAMERA_ID_LGC615, 10, VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
 }
 
 void camera_autoexposure(CameraState *s, float grey_frac) {}
 
-void cameras_open(MultiCameraState *s) {
+void MultiCameraState::open() {
   // LOG("*** open driver camera ***");
-  camera_open(&s->driver_cam, false);
+  camera_open(&driver_cam, false);
   // LOG("*** open road camera ***");
-  camera_open(&s->road_cam, true);
+  camera_open(&road_cam, true);
 }
 
-void MultiCameraState::close() {
+MultiCameraState::~MultiCameraState() {
   camera_close(&road_cam);
   camera_close(&driver_cam);
 }

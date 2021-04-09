@@ -87,13 +87,14 @@ typedef struct CameraState {
 } CameraState;
 
 
-class MultiCameraState : public Cameras{
+class MultiCameraState : public CamerasBase{
 public:
   MultiCameraState () : Cameras() {}
+  virtual  ~MultiCameraState();
   void init() override;
   void open() override;
   void run() override;
-  void close() override;
+  
 
   unique_fd ispif_fd;
   unique_fd msmcfg_fd;
