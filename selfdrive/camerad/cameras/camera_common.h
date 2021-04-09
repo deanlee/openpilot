@@ -39,10 +39,6 @@
 #define HLC_A 80
 #define HISTO_CEIL_K 5
 
-const bool env_send_driver = getenv("SEND_DRIVER") != NULL;
-const bool env_send_road = getenv("SEND_ROAD") != NULL;
-const bool env_send_wide_road = getenv("SEND_WIDE_ROAD") != NULL;
-
 typedef void (*release_cb)(void *cookie, int buf_idx);
 
 typedef struct CameraInfo {
