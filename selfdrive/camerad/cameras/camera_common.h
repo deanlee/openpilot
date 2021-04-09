@@ -88,7 +88,7 @@ typedef struct CameraExpInfo {
 class CamerasBase {
 public:
   CamerasBase();
-  ~CamerasBase();
+  virtual ~CamerasBase();
   virtual void init() {}
   virtual void open() {}
   virtual void run() {}
@@ -100,7 +100,7 @@ public:
   PubMaster *pm;
   VisionIpcServer *vipc_server;
 };
-struct MultiCameraState;
+
 struct CameraState;
 
 class CameraBuf {
@@ -147,8 +147,4 @@ float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip
 std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback);
 void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, int cnt);
 
-void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx);
-void cameras_open(MultiCameraState *s);
-void cameras_run(MultiCameraState *s);
-void cameras_close(MultiCameraState *s);
 void camera_autoexposure(CameraState *s, float grey_frac);
