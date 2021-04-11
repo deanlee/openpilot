@@ -234,6 +234,10 @@ std::string Params::get(const char *key, bool block) {
 
     std::signal(SIGINT, prev_handler_sigint);
     std::signal(SIGTERM, prev_handler_sigterm);
+    if (params_do_exit) {
+      if (prev_handler_sigint) prev_handler_sigint(SIGINT);
+      if (prev_handler_sigterm) prev_handler_sigterm(SIGTERM);
+    }
     return value;
   }
 }
