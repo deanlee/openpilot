@@ -11,7 +11,7 @@ public:
 
   void push(const T& v) {
     {
-      std::unique_lock lk(m);
+      std::lock_guard lk(m);
       q.push(v);
     }
     cv.notify_one();
@@ -27,7 +27,7 @@ public:
 
   bool try_pop(T& v, int timeout_ms = 0) {
     std::unique_lock lk(m);
-    if (!cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [this] { return !q.empty(); })) {
+    if (!cv.wait_for(lk, std::chrono::milliseconds(timeout_ms), [=] { return !q.empty(); })) {
       return false;
     }
     v = q.front();

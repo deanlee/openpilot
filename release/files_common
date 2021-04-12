@@ -353,9 +353,10 @@ selfdrive/ui/qt/widgets/*.hpp
 selfdrive/ui/qt/spinner_aarch64
 selfdrive/ui/qt/text_aarch64
 
+tools/*
 selfdrive/camerad/SConscript
 selfdrive/camerad/main.cc
-
+selfdrive/camerad/test/*
 selfdrive/camerad/snapshot/*
 selfdrive/camerad/include/*
 selfdrive/camerad/cameras/camera_common.h

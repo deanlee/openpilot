@@ -1120,7 +1120,7 @@ void cameras_run(MultiCameraState *s) {
   threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
 
   CameraState* cameras[2] = {&s->road_cam, &s->driver_cam};
-
+  double push_time = 0;
   while (!do_exit) {
     struct pollfd fds[2] = {{.fd = cameras[0]->isp_fd, .events = POLLPRI},
                             {.fd = cameras[1]->isp_fd, .events = POLLPRI}};
@@ -1130,7 +1130,7 @@ void cameras_run(MultiCameraState *s) {
       LOGE("poll failed (%d - %d)", ret, errno);
       break;
     }
-
+    double t1 = millis_since_boot();
     // process cameras
     for (int i=0; i<2; i++) {
       if (!fds[i].revents) continue;
@@ -1146,7 +1146,19 @@ void cameras_run(MultiCameraState *s) {
         const int buffer = (isp_event_data->u.buf_done.stream_id & 0xFFFF) - 1;
         if (buffer == 0) {
           c->buf.camera_bufs_metadata[buf_idx] = get_frame_metadata(c, isp_event_data->frame_id);
-          c->buf.queue(buf_idx);
+          // if (c == &s->driver_cam)
+          // {
+          //   double t1 = millis_since_boot();
+          //   c->buf.queue(buf_idx);
+          //   double t2 = millis_since_boot();
+          //   printf("buf idx :%d, timestamp_eof %d, push time:%f\n", buf_idx, (uint32_t)(c->buf.camera_bufs_metadata[buf_idx].timestamp_eof / 1e6), t2-t1);
+            
+          // } else {
+          //   c->buf.queue(buf_idx);
+          // }
+
+            
+            c->buf.queue(buf_idx);
         } else {
           auto &ss = c->ss[buffer];
           if (buffer == 1) {
@@ -1158,6 +1170,8 @@ void cameras_run(MultiCameraState *s) {
 
       } else if (ev.type == ISP_EVENT_EOF) {
         const uint64_t timestamp = (isp_event_data->mono_timestamp.tv_sec * 1000000000ULL + isp_event_data->mono_timestamp.tv_usec * 1000);
+        // double t1 = millis_since_boot();
+        {
         std::lock_guard lk(c->frame_info_lock);
         c->frame_metadata[c->frame_metadata_idx] = (FrameMetadata){
             .frame_id = isp_event_data->frame_id,
@@ -1172,15 +1186,22 @@ void cameras_run(MultiCameraState *s) {
             .gain_frac = c->cur_gain_frac,
         };
         c->frame_metadata_idx = (c->frame_metadata_idx + 1) % METADATA_BUF_COUNT;
+        }
+        // double t2 = millis_since_boot();
+        // printf("frame lock time %u, %f*\n", (uint32_t)(timestamp/ 1e6), t2 - t1);
 
       } else if (ev.type == ISP_EVENT_ERROR) {
         LOGE("ISP_EVENT_ERROR! err type: 0x%08x", isp_event_data->u.error_info.err_type);
       }
     }
+    double t2 = millis_since_boot();
+    push_time += t2 - t1;
+    printf("push time is %f\n", push_time);
   }
 
   LOG(" ************** STOPPING **************");
-
+  s->road_cam.buf.stop();
+  s->driver_cam.buf.stop();
   for (auto &t : threads) t.join();
 
   cameras_close(s);

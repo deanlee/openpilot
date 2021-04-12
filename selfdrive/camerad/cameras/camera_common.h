@@ -119,9 +119,10 @@ public:
   CameraBuf() = default;
   ~CameraBuf();
   void init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt, VisionStreamType rgb_type, VisionStreamType yuv_type, release_cb release_callback=nullptr);
-  bool acquire();
+  bool acquire(bool road);
   void release();
   void queue(size_t buf_idx);
+  void stop() { safe_queue.push(-1); }
 };
 
 typedef void (*process_thread_cb)(MultiCameraState *s, CameraState *c, int cnt);

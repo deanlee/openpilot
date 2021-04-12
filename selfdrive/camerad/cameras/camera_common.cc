@@ -104,9 +104,13 @@ CameraBuf::~CameraBuf() {
   if (q) CL_CHECK(clReleaseCommandQueue(q));
 }
 
-bool CameraBuf::acquire() {
-  if (!safe_queue.try_pop(cur_buf_idx, 20)) return false;
-
+bool CameraBuf::acquire(bool road) {
+  double t1 = millis_since_boot();
+  if (!safe_queue.try_pop(cur_buf_idx, 50)) return false;
+  double t2 = millis_since_boot();
+  if(!road) {
+    printf("pop time is %f\n", t2-t1);
+  }
   if (camera_bufs_metadata[cur_buf_idx].frame_id == -1) {
     LOGE("no frame data? wtf");
     release();
@@ -330,7 +334,7 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
 
   uint32_t cnt = 0;
   while (!do_exit) {
-    if (!cs->buf.acquire()) continue;
+    if (!cs->buf.acquire(cs == &cameras->road_cam)) continue;
 
     callback(cameras, cs, cnt);
 
