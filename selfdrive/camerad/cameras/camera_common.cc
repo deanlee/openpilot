@@ -105,12 +105,12 @@ CameraBuf::~CameraBuf() {
 }
 
 bool CameraBuf::acquire(bool road) {
-  double t1 = millis_since_boot();
+  // double t1 = millis_since_boot();
   if (!safe_queue.try_pop(cur_buf_idx, 50)) return false;
-  double t2 = millis_since_boot();
-  if(!road) {
-    printf("pop time is %f\n", t2-t1);
-  }
+  // double t2 = millis_since_boot();
+  // if(!road) {
+    // printf("pop time is %f\n", t2-t1);
+  // }
   if (camera_bufs_metadata[cur_buf_idx].frame_id == -1) {
     LOGE("no frame data? wtf");
     release();

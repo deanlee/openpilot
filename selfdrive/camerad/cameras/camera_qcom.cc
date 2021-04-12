@@ -1120,7 +1120,7 @@ void cameras_run(MultiCameraState *s) {
   threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
 
   CameraState* cameras[2] = {&s->road_cam, &s->driver_cam};
-  double push_time = 0;
+  double prev_time = millis_since_boot();
   while (!do_exit) {
     struct pollfd fds[2] = {{.fd = cameras[0]->isp_fd, .events = POLLPRI},
                             {.fd = cameras[1]->isp_fd, .events = POLLPRI}};
@@ -1130,7 +1130,7 @@ void cameras_run(MultiCameraState *s) {
       LOGE("poll failed (%d - %d)", ret, errno);
       break;
     }
-    double t1 = millis_since_boot();
+    // double t1 = millis_since_boot();
     // process cameras
     for (int i=0; i<2; i++) {
       if (!fds[i].revents) continue;
@@ -1139,6 +1139,9 @@ void cameras_run(MultiCameraState *s) {
 
       struct v4l2_event ev = {};
       ret = ioctl(c->isp_fd, VIDIOC_DQEVENT, &ev);
+      if (ret == -1) {
+        assert(ret);
+      }
       const msm_isp_event_data *isp_event_data = (const msm_isp_event_data *)ev.u.data;
 
       if (ev.type == ISP_EVENT_BUF_DIVERT) {
@@ -1186,6 +1189,12 @@ void cameras_run(MultiCameraState *s) {
             .gain_frac = c->cur_gain_frac,
         };
         c->frame_metadata_idx = (c->frame_metadata_idx + 1) % METADATA_BUF_COUNT;
+
+        }
+        if (c == &s->road_cam) {
+          double cur = millis_since_boot();
+          printf("current time %f\n", cur - prev_time);
+          prev_time =
         }
         // double t2 = millis_since_boot();
         // printf("frame lock time %u, %f*\n", (uint32_t)(timestamp/ 1e6), t2 - t1);
@@ -1194,9 +1203,9 @@ void cameras_run(MultiCameraState *s) {
         LOGE("ISP_EVENT_ERROR! err type: 0x%08x", isp_event_data->u.error_info.err_type);
       }
     }
-    double t2 = millis_since_boot();
-    push_time += t2 - t1;
-    printf("push time is %f\n", push_time);
+    // double t2 = millis_since_boot();
+    // push_time += t2 - t1;
+    // printf("push time is %f\n", push_time);
   }
 
   LOG(" ************** STOPPING **************");

@@ -39,7 +39,7 @@ class TestCamerad(unittest.TestCase):
     last_frame_id = dict.fromkeys(CAMERAS, None)
     last_ts = dict.fromkeys(CAMERAS, None)
     start_time_sec = time.time()
-    while time.time()- start_time_sec < TEST_TIMESPAN:
+    while True:#time.time()- start_time_sec < TEST_TIMESPAN:
       sm.update()
 
       for camera in CAMERAS:
@@ -54,7 +54,7 @@ class TestCamerad(unittest.TestCase):
           self.assertTrue(abs(dfid - 1) <= SKIP_FRAME_TOLERANCE, "%s frame id diff is %d" % (camera, dfid))
 
           dts = ct - last_ts[camera]
-          print(ct, last_ts[camera])
+          print(camera, ct, last_ts[camera], dts)
           self.assertTrue(abs(dts - (1000/CAMERAS[camera])) < LAG_FRAME_TOLERANCE, "%s frame t(ms) diff is %f" % (camera, dts))
 
           last_frame_id[camera] = sm[camera].frameId
