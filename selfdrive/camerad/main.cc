@@ -9,8 +9,6 @@
 #endif
 #include "common/util.h"
 
-ExitHandler do_exit;
-
 int main(int argc, char *argv[]) {
   set_realtime_priority(53);
   if (Hardware::EON()) {
