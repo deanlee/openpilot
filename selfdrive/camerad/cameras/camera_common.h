@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <memory>
 #include <thread>
+#include <jpeglib.h>
 #include "common/mat.h"
 #include "common/swaglog.h"
 #include "common/queue.h"
@@ -87,6 +88,20 @@ typedef struct CameraExpInfo {
 
 struct MultiCameraState;
 struct CameraState;
+
+class JpegThumbnail {
+public:
+  JpegThumbnail();
+  ~JpegThumbnail();
+  std::tuple<const uint8_t *, size_t> Generate(uint8_t *bgr_ptr, int width, int height, int stride);
+
+private:
+  std::vector<unsigned char> row_;
+  struct jpeg_compress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  unsigned char *thumb_;
+  size_t thumb_len_;
+};
 
 class CameraBuf {
 private:

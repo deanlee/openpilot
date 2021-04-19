@@ -214,21 +214,32 @@ kj::Array<uint8_t> get_frame_image(const CameraBuf *b) {
   return kj::mv(frame_image);
 }
 
-static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
-  uint8_t* thumbnail_buffer = NULL;
-  unsigned long thumbnail_len = 0;
+// JpegThumbnail
 
-  unsigned char *row = (unsigned char *)malloc(b->rgb_width/4*3);
-
-  struct jpeg_compress_struct cinfo;
-  struct jpeg_error_mgr jerr;
-
+JpegThumbnail::JpegThumbnail() : thumb_(nullptr), thumb_len_(0){
   cinfo.err = jpeg_std_error(&jerr);
   jpeg_create_compress(&cinfo);
-  jpeg_mem_dest(&cinfo, &thumbnail_buffer, &thumbnail_len);
+  jpeg_mem_dest(&cinfo, &thumb_, &thumb_len_);
+}
 
-  cinfo.image_width = b->rgb_width / 4;
-  cinfo.image_height = b->rgb_height / 4;
+JpegThumbnail::~JpegThumbnail() {
+  jpeg_destroy_compress(&cinfo);
+  free(thumb_);
+}
+
+std::tuple<const uint8_t *, u_long> JpegThumbnail::Generate(uint8_t *bgr_ptr, int width, int height, int stride) {
+  row_.resize(width/4*3);
+  unsigned char *row = row_.data();
+
+  // struct jpeg_compress_struct cinfo;
+  // struct jpeg_error_mgr jerr;
+
+  // cinfo.err = jpeg_std_error(&jerr);
+  // jpeg_create_compress(&cinfo);
+  // jpeg_mem_dest(&cinfo, &thumb_, &thumb_len_);
+
+  cinfo.image_width = width / 4;
+  cinfo.image_height = height / 4;
   cinfo.input_components = 3;
   cinfo.in_color_space = JCS_RGB;
 
@@ -240,41 +251,139 @@ static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
   jpeg_set_quality(&cinfo, 50, static_cast<boolean>(true) );
   jpeg_start_compress(&cinfo, static_cast<boolean>(true) );
 #endif
-
+  double t1 = millis_since_boot();
   JSAMPROW row_pointer[1];
-  const uint8_t *bgr_ptr = (const uint8_t *)b->cur_rgb_buf->addr;
-  for (int ii = 0; ii < b->rgb_height/4; ii+=1) {
-    for (int j = 0; j < b->rgb_width*3; j+=12) {
+  // const uint8_t *bgr_ptr = (const uint8_t *)b->cur_rgb_buf->addr;
+  for (int ii = 0; ii < height/4; ii+=1) {
+    unsigned char *buf = bgr_ptr + stride * ii * 4;
+    for (int j = 0; j < width*3; j+=12) {
       for (int k = 0; k < 3; k++) {
-        uint16_t dat = 0;
-        int i = ii * 4;
-        dat += bgr_ptr[b->rgb_stride*i + j + k];
-        dat += bgr_ptr[b->rgb_stride*i + j+3 + k];
-        dat += bgr_ptr[b->rgb_stride*(i+1) + j + k];
-        dat += bgr_ptr[b->rgb_stride*(i+1) + j+3 + k];
-        dat += bgr_ptr[b->rgb_stride*(i+2) + j + k];
-        dat += bgr_ptr[b->rgb_stride*(i+2) + j+3 + k];
-        dat += bgr_ptr[b->rgb_stride*(i+3) + j + k];
-        dat += bgr_ptr[b->rgb_stride*(i+3) + j+3 + k];
+        unsigned char *b = buf + j + k;
+        uint16_t dat = *b + *(b+3);
+        b+= stride;
+        dat += *b + *(b+3);
+        b+=stride;
+        dat += *b + *(b+3);
+        b+= stride;
+        dat += *b + *(b+3);
+        // int i = ii * 4;
+        // dat += b[j + k];
+        // dat += b[j+3 + k];
+        // dat += b[stride + j + k];
+        // dat += b[stride + j+3 + k];
+        // dat += b[stride*2 + j + k];
+        // dat += b[stride*2 + j+3 + k];
+        // dat += b[stride*3 + j + k];
+        // dat += b[stride*3 + j+3 + k];
+        // dat += bgr_ptr[stride*i + j + k];
+        // dat += bgr_ptr[stride*i + j+3 + k];
+        // dat += bgr_ptr[stride*(i+1) + j + k];
+        // dat += bgr_ptr[stride*(i+1) + j+3 + k];
+        // dat += bgr_ptr[stride*(i+2) + j + k];
+        // dat += bgr_ptr[stride*(i+2) + j+3 + k];
+        // dat += bgr_ptr[stride*(i+3) + j + k];
+        // dat += bgr_ptr[stride*(i+3) + j+3 + k];
         row[(j/4) + (2-k)] = dat/8;
       }
     }
     row_pointer[0] = row;
     jpeg_write_scanlines(&cinfo, row_pointer, 1);
   }
+  double t2 = millis_since_boot();
+  printf("compress time it %f ***\n", t2 - t1);
   jpeg_finish_compress(&cinfo);
-  jpeg_destroy_compress(&cinfo);
-  free(row);
+  // jpeg_destroy_compress(&cinfo);
 
+  return {thumb_, thumb_len_};
+}
+
+static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
+  JpegThumbnail thumbnail;
+  double t1 = millis_since_boot();
+  
+  auto[thumb, thumb_len] = thumbnail.Generate((uint8_t*)b->cur_rgb_buf->addr, b->rgb_width, b->rgb_height, b->rgb_stride);
+  double t2 = millis_since_boot();
+  printf("thumbnail time is %f **\n", t2-t1);
+  FILE *f = fopen("/home/deanlee/thumbnail.jpg", "wb");
+  fwrite((const uint8_t*)thumb, 1, thumb_len, f);
+  fclose(f);
   MessageBuilder msg;
   auto thumbnaild = msg.initEvent().initThumbnail();
   thumbnaild.setFrameId(b->cur_frame_data.frame_id);
   thumbnaild.setTimestampEof(b->cur_frame_data.timestamp_eof);
-  thumbnaild.setThumbnail(kj::arrayPtr((const uint8_t*)thumbnail_buffer, thumbnail_len));
+  thumbnaild.setThumbnail(kj::arrayPtr((const uint8_t*)thumb, thumb_len));
 
   pm->send("thumbnail", msg);
-  free(thumbnail_buffer);
+  // free(thumbnail_buffer);
 }
+
+// static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
+//   double t1 = millis_since_boot();
+//   uint8_t* thumbnail_buffer = NULL;
+//   unsigned long thumbnail_len = 0;
+
+//   unsigned char *row = (unsigned char *)malloc(b->rgb_width/4*3);
+
+//   struct jpeg_compress_struct cinfo;
+//   struct jpeg_error_mgr jerr;
+
+//   cinfo.err = jpeg_std_error(&jerr);
+//   jpeg_create_compress(&cinfo);
+//   jpeg_mem_dest(&cinfo, &thumbnail_buffer, &thumbnail_len);
+
+//   cinfo.image_width = b->rgb_width / 4;
+//   cinfo.image_height = b->rgb_height / 4;
+//   cinfo.input_components = 3;
+//   cinfo.in_color_space = JCS_RGB;
+
+//   jpeg_set_defaults(&cinfo);
+// #ifndef __APPLE__
+//   jpeg_set_quality(&cinfo, 50, true);
+//   jpeg_start_compress(&cinfo, true);
+// #else
+//   jpeg_set_quality(&cinfo, 50, static_cast<boolean>(true) );
+//   jpeg_start_compress(&cinfo, static_cast<boolean>(true) );
+// #endif
+
+//   JSAMPROW row_pointer[1];
+//   const uint8_t *bgr_ptr = (const uint8_t *)b->cur_rgb_buf->addr;
+//   for (int ii = 0; ii < b->rgb_height/4; ii+=1) {
+//     for (int j = 0; j < b->rgb_width*3; j+=12) {
+//       for (int k = 0; k < 3; k++) {
+//         uint16_t dat = 0;
+//         int i = ii * 4;
+//         dat += bgr_ptr[b->rgb_stride*i + j + k];
+//         dat += bgr_ptr[b->rgb_stride*i + j+3 + k];
+//         dat += bgr_ptr[b->rgb_stride*(i+1) + j + k];
+//         dat += bgr_ptr[b->rgb_stride*(i+1) + j+3 + k];
+//         dat += bgr_ptr[b->rgb_stride*(i+2) + j + k];
+//         dat += bgr_ptr[b->rgb_stride*(i+2) + j+3 + k];
+//         dat += bgr_ptr[b->rgb_stride*(i+3) + j + k];
+//         dat += bgr_ptr[b->rgb_stride*(i+3) + j+3 + k];
+//         row[(j/4) + (2-k)] = dat/8;
+//       }
+//     }
+//     row_pointer[0] = row;
+//     jpeg_write_scanlines(&cinfo, row_pointer, 1);
+//   }
+//   jpeg_finish_compress(&cinfo);
+//   jpeg_destroy_compress(&cinfo);
+//   free(row);
+
+//   double t2 = millis_since_boot();
+//   printf("thumbnail time is %f **\n", t2-t1);
+//   FILE *f = fopen("/home/deanlee/thumbnail.jpg", "wb");
+//   fwrite((const uint8_t*)thumbnail_buffer, 1, thumbnail_len, f);
+//   fclose(f);
+//   MessageBuilder msg;
+//   auto thumbnaild = msg.initEvent().initThumbnail();
+//   thumbnaild.setFrameId(b->cur_frame_data.frame_id);
+//   thumbnaild.setTimestampEof(b->cur_frame_data.timestamp_eof);
+//   thumbnaild.setThumbnail(kj::arrayPtr((const uint8_t*)thumbnail_buffer, thumbnail_len));
+
+//   pm->send("thumbnail", msg);
+//   free(thumbnail_buffer);
+// }
 
 float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip, int y_start, int y_end, int y_skip, int analog_gain, bool hist_ceil, bool hl_weighted) {
   const uint8_t *pix_ptr = b->cur_yuv_buf->y;
@@ -332,7 +441,7 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
 
     callback(cameras, cs, cnt);
 
-    if (cs == &(cameras->road_cam) && cameras->pm && cnt % 100 == 3) {
+    if (cs == &(cameras->road_cam) && cameras->pm && cnt % 10 == 0) {
       // this takes 10ms???
       publish_thumbnail(cameras->pm, &(cs->buf));
     }
