@@ -40,7 +40,7 @@ HomeWindow::HomeWindow(QWidget* parent) : QWidget(parent) {
   home = new OffroadHome();
   layout->addWidget(home);
 
-  driver_view = new DriverViewWindow();
+  driver_view = new DriverViewWindow(this);
   layout->addWidget(driver_view);
 
   QObject::connect(glWindow, SIGNAL(offroadTransition(bool)), home, SLOT(setVisible(bool)));
@@ -333,7 +333,7 @@ void GLWindow::wake() {
 DriverViewWindow::DriverViewWindow(QWidget *parent) : QOpenGLWidget(parent), sm({"driverState"}) {
   timer = new QTimer(this);
   QObject::connect(timer, SIGNAL(timeout()), this, SLOT(timerUpdate()));
-  vision = new UIVision(vwp_w, vwp_h, 1, Vision::CAM_DRIVER);
+  vision = new UIVision(vwp_w, vwp_h, 1, UIVision::CAM_DRIVER);
 }
 
 DriverViewWindow::~DriverViewWindow() {
