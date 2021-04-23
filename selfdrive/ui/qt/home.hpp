@@ -55,6 +55,20 @@ public slots:
   void backlightUpdate();
 };
 
+class DriverViewWindow : public QOpenGLWidget, protected QOpenGLFunctions {
+  Q_OBJECT
+public:
+  DriverViewWindow(QWidget *parent);
+  ~DriverViewWindow();
+public slots:
+  void timerUpdate();
+
+private:
+  SubMaster sm;
+  UIVision *vision;
+  QTimer *timer;
+};
+
 // offroad home screen
 class OffroadHome : public QWidget {
   Q_OBJECT
@@ -93,5 +107,6 @@ protected:
 
 private:
   OffroadHome* home;
+  DriverViewWindow *driver_view;
   QStackedLayout* layout;
 };

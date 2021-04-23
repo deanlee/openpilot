@@ -40,6 +40,9 @@ HomeWindow::HomeWindow(QWidget* parent) : QWidget(parent) {
   home = new OffroadHome();
   layout->addWidget(home);
 
+  driver_view = new DriverViewWindow();
+  layout->addWidget(driver_view);
+
   QObject::connect(glWindow, SIGNAL(offroadTransition(bool)), home, SLOT(setVisible(bool)));
   QObject::connect(glWindow, SIGNAL(offroadTransition(bool)), this, SIGNAL(offroadTransition(bool)));
   QObject::connect(glWindow, SIGNAL(screen_shutoff()), this, SIGNAL(closeSettings()));
@@ -280,7 +283,7 @@ void GLWindow::backlightUpdate() {
 
 void GLWindow::timerUpdate() {
   // Connecting to visionIPC requires opengl to be current
-  if (!ui_state.vipc_client->connected){
+  if (!ui_state.vision){
     makeCurrent();
   }
 
@@ -324,4 +327,25 @@ void GLWindow::paintGL() {
 
 void GLWindow::wake() {
   handle_display_state(&ui_state, true);
+}
+
+// DriverViewWindow
+DriverViewWindow::DriverViewWindow(QWidget *parent) : QOpenGLWidget(parent), sm({"driverState"}) {
+  timer = new QTimer(this);
+  QObject::connect(timer, SIGNAL(timeout()), this, SLOT(timerUpdate()));
+  vision = new UIVision(vwp_w, vwp_h, 1, Vision::CAM_DRIVER);
+}
+
+DriverViewWindow::~DriverViewWindow() {
+  delete vision;
+}
+
+
+void DriverViewWindow::timerUpdate() {
+  sm.update(0);
+  if (sm.updated("driverState")) {
+
+  }
+  vision->update();
+  vision->draw();
 }
