@@ -60,13 +60,15 @@ class DriverViewWindow : public QOpenGLWidget, protected QOpenGLFunctions {
 public:
   DriverViewWindow(QWidget *parent);
   ~DriverViewWindow();
+  QTimer *timer;
 public slots:
   void timerUpdate();
 
 private:
+  void initializeGL() override;
   SubMaster sm;
   UIVision *vision;
-  QTimer *timer;
+  
 };
 
 // offroad home screen
@@ -96,6 +98,10 @@ class HomeWindow : public QWidget {
 public:
   explicit HomeWindow(QWidget* parent = 0);
   GLWindow* glWindow;
+  DriverViewWindow *driver_view;
+
+public slots:
+  void driverView();
 
 signals:
   void openSettings();
@@ -107,6 +113,6 @@ protected:
 
 private:
   OffroadHome* home;
-  DriverViewWindow *driver_view;
+  
   QStackedLayout* layout;
 };

@@ -53,10 +53,14 @@ HomeWindow::HomeWindow(QWidget* parent) : QWidget(parent) {
 
 void HomeWindow::mousePressEvent(QMouseEvent* e) {
   UIState* ui_state = &glWindow->ui_state;
-  if (GLWindow::ui_state.scene.driver_view) {
+  // if (GLWindow::ui_state.scene.driver_view) {
+  //   Params().putBool("IsDriverViewEnabled", false);
+  //   GLWindow::ui_state.scene.driver_view = false;
+  //   return;
+  // }
+  if (layout->currentIndex() == 2) {
     Params().putBool("IsDriverViewEnabled", false);
-    GLWindow::ui_state.scene.driver_view = false;
-    return;
+    layout->setCurrentIndex(0);
   }
 
   glWindow->wake();
@@ -72,6 +76,13 @@ void HomeWindow::mousePressEvent(QMouseEvent* e) {
   }
 }
 
+void HomeWindow::driverView() {
+  printf("driverView view **\n\n");
+  Params().putBool("IsDriverViewEnabled", true);
+  layout->setCurrentIndex(2);
+  emit glWindow->offroadTransition(false);
+  driver_view->timer->start(0);
+}
 
 // OffroadHome: the offroad home page
 
@@ -333,19 +344,32 @@ void GLWindow::wake() {
 DriverViewWindow::DriverViewWindow(QWidget *parent) : QOpenGLWidget(parent), sm({"driverState"}) {
   timer = new QTimer(this);
   QObject::connect(timer, SIGNAL(timeout()), this, SLOT(timerUpdate()));
-  vision = new UIVision(vwp_w, vwp_h, 1, UIVision::CAM_DRIVER);
 }
 
 DriverViewWindow::~DriverViewWindow() {
   delete vision;
 }
 
+void DriverViewWindow::initializeGL() {
+  printf("here1 ***\n\n\n");
+  vision = new UIVision(vwp_w, vwp_h, 1, UIVision::CAM_DRIVER);
+  printf("here2 ***\n\n\n");
+  // timer->start(0);
+}
 
 void DriverViewWindow::timerUpdate() {
-  sm.update(0);
-  if (sm.updated("driverState")) {
+  // sm.update(0);
+  // if (sm.updated("driverState")) {
 
-  }
+  // }
+  if (vision) {
+    printf("here\n\n");
   vision->update();
+  printf("here2\n\n");
+  glEnable(GL_SCISSOR_TEST);
+  glViewport(0, 0, vwp_w, vwp_h);
   vision->draw();
+  printf("here3\n\n");
+  glDisable(GL_SCISSOR_TEST);
+  }
 }

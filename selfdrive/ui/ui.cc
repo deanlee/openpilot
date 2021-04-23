@@ -29,7 +29,7 @@ static bool calib_frame_to_full_frame(const UIState *s, float in_x, float in_y, 
 void ui_init(UIState *s) {
   s->sm = new SubMaster({
     "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "liveLocationKalman",
-    "pandaState", "carParams", "driverState", "driverMonitoringState", "sensorEvents", "carState", "ubloxGnss",
+    "pandaState", "carParams", "driverMonitoringState", "sensorEvents", "carState", "ubloxGnss",
 #ifdef QCOM2
     "roadCameraState",
 #endif
@@ -177,9 +177,9 @@ static void update_state(UIState *s) {
   if (sm.updated("carParams")) {
     scene.longitudinal_control = sm["carParams"].getCarParams().getOpenpilotLongitudinalControl();
   }
-  if (sm.updated("driverState")) {
-    scene.driver_state = sm["driverState"].getDriverState();
-  }
+  // if (sm.updated("driverState")) {
+  //   scene.driver_state = sm["driverState"].getDriverState();
+  // }
   if (sm.updated("driverMonitoringState")) {
     scene.dmonitoring_state = sm["driverMonitoringState"].getDriverMonitoringState();
   }

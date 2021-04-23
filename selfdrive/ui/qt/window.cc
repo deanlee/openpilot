@@ -20,6 +20,7 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   QObject::connect(homeWindow, SIGNAL(offroadTransition(bool)), settingsWindow, SIGNAL(offroadTransition(bool)));
   QObject::connect(settingsWindow, SIGNAL(closeSettings()), this, SLOT(closeSettings()));
   QObject::connect(settingsWindow, SIGNAL(reviewTrainingGuide()), this, SLOT(reviewTrainingGuide()));
+  QObject::connect(settingsWindow, SIGNAL(driverView()), homeWindow, SLOT(driverView()));
 
   // start at onboarding
   main_layout->setCurrentWidget(onboardingWindow);
