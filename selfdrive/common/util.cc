@@ -1,8 +1,14 @@
-#include <errno.h>
-#include <sstream>
 
 #include "common/util.h"
 
+#include <string.h>
+#include <cstdio>
+#include <sstream>
+#include <thread>
+#include <csignal>
+#include <chrono>
+#include <fstream>
+#include <atomic>
 #ifdef __linux__
 #include <sys/prctl.h>
 #include <sys/syscall.h>
@@ -81,4 +87,77 @@ int write_file(const char* path, const void* data, size_t size, int flags, mode_
   return (n >= 0 && (size_t)n == size) ? 0 : -1;
 }
 
+void sleep_for(const int milliseconds) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+}
+
+bool file_exists(const std::string& fn) {
+  std::ifstream f(fn);
+  return f.good();
+}
+
+std::string readlink(const std::string &path) {
+  char buff[4096];
+  ssize_t len = ::readlink(path.c_str(), buff, sizeof(buff)-1);
+  if (len != -1) {
+    buff[len] = '\0';
+    return std::string(buff);
+  }
+  return "";
+}
+
+std::string getenv_default(const char* env_var, const char * suffix, const char* default_val) {
+  const char* env_val = getenv(env_var);
+  if (env_val != NULL){
+    return std::string(env_val) + std::string(suffix);
+  } else {
+    return std::string(default_val);
+  }
+}
+
 }  // namespace util
+
+// class ExitHandler
+
+#ifndef sighandler_t
+typedef void (*sighandler_t)(int sig);
+#endif
+
+struct ExitHandler::PrivateData {
+  std::atomic<bool> do_exit = false;
+  std::atomic<bool> power_failure = false;
+};
+
+ExitHandler::ExitHandler() {
+  if (!d) d = new PrivateData;
+
+  std::signal(SIGINT, (sighandler_t)set_do_exit);
+  std::signal(SIGTERM, (sighandler_t)set_do_exit);
+
+#ifndef __APPLE__
+  std::signal(SIGPWR, (sighandler_t)set_do_exit);
+#endif
+}
+
+ExitHandler::~ExitHandler() {
+  delete d;
+}
+
+ExitHandler::operator bool() { 
+  return d->do_exit; 
+}
+
+ExitHandler& ExitHandler::operator=(bool v) {
+  d->do_exit = v;
+  return *this;
+}
+bool ExitHandler::power_failure() {
+  return d->power_failure;
+}
+
+void ExitHandler::set_do_exit(int sig) {
+#ifndef __APPLE__
+  d->power_failure = (sig == SIGPWR);
+#endif
+  d->do_exit = true;
+}

@@ -1,4 +1,6 @@
 #include "locationd.h"
+#include <assert.h>
+#include <thread>
 
 using namespace EKFS;
 using namespace Eigen;

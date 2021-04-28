@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "messaging.hpp"
 #include "common/util.h"
 #include "common/swaglog.h"

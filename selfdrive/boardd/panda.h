@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <pthread.h>
 #include <mutex>
+#include <atomic>
 #include <vector>
 #include <optional>
 

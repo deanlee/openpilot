@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mutex>
+#include <thread>
 #include <eigen3/Eigen/Dense>
 
 #include "visionipc_client.h"
