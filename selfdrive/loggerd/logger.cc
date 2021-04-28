@@ -19,6 +19,7 @@
 #include "common/swaglog.h"
 #include "common/params.h"
 #include "common/version.h"
+#include "hardware/hw.h"
 #include "messaging.hpp"
 #include "logger.h"
 
@@ -53,9 +54,9 @@ kj::Array<capnp::word> logger_build_init_data() {
   MessageBuilder msg;
   auto init = msg.initEvent().initInitData();
 
-  if (util::file_exists("/EON")) {
+  if (EON) {
     init.setDeviceType(cereal::InitData::DeviceType::NEO);
-  } else if (util::file_exists("/TICI")) {
+  } else if (TICI) {
     init.setDeviceType(cereal::InitData::DeviceType::TICI);
   } else {
     init.setDeviceType(cereal::InitData::DeviceType::PC);

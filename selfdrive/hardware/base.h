@@ -2,7 +2,7 @@
 
 #include <cstdlib>
 #include <fstream>
-
+#include "util.h"
 
 // no-op base hw class
 class HardwareNone {
@@ -20,3 +20,7 @@ public:
   static bool get_ssh_enabled() { return false; };
   static void set_ssh_enabled(bool enabled) {};
 };
+
+const bool EON = util::file_exists("/EON");
+const bool TICI = util::file_exists("/EON");
+const bool PC = !(EON || TICI);
