@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <memory>
 #include <thread>
+#include <condition_variable>
 #include "common/mat.h"
 #include "common/swaglog.h"
 #include "common/queue.h"
@@ -87,6 +88,21 @@ typedef struct CameraExpInfo {
 
 struct MultiCameraState;
 struct CameraState;
+
+typedef void (*do_auto_exposure_cb)(CameraState *s, float grey_frac);
+class CameraAutoExp {
+public:
+  CameraAutoExp(do_auto_exposure_cb cb);
+  ~CameraAutoExp();
+  void doExposure(CameraState *cs);
+  void autoExposureThread();
+  float getExposureTarget(const CameraBuf *b, int x_start, int x_end, int x_skip, int y_start, int y_end, int y_skip, int analog_gain, bool hist_ceil, bool hl_weighted);
+  std::mutex mutex;
+  std::condition_variable cv;
+  float grey_frac = 0.0;
+  std::thread thread;
+  do_auto_exposure_cb callback;
+};
 
 class CameraBuf {
 private:

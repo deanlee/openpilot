@@ -276,7 +276,131 @@ static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
   free(thumbnail_buffer);
 }
 
-float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip, int y_start, int y_end, int y_skip, int analog_gain, bool hist_ceil, bool hl_weighted) {
+extern ExitHandler do_exit;
+void driver_cam_auto_exposure(CameraServer *s, CameraState *c);
+void road_cam_auto_exposure(CameraServer *s, CameraState *c);
+
+void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
+  const char *thread_name = nullptr;
+  if (cs == &cameras->road_cam) {
+    thread_name = "RoadCamera";
+  } else if (cs == &cameras->driver_cam) {
+    thread_name = "DriverCamera";
+  } else {
+    thread_name = "WideRoadCamera";
+  }
+  set_thread_name(thread_name);
+
+  uint32_t cnt = 0;
+  while (!do_exit) {
+    if (!cs->buf.acquire()) continue;
+
+    callback(cameras, cs, cnt);
+
+    if (cs == &(cameras->road_cam) && cameras->pm && cnt % 100 == 3) {
+      // this takes 10ms???
+      publish_thumbnail(cameras->pm, &(cs->buf));
+    }
+
+    if (cnt % 3 == 0) {
+      driver_cam_auto_exposure(c);
+    }
+    cs->buf.release();
+    ++cnt;
+  }
+  return NULL;
+}
+
+std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
+  return std::thread(processing_thread, cameras, cs, callback);
+}
+
+static void driver_cam_auto_exposure(CameraServer *s, CameraState *c) {
+  static const bool is_rhd = Params().getBool("IsRHD");
+  struct ExpRect {int x1, x2, x_skip, y1, y2, y_skip;};
+  const CameraBuf *b = &c->buf;
+#ifndef QCOM2
+  bool hist_ceil = false, hl_weighted = false;
+  int analog_gain = -1;
+  const int x_offset = 0, y_offset = 0;
+  const int frame_width = b->rgb_width, frame_height = b->rgb_height;
+  const ExpRect def_rect = {is_rhd ? 0 : b->rgb_width * 3 / 5, is_rhd ? b->rgb_width * 2 / 5 : b->rgb_width, 2,
+                         b->rgb_height / 3, b->rgb_height, 1};
+#else
+  bool hist_ceil = true, hl_weighted = true;
+  int analog_gain = (int)c->analog_gain;
+  const int x_offset = 630, y_offset = 156;
+  const int frame_width = 668, frame_height = frame_width / 1.33;
+  const ExpRect def_rect = {96, 1832, 2, 242, 1148, 4};
+#endif
+
+  static ExpRect rect = def_rect;
+  // use driver face crop for AE
+  s->sm->update();
+  if (s->sm->updated("driverState")) {
+    if (auto state = (*sm)["driverState"].getDriverState(); state.getFaceProb() > 0.4) {
+      auto face_position = state.getFacePosition();
+      int x = is_rhd ? 0 : frame_width - (0.5 * frame_height);
+      x += (face_position[0] * (is_rhd ? -1.0 : 1.0) + 0.5) * (0.5 * frame_height) + x_offset;
+      int y = (face_position[1] + 0.5) * frame_height + y_offset;
+      rect = {std::max(0, x - 72), std::min(b->rgb_width - 1, x + 72), 2,
+              std::max(0, y - 72), std::min(b->rgb_height - 1, y + 72), 1};
+    } else {
+      rect = def_rect;
+    }
+  }
+
+  camera_autoexposure(c, set_exposure_target(b, rect.x1, rect.x2, rect.x_skip, rect.y1, rect.y2, rect.y_skip, analog_gain, hist_ceil, hl_weighted));
+}
+
+void road_cam_auto_exposure(CameraServer *s, CameraState *c) {
+  if (!wide) {
+  const int x = 290, y = 322, width = 560, height = 314;
+    const int skip = 1;
+    camera_autoexposure(c, set_exposure_target(b, x, x + width, skip, y, y + height, skip, -1, false, false));
+  } else {
+     const auto [x, y, w, h] = (c == &s->wide_road_cam) ? std::tuple(96, 250, 1734, 524) : std::tuple(96, 160, 1734, 986);
+    const int skip = 2;
+    camera_autoexposure(c, set_exposure_target(b, x, x + w, skip, y, y + h, skip, (int)c->analog_gain, true, true));
+  }
+}
+
+void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, int cnt) {
+  MessageBuilder msg;
+  auto framed = msg.initEvent().initDriverCameraState();
+  framed.setFrameType(cereal::FrameData::FrameType::FRONT);
+  fill_frame_data(framed, c->buf.cur_frame_data);
+  if (env_send_driver) {
+    framed.setImage(get_frame_image(&c->buf));
+  }
+  pm->send("driverCameraState", msg);
+}
+
+// class CameraAutoExp
+
+CameraAutoExp::CameraAutoExp(do_auto_exposure_cb cb) : callback(cb) {
+  thread = std::thread(&CameraAutoExp::autoExposureThread, this);
+}
+
+CameraAutoExp::~CameraAutoExp() {
+  cv.notify_one();
+  thread.join();
+}
+
+void CameraAutoExp::doExposure(CameraState *cs) {
+
+}
+
+void CameraAutoExp::autoExposureThread() {
+  SubMaster sm({"driverState"});
+  while (!do_exit) {
+    std::unique_lock lk(mutex);
+    cv.wait(lk, [] { return do_exit; });
+
+  }
+}
+
+float CameraAutoExp::getExposureTarget(const CameraBuf *b, int x_start, int x_end, int x_skip, int y_start, int y_end, int y_skip, int analog_gain, bool hist_ceil, bool hl_weighted) {
   const uint8_t *pix_ptr = b->cur_yuv_buf->y;
   uint32_t lum_binning[256] = {0};
   unsigned int lum_total = 0;
@@ -311,89 +435,4 @@ float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip
   lum_med = lum_med_alt>0 ? lum_med + lum_med/32*lum_cur*abs(lum_med_alt - lum_med)/lum_total:lum_med;
 
   return lum_med / 256.0;
-}
-
-extern ExitHandler do_exit;
-
-void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
-  const char *thread_name = nullptr;
-  if (cs == &cameras->road_cam) {
-    thread_name = "RoadCamera";
-  } else if (cs == &cameras->driver_cam) {
-    thread_name = "DriverCamera";
-  } else {
-    thread_name = "WideRoadCamera";
-  }
-  set_thread_name(thread_name);
-
-  uint32_t cnt = 0;
-  while (!do_exit) {
-    if (!cs->buf.acquire()) continue;
-
-    callback(cameras, cs, cnt);
-
-    if (cs == &(cameras->road_cam) && cameras->pm && cnt % 100 == 3) {
-      // this takes 10ms???
-      publish_thumbnail(cameras->pm, &(cs->buf));
-    }
-    cs->buf.release();
-    ++cnt;
-  }
-  return NULL;
-}
-
-std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
-  return std::thread(processing_thread, cameras, cs, callback);
-}
-
-static void driver_cam_auto_exposure(CameraState *c, SubMaster &sm) {
-  static const bool is_rhd = Params().getBool("IsRHD");
-  struct ExpRect {int x1, x2, x_skip, y1, y2, y_skip;};
-  const CameraBuf *b = &c->buf;
-#ifndef QCOM2
-  bool hist_ceil = false, hl_weighted = false;
-  int analog_gain = -1;
-  const int x_offset = 0, y_offset = 0;
-  const int frame_width = b->rgb_width, frame_height = b->rgb_height;
-  const ExpRect def_rect = {is_rhd ? 0 : b->rgb_width * 3 / 5, is_rhd ? b->rgb_width * 2 / 5 : b->rgb_width, 2,
-                         b->rgb_height / 3, b->rgb_height, 1};
-#else
-  bool hist_ceil = true, hl_weighted = true;
-  int analog_gain = (int)c->analog_gain;
-  const int x_offset = 630, y_offset = 156;
-  const int frame_width = 668, frame_height = frame_width / 1.33;
-  const ExpRect def_rect = {96, 1832, 2, 242, 1148, 4};
-#endif
-
-  static ExpRect rect = def_rect;
-  // use driver face crop for AE
-  if (sm.updated("driverState")) {
-    if (auto state = sm["driverState"].getDriverState(); state.getFaceProb() > 0.4) {
-      auto face_position = state.getFacePosition();
-      int x = is_rhd ? 0 : frame_width - (0.5 * frame_height);
-      x += (face_position[0] * (is_rhd ? -1.0 : 1.0) + 0.5) * (0.5 * frame_height) + x_offset;
-      int y = (face_position[1] + 0.5) * frame_height + y_offset;
-      rect = {std::max(0, x - 72), std::min(b->rgb_width - 1, x + 72), 2,
-              std::max(0, y - 72), std::min(b->rgb_height - 1, y + 72), 1};
-    } else {
-      rect = def_rect;
-    }
-  }
-
-  camera_autoexposure(c, set_exposure_target(b, rect.x1, rect.x2, rect.x_skip, rect.y1, rect.y2, rect.y_skip, analog_gain, hist_ceil, hl_weighted));
-}
-
-void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, int cnt) {
-  if (cnt % 3 == 0) {
-    sm->update(0);
-    driver_cam_auto_exposure(c, *sm);
-  }
-  MessageBuilder msg;
-  auto framed = msg.initEvent().initDriverCameraState();
-  framed.setFrameType(cereal::FrameData::FrameType::FRONT);
-  fill_frame_data(framed, c->buf.cur_frame_data);
-  if (env_send_driver) {
-    framed.setImage(get_frame_image(&c->buf));
-  }
-  pm->send("driverCameraState", msg);
 }
