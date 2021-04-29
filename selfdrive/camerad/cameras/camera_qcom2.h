@@ -76,5 +76,5 @@ typedef struct MultiCameraState {
 
   SubMaster *sm;
   PubMaster *pm;
-  CameraAutoExp auto_exp;
+  std::unique_ptr<CameraAutoExp> auto_exp;
 } MultiCameraState;

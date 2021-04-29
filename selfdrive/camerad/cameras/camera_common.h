@@ -84,18 +84,24 @@ typedef struct FrameMetadata {
 struct MultiCameraState;
 struct CameraState;
 
+typedef void (*exp_callback)(MultiCameraState *s, CameraState *c);
+
 class CameraAutoExp {
 public:
-  CameraAutoExp() = default;
+  CameraAutoExp(MultiCameraState *s, exp_callback cb);
   ~CameraAutoExp();
-  void doExposure(MultiCameraState *s, CameraState *cs);
+  void doExposure(CameraState *cs);
   std::optional<std::pair<CameraState*, float>> wait();
 
 private:
-  std::mutex mutex;
-  std::condition_variable cv;
+  void exposureThread();
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  MultiCameraState *cameras_;
   CameraState *cs_ = nullptr;
   float grey_frac_ = 0.0;
+  std::thread exp_thread_;
+  exp_callback callback_;
 };
 
 class CameraBuf {

@@ -412,25 +412,38 @@ void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, 
 }
 
 // class CameraAutoExp
+CameraAutoExp::CameraAutoExp(MultiCameraState *s, exp_callback cb) : cameras_(s),  callback_(cb) {
+  exp_thread_ = std::thread(&CameraAutoExp::exposureThread, this);
+}
 
 CameraAutoExp::~CameraAutoExp() {
-  cv.notify_one();
+  cv_.notify_one();
+  exp_thread_.join();
+  printf("*********end thread *************\n\n\n");
 }
 
-void CameraAutoExp::doExposure(MultiCameraState *s, CameraState *cs) {
-  float grey_frac = (cs == &s->driver_cam) ? driver_cam_auto_exposure(s, cs) : road_cam_auto_exposure(s, cs);
-  std::unique_lock lk(mutex);
+void CameraAutoExp::exposureThread() {
+  set_thread_name("camera_settings");
+  while (!do_exit) {
+    CameraState *cs = nullptr;
+    float grey_frac = 0.0;
+    {
+      std::unique_lock lk(mutex_);
+      cv_.wait(lk, [=] { return cs_ != nullptr || do_exit; });
+      if (do_exit) break;
+
+      grey_frac = grey_frac_;
+      std::swap(cs, cs_);
+    }
+    callback_(cameras_, cs, grey_frac);
+  }
+}
+
+void CameraAutoExp::doExposure(CameraState *cs) {
+  float grey_frac = (cs == &cameras_->driver_cam) ? driver_cam_auto_exposure(cameras_, cs) : road_cam_auto_exposure(cameras_, cs);
+  std::unique_lock lk(mutex_);
   grey_frac_ = grey_frac;
   cs_ = cs;
-  cv.notify_one();
+  cv_.notify_one();
 }
 
-std::optional<std::pair<CameraState *, float>> CameraAutoExp::wait() {
-  std::unique_lock lk(mutex);
-  cv.wait(lk, [=] { return cs_ != nullptr || do_exit; });
-  if (do_exit) return std::nullopt;
-
-  CameraState *cs = nullptr;
-  std::swap(cs, cs_);
-  return std::make_pair(cs, grey_frac_);
-}

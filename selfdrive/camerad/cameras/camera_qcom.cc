@@ -228,6 +228,7 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
   }
   std::fill_n(s->lapres, std::size(s->lapres), 16160);
   s->lap_conv = new LapConv(device_id, ctx, s->road_cam.buf.rgb_width, s->road_cam.buf.rgb_height, 3);
+  s->auto_exp = std::make_unique<CameraAutoExp>(s, ops_thread);
 }
 
 static void set_exposure(CameraState *s, float exposure_frac, float gain_frac) {
@@ -887,8 +888,8 @@ static void do_autofocus(CameraState *s, SubMaster *sm) {
   actuator_move(s, target);
 }
 
-void camera_autoexposure(MultiCameraState *s, CameraState *cs) {
-  s->auto_exp.doExposure(s, cs);
+void camera_autoexposure(CameraState *cs) {
+  s->auto_exp->doExposure(cs);
 }
 
 static void driver_camera_start(CameraState *s) {
@@ -1022,19 +1023,12 @@ static FrameMetadata get_frame_metadata(CameraState *s, uint32_t frame_id) {
   };
 }
 
-static void ops_thread(MultiCameraState *s) {
-  set_thread_name("camera_settings");
-  SubMaster sm({"sensorEvents"});
-  while (!do_exit) {
-    if (auto data = s->auto_exp.wait(); data) {
-      auto [cs, grey_frac] = *data;
-      if (cs == s->road_cam) {
-        do_autofocus(&s->road_cam, &sm);
-      }
-      do_autoexposure(cs, grey_frac);
-    }
+static void ops_thread(MultiCameraState *s, CameraState *cs, float grey_frac) {
+  static SubMaster sm({"sensorEvents"});
+  if (cs == s->road_cam) {
+    do_autofocus(&s->road_cam, &sm);
   }
-  printf("*******************end thread *****************\n\n");
+  do_autoexposure(cs, grey_frac);
 }
 
 static void setup_self_recover(CameraState *c, const uint16_t *lapres, size_t lapres_size) {
@@ -1085,7 +1079,6 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
 
 void cameras_run(MultiCameraState *s) {
   std::vector<std::thread> threads;
-  threads.push_back(std::thread(ops_thread, s));
   threads.push_back(start_process_thread(s, &s->road_cam, process_road_camera));
   threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
 

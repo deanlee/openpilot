@@ -765,6 +765,7 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
 
   s->sm = new SubMaster({"driverState"});
   s->pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
+  s->auto_exp = std::make_unique<CameraAutoExp>(s, set_camera_exposure);
 }
 
 void cameras_open(MultiCameraState *s) {
@@ -955,7 +956,7 @@ void switch_conversion_gain(CameraState *s) {
   }
 }
 
-static void set_camera_exposure(CameraState *s, float grey_frac) {
+static void set_camera_exposure(MultiCameraState *cameras, CameraState *s, float grey_frac) {
   // TODO: get stats from sensor?
   float target_grey = 0.4 - ((float)(s->analog_gain + 4*s->dc_gain_enabled) / 48.0f);
   float exposure_factor = 1 + 30 * pow((target_grey - grey_frac), 3);
@@ -1024,19 +1025,8 @@ static void set_camera_exposure(CameraState *s, float grey_frac) {
                CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
 }
 
-void camera_autoexposure(MultiCameraState *s, CameraState *cs) {
-  s->auto_exp.doExposure(s, cs);
-}
-
-static void ae_thread(MultiCameraState *s) {
-  set_thread_name("camera_settings");
-
-  while(!do_exit) {
-    if (auto data = s->auto_exp.wait(); data) {
-      auto [cs, grey_frac] = *data;
-       set_camera_exposure(cs, grey_frac);
-    }
-  }
+void camera_autoexposure(CameraState *cs) {
+  s->auto_exp->doExposure(cs);
 }
 
 void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) {
@@ -1062,7 +1052,6 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
 void cameras_run(MultiCameraState *s) {
   LOG("-- Starting threads");
   std::vector<std::thread> threads;
-  threads.push_back(std::thread(ae_thread, s));
   threads.push_back(start_process_thread(s, &s->road_cam, process_road_camera));
   threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
   threads.push_back(start_process_thread(s, &s->wide_road_cam, process_road_camera));
