@@ -102,6 +102,7 @@ typedef struct MultiCameraState {
   SubMaster *sm;
   PubMaster *pm;
   LapConv *lap_conv;
+  CameraAutoExp auto_exp;
 } MultiCameraState;
 
 void actuator_move(CameraState *s, uint16_t target);

@@ -33,9 +33,6 @@
 
 extern ExitHandler do_exit;
 
-// global var for AE ops
-std::atomic<CameraExpInfo> cam_exp[3] = {{{0}}};
-
 CameraInfo cameras_supported[CAMERA_ID_MAX] = {
   [CAMERA_ID_AR0231] = {
     .frame_width = FRAME_WIDTH,
@@ -1027,31 +1024,18 @@ static void set_camera_exposure(CameraState *s, float grey_frac) {
                CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
 }
 
-void camera_autoexposure(CameraState *s, float grey_frac) {
-  CameraExpInfo tmp = cam_exp[s->camera_num].load();
-  tmp.op_id++;
-  tmp.grey_frac = grey_frac;
-  cam_exp[s->camera_num].store(tmp);
+void camera_autoexposure(MultiCameraState *s, CameraState *cs) {
+  s->auto_exp.doExposure(s, cs);
 }
 
 static void ae_thread(MultiCameraState *s) {
-  CameraState *c_handles[3] = {&s->wide_road_cam, &s->road_cam, &s->driver_cam};
-
-  int op_id_last[3] = {0};
-  CameraExpInfo cam_op[3];
-
   set_thread_name("camera_settings");
 
   while(!do_exit) {
-    for (int i=0;i<3;i++) {
-      cam_op[i] = cam_exp[i].load();
-      if (cam_op[i].op_id != op_id_last[i]) {
-        set_camera_exposure(c_handles[i], cam_op[i].grey_frac);
-        op_id_last[i] = cam_op[i].op_id;
-      }
+    if (auto data = s->auto_exp.wait(); data) {
+      auto [cs, grey_frac] = *data;
+       set_camera_exposure(cs, grey_frac);
     }
-
-    util::sleep_for(50);
   }
 }
 
@@ -1073,12 +1057,6 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
     framed.setTransform(b->yuv_transform.v);
   }
   s->pm->send(c == &s->road_cam ? "roadCameraState" : "wideRoadCameraState", msg);
-
-  if (cnt % 3 == 0) {
-    const auto [x, y, w, h] = (c == &s->wide_road_cam) ? std::tuple(96, 250, 1734, 524) : std::tuple(96, 160, 1734, 986);
-    const int skip = 2;
-    camera_autoexposure(c, set_exposure_target(b, x, x + w, skip, y, y + h, skip, (int)c->analog_gain, true, true));
-  }
 }
 
 void cameras_run(MultiCameraState *s) {

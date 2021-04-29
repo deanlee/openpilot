@@ -81,27 +81,21 @@ typedef struct FrameMetadata {
   float gain_frac;
 } FrameMetadata;
 
-typedef struct CameraExpInfo {
-  int op_id;
-  float grey_frac;
-} CameraExpInfo;
-
 struct MultiCameraState;
 struct CameraState;
 
-typedef void (*do_auto_exposure_cb)(CameraState *s, float grey_frac);
 class CameraAutoExp {
 public:
-  CameraAutoExp(do_auto_exposure_cb cb);
+  CameraAutoExp() = default;
   ~CameraAutoExp();
-  void doExposure(CameraState *cs);
-  void autoExposureThread();
-  float getExposureTarget(const CameraBuf *b, int x_start, int x_end, int x_skip, int y_start, int y_end, int y_skip, int analog_gain, bool hist_ceil, bool hl_weighted);
+  void doExposure(MultiCameraState *s, CameraState *cs);
+  std::optional<std::pair<CameraState*, float>> wait();
+
+private:
   std::mutex mutex;
   std::condition_variable cv;
-  float grey_frac = 0.0;
-  std::thread thread;
-  do_auto_exposure_cb callback;
+  CameraState *cs_ = nullptr;
+  float grey_frac_ = 0.0;
 };
 
 class CameraBuf {
@@ -152,4 +146,4 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
 void cameras_open(MultiCameraState *s);
 void cameras_run(MultiCameraState *s);
 void cameras_close(MultiCameraState *s);
-void camera_autoexposure(CameraState *s, float grey_frac);
+void camera_autoexposure(MultiCameraState *s, CameraState *cs);

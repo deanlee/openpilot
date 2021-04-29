@@ -7,7 +7,7 @@
 #include "selfdrive/camerad/cameras/camera_common.h"
 #include "selfdrive/camerad/test/ae_gray_test.h"
 
-void camera_autoexposure(CameraState *s, float grey_frac) {}
+void camera_autoexposure(MultiCameraState *s, CameraState *cs) {}
 
 int main() {
   // set up fake camerabuf
