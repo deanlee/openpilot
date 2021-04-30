@@ -34,26 +34,36 @@ HomeWindow::HomeWindow(QWidget* parent) : QWidget(parent) {
   home = new OffroadHome();
   slayout->addWidget(home);
   QObject::connect(this, &HomeWindow::openSettings, home, &OffroadHome::refresh);
-
+  driverview = new DriverView(this);
+  slayout->addWidget(driverview);
   setLayout(layout);
+}
+void HomeWindow::driverView() {
+  printf("here2\n\n");
+  Params().putBool("IsDriverViewEnabled", true);
+  
+  // QObject::connect(this, &HomeWindow::update, driverview, &DriverView::update);
+  slayout->setCurrentWidget(driverview);
 }
 
 void HomeWindow::offroadTransition(bool offroad) {
-  if (offroad) {
-    slayout->setCurrentWidget(home);
-  } else {
-    slayout->setCurrentWidget(onroad);
-  }
-  sidebar->setVisible(offroad);
+  // if (offroad) {
+  //   slayout->setCurrentWidget(home);
+  // } else {
+  //   slayout->setCurrentWidget(onroad);
+  // }
+  // sidebar->setVisible(offroad);
 }
 
 void HomeWindow::mousePressEvent(QMouseEvent* e) {
   // TODO: make a nice driver view widget
-  if (QUIState::ui_state.scene.driver_view) {
-    Params().putBool("IsDriverViewEnabled", false);
-    QUIState::ui_state.scene.driver_view = false;
-    return;
-  }
+  // if (driverview) {
+  //   Params().putBool("IsDriverViewEnabled", false);
+  //   slayout->removeWidget(driverview);
+  //   delete driverview;
+  //   driverview = nullptr;
+  //   return;
+  // }
 
   // Handle sidebar collapsing
   if (childAt(e->pos()) == onroad) {

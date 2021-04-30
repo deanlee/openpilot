@@ -19,6 +19,7 @@ public:
   explicit DevicePanel(QWidget* parent = nullptr);
 signals:
   void reviewTrainingGuide();
+  void driverView();
 };
 
 class TogglesPanel : public QWidget {
@@ -48,6 +49,7 @@ protected:
   void showEvent(QShowEvent *event);
 
 signals:
+  void driverView();
   void closeSettings();
   void offroadTransition(bool offroad);
   void reviewTrainingGuide();

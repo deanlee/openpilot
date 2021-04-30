@@ -18,6 +18,7 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   QObject::connect(settingsWindow, &SettingsWindow::closeSettings, this, &MainWindow::closeSettings);
   QObject::connect(&qs, &QUIState::offroadTransition, settingsWindow, &SettingsWindow::offroadTransition);
   QObject::connect(settingsWindow, SIGNAL(reviewTrainingGuide()), this, SLOT(reviewTrainingGuide()));
+  QObject::connect(settingsWindow, SIGNAL(driverView()), homeWindow, SLOT(driverView()));
 
   onboardingWindow = new OnboardingWindow(this);
   main_layout->addWidget(onboardingWindow);

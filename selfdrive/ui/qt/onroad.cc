@@ -24,7 +24,7 @@ void OnroadWindow::initializeGL() {
 
 void OnroadWindow::update(const UIState &s) {
   // Connecting to visionIPC requires opengl to be current
-  if (s.vipc_client->connected){
+  if (s.vision){
     makeCurrent();
   }
 
@@ -37,7 +37,7 @@ void OnroadWindow::paintGL() {
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
   // TODO: check if onroad
-  if (dt > 66 && QUIState::ui_state.scene.started && !QUIState::ui_state.scene.driver_view) {
+  if (dt > 66 && QUIState::ui_state.scene.started) {
     // warn on sub 15fps
     LOGW("slow frame time: %.2f", dt);
   }

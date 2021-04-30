@@ -9,6 +9,7 @@
 
 #include "sidebar.hpp"
 #include "onroad.hpp"
+#include "driverview.hpp"
 #include "ui/ui.hpp"
 #include "widgets/offroad_alerts.hpp"
 
@@ -48,6 +49,7 @@ signals:
 
 public slots:
   void offroadTransition(bool offroad);
+  void driverView();
 
 protected:
   void mousePressEvent(QMouseEvent* e) override;
@@ -56,5 +58,6 @@ private:
   Sidebar *sidebar;
   OffroadHome *home;
   OnroadWindow *onroad;
+  DriverView *driverview = nullptr;
   QStackedLayout *slayout;
 };

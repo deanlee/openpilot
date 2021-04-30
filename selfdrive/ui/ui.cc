@@ -34,25 +34,6 @@ static bool calib_frame_to_full_frame(const UIState *s, float in_x, float in_y, 
   return out->x >= -margin && out->x <= s->fb_w + margin && out->y >= -margin && out->y <= s->fb_h + margin;
 }
 
-static void ui_init_vision(UIState *s) {
-  // Invisible until we receive a calibration message.
-  s->scene.world_objects_visible = false;
-
-  for (int i = 0; i < s->vipc_client->num_buffers; i++) {
-    s->texture[i].reset(new EGLImageTexture(&s->vipc_client->buffers[i]));
-
-    glBindTexture(GL_TEXTURE_2D, s->texture[i]->frame_tex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-    // BGR
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_GREEN);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
-  }
-  assert(glGetError() == GL_NO_ERROR);
-}
-
 static int get_path_length_idx(const cereal::ModelDataV2::XYZTData::Reader &line, const float path_height) {
   const auto line_x = line.getX();
   int max_idx = 0;
@@ -216,7 +197,7 @@ static void update_state(UIState *s) {
     scene.light_sensor = std::clamp<float>((1023.0 / 1757.0) * (1757.0 - camera_state.getIntegLines()) * (1.0 - gain), 0.0, 1023.0);
   }
 #endif
-  scene.started = scene.deviceState.getStarted() || scene.driver_view;
+  scene.started = scene.deviceState.getStarted();
 }
 
 static void update_alert(UIState *s) {
@@ -274,25 +255,6 @@ static void update_params(UIState *s) {
   }
 }
 
-static void update_vision(UIState *s) {
-  if (!s->vipc_client->connected && s->scene.started) {
-    if (s->vipc_client->connect(false)){
-      ui_init_vision(s);
-    }
-  }
-
-  if (s->vipc_client->connected){
-    VisionBuf * buf = s->vipc_client->recv();
-    if (buf != nullptr){
-      s->last_frame = buf;
-    } else {
-#if defined(QCOM) || defined(QCOM2)
-      LOGE("visionIPC receive timeout");
-#endif
-    }
-  }
-}
-
 static void update_status(UIState *s) {
   if (s->scene.started && s->sm->updated("controlsState")) {
     auto alert_status = s->scene.controls_state.getAlertStatus();
@@ -315,11 +277,11 @@ static void update_status(UIState *s) {
       s->scene.is_rhd = Params().getBool("IsRHD");
       s->scene.end_to_end = Params().getBool("EndToEndToggle");
       s->scene.alert_size = cereal::ControlsState::AlertSize::NONE;
-      s->vipc_client = s->scene.driver_view ? s->vipc_client_front : s->vipc_client_rear;
+      // s->vipc_client = s->scene.driver_view ? s->vipc_client_front : s->vipc_client_rear;
     } else {
       s->status = STATUS_OFFROAD;
       s->sound->stop();
-      s->vipc_client->connected = false;
+      // s->vipc_client->connected = false;
     }
   }
   started_prev = s->scene.started;
@@ -340,16 +302,11 @@ QUIState::QUIState(QObject *parent) : QObject(parent) {
   ui_state.fb_h = vwp_h;
   ui_state.scene.started = false;
   ui_state.status = STATUS_OFFROAD;
-  ui_state.last_frame = nullptr;
   ui_state.wide_camera = false;
 
 #ifdef QCOM2
   ui_state.wide_camera = Params().getBool("EnableWideCamera");
 #endif
-
-  ui_state.vipc_client_rear = new VisionIpcClient("camerad", ui_state.wide_camera ? VISION_STREAM_RGB_WIDE : VISION_STREAM_RGB_BACK, true);
-  ui_state.vipc_client_front = new VisionIpcClient("camerad", VISION_STREAM_RGB_FRONT, true);
-  ui_state.vipc_client = ui_state.vipc_client_rear;
 
   // update timer
   timer = new QTimer(this);
@@ -363,9 +320,14 @@ void QUIState::update() {
   update_state(&ui_state);
   update_status(&ui_state);
   update_alert(&ui_state);
-  update_vision(&ui_state);
+  if (ui_state.vision) {
+    ui_state.vision->update();
+  }
 
   if (ui_state.scene.started != started_prev) {
+    if (!ui_state.scene.started) {
+      ui_state.scene.world_objects_visible = false;
+    }
     started_prev = ui_state.scene.started;
     emit offroadTransition(!ui_state.scene.started);
 
