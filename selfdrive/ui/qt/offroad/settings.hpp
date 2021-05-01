@@ -17,8 +17,13 @@ class DevicePanel : public QWidget {
   Q_OBJECT
 public:
   explicit DevicePanel(QWidget* parent = nullptr);
+  void enableOffroadButtons(bool enable);
 signals:
   void reviewTrainingGuide();
+
+private:
+  // offroad-only buttons
+  QList<ButtonControl*> offroad_btns;
 };
 
 class TogglesPanel : public QWidget {
@@ -42,19 +47,20 @@ class SettingsWindow : public QFrame {
 
 public:
   explicit SettingsWindow(QWidget *parent = 0);
-
+slots:
+  void offroadTransition(bool offroad);
 protected:
   void hideEvent(QHideEvent *event);
   void showEvent(QShowEvent *event);
 
 signals:
   void closeSettings();
-  void offroadTransition(bool offroad);
   void reviewTrainingGuide();
 
 private:
   QPushButton *sidebar_alert_widget;
   QWidget *sidebar_widget;
+  DevicePanel *device_panel;
   QButtonGroup *nav_btns;
   QStackedWidget *panel_widget;
 };

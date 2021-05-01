@@ -108,9 +108,6 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
   QString serial = QString::fromStdString(params.get("HardwareSerial", false));
   device_layout->addWidget(new LabelControl("Serial", serial));
 
-  // offroad-only buttons
-  QList<ButtonControl*> offroad_btns;
-
   offroad_btns.append(new ButtonControl("Driver Camera", "PREVIEW",
                                         "Preview the driver facing camera to help optimize device mounting position for best driver monitoring experience. (vehicle must be off)",
                                         [=]() {
@@ -164,7 +161,6 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 
   for(auto &btn : offroad_btns){
     device_layout->addWidget(horizontal_line());
-    QObject::connect(parent, SIGNAL(offroadTransition(bool)), btn, SLOT(setEnabled(bool)));
     device_layout->addWidget(btn);
   }
 
@@ -200,6 +196,12 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
       background-color: #393939;
     }
   )");
+}
+
+void DevicePanel::enableOffroadButtons(bool enable) {
+  for (auto &btn : offroad_btns) {
+    btn->setEnabled(enable);
+  }
 }
 
 DeveloperPanel::DeveloperPanel(QWidget* parent) : QFrame(parent) {
@@ -288,11 +290,11 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   QObject::connect(close_btn, SIGNAL(released()), this, SIGNAL(closeSettings()));
 
   // setup panels
-  DevicePanel *device = new DevicePanel(this);
-  QObject::connect(device, SIGNAL(reviewTrainingGuide()), this, SIGNAL(reviewTrainingGuide()));
+  device_panel = new DevicePanel(this);
+  QObject::connect(device_panel, SIGNAL(reviewTrainingGuide()), this, SIGNAL(reviewTrainingGuide()));
 
   QPair<QString, QWidget *> panels[] = {
-    {"Device", device},
+    {"Device", device_panel},
     {"Network", network_panel(this)},
     {"Toggles", new TogglesPanel(this)},
     {"Developer", new DeveloperPanel()},
@@ -372,3 +374,6 @@ void SettingsWindow::showEvent(QShowEvent *event){
   nav_btns->buttons()[0]->setChecked(true);
 }
 
+void SettingsWindow::offroadTransition(bool offroad) {
+  device_panel->enableOffroadButtons(offroad);
+}
