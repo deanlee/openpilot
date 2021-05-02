@@ -412,6 +412,7 @@ void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, 
 }
 
 // class CameraAutoExp
+
 CameraAutoExp::CameraAutoExp(MultiCameraState *s, exp_callback cb) : cameras_(s),  callback_(cb) {
   exp_thread_ = std::thread(&CameraAutoExp::exposureThread, this);
 }
