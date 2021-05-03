@@ -2,7 +2,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
-#include "clutil.h"
+#include "common/clutil.h"
 
 typedef struct {
   int width, height;

@@ -17,7 +17,7 @@
 
 #include <libyuv.h>
 
-#include "clutil.h"
+#include "common/clutil.h"
 #include "common/params.h"
 #include "common/swaglog.h"
 #include "common/util.h"

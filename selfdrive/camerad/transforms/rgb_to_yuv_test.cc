@@ -30,7 +30,7 @@
 
 #include <CL/cl.h>
 
-#include "clutil.h"
+#include "common/clutil.h"
 #include "rgb_to_yuv.h"
 
 

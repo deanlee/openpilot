@@ -23,7 +23,7 @@
 #include "common/timing.h"
 #include "common/swaglog.h"
 #include "common/params.h"
-#include "clutil.h"
+#include "common/clutil.h"
 
 #include "sensor_i2c.h"
 #include "camera_qcom.h"

@@ -2,7 +2,7 @@
 
 #include <QThread>
 #include <QReadWriteLock>
-#include "clutil.h"
+#include "common/clutil.h"
 #include "messaging.hpp"
 #include "FileReader.h"
 #include "FrameReader.hpp"
