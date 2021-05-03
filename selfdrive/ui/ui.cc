@@ -12,6 +12,7 @@
 #include "ui.h"
 #include "paint.h"
 #include "qt_window.h"
+#include "selfdrive/hardware/hw.h"
 
 #define BACKLIGHT_DT 0.25
 #define BACKLIGHT_TS 2.00
@@ -285,10 +286,8 @@ static void update_vision(UIState *s) {
     VisionBuf * buf = s->vipc_client->recv();
     if (buf != nullptr){
       s->last_frame = buf;
-    } else {
-#if defined(QCOM) || defined(QCOM2)
+    } else if (!Hardware::PC()) {
       LOGE("visionIPC receive timeout");
-#endif
     }
   }
 }
@@ -341,11 +340,7 @@ QUIState::QUIState(QObject *parent) : QObject(parent) {
   ui_state.scene.started = false;
   ui_state.status = STATUS_OFFROAD;
   ui_state.last_frame = nullptr;
-  ui_state.wide_camera = false;
-
-#ifdef QCOM2
-  ui_state.wide_camera = Params().getBool("EnableWideCamera");
-#endif
+  ui_state.wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
 
   ui_state.vipc_client_rear = new VisionIpcClient("camerad", ui_state.wide_camera ? VISION_STREAM_RGB_WIDE : VISION_STREAM_RGB_BACK, true);
   ui_state.vipc_client_front = new VisionIpcClient("camerad", VISION_STREAM_RGB_FRONT, true);
@@ -411,11 +406,9 @@ void Device::setAwake(bool on, bool reset) {
 void Device::updateBrightness(const UIState &s) {
   float clipped_brightness = std::min(100.0f, (s.scene.light_sensor * brightness_m) + brightness_b);
 
-#ifdef QCOM2
-  if (!s.scene.started) {
+  if (Hardware::TICI() && !s.scene.started) {
     clipped_brightness = BACKLIGHT_OFFROAD;
   }
-#endif
 
   int brightness = brightness_filter.update(clipped_brightness);
   if (!awake) {

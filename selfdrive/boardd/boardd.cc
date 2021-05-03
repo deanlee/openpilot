@@ -31,6 +31,8 @@
 #include "panda.h"
 #include "pigeon.h"
 
+#include "selfdrive/hardware/hw.h"
+
 #define MAX_IR_POWER 0.5f
 #define MIN_IR_POWER 0.0f
 #define CUTOFF_IL 200
@@ -420,17 +422,14 @@ void hardware_control_thread() {
   uint16_t prev_fan_speed = 999;
   uint16_t ir_pwr = 0;
   uint16_t prev_ir_pwr = 999;
-#if defined(QCOM) || defined(QCOM2)
   bool prev_charging_disabled = false;
-#endif
   unsigned int cnt = 0;
 
   while (!do_exit && panda->connected) {
     cnt++;
     sm.update(1000); // TODO: what happens if EINTR is sent while in sm.update?
 
-#if defined(QCOM) || defined(QCOM2)
-    if (sm.updated("deviceState")){
+    if (!Hardware::PC() && sm.updated("deviceState")){
       // Charging mode
       bool charging_disabled = sm["deviceState"].getDeviceState().getChargingDisabled();
       if (charging_disabled != prev_charging_disabled){
@@ -444,7 +443,6 @@ void hardware_control_thread() {
         prev_charging_disabled = charging_disabled;
       }
     }
-#endif
 
     // Other pandas don't have fan/IR to control
     if (panda->hw_type != cereal::PandaState::PandaType::UNO && panda->hw_type != cereal::PandaState::PandaType::DOS) continue;
@@ -575,11 +573,7 @@ int main() {
   err = set_realtime_priority(54);
   LOG("set priority returns %d", err);
 
-#ifdef QCOM2
-  err = set_core_affinity(4);
-#else
-  err = set_core_affinity(3);
-#endif
+  err = set_core_affinity(Hardware::TICI() ? 4 : 3);
   LOG("set affinity returns %d", err);
 
   while (!do_exit){

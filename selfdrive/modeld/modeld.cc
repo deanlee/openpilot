@@ -11,6 +11,7 @@
 
 #include "models/driving.h"
 #include "messaging.hpp"
+#include "selfdrive/hardware/hw.h"
 
 ExitHandler do_exit;
 // globals
@@ -133,17 +134,10 @@ void run_model(ModelState &model, VisionIpcClient &vipc_client) {
 int main(int argc, char **argv) {
   set_realtime_priority(54);
 
-#ifdef QCOM
-  set_core_affinity(2);
-#elif QCOM2
-  set_core_affinity(7);
-#endif
-
-  bool wide_camera = false;
-
-#ifdef QCOM2
-  wide_camera = Params().getBool("EnableWideCamera");
-#endif
+  if (!Hardware::PC()) {
+    set_core_affinity(Hardware::EON() ? 2 : 7);
+  }
+  bool wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
 
   // start calibration thread
   std::thread thread = std::thread(calibration_thread, wide_camera);
