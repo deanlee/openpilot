@@ -1,0 +1,16 @@
+Import('env', 'arch', 'SHARED', 'common')
+if SHARED:
+  fxn = env.SharedLibrary
+else:
+  fxn = env.Library
+
+hardware_libs = []
+if arch == "aarch64":
+    hardware_libs += 'eon/hardware.cc'
+elif arch == "larch64":
+    pass
+else:
+    pass
+
+_hardware = fxn('hardware', hardware_libs, LIBS=[])
+Export('_hardware')

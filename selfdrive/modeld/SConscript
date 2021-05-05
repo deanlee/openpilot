@@ -1,4 +1,4 @@
-Import('env', 'arch', 'cereal', 'messaging', 'common', 'gpucommon', 'visionipc')
+Import('env', 'arch', 'cereal', 'messaging', 'common', 'gpucommon', 'visionipc', 'hardware')
 lenv = env.Clone()
 
 libs = [cereal, messaging, common, visionipc, gpucommon,

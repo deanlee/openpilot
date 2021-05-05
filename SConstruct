@@ -362,12 +362,20 @@ SConscript(['selfdrive/common/SConscript'])
 Import('_common', '_gpucommon', '_gpu_libs')
 
 if SHARED:
-  common, gpucommon = abspath(common), abspath(gpucommon)
+  common, gpucommon = abspath(common), abspath(gpucommon), abspath(hardware)
 else:
   common = [_common, 'json11']
   gpucommon = [_gpucommon] + _gpu_libs
 
 Export('common', 'gpucommon', 'visionipc')
+SConscript(['selfdrive/hardware/SConscript'])
+Import('_hardware')
+if SHARED:
+  hardware = abspath(hardware)
+else:
+  hardware = [_hardware]
+
+Export('hardware')
 
 # Build rednose library and ekf models
 
