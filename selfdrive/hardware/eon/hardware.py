@@ -64,7 +64,7 @@ def getprop(key):
 class Android(HardwareBase):
   def __init__(self):
     self.road_cam_focal_len = 910
-    self.driver_cam_focal_len = 860.0
+    self.driver_cam_focal_len = 860
     self.road_cam_size = (1164, 874)
     self.driver_cam_size = (1152, 864)
     self.screen_size = (1920, 1080)

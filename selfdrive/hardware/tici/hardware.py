@@ -1,5 +1,6 @@
 import os
 import subprocess
+import numpy as np
 from pathlib import Path
 from smbus2 import SMBus
 
@@ -59,6 +60,8 @@ class Tici(HardwareBase):
       [self.driver_cam_focal_len,  0.0,  float(self.driver_cam_size[0])/2],
       [0.0,  self.driver_cam_focal_len,  float(self.driver_cam_size[1])/2],
       [0.0,  0.0,                                            1.0]])
+    
+    self.wide_road_cam_intrinsics = self.driver_cam_intrinsics
 
 
     import dbus  # pylint: disable=import-error
