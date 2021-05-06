@@ -423,16 +423,14 @@ static mat4 get_driver_view_transform() {
   mat4 transform;
   if (Hardware::TICI()) {
     // from dmonitoring.cc
-    const int full_width_tici = 1928;
-    const int full_height_tici = 1208;
     const int adapt_width_tici = 668;
     const int crop_x_offset = 32;
     const int crop_y_offset = -196;
-    const float yscale = full_height_tici * driver_view_ratio / adapt_width_tici;
-    const float xscale = yscale*(1080-2*bdr_s)/(2160-2*bdr_s)*full_width_tici/full_height_tici;
+    const float yscale = Hardware::road_cam_size[1] * driver_view_ratio / adapt_width_tici;
+    const float xscale = yscale*(Hardware::screen_size[1]-2*bdr_s)/(Hardware::screen_size[0]-2*bdr_s)*Hardware::road_cam_size[0]/Hardware::road_cam_size[1];
     transform = (mat4){{
-      xscale,  0.0, 0.0, xscale*crop_x_offset/full_width_tici*2,
-      0.0,  yscale, 0.0, yscale*crop_y_offset/full_height_tici*2,
+      xscale,  0.0, 0.0, xscale*crop_x_offset/Hardware::road_cam_size[0]*2.0f,
+      0.0,  yscale, 0.0, yscale*crop_y_offset/Hardware::road_cam_size[1]*2.0f,
       0.0,  0.0, 1.0, 0.0,
       0.0,  0.0, 0.0, 1.0,
     }};
@@ -440,7 +438,7 @@ static mat4 get_driver_view_transform() {
   } else {
      // frame from 4/3 to 16/9 display
     transform = (mat4){{
-      driver_view_ratio*(1080-2*bdr_s)/(1920-2*bdr_s),  0.0, 0.0, 0.0,
+      driver_view_ratio*(Hardware::screen_size[1]-2*bdr_s)/(Hardware::screen_size[0]-2*bdr_s),  0.0, 0.0, 0.0,
       0.0,  1.0, 0.0, 0.0,
       0.0,  0.0, 1.0, 0.0,
       0.0,  0.0, 0.0, 1.0,

@@ -8,6 +8,21 @@ NetworkStrength = log.DeviceState.NetworkStrength
 
 
 class Pc(HardwareBase):
+  def __init(self):
+    self.road_cam_focal_len = 910
+    self.road_cam_size = (1164, 874)
+    self.driver_cam_size = (1152, 864)
+    self.screen_size = (1920, 1080)
+
+    self.road_cam_intrinsics = np.array([
+        [self.road_cam_focal_len,  0.0,  float(self.road_cam_size[0])/2],
+        [0.0,  EON.road_cam_focal_len,  float(self.road_cam_size[1])/2],
+        [0.0,  0.0,                                          1.0]])
+    self.driver_cam_intrinsics = np.array([
+        [self.driver_cam_focal_len,  0.0,  float(self.driver_cam_size[0])/2],
+        [0.0,  self.driver_cam_focal_len,  float(self.driver_cam_size[1])/2],
+        [0.0,  0.0,                                          1.0]])
+
   def get_os_version(self):
     return None
 

@@ -12,6 +12,14 @@ public:
   static constexpr float MAX_VOLUME = 0.5;
   static constexpr float MIN_VOLUME = 0.4;
   static bool TICI() { return true; }
+
+  static const int road_cam_focal_len = 2648;
+  static const int driver_cam_focal_len = 860;
+  inline static const int road_cam_size[] = {1928, 1208};
+  inline static const int driver_cam_size[] = {1928, 1208};
+  inline static const int wide_road_cam_size[] = {1928, 1208};
+  inline static const int screen_size[] = {2160, 1080};
+
   static std::string get_os_version() {
     return "AGNOS " + util::read_file("/VERSION");
   };

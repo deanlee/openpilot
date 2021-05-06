@@ -98,7 +98,7 @@ Sidebar::Sidebar(QWidget *parent) : QFrame(parent) {
   QVBoxLayout *layout = new QVBoxLayout();
   layout->setContentsMargins(25, 50, 25, 50);
   layout->setSpacing(35);
-  setFixedSize(300, vwp_h);
+  setFixedSize(300, Hardware::screen_size[1]);
 
   QPushButton *s_btn = new QPushButton;
   s_btn->setStyleSheet(R"(

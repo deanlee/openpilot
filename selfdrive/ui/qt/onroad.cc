@@ -135,7 +135,7 @@ void OnroadAlerts::updateAlert(const QString &text1, const QString &text2, float
     msg->setStyleSheet("font-size: 65px; font-weight: 400;");
     title->setStyleSheet("font-size: 80px; font-weight: 500;");
   } else if (size == cereal::ControlsState::AlertSize::FULL) {
-    setFixedHeight(vwp_h);
+    setFixedHeight(Hardware::screen_size[1]);
     int title_size = (title->text().size() > 15) ? 130 : 110;
     title->setStyleSheet(QString("font-size: %1px; font-weight: 500;").arg(title_size));
     msg->setStyleSheet("font-size: 90px; font-weight: 400;");

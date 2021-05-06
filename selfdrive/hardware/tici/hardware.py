@@ -39,6 +39,28 @@ def write_amplifier_reg(reg, val, offset, mask):
 
 class Tici(HardwareBase):
   def __init__(self):
+    self.road_cam_focal_len = 2648
+
+    # probably wrong? magnification is not consistent across frame
+    self.driver_cam_focal_len = 567
+    self.wide_cam_focal_length = 567
+    
+    self.road_cam_size = (1928, 1208)
+    self.driver_cam_size = (1928, 1208)
+    self.wide_road_cam_size = (1928, 1208)
+    self.screen_size = (2160, 1080)
+
+    self.road_cam_intrinsics = np.array([
+        [self.road_cam_focal_len,  0.0,  float(self.road_cam_size[0])/2],
+        [0.0,  self.road_cam_focal_len,  float(self.road_cam_size[1])/2],
+        [0.0,  0.0,                                            1.0]])
+
+    self.driver_cam_intrinsics = np.array([
+      [self.driver_cam_focal_len,  0.0,  float(self.driver_cam_size[0])/2],
+      [0.0,  self.driver_cam_focal_len,  float(self.driver_cam_size[1])/2],
+      [0.0,  0.0,                                            1.0]])
+
+
     import dbus  # pylint: disable=import-error
 
     self.bus = dbus.SystemBus()

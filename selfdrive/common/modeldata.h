@@ -21,22 +21,18 @@ const double X_IDXS[TRAJECTORY_SIZE] = { 0.    ,   0.1875,   0.75  ,   1.6875,  
 
 #include "common/mat.h"
 #include "selfdrive/hardware/hw.h"
-const mat3 fcam_intrinsic_matrix =
-    Hardware::TICI() ? (mat3){{2648.0, 0.0, 1928.0 / 2,
-                               0.0, 2648.0, 1208.0 / 2,
-                               0.0, 0.0, 1.0}}
-                     : (mat3){{910., 0., 1164.0 / 2,
-                               0., 910., 874.0 / 2,
-                               0., 0., 1.}};
+const mat3 fcam_intrinsic_matrix = (mat3){{
+  Hardware::road_cam_focal_len, 0.0, Hardware::road_cam_size[0] / 2.0f,
+  0.0, Hardware::road_cam_focal_len, Hardware::road_cam_size[1] / 2.0f,
+  0.0, 0.0, 1.0
+}};
 
 // without unwarp, focal length is for center portion only
 const mat3 ecam_intrinsic_matrix =
-    Hardware::TICI() ? (mat3){{620.0, 0.0, 1928.0 / 2,
-                               0.0, 620.0, 1208.0 / 2,
+    Hardware::TICI() ? (mat3){{620.0, 0.0, Hardware::road_cam_size[0] / 2.0f,
+                               0.0, 620.0, Hardware::road_cam_size[0] / 2.0f,
                                0.0, 0.0, 1.0}}
-                     : (mat3){{0., 0., 0.,
-                               0., 0., 0.,
-                               0., 0., 0.}};
+                     : (mat3){};
 
 static inline mat3 get_model_yuv_transform(bool bayer = true) {
   float db_s = Hardware::TICI() ? 1.0 : 0.5; // debayering does a 2x downscale on EON
