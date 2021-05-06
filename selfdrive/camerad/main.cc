@@ -8,6 +8,7 @@
 #include "cameras/camera_frame_stream.h"
 #endif
 #include "common/util.h"
+#include "selfdrive/hardware/hw.h"
 
 int main(int argc, char *argv[]) {
   set_realtime_priority(53);
