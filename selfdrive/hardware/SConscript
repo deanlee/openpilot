@@ -10,8 +10,10 @@ if arch == "aarch64":
 elif arch == "larch64":
   hardware_libs = ['tici/hardware.cc']
 else:
-  hardware_libs = ['pc/hardware.cc']
+  hardware_libs = ['tici/hardware.cc']
   pass
 
-_hardware = fxn('hardware', hardware_libs)
+print(common)
+_hardware = fxn('hardware', hardware_libs, LIBS=[common])
+
 Export('_hardware')

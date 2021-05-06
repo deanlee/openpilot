@@ -1,7 +1,7 @@
-Import('env', 'arch', 'cereal', 'messaging', 'common', 'gpucommon', 'visionipc', 'hardware')
+Import('env', 'arch', 'cereal', 'messaging', 'common', 'gpucommon', 'visionipc')
 lenv = env.Clone()
 
-libs = [cereal, messaging, common, visionipc, gpucommon, hardware,
+libs = [cereal, messaging, common, visionipc, gpucommon,
         'OpenCL', 'SNPE', 'symphony-cpu', 'capnp', 'zmq', 'kj', 'yuv']
 
 def get_dlsym_offset():

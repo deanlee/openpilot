@@ -1,4 +1,4 @@
-#include "selfdrive/hardware/hardware.h"
+#include "selfdrive/hardware/tici/hardware.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -6,7 +6,7 @@
 #include "selfdrive/common/params.h"
 #include "selfdrive/common/util.h"
 
-std::string get_os_version::get_os_version() {
+std::string HardwareTici::get_os_version() {
   return "AGNOS " + util::read_file("/VERSION");
 };
 
