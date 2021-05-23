@@ -54,7 +54,7 @@ private:
 
   // logs
   std::mutex events_lock;
-  Events events;
+  // Events events;
   EncodeIdxMap eidx;
 
   HttpRequest *http;
