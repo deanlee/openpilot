@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <termios.h>
+#include <mutex>
 
 #include <QJsonArray>
 #include <QReadWriteLock>
@@ -37,19 +38,22 @@ public slots:
   void segmentQueueThread();
   void parseResponse(const QString &response);
 
+protected:
+  std::pair<uint64_t, Events::iterator> getEvents();
+
 private:
   float last_print = 0;
   uint64_t route_start_ts;
   std::atomic<int> seek_ts = 0;
   std::atomic<int> current_ts = 0;
-  std::atomic<int> current_segment;
+  std::atomic<int> current_segment = 0;
 
   QThread *thread;
   QThread *kb_thread;
   QThread *queue_thread;
 
   // logs
-  QReadWriteLock events_lock;
+  std::mutex events_lock;
   Events events;
   EncodeIdxMap eidx;
 

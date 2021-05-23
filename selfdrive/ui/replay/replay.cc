@@ -77,10 +77,11 @@ void Replay::addSegment(int n) {
   log_reader->moveToThread(t);
   QObject::connect(t, &QThread::started, log_reader, &LogReader::process);
   QObject::connect(log_reader, &LogReader::done, [=] {
-    events_lock.lockForWrite();
-    events += log_reader->events();
-    eidx.unite(log_reader->roadCamEncodeIdx());
-    events_lock.unlock();
+    {
+      std::unique_lock lk(events_lock);
+      events += log_reader->events();
+      eidx.unite(log_reader->roadCamEncodeIdx());
+    }
     t->quit();
     t->deleteLater();
   });
@@ -192,106 +193,131 @@ void Replay::keyboardThread() {
   }
 }
 
+std::pair<uint64_t, Events::iterator> Replay::getEvents() {
+  const Events &events = lrs[current_segment]->events();
+  uint64_t t0 = route_start_ts + (seek_ts * 1e9);
+  seek_ts = -1;
+  qDebug() << "unlogging at" << (t0 - route_start_ts) / 1e9;
+  eit = events.lowerBound(t0);
+  if (eit.key() - t0 <= 1e9) {
+    break;
+  }
+  // do {
+  //   {
+  //     std::unique_lock lk(events_lock);
+  //     if (events.size() > 0) {
+  //       // TODO: use initData's logMonoTime
+  //       if (route_start_ts == 0) {
+  //         route_start_ts = events.firstKey();
+  //       }
+  //       break;
+  //     }
+  //   }
+  //   QThread::msleep(100);
+  // } while (true);
+
+
+  // uint64_t t0 = route_start_ts + (seek_ts * 1e9);
+  // seek_ts = -1;
+  // qDebug() << "unlogging at" << (t0 - route_start_ts) / 1e9;
+  // Events::iterator eit;
+  // // wait until we have events within 1s of the current time
+  // do {
+  //   {
+  //     std::unique_lock lk(events_lock);
+  //     eit = events.lowerBound(t0);
+  //     if (eit.key() - t0 <= 1e9) {
+  //       break;
+  //     }
+  //   }
+  //   QThread::msleep(10);
+  // } while (true);
+
+  // return {t0, eit};
+}
+
 void Replay::stream() {
   QElapsedTimer timer;
   timer.start();
 
   route_start_ts = 0;
   while (true) {
-    if (events.size() == 0) {
-      qDebug() << "waiting for events";
-      QThread::msleep(100);
-      continue;
-    }
-
-    // TODO: use initData's logMonoTime
-    if (route_start_ts == 0) {
-      route_start_ts = events.firstKey();
-    }
-
-    uint64_t t0 = route_start_ts + (seek_ts * 1e9);
-    seek_ts = -1;
-    qDebug() << "unlogging at" << (t0 - route_start_ts) / 1e9;
-
-    // wait until we have events within 1s of the current time
-    auto eit = events.lowerBound(t0);
-    while (eit.key() - t0 > 1e9) {
-      eit = events.lowerBound(t0);
-      QThread::msleep(10);
-    }
-
+    auto [t0, eit] = getEvents();
     uint64_t t0r = timer.nsecsElapsed();
-    while ((eit != events.end()) && seek_ts < 0) {
-      cereal::Event::Reader e = (*eit)->getRoot<cereal::Event>();
-      std::string type;
-      KJ_IF_MAYBE(e_, static_cast<capnp::DynamicStruct::Reader>(e).which()) {
-        type = e_->getProto().getName();
-      }
-
-      uint64_t tm = e.getLogMonoTime();
-      current_ts = std::max(tm - route_start_ts, (unsigned long)0) / 1e9;
-
-      if (socks.contains(type)) {
-        float timestamp = (tm - route_start_ts)/1e9;
-        if (std::abs(timestamp - last_print) > 5.0) {
-          last_print = timestamp;
-          qInfo() << "at " << last_print;
+    do {
+      while ((eit != events.end()) && seek_ts < 0) {
+        cereal::Event::Reader e = (*eit)->getRoot<cereal::Event>();
+        std::string type;
+        KJ_IF_MAYBE(e_, static_cast<capnp::DynamicStruct::Reader>(e).which()) {
+          type = e_->getProto().getName();
         }
 
-        // keep time
-        long etime = tm-t0;
-        long rtime = timer.nsecsElapsed() - t0r;
-        long us_behind = ((etime-rtime)*1e-3)+0.5;
-        if (us_behind > 0 && us_behind < 1e6) {
-          QThread::usleep(us_behind);
-          //qDebug() << "sleeping" << us_behind << etime << timer.nsecsElapsed();
-        }
+        uint64_t tm = e.getLogMonoTime();
+        current_ts = std::max(tm - route_start_ts, (unsigned long)0) / 1e9;
 
-        // publish frame
-        // TODO: publish all frames
-        if (type == "roadCameraState") {
-          auto fr = e.getRoadCameraState();
+        if (socks.contains(type)) {
+          float timestamp = (tm - route_start_ts)/1e9;
+          if (std::abs(timestamp - last_print) > 5.0) {
+            last_print = timestamp;
+            qInfo() << "at " << last_print;
+          }
 
-          auto it_ = eidx.find(fr.getFrameId());
-          if (it_ != eidx.end()) {
-            auto pp = *it_;
-            if (frs.find(pp.first) != frs.end()) {
-              auto frm = frs[pp.first];
-              auto data = frm->get(pp.second);
+          // keep time
+          long etime = tm-t0;
+          long rtime = timer.nsecsElapsed() - t0r;
+          long us_behind = ((etime-rtime)*1e-3)+0.5;
+          if (us_behind > 0 && us_behind < 1e6) {
+            QThread::usleep(us_behind);
+            //qDebug() << "sleeping" << us_behind << etime << timer.nsecsElapsed();
+          }
 
-              if (vipc_server == nullptr) {
-                cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
-                cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+          // publish frame
+          // TODO: publish all frames
+          if (type == "roadCameraState") {
+            auto fr = e.getRoadCameraState();
 
-                vipc_server = new VisionIpcServer("camerad", device_id, context);
-                vipc_server->create_buffers(VisionStreamType::VISION_STREAM_RGB_BACK, UI_BUF_COUNT,
-                                            true, frm->width, frm->height);
-                vipc_server->start_listener();
+            auto it_ = eidx.find(fr.getFrameId());
+            if (it_ != eidx.end()) {
+              auto pp = *it_;
+              if (frs.find(pp.first) != frs.end()) {
+                auto frm = frs[pp.first];
+                auto data = frm->get(pp.second);
+
+                if (vipc_server == nullptr) {
+                  cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+                  cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+
+                  vipc_server = new VisionIpcServer("camerad", device_id, context);
+                  vipc_server->create_buffers(VisionStreamType::VISION_STREAM_RGB_BACK, UI_BUF_COUNT,
+                                              true, frm->width, frm->height);
+                  vipc_server->start_listener();
+                }
+
+                VisionIpcBufExtra extra = {};
+                VisionBuf *buf = vipc_server->get_buffer(VisionStreamType::VISION_STREAM_RGB_BACK);
+                memcpy(buf->addr, data, frm->getRGBSize());
+                vipc_server->send(buf, &extra, false);
               }
-
-              VisionIpcBufExtra extra = {};
-              VisionBuf *buf = vipc_server->get_buffer(VisionStreamType::VISION_STREAM_RGB_BACK);
-              memcpy(buf->addr, data, frm->getRGBSize());
-              vipc_server->send(buf, &extra, false);
             }
+          }
+
+          // publish msg
+          if (sm == nullptr) {
+            capnp::MallocMessageBuilder msg;
+            msg.setRoot(e);
+            auto words = capnp::messageToFlatArray(msg);
+            auto bytes = words.asBytes();
+            pm->send(type.c_str(), (unsigned char*)bytes.begin(), bytes.size());
+          } else {
+            std::vector<std::pair<std::string, cereal::Event::Reader>> messages;
+            messages.push_back({type, e});
+            sm->update_msgs(nanos_since_boot(), messages);
           }
         }
 
-        // publish msg
-        if (sm == nullptr) {
-          capnp::MallocMessageBuilder msg;
-          msg.setRoot(e);
-          auto words = capnp::messageToFlatArray(msg);
-          auto bytes = words.asBytes();
-          pm->send(type.c_str(), (unsigned char*)bytes.begin(), bytes.size());
-        } else {
-          std::vector<std::pair<std::string, cereal::Event::Reader>> messages;
-          messages.push_back({type, e});
-          sm->update_msgs(nanos_since_boot(), messages);
-        }
+        ++eit;
       }
-
-      ++eit;
+      if (current_segment )
     }
   }
 }
