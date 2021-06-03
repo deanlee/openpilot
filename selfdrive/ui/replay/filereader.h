@@ -62,11 +62,11 @@ public:
   }
   inline kj::ArrayPtr<const capnp::byte> bytes() const { return words.asBytes(); }
 
-  kj::ArrayPtr<const capnp::word> words;
-  capnp::FlatArrayMessageReader reader;
-  cereal::Event::Reader event;
   uint64_t mono_time;
   cereal::Event::Which which;
+  cereal::Event::Reader event;
+  capnp::FlatArrayMessageReader reader;
+  kj::ArrayPtr<const capnp::word> words;
 private:
   std::shared_ptr<std::vector<uint8_t>> raw;
   inline static int i = 0;
