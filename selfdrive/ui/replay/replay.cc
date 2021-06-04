@@ -293,3 +293,97 @@ void Replay::stream() {
     }
   }
 }
+
+// class CameraServer
+
+CameraServer::CameraServer() {
+  device_id_ = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+  context_ = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id_, NULL, NULL, &err));
+}
+
+CameraServer::~CameraServer() {
+  delete vipc_server_;
+  CL_CHECK(clReleaseContext(context_));
+}
+
+void CameraServer::ensureServerForSegment(FrameReader *fr) {
+  if (vipc_server_) {
+      if (fr && fr->valid()) {
+      frame_changed = !s || s->width != fr->width || s->height != fr->height;
+    } else if (s) {
+      frame_changed = true;
+    }
+    if (frame_changed) {
+      stop();
+      break;
+    }
+  }
+  if (!vipc_server_) {
+    for (auto cam_type : ALL_CAMERAS) {
+      const FrameReader *fr = seg->frames[cam_type];
+      if (!fr || !fr->valid()) continue;
+
+      if (!vipc_server_) {
+        vipc_server_ = new VisionIpcServer("camerad", device_id_, context_);
+      }
+      vipc_server_->create_buffers(stream_types[cam_type], UI_BUF_COUNT, true, fr->width, fr->height);
+
+      CameraState *state = new CameraState;
+      state->width = fr->width;
+      state->height = fr->height;
+      state->stream_type = stream_types[cam_type];
+      state->thread = std::thread(&CameraServer::cameraThread, this, cam_type, state);
+      camera_states_[cam_type] = state;
+    }
+    if (vipc_server_) {
+      vipc_server_->start_listener();
+    }
+  }
+}
+
+void CameraServer::pushFrame(CameraType type, std::shared_ptr<Segment> seg, uint32_t segmentId) {
+  if (camera_states_[type]) {
+    camera_states_[type]->queue.push({seg, segmentId});
+  }
+}
+
+void CameraServer::stop() {
+  if (!vipc_server_) return;
+
+  // stop camera threads
+  exit_ = true;
+  for (int i = 0; i < std::size(camera_states_); ++i) {
+    if (CameraState *state = camera_states_[i]) {
+      camera_states_[i] = nullptr;
+      state->thread.join();
+      delete state;
+    }
+  }
+  exit_ = false;
+
+  // stop vipc server
+  delete vipc_server_;
+  vipc_server_ = nullptr;
+  segment = -1;
+}
+
+void CameraServer::cameraThread(CameraType cam_type, CameraServer::CameraState *s) {
+  while (!exit_) {
+    std::pair<std::shared_ptr<Segment>, uint32_t> frame;
+    if (!s->queue.try_pop(frame, 20)) continue;
+
+    auto &[seg, segmentId] = frame;
+    FrameReader *frm = seg->frames[cam_type];
+    if (frm->width != s->width || frm->height != s->height) {
+      // eidx is not in the same segment with different frame size
+      continue;
+    }
+
+    VisionBuf *buf = vipc_server_->get_buffer(s->stream_type);
+    if (frm->get(segmentId, buf->addr)) {
+      VisionIpcBufExtra extra = {};
+      vipc_server_->send(buf, &extra, false);
+    }
+  }
+  qDebug() << "camera thread " << cam_type << " stopped ";
+}

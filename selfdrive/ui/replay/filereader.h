@@ -17,6 +17,14 @@
 
 #include "tools/clib/channel.h"
 
+enum CameraType {
+  RoadCam = 0,
+  DriverCam,
+  WideRoadCam
+};
+const CameraType ALL_CAMERAS[] = {RoadCam, DriverCam, WideRoadCam};
+const int MAX_CAMERAS = std::size(ALL_CAMERAS);
+
 class FileReader : public QObject {
   Q_OBJECT
 

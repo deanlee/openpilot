@@ -18,6 +18,31 @@
 constexpr int FORWARD_SEGS = 2;
 constexpr int BACKWARD_SEGS = 2;
 
+class CameraServer {
+public:
+  CameraServer();
+  ~CameraServer();
+  void stop();
+  void ensureServer(Segment *seg);
+  inline bool hasCamera(CameraType type) const { return camera_states_[type] != nullptr; }
+  void pushFrame(CameraType type, std::shared_ptr<Segment> seg, uint32_t segmentId);
+
+private:
+  cl_device_id device_id_ = nullptr;
+  cl_context context_ = nullptr;
+  VisionIpcServer *vipc_server_ = nullptr;
+  std::atomic<bool> exit_ = false;
+  int segment = -1;
+
+  struct CameraState {
+    std::thread thread;
+    int width, height;
+    VisionStreamType stream_type;
+    SafeQueue<std::pair<std::shared_ptr<Segment>, uint32_t>> queue;
+  };
+  CameraState *camera_states_[MAX_CAMERAS] = {};
+  void cameraThread(CameraType cam_type, CameraState *s);
+};
 
 class Replay : public QObject {
   Q_OBJECT
