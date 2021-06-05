@@ -48,12 +48,18 @@ private:
   QString file;
 };
 
+struct EncodeIdx {
+  int segmentNum;
+  int EncodeFrameIdx;
+};
+
 typedef QMultiMap<uint64_t, cereal::Event::Reader> Events;
+typedef QMap<int, EncodeIdx> EncodeIdxMap;
 
 class LogReader : public FileReader {
 Q_OBJECT
 public:
-  LogReader(const QString& file, Events *, QReadWriteLock* events_lock_, QMap<int, QPair<int, int> > *eidx_);
+  LogReader(const QString& file, Events *, QReadWriteLock* events_lock_, EncodeIdxMap *eidx_);
   ~LogReader();
 
   void readyRead();

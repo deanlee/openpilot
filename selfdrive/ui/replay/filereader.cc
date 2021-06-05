@@ -80,7 +80,7 @@ LogReader::~LogReader() {
 void LogReader::mergeEvents(int dled) {
   auto amsg = kj::arrayPtr((const capnp::word*)(raw.data() + event_offset), (dled-event_offset)/sizeof(capnp::word));
   Events events_local;
-  QMap<int, QPair<int, int> > eidx_local;
+  EncodeIdxMap eidx_local[MAX_CAMERAS];
 
   while (amsg.size() > 0) {
     try {
@@ -99,7 +99,13 @@ void LogReader::mergeEvents(int dled) {
       // TODO: rewrite with callback
       if (event.which() == cereal::Event::ROAD_ENCODE_IDX) {
         auto ee = event.getRoadEncodeIdx();
-        eidx_local.insert(ee.getFrameId(), qMakePair(ee.getSegmentNum(), ee.getSegmentId()));
+        eidx_local[RoadCam].insert(ee.getFrameId(), {ee.getSegmentNum(), ee.getSegmentId()});
+      } else if (event.which() == cereal::Event::DRIVER_ENCODE_IDX) {
+        auto ee = event.getDriverEncodeIdx();
+        eidx_local[DriverCam].insert(ee.getFrameId(), {ee.getSegmentNum(), ee.getSegmentId()});
+      } else if (event.which() == cereal::Event::WIDE_ROAD_ENCODE_IDX) {
+        auto ee = event.getWideRoadEncodeIdx();
+        eidx_local[WideRoadCam].insert(ee.getFrameId(), {ee.getSegmentNum(), ee.getSegmentId()});
       }
 
       // increment
@@ -115,7 +121,9 @@ void LogReader::mergeEvents(int dled) {
   // TODO: add lock
   events_lock->lockForWrite();
   *events += events_local;
-  eidx->unite(eidx_local);
+  for (auto cam_type : ALL_CAMERAS) {
+    eidx[cam_type].unite(eidx_local[cam_type]);
+  }
   events_lock->unlock();
 }
 

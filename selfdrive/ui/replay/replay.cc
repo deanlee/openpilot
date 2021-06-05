@@ -250,27 +250,28 @@ void Replay::stream() {
         if (type == "roadCameraState") {
           auto fr = e.getRoadCameraState();
 
-          auto it_ = eidx.find(fr.getFrameId());
-          if (it_ != eidx.end()) {
-            auto pp = *it_;
-            if (frs.find(pp.first) != frs.end()) {
-              auto frm = frs[pp.first];
-              auto data = frm->get(pp.second);
+          auto it_ = eidx[RoadCam].find(fr.getFrameId());
+          if (it_ != eidx[RoadCam].end()) {
+            auto e = *it_;
+            if (frs.find(e.segmentNum) != frs.end()) {
+              auto frm = frs[e.segmentNum];
+              // auto data = frm->get(eidx.encodeFrameId);
 
-              if (vipc_server == nullptr) {
-                cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
-                cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+              // if (vipc_server == nullptr) {
+              //   cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+              //   cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
 
-                vipc_server = new VisionIpcServer("camerad", device_id, context);
-                vipc_server->create_buffers(VisionStreamType::VISION_STREAM_RGB_BACK, UI_BUF_COUNT,
-                                            true, frm->width, frm->height);
-                vipc_server->start_listener();
-              }
+              //   vipc_server = new VisionIpcServer("camerad", device_id, context);
+              //   vipc_server->create_buffers(VisionStreamType::VISION_STREAM_RGB_BACK, UI_BUF_COUNT,
+              //                               true, frm->width, frm->height);
+              //   vipc_server->start_listener();
+              // }
 
-              VisionIpcBufExtra extra = {};
-              VisionBuf *buf = vipc_server->get_buffer(VisionStreamType::VISION_STREAM_RGB_BACK);
-              memcpy(buf->addr, data, frm->getRGBSize());
-              vipc_server->send(buf, &extra, false);
+              // VisionIpcBufExtra extra = {};
+              // VisionBuf *buf = vipc_server->get_buffer(VisionStreamType::VISION_STREAM_RGB_BACK);
+              // memcpy(buf->addr, data, frm->getRGBSize());
+              // vipc_server->send(buf, &extra, false);
+              camera_server.pushFrame(RoadCam, frm, e.encodeFrameId);
             }
           }
         }
@@ -341,9 +342,9 @@ void CameraServer::ensureServerForSegment(FrameReader *fr) {
   }
 }
 
-void CameraServer::pushFrame(CameraType type, std::shared_ptr<Segment> seg, uint32_t segmentId) {
+void CameraServer::pushFrame(CameraType type, FrameReader* fr, uint32_t encodeFrameId) {
   if (camera_states_[type]) {
-    camera_states_[type]->queue.push({seg, segmentId});
+    camera_states_[type]->queue.push({fr, encodeFrameId});
   }
 }
 
@@ -369,19 +370,19 @@ void CameraServer::stop() {
 
 void CameraServer::cameraThread(CameraType cam_type, CameraServer::CameraState *s) {
   while (!exit_) {
-    std::pair<std::shared_ptr<Segment>, uint32_t> frame;
+    std::pair<FrameReader *, uint32_t> frame;
     if (!s->queue.try_pop(frame, 20)) continue;
 
-    auto &[seg, segmentId] = frame;
-    FrameReader *frm = seg->frames[cam_type];
+    auto &[frm, encodeFrameId] = frame;
     if (frm->width != s->width || frm->height != s->height) {
       // eidx is not in the same segment with different frame size
       continue;
     }
 
     VisionBuf *buf = vipc_server_->get_buffer(s->stream_type);
-    if (frm->get(segmentId, buf->addr)) {
+    if (uint8_t *data = frm->get(encodeFrameId)) {
       VisionIpcBufExtra extra = {};
+      memcpy(buf->addr, data, frm->getRGBSize());
       vipc_server_->send(buf, &extra, false);
     }
   }

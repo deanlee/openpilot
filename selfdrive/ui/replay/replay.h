@@ -25,7 +25,7 @@ public:
   void stop();
   void ensureServer(Segment *seg);
   inline bool hasCamera(CameraType type) const { return camera_states_[type] != nullptr; }
-  void pushFrame(CameraType type, std::shared_ptr<Segment> seg, uint32_t segmentId);
+  void pushFrame(CameraType type, FrameReader* fr, uint32_t encodeFrameId);
 
 private:
   cl_device_id device_id_ = nullptr;
@@ -38,7 +38,7 @@ private:
     std::thread thread;
     int width, height;
     VisionStreamType stream_type;
-    SafeQueue<std::pair<std::shared_ptr<Segment>, uint32_t>> queue;
+    SafeQueue<std::pair<FrameReader*, uint32_t>> queue;
   };
   CameraState *camera_states_[MAX_CAMERAS] = {};
   void cameraThread(CameraType cam_type, CameraState *s);
@@ -75,7 +75,7 @@ private:
   // logs
   Events events;
   QReadWriteLock events_lock;
-  QMap<int, QPair<int, int>> eidx;
+  EncodeIdxMap eidx[MAX_CAMERAS];
 
   HttpRequest *http;
   QJsonArray camera_paths;
@@ -87,5 +87,6 @@ private:
   SubMaster *sm;
   PubMaster *pm;
   QVector<std::string> socks;
-  VisionIpcServer *vipc_server = nullptr;
+
+  CameraServer camera_server;
 };
