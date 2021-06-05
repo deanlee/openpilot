@@ -108,7 +108,9 @@ void Replay::removeSegment(int n) {
   */
   if (frs.contains(n)) {
     auto fr = frs.take(n);
-    delete fr;
+    for (auto f : fr) {
+      delete fr;
+    }
   }
 }
 
@@ -307,33 +309,38 @@ CameraServer::~CameraServer() {
   CL_CHECK(clReleaseContext(context_));
 }
 
-void CameraServer::ensureServerForSegment(FrameReader *fr) {
+void CameraServer::ensureServer(FrameReader* frs[]) {
   if (vipc_server_) {
-      if (fr && fr->valid()) {
-      frame_changed = !s || s->width != fr->width || s->height != fr->height;
-    } else if (s) {
-      frame_changed = true;
-    }
-    if (frame_changed) {
-      stop();
-      break;
+    for (auto cam_type : ALL_CAMERAS) {
+      FrameReader *f = frs[cam_type];
+      CameraState *s = camera_states_[cam_type];
+      bool frame_changed =false;
+      if (f) {
+        frame_changed = !s || s->width != f->width || s->height != f->height;
+      } else if (s) {
+        frame_changed = true;
+      }
+      if (frame_changed) {
+        stop();
+        break;
+      }
     }
   }
   if (!vipc_server_) {
     for (auto cam_type : ALL_CAMERAS) {
-      const FrameReader *fr = seg->frames[cam_type];
-      if (!fr || !fr->valid()) continue;
+      const FrameReader *f = frs[cam_type];
+      if (!f) continue;
 
       if (!vipc_server_) {
         vipc_server_ = new VisionIpcServer("camerad", device_id_, context_);
       }
-      vipc_server_->create_buffers(stream_types[cam_type], UI_BUF_COUNT, true, fr->width, fr->height);
+      vipc_server_->create_buffers(stream_types[cam_type], UI_BUF_COUNT, true, f->width, f->height);
 
       CameraState *state = new CameraState;
-      state->width = fr->width;
-      state->height = fr->height;
+      state->width = f->width;
+      state->height = f->height;
       state->stream_type = stream_types[cam_type];
-      state->thread = std::thread(&CameraServer::cameraThread, this, cam_type, state);
+      state->thread = std::thread(&CameraServer::cameraThread, this, state);
       camera_states_[cam_type] = state;
     }
     if (vipc_server_) {
@@ -343,8 +350,8 @@ void CameraServer::ensureServerForSegment(FrameReader *fr) {
 }
 
 void CameraServer::pushFrame(CameraType type, FrameReader* fr, uint32_t encodeFrameId) {
-  if (camera_states_[type]) {
-    camera_states_[type]->queue.push({fr, encodeFrameId});
+  if (CameraState* cs = camera_states_[type]) {
+    cs->queue.push({fr, encodeFrameId});
   }
 }
 
@@ -353,11 +360,11 @@ void CameraServer::stop() {
 
   // stop camera threads
   exit_ = true;
-  for (int i = 0; i < std::size(camera_states_); ++i) {
-    if (CameraState *state = camera_states_[i]) {
-      camera_states_[i] = nullptr;
+  for (auto cam_type : ALL_CAMERAS) {
+    if (CameraState *state = camera_states_[cam_type]) {
       state->thread.join();
       delete state;
+      camera_states_[cam_type] = nullptr;
     }
   }
   exit_ = false;
@@ -368,14 +375,13 @@ void CameraServer::stop() {
   segment = -1;
 }
 
-void CameraServer::cameraThread(CameraType cam_type, CameraServer::CameraState *s) {
+void CameraServer::cameraThread(CameraServer::CameraState *s) {
   while (!exit_) {
     std::pair<FrameReader *, uint32_t> frame;
     if (!s->queue.try_pop(frame, 20)) continue;
 
     auto &[frm, encodeFrameId] = frame;
-    if (frm->width != s->width || frm->height != s->height) {
-      // eidx is not in the same segment with different frame size
+    if (!frm || frm->width != s->width || frm->height != s->height) {
       continue;
     }
 
@@ -386,5 +392,4 @@ void CameraServer::cameraThread(CameraType cam_type, CameraServer::CameraState *
       vipc_server_->send(buf, &extra, false);
     }
   }
-  qDebug() << "camera thread " << cam_type << " stopped ";
 }

@@ -80,5 +80,5 @@ private:
   void mergeEvents(int dled);
   Events *events;
   QReadWriteLock* events_lock;
-  QMap<int, QPair<int, int> > *eidx;
+  EncodeIdxMap *eidx;
 };

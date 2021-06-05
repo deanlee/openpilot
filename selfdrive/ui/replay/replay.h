@@ -9,6 +9,7 @@
 #include <capnp/dynamic.h>
 
 #include "cereal/visionipc/visionipc_server.h"
+#include "selfdrive/common/queue.h"
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/api.h"
 #include "selfdrive/ui/replay/filereader.h"
@@ -23,7 +24,7 @@ public:
   CameraServer();
   ~CameraServer();
   void stop();
-  void ensureServer(Segment *seg);
+  void ensureServer(FrameReader* frs[]);
   inline bool hasCamera(CameraType type) const { return camera_states_[type] != nullptr; }
   void pushFrame(CameraType type, FrameReader* fr, uint32_t encodeFrameId);
 
@@ -35,9 +36,9 @@ private:
   int segment = -1;
 
   struct CameraState {
+    VisionStreamType stream_type;
     std::thread thread;
     int width, height;
-    VisionStreamType stream_type;
     SafeQueue<std::pair<FrameReader*, uint32_t>> queue;
   };
   CameraState *camera_states_[MAX_CAMERAS] = {};
@@ -81,7 +82,7 @@ private:
   QJsonArray camera_paths;
   QJsonArray log_paths;
   QMap<int, LogReader*> lrs;
-  QMap<int, FrameReader*> frs;
+  QMap<int, FrameReader*[MAX_CAMERAS]> frs;
 
   // messaging
   SubMaster *sm;
