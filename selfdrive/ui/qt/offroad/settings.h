@@ -13,6 +13,13 @@
 
 #include "selfdrive/ui/qt/widgets/controls.h"
 
+class VersionWidget : public QWidget {
+  Q_OBJECT
+
+public:
+  explicit VersionWidget(QObject *parent = nullptr);
+};
+
 // ********** settings window + top-level panels **********
 
 class DevicePanel : public QWidget {
@@ -39,10 +46,17 @@ protected:
   void showEvent(QShowEvent *event) override;
 
 private:
+  void initWidgets();
   QList<LabelControl *> labels;
-  LabelControl *versionLbl;
-  LabelControl *lastUpdateTimeLbl;
-  ButtonControl *updateButton;
+  QLabel *version_label;
+  QLabel *updateInfo;
+  QLabel *lastCheckedLabel;
+  QLabel *readmeLabel;
+  QPushButton *updateButton;
+  QLabel *gitBranchLabel;
+  QLabel *gitCommitLabel;
+  QLabel *pandaFirmwareLabel;
+  QLabel *osVersionLabel;
   void updateLabels();
 
   QFileSystemWatcher *fs_watch;

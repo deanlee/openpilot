@@ -204,16 +204,21 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
   )");
 }
 
+// VersionWidget::VersionWidget(QObject *parent) {
+//   QVBoxLayout *main_layout = new QVBoxLayout(this);
+//   QLable *label 
+// }
+
 SoftwarePanel::SoftwarePanel(QWidget* parent) : QFrame(parent) {
-  QVBoxLayout *main_layout = new QVBoxLayout(this);
-  setLayout(main_layout);
-  setStyleSheet(R"(QLabel {font-size: 50px;})");
+  // QVBoxLayout *main_layout = new QVBoxLayout(this);
+  // setLayout(main_layout);
+  // setStyleSheet(R"(QLabel {font-size: 50px;})");
 
   fs_watch = new QFileSystemWatcher(this);
   QObject::connect(fs_watch, &QFileSystemWatcher::fileChanged, [=](const QString path) {
     int update_failed_count = Params().get<int>("UpdateFailedCount").value_or(0);
     if (path.contains("UpdateFailedCount") && update_failed_count > 0) {
-      lastUpdateTimeLbl->setText("failed to fetch update");
+      lastCheckedLabel->setText("failed to fetch update");
       updateButton->setText("CHECK");
       updateButton->setEnabled(true);
     } else if (path.contains("LastUpdateTime")) {
@@ -221,22 +226,84 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : QFrame(parent) {
     }
   });
 }
+void SoftwarePanel::initWidgets() {
+  QVBoxLayout *main_layout = new QVBoxLayout(this);
+  setStyleSheet(R"(QLabel {font-size: 40px;})");
+  
+  version_label = new QLabel();
+  version_label->setStyleSheet("font-size: 50px;");
+  main_layout->addWidget(version_label);
+
+  gitBranchLabel = new QLabel();
+  gitBranchLabel->setStyleSheet("font-size: 30px;");
+  main_layout->addWidget(gitBranchLabel);
+
+  gitCommitLabel = new QLabel();
+  gitCommitLabel->setStyleSheet("font-size: 30px;");
+  main_layout->addWidget(gitCommitLabel);
+
+  pandaFirmwareLabel = new QLabel();
+  pandaFirmwareLabel->setStyleSheet("font-size: 30px;");
+  main_layout->addWidget(pandaFirmwareLabel);
+
+  osVersionLabel= new QLabel();
+  osVersionLabel->setStyleSheet("font-size: 30px;");
+  main_layout->addWidget(osVersionLabel);
+
+  updateInfo = new QLabel();
+  updateInfo->setStyleSheet("font-size: 40px;");
+  main_layout->addWidget(updateInfo);
+
+  lastCheckedLabel = new QLabel();
+  lastCheckedLabel->setStyleSheet("font-size: 30px;");
+  main_layout->addWidget(lastCheckedLabel);
+  QHBoxLayout *btn_layout = new QHBoxLayout();
+  updateButton = new QPushButton("Check for update");
+  connect(updateButton, &QPushButton::clicked, [=]() {
+    Params params = Params();
+    if (params.getBool("IsOffroad")) {
+      fs_watch->addPath(QString::fromStdString(params.getParamsPath()) + "/d/LastUpdateTime");
+      fs_watch->addPath(QString::fromStdString(params.getParamsPath()) + "/d/UpdateFailedCount");
+      updateButton->setText("CHECKING");
+      updateButton->setEnabled(false);
+    }
+    std::system("pkill -1 -f selfdrive.updated");
+  });
+  btn_layout->addWidget(updateButton);
+  btn_layout->addStretch();
+
+  main_layout->addLayout(btn_layout);
+
+  main_layout->addWidget(horizontal_line());
+  readmeLabel = new QLabel();
+  readmeLabel->setStyleSheet("font-size: 40px; color:grey");
+  readmeLabel->setWordWrap(true);
+
+  main_layout->addWidget(readmeLabel);
+  main_layout->addStretch(1);
+}
 
 void SoftwarePanel::showEvent(QShowEvent *event) {
+  if (!layout()) {
+    initWidgets();
+  }
   updateLabels();
 }
 
 void SoftwarePanel::updateLabels() {
   Params params = Params();
   std::string brand = params.getBool("Passive") ? "dashcam" : "openpilot";
-  QList<QPair<QString, std::string>> dev_params = {
-    {"Git Branch", params.get("GitBranch")},
-    {"Git Commit", params.get("GitCommit").substr(0, 10)},
-    {"Panda Firmware", params.get("PandaFirmwareHex")},
-    {"OS Version", Hardware::get_os_version()},
-  };
+  // QList<QPair<QString, std::string>> dev_params = {
+  //   {"Git Branch", params.get("GitBranch")},
+  //   {"Git Commit", params.get("GitCommit").substr(0, 10)},
+  //   {"Panda Firmware", params.get("PandaFirmwareHex")},
+  //   {"OS Version", Hardware::get_os_version()},
+  // };
 
   QString version = QString::fromStdString(brand + " v" + params.get("Version").substr(0, 14)).trimmed();
+  version_label->setText(version);
+  updateInfo->setText("You're up to date");
+  
   QString lastUpdateTime = "";
 
   std::string last_update_param = params.get("LastUpdateTime");
@@ -244,48 +311,59 @@ void SoftwarePanel::updateLabels() {
     QDateTime lastUpdateDate = QDateTime::fromString(QString::fromStdString(last_update_param + "Z"), Qt::ISODate);
     lastUpdateTime = timeAgo(lastUpdateDate);
   }
+  QString lastChecked = "Last checked: " + lastUpdateTime;
+  lastCheckedLabel->setText(lastChecked);
+  readmeLabel->setText(QString::fromStdString(params.get("ReleaseNotes")).trimmed());
 
-  if (labels.size() < dev_params.size()) {
-    versionLbl = new LabelControl("Version", version, QString::fromStdString(params.get("ReleaseNotes")).trimmed());
-    layout()->addWidget(versionLbl);
-    layout()->addWidget(horizontal_line());
+  gitBranchLabel->setText("Git Branch: " + QString::fromStdString(params.get("GitBranch")));
+  gitCommitLabel->setText("Git Commit: " + QString::fromStdString(params.get("GitCommit")));
+  pandaFirmwareLabel->setText("Panda Firmware: " + QString::fromStdString(params.get("PandaFirmwareHex")));
+  osVersionLabel->setText("OS Version: " + QString::fromStdString(Hardware::get_os_version()));
+  //   {"Git Commit", params.get("GitCommit").substr(0, 10)},
+  //   {"Panda Firmware", params.get("PandaFirmwareHex")},
+  //   {"OS Version", Hardware::get_os_version()},
 
-    lastUpdateTimeLbl = new LabelControl("Last Update Check", lastUpdateTime, "The last time openpilot successfully checked for an update. The updater only runs while the car is off.");
-    layout()->addWidget(lastUpdateTimeLbl);
-    layout()->addWidget(horizontal_line());
+  // if (labels.size() < dev_params.size()) {
+  //   versionLbl = new LabelControl("Version", version, QString::fromStdString(params.get("ReleaseNotes")).trimmed());
+  //   layout()->addWidget(versionLbl);
+  //   layout()->addWidget(horizontal_line());
 
-    updateButton = new ButtonControl("Check for Update", "CHECK", "", [=]() {
-      Params params = Params();
-      if (params.getBool("IsOffroad")) {
-        fs_watch->addPath(QString::fromStdString(params.getParamsPath()) + "/d/LastUpdateTime");
-        fs_watch->addPath(QString::fromStdString(params.getParamsPath()) + "/d/UpdateFailedCount");
-        updateButton->setText("CHECKING");
-        updateButton->setEnabled(false);
-      }
-      std::system("pkill -1 -f selfdrive.updated");
-    }, "", this);
-    layout()->addWidget(updateButton);
-    layout()->addWidget(horizontal_line());
-  } else {
-    versionLbl->setText(version);
-    lastUpdateTimeLbl->setText(lastUpdateTime);
-    updateButton->setText("CHECK");
-    updateButton->setEnabled(true);
-  }
+  //   lastUpdateTimeLbl = new LabelControl("Last Update Check", lastUpdateTime, "The last time openpilot successfully checked for an update. The updater only runs while the car is off.");
+  //   layout()->addWidget(lastUpdateTimeLbl);
+  //   layout()->addWidget(horizontal_line());
 
-  for (int i = 0; i < dev_params.size(); i++) {
-    const auto &[name, value] = dev_params[i];
-    QString val = QString::fromStdString(value).trimmed();
-    if (labels.size() > i) {
-      labels[i]->setText(val);
-    } else {
-      labels.push_back(new LabelControl(name, val));
-      layout()->addWidget(labels[i]);
-      if (i < (dev_params.size() - 1)) {
-        layout()->addWidget(horizontal_line());
-      }
-    }
-  }
+  //   updateButton = new ButtonControl("Check for Update", "CHECK", "", [=]() {
+  //     Params params = Params();
+  //     if (params.getBool("IsOffroad")) {
+  //       fs_watch->addPath(QString::fromStdString(params.getParamsPath()) + "/d/LastUpdateTime");
+  //       fs_watch->addPath(QString::fromStdString(params.getParamsPath()) + "/d/UpdateFailedCount");
+  //       updateButton->setText("CHECKING");
+  //       updateButton->setEnabled(false);
+  //     }
+  //     std::system("pkill -1 -f selfdrive.updated");
+  //   }, "", this);
+  //   layout()->addWidget(updateButton);
+  //   layout()->addWidget(horizontal_line());
+  // } else {
+  //   versionLbl->setText(version);
+  //   lastUpdateTimeLbl->setText(lastUpdateTime);
+  //   updateButton->setText("CHECK");
+  //   updateButton->setEnabled(true);
+  // }
+
+  // for (int i = 0; i < dev_params.size(); i++) {
+  //   const auto &[name, value] = dev_params[i];
+  //   QString val = QString::fromStdString(value).trimmed();
+  //   if (labels.size() > i) {
+  //     labels[i]->setText(val);
+  //   } else {
+  //     labels.push_back(new LabelControl(name, val));
+  //     layout()->addWidget(labels[i]);
+  //     if (i < (dev_params.size() - 1)) {
+  //       layout()->addWidget(horizontal_line());
+  //     }
+  //   }
+  // }
 }
 
 QWidget * network_panel(QWidget * parent) {
