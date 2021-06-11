@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
   QWidget window;
   setMainWindow(&window);
 
-  QVBoxLayout *layout = new QVBoxLayout();
+  QVBoxLayout *layout = new QVBoxLayout(&window);
   layout->setContentsMargins(125, 125, 125, 125);
 
   QLabel *title = new QLabel("System Reset");
@@ -76,7 +76,6 @@ int main(int argc, char *argv[]) {
 
   layout->addLayout(btn_layout);
 
-  window.setLayout(layout);
   window.setStyleSheet(R"(
     * {
       color: white;

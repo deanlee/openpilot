@@ -39,7 +39,6 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   // setup stacking order
   alerts->raise();
 
-  setLayout(layout);
   setAttribute(Qt::WA_OpaquePaintEvent);
 }
 

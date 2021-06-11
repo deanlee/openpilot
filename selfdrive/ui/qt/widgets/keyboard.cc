@@ -11,7 +11,7 @@ const int DEFAULT_STRETCH = 1;
 const int SPACEBAR_STRETCH = 3;
 
 KeyboardLayout::KeyboardLayout(QWidget* parent, const std::vector<QVector<QString>>& layout) : QWidget(parent) {
-  QVBoxLayout* vlayout = new QVBoxLayout;
+  QVBoxLayout* vlayout = new QVBoxLayout(this);
   vlayout->setMargin(0);
   vlayout->setSpacing(35);
 
@@ -56,11 +56,10 @@ KeyboardLayout::KeyboardLayout(QWidget* parent, const std::vector<QVector<QStrin
       background-color: #000000;
     }
   )");
-  setLayout(vlayout);
 }
 
 Keyboard::Keyboard(QWidget *parent) : QFrame(parent) {
-  main_layout = new QStackedLayout;
+  main_layout = new QStackedLayout(this);
   main_layout->setMargin(0);
 
   // lowercase
@@ -99,7 +98,6 @@ Keyboard::Keyboard(QWidget *parent) : QFrame(parent) {
   };
   main_layout->addWidget(new KeyboardLayout(this, specials));
 
-  setLayout(main_layout);
   main_layout->setCurrentIndex(0);
 }
 

@@ -11,7 +11,7 @@ InputDialog::InputDialog(const QString &prompt_text, QWidget *parent) : QDialog(
   layout->setSpacing(20);
 
   // build header
-  QHBoxLayout *header_layout = new QHBoxLayout();
+  QHBoxLayout *header_layout = new QHBoxLayout(this);
 
   label = new QLabel(prompt_text, this);
   label->setStyleSheet(R"(font-size: 75px; font-weight: 500;)");
@@ -54,8 +54,6 @@ InputDialog::InputDialog(const QString &prompt_text, QWidget *parent) : QDialog(
       background-color: black;
     }
   )");
-
-  setLayout(layout);
 }
 
 QString InputDialog::getText(const QString &prompt, int minLength) {
@@ -126,7 +124,7 @@ ConfirmationDialog::ConfirmationDialog(const QString &prompt_text, const QString
   layout->addWidget(prompt, 1, Qt::AlignTop | Qt::AlignHCenter);
 
   // cancel + confirm buttons
-  QHBoxLayout *btn_layout = new QHBoxLayout();
+  QHBoxLayout *btn_layout = new QHBoxLayout(this);
   btn_layout->setSpacing(20);
   btn_layout->addStretch(1);
   layout->addLayout(btn_layout);
@@ -158,8 +156,6 @@ ConfirmationDialog::ConfirmationDialog(const QString &prompt_text, const QString
       background-color: #44444400;
     }
   )");
-
-  setLayout(layout);
 }
 
 bool ConfirmationDialog::alert(const QString &prompt_text, QWidget *parent) {

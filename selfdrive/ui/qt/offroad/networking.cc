@@ -24,14 +24,13 @@ void NetworkStrengthWidget::paintEvent(QPaintEvent* event) {
 // Networking functions
 
 Networking::Networking(QWidget* parent, bool show_advanced) : QWidget(parent), show_advanced(show_advanced) {
-  s = new QStackedLayout;
+  s = new QStackedLayout(this);
 
   QLabel* warning = new QLabel("Network manager is inactive!");
   warning->setAlignment(Qt::AlignCenter);
   warning->setStyleSheet(R"(font-size: 65px;)");
 
   s->addWidget(warning);
-  setLayout(s);
 
   QTimer* timer = new QTimer(this);
   QObject::connect(timer, &QTimer::timeout, this, &Networking::refresh);
@@ -129,7 +128,7 @@ void Networking::wrongPassword(const QString &ssid) {
 
 AdvancedNetworking::AdvancedNetworking(QWidget* parent, WifiManager* wifi): QWidget(parent), wifi(wifi) {
 
-  QVBoxLayout* vlayout = new QVBoxLayout;
+  QVBoxLayout* vlayout = new QVBoxLayout(this);
   vlayout->setMargin(40);
   vlayout->setSpacing(20);
 
@@ -166,7 +165,6 @@ AdvancedNetworking::AdvancedNetworking(QWidget* parent, WifiManager* wifi): QWid
   vlayout->addWidget(new SshControl());
 
   vlayout->addStretch(1);
-  setLayout(vlayout);
 }
 
 void AdvancedNetworking::refresh() {
@@ -187,15 +185,13 @@ void AdvancedNetworking::toggleTethering(bool enable) {
 // WifiUI functions
 
 WifiUI::WifiUI(QWidget *parent, WifiManager* wifi) : QWidget(parent), wifi(wifi) {
-  vlayout = new QVBoxLayout;
+  vlayout = new QVBoxLayout(this);
 
   // Scan on startup
   QLabel *scanning = new QLabel("Scanning for networks");
   scanning->setStyleSheet(R"(font-size: 65px;)");
   vlayout->addWidget(scanning, 0, Qt::AlignCenter);
   vlayout->setSpacing(25);
-
-  setLayout(vlayout);
 }
 
 void WifiUI::refresh() {

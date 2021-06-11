@@ -15,7 +15,7 @@ QFrame *horizontal_line(QWidget *parent) {
 }
 
 AbstractControl::AbstractControl(const QString &title, const QString &desc, const QString &icon, QWidget *parent) : QFrame(parent) {
-  QVBoxLayout *vlayout = new QVBoxLayout();
+  QVBoxLayout *vlayout = new QVBoxLayout(this);
   vlayout->setMargin(0);
 
   hlayout = new QHBoxLayout;
@@ -55,7 +55,6 @@ AbstractControl::AbstractControl(const QString &title, const QString &desc, cons
     });
   }
 
-  setLayout(vlayout);
   setStyleSheet("background-color: transparent;");
 }
 

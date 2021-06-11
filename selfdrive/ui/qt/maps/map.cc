@@ -441,7 +441,7 @@ void MapWindow::offroadTransition(bool offroad) {
 }
 
 MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
-  QHBoxLayout *layout_outer = new QHBoxLayout;
+  QHBoxLayout *layout_outer = new QHBoxLayout(this);
   layout_outer->setContentsMargins(11, 50, 11, 11);
   {
     QVBoxLayout *layout = new QVBoxLayout;
@@ -476,7 +476,6 @@ MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
     layout_outer->addWidget(w);
   }
 
-  setLayout(layout_outer);
   setStyleSheet(R"(
     * {
       color: white;
@@ -608,7 +607,7 @@ void MapInstructions::updateInstructions(QMap<QString, QVariant> banner, bool fu
 }
 
 MapETA::MapETA(QWidget * parent) : QWidget(parent) {
-  QHBoxLayout *layout_outer = new QHBoxLayout;
+  QHBoxLayout *layout_outer = new QHBoxLayout(this);
   layout_outer->setContentsMargins(20, 25, 20, 25);
 
   {
@@ -655,7 +654,6 @@ MapETA::MapETA(QWidget * parent) : QWidget(parent) {
     layout_outer->addLayout(layout);
   }
 
-  setLayout(layout_outer);
   setStyleSheet(R"(
     * {
       color: white;

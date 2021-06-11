@@ -18,7 +18,7 @@ void WifiSetup::finish() {
 }
 
 WifiSetup::WifiSetup(QWidget *parent) : QWidget(parent) {
-  QHBoxLayout *main_layout = new QHBoxLayout();
+  QHBoxLayout *main_layout = new QHBoxLayout(this);
 
   QPushButton *finish_btn = new QPushButton("Exit");
   finish_btn->setFixedSize(400, 200);
@@ -40,7 +40,6 @@ WifiSetup::WifiSetup(QWidget *parent) : QWidget(parent) {
   )");
   main_layout->addWidget(q, 1);
 
-  setLayout(main_layout);
   setStyleSheet(R"(
     * {
       background-color: black;

@@ -4,7 +4,7 @@
 
 
 MapPanel::MapPanel(QWidget* parent) : QWidget(parent) {
-  QVBoxLayout *layout = new QVBoxLayout;
+  QVBoxLayout *layout = new QVBoxLayout(this);
   Params params = Params();
 
   QString dongle = QString::fromStdString(params.get("DongleId", false));
@@ -16,5 +16,4 @@ MapPanel::MapPanel(QWidget* parent) : QWidget(parent) {
                                     "",
                                     this));
   layout->addStretch();
-  setLayout(layout);
 }

@@ -24,7 +24,7 @@
 #include "selfdrive/ui/qt/util.h"
 
 TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
-  QVBoxLayout *toggles_list = new QVBoxLayout();
+  QVBoxLayout *toggles_list = new QVBoxLayout(this);
 
   QList<ParamControl*> toggles;
 
@@ -98,12 +98,10 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
     }
     toggles_list->addWidget(toggle);
   }
-
-  setLayout(toggles_list);
 }
 
 DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
-  QVBoxLayout *device_layout = new QVBoxLayout;
+  QVBoxLayout *device_layout = new QVBoxLayout(this);
   Params params = Params();
 
   QString dongle = QString::fromStdString(params.get("DongleId", false));
@@ -193,7 +191,6 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 
   device_layout->addLayout(power_layout);
 
-  setLayout(device_layout);
   setStyleSheet(R"(
     QPushButton {
       padding: 0;
@@ -205,8 +202,7 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 }
 
 SoftwarePanel::SoftwarePanel(QWidget* parent) : QFrame(parent) {
-  QVBoxLayout *main_layout = new QVBoxLayout(this);
-  setLayout(main_layout);
+  setLayout(new QVBoxLayout);
   setStyleSheet(R"(QLabel {font-size: 50px;})");
 
   fs_watch = new QFileSystemWatcher(this);
@@ -404,7 +400,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   sidebar_layout->setContentsMargins(50, 50, 100, 50);
 
   // main settings layout, sidebar + main panel
-  QHBoxLayout *settings_layout = new QHBoxLayout();
+  QHBoxLayout *settings_layout = new QHBoxLayout(this);
 
   sidebar_widget = new QWidget;
   sidebar_widget->setLayout(sidebar_layout);
@@ -412,7 +408,6 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   settings_layout->addWidget(sidebar_widget);
   settings_layout->addWidget(panel_widget);
 
-  setLayout(settings_layout);
   setStyleSheet(R"(
     * {
       color: white;

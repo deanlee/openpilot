@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
   Hardware::set_display_power(true);
   Hardware::set_brightness(65);
 
-  QGridLayout *layout = new QGridLayout;
+  QGridLayout *layout = new QGridLayout(&window);
   layout->setMargin(50);
 
   QLabel *label = new QLabel(argv[1]);
@@ -44,7 +44,6 @@ int main(int argc, char *argv[]) {
 #endif
   layout->addWidget(btn, 0, 0, Qt::AlignRight | Qt::AlignBottom);
 
-  window.setLayout(layout);
   window.setStyleSheet(R"(
     * {
       outline: none;

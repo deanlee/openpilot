@@ -18,9 +18,8 @@ using qrcodegen::QrCode;
 PairingQRWidget::PairingQRWidget(QWidget* parent) : QWidget(parent) {
   qrCode = new QLabel;
   qrCode->setScaledContents(true);
-  QVBoxLayout* v = new QVBoxLayout;
+  QVBoxLayout* v = new QVBoxLayout(this);
   v->addWidget(qrCode, 0, Qt::AlignCenter);
-  setLayout(v);
 
   QTimer* timer = new QTimer(this);
   timer->start(30 * 1000);
@@ -73,7 +72,7 @@ void PairingQRWidget::updateQrCode(const QString &text) {
 }
 
 PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
-  mainLayout = new QVBoxLayout;
+  mainLayout = new QVBoxLayout(this);
   mainLayout->setMargin(30);
 
   QLabel* commaPrime = new QLabel("COMMA PRIME");
@@ -94,7 +93,6 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   points = new QLabel();
   mainLayout->addWidget(points, 0, Qt::AlignTop);
 
-  setLayout(mainLayout);
   setStyleSheet(R"(
     QLabel {
       font-size: 70px;
@@ -132,7 +130,7 @@ void PrimeUserWidget::replyFinished(const QString &response) {
 }
 
 PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QWidget(parent) {
-  QVBoxLayout* vlayout = new QVBoxLayout;
+  QVBoxLayout* vlayout = new QVBoxLayout(this);
   vlayout->setMargin(30);
   vlayout->setSpacing(15);
 
@@ -152,8 +150,6 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QWidget(parent) {
     feature->setStyleSheet(R"(font-size: 40px;)");
     vlayout->addWidget(feature, 0, Qt::AlignBottom);
   }
-
-  setLayout(vlayout);
 }
 
 
@@ -218,9 +214,8 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
 
   mainLayout->setCurrentWidget(primeAd);
 
-  QVBoxLayout *layout = new QVBoxLayout;
+  QVBoxLayout *layout = new QVBoxLayout(this);
   layout->addWidget(mainLayout);
-  setLayout(layout);
 
   setStyleSheet(R"(
     SetupWidget {

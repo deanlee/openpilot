@@ -9,7 +9,7 @@
 #include "selfdrive/hardware/hw.h"
 
 OffroadAlert::OffroadAlert(QWidget* parent) : QFrame(parent) {
-  QVBoxLayout *layout = new QVBoxLayout;
+  QVBoxLayout *layout = new QVBoxLayout(this);
   layout->setMargin(50);
   layout->setSpacing(30);
 
@@ -47,7 +47,6 @@ OffroadAlert::OffroadAlert(QWidget* parent) : QFrame(parent) {
   footer_layout->addWidget(&rebootBtn, 0, Qt::AlignBottom | Qt::AlignRight);
   QObject::connect(&rebootBtn, &QPushButton::released, [=]() { Hardware::reboot(); });
 
-  setLayout(layout);
   setStyleSheet(R"(
     * {
       font-size: 48px;
