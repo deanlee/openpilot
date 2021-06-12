@@ -17,9 +17,9 @@ QFrameReader::~QFrameReader() {
 
 void QFrameReader::process() {
   frame_reader_ = new FrameReader(url_);
-  frame_reader_->process();
-  width = frame_reader_->width;
-  height = frame_reader_->height;
-
-  emit finished();
+  if (frame_reader_->process()) {
+    width = frame_reader_->width;
+    height = frame_reader_->height;
+    emit finished();
+  }
 }
