@@ -10,7 +10,7 @@
 class QFrameReader : public QObject {
   Q_OBJECT
 
- public:
+public:
   QFrameReader(const std::string &url, QObject *parent = nullptr);
   ~QFrameReader();
   uint8_t *get(int idx) { return frame_reader_->get(idx); };
@@ -19,10 +19,10 @@ class QFrameReader : public QObject {
 
   int width = 0, height = 0;
 
- signals:
+signals:
   void finished();
 
- private:
+private:
   void process();
 
   std::string url_;
