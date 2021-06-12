@@ -58,7 +58,7 @@ private:
   QJsonArray camera_paths;
   QJsonArray log_paths;
   QMap<int, LogReader*> lrs;
-  QMap<int, FrameReader*> frs;
+  QMap<int, QFrameReader*> frs;
 
   // messaging
   SubMaster *sm;
