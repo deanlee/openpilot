@@ -8,7 +8,6 @@
 #include "selfdrive/ui/qt/widgets/input.h"
 
 SshControl::SshControl() : AbstractControl("SSH Keys", "Warning: This grants SSH access to all public keys in your GitHub settings. Never enter a GitHub username other than your own. A comma employee will NEVER ask you to add their GitHub username.", "") {
-
   // setup widget
   hlayout->addStretch(1);
 
@@ -25,58 +24,62 @@ SshControl::SshControl() : AbstractControl("SSH Keys", "Warning: This grants SSH
     background-color: #393939;
   )");
   btn.setFixedSize(250, 100);
+  QObject::connect(&btn, &QPushButton::released, this, &SshControl::btnClicked);
   hlayout->addWidget(&btn);
-
-  QObject::connect(&btn, &QPushButton::released, [=]() {
-    if (btn.text() == "ADD") {
-      QString username = InputDialog::getText("Enter your GitHub username");
-      if (username.length() > 0) {
-        btn.setText("LOADING");
-        btn.setEnabled(false);
-        getUserKeys(username);
-      }
-    } else {
-      params.remove("GithubUsername");
-      params.remove("GithubSshKeys");
-      refresh();
-    }
-  });
-
+  
+  username = QString::fromStdString(params.get("GithubUsername"));
   refresh();
 }
 
+
 void SshControl::refresh() {
-  QString param = QString::fromStdString(params.get("GithubSshKeys"));
-  if (param.length()) {
-    username_label.setText(QString::fromStdString(params.get("GithubUsername")));
-    btn.setText("REMOVE");
-  } else {
-    username_label.setText("");
-    btn.setText("ADD");
-  }
+  username_label.setText(username);
+  btn.setText(username.isEmpty() ? "ADD" : "REMOVE");
   btn.setEnabled(true);
 }
 
-void SshControl::getUserKeys(const QString &username) {
-  HttpRequest *request = new HttpRequest(this, "https://github.com/" + username + ".keys", "", false);
-  QObject::connect(request, &HttpRequest::receivedResponse, [=](const QString &resp) {
-    if (!resp.isEmpty()) {
-      params.put("GithubUsername", username.toStdString());
-      params.put("GithubSshKeys", resp.toStdString());
+void SshControl::btnClicked() {
+  if (username.isEmpty()) {
+    QString uname = InputDialog::getText("Enter your GitHub username");
+    if (!uname.isEmpty()) {
+      btn.setText("LOADING");
+      btn.setEnabled(false);
+      getUserKeys(uname);
+    }
+  } else {
+    username = "";
+    params.remove("GithubUsername");
+    params.remove("GithubSshKeys");
+    refresh();
+  }
+}
+
+void SshControl::getUserKeys(const QString &uname) {
+  HttpRequest *request = new HttpRequest(this, "https://github.com/" + uname + ".keys", "", false);
+
+  auto func = [](const QString &resp, bool success) {
+    if (success) {
+      if (!resp.isEmpty()) {
+        username = uname;
+        params.put("GithubUsername", uname.toStdString());
+        params.put("GithubSshKeys", resp.toStdString());
+      } else {
+        ConfirmationDialog::alert("Username '" + uname + "' has no keys on GitHub");
+      }
     } else {
-      ConfirmationDialog::alert("Username '" + username + "' has no keys on GitHub");
+      ConfirmationDialog::alert(resp);
     }
     refresh();
     request->deleteLater();
+  };
+
+  QObject::connect(request, &HttpRequest::receivedResponse, [=](const QString &resp) {
+    func(resp, true);
   });
   QObject::connect(request, &HttpRequest::failedResponse, [=] {
-    ConfirmationDialog::alert("Username '" + username + "' doesn't exist on GitHub");
-    refresh();
-    request->deleteLater();
+    func(QString("Username '%1' doesn't exist on GitHub").arg(uname), false);
   });
   QObject::connect(request, &HttpRequest::timeoutResponse, [=] {
-    ConfirmationDialog::alert("Request timed out");
-    refresh();
-    request->deleteLater();
+    func("Request timed out", false);
   });
 }

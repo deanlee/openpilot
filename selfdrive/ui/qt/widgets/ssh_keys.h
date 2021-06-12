@@ -25,11 +25,12 @@ public:
   SshControl();
 
 private:
-  Params params;
-
-  QPushButton btn;
-  QLabel username_label;
-
   void refresh();
+  void btnClicked();
   void getUserKeys(const QString &username);
+
+  Params params;
+  QPushButton btn;
+  QString username;
+  QLabel username_label;
 };
