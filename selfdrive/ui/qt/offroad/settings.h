@@ -22,6 +22,9 @@ public:
 signals:
   void reviewTrainingGuide();
   void showDriverView();
+
+private:
+  ButtonControl *createResetCalibBtn();
 };
 
 class TogglesPanel : public QWidget {
