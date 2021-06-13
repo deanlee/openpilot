@@ -202,7 +202,8 @@ void WifiUI::refresh() {
 
   connectButtons = new QButtonGroup(this); // TODO check if this is a leak
   QObject::connect(connectButtons, qOverload<QAbstractButton*>(&QButtonGroup::buttonClicked), this, &WifiUI::handleButton);
-
+  ControlListWidget *constrolList = new ControlListWidget(this);
+  main_layout->addWidget(constrolList);
   int i = 0;
   for (Network &network : wifi->seen_networks) {
     QHBoxLayout *hlayout = new QHBoxLayout;
@@ -249,11 +250,11 @@ void WifiUI::refresh() {
 
     connectButtons->addButton(btn, i);
 
-    main_layout->addLayout(hlayout, 1);
+    constrolList->addWidget(w);
     // Don't add the last horizontal line
-    if (i+1 < wifi->seen_networks.size()) {
-      main_layout->addWidget(horizontal_line(), 0);
-    }
+    // if (i+1 < wifi->seen_networks.size()) {
+    //   main_layout->addWidget(horizontal_line(), 0);
+    // }
     i++;
   }
   main_layout->addStretch(3);

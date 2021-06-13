@@ -10,25 +10,26 @@
 
 
 #include "selfdrive/ui/qt/widgets/controls.h"
+#include "selfdrive/ui/qt/widgets/control_list.h"
 
 // ********** settings window + top-level panels **********
-
-class DevicePanel : public QWidget {
+class DevicePanel : public ControlListWidget {
   Q_OBJECT
 public:
   explicit DevicePanel(QWidget* parent = nullptr);
+
 signals:
   void reviewTrainingGuide();
   void showDriverView();
 };
 
-class TogglesPanel : public QWidget {
+class TogglesPanel : public ControlListWidget {
   Q_OBJECT
 public:
   explicit TogglesPanel(QWidget *parent = nullptr);
 };
 
-class SoftwarePanel : public QWidget {
+class SoftwarePanel : public ControlListWidget {
   Q_OBJECT
 public:
   explicit SoftwarePanel(QWidget* parent = nullptr);

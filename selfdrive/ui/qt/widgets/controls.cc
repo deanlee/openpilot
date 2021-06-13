@@ -15,6 +15,7 @@ QFrame *horizontal_line(QWidget *parent) {
 }
 
 AbstractControl::AbstractControl(const QString &title, const QString &desc, const QString &icon, QWidget *parent) : QFrame(parent) {
+  setAttribute(Qt::WA_NoSystemBackground);
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setMargin(0);
 
@@ -54,8 +55,7 @@ AbstractControl::AbstractControl(const QString &title, const QString &desc, cons
       description->setVisible(!description->isVisible());
     });
   }
-
-  setStyleSheet("background-color: transparent;");
+  // main_layout->addStretch();
 }
 
 void AbstractControl::hideEvent(QHideEvent *e) {

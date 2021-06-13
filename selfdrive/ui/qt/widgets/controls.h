@@ -26,7 +26,7 @@ protected:
 
   QSize minimumSizeHint() const override {
     QSize size = QFrame::minimumSizeHint();
-    size.setHeight(120);
+    size.setHeight(200);
     return size;
   };
 
@@ -42,6 +42,7 @@ class LabelControl : public AbstractControl {
 public:
   LabelControl(const QString &title, const QString &text = "", const QString &desc = "", QWidget *parent = nullptr) : AbstractControl(title, desc, "", parent) {
     label.setText(text);
+    label.setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
     label.setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     hlayout->addWidget(&label);
   }

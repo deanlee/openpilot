@@ -5,6 +5,7 @@
 #include <QWidget>
 
 #include "selfdrive/ui/qt/offroad/wifiManager.h"
+#include "selfdrive/ui/qt/widgets/control_list.h"
 #include "selfdrive/ui/qt/widgets/input.h"
 #include "selfdrive/ui/qt/widgets/ssh_keys.h"
 #include "selfdrive/ui/qt/widgets/toggle.h"

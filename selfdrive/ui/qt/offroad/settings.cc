@@ -24,9 +24,7 @@
 #include "selfdrive/ui/ui.h"
 #include "selfdrive/ui/qt/util.h"
 
-TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
-  QVBoxLayout *main_layout = new QVBoxLayout(this);
-
+TogglesPanel::TogglesPanel(QWidget *parent) : ControlListWidget(parent) {
   QList<ParamControl*> toggles;
 
   toggles.append(new ParamControl("OpenpilotEnabledToggle",
@@ -94,23 +92,18 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
   record_toggle->setEnabled(!record_lock);
 
   for(ParamControl *toggle : toggles) {
-    if(main_layout->count() != 0) {
-      main_layout->addWidget(horizontal_line());
-    }
-    main_layout->addWidget(toggle);
+    addWidget(toggle);
   }
 }
 
-DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
-  QVBoxLayout *main_layout = new QVBoxLayout(this);
+DevicePanel::DevicePanel(QWidget* parent) : ControlListWidget(parent) {
   Params params = Params();
 
   QString dongle = QString::fromStdString(params.get("DongleId", false));
-  main_layout->addWidget(new LabelControl("Dongle ID", dongle));
-  main_layout->addWidget(horizontal_line());
+  addWidget(new LabelControl("Dongle ID", dongle));
 
   QString serial = QString::fromStdString(params.get("HardwareSerial", false));
-  main_layout->addWidget(new LabelControl("Serial", serial));
+  addWidget(new LabelControl("Serial", serial));
 
   // offroad-only buttons
 
@@ -165,16 +158,15 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
     }
   });
 
-  for (auto btn : {dcamBtn, resetCalibBtn, retrainingBtn, uninstallBtn}) {
-    if (btn) {
-      main_layout->addWidget(horizontal_line());
-      connect(parent, SIGNAL(offroadTransition(bool)), btn, SLOT(setEnabled(bool)));
-      main_layout->addWidget(btn);
-    }
+  for(auto &btn : offroad_btns) {
+    QObject::connect(parent, SIGNAL(offroadTransition(bool)), btn, SLOT(setEnabled(bool)));
+    addWidget(btn);
   }
 
   // power buttons
-  QHBoxLayout *power_layout = new QHBoxLayout();
+  QWidget *w = new QWidget();
+  w->setAttribute(Qt::WA_NoSystemBackground);
+  QHBoxLayout *power_layout = new QHBoxLayout(w);
   power_layout->setSpacing(30);
 
   QPushButton *reboot_btn = new QPushButton("Reboot");
@@ -193,10 +185,7 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
       Hardware::poweroff();
     }
   });
-
-  main_layout->addLayout(power_layout);
-
-  setStyleSheet(R"(
+  w->setStyleSheet(R"(
     QPushButton {
       padding: 0;
       height: 120px;
@@ -204,9 +193,13 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
       background-color: #393939;
     }
   )");
+
+  addWidget(w);
 }
 
-SoftwarePanel::SoftwarePanel(QWidget* parent) : QWidget(parent) {
+SoftwarePanel::SoftwarePanel(QWidget* parent) : ControlListWidget(parent) {
+  setSpacing(50);
+
   gitBranchLbl = new LabelControl("Git Branch");
   gitCommitLbl = new LabelControl("Git Commit");
   osVersionLbl = new LabelControl("OS Version");
@@ -224,16 +217,10 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : QWidget(parent) {
     std::system("pkill -1 -f selfdrive.updated");
   });
 
-  QVBoxLayout *main_layout = new QVBoxLayout(this);
   QWidget *widgets[] = {versionLbl, lastUpdateLbl, updateBtn, gitBranchLbl, gitCommitLbl, osVersionLbl};
   for (int i = 0; i < std::size(widgets); ++i) {
-    main_layout->addWidget(widgets[i]);
-    if (i < std::size(widgets) - 1) {
-      main_layout->addWidget(horizontal_line());
-    }
+    addWidget(widgets[i]);
   }
-
-  setStyleSheet(R"(QLabel {font-size: 50px;})");
 
   fs_watch = new QFileSystemWatcher(this);
   QObject::connect(fs_watch, &QFileSystemWatcher::fileChanged, [=](const QString path) {
@@ -270,27 +257,10 @@ void SoftwarePanel::updateLabels() {
 
 QWidget * network_panel(QWidget * parent) {
 #ifdef QCOM
-  QWidget *w = new QWidget(parent);
-  QVBoxLayout *layout = new QVBoxLayout(w);
-  layout->setSpacing(30);
-
-  // wifi + tethering buttons
-  auto wifiBtn = new ButtonControl("WiFi Settings", "OPEN");
-  QObject::connect(wifiBtn, &ButtonControl::released, [=]() { HardwareEon::launch_wifi(); });
-  layout->addWidget(wifiBtn);
-  layout->addWidget(horizontal_line());
-
-  auto tetheringBtn = new ButtonControl("Tethering Settings", "OPEN");
-  QObject::connect(tetheringBtn, &ButtonControl::released, [=]() { HardwareEon::launch_tethering(); });
-  layout->addWidget(tetheringBtn);
-  layout->addWidget(horizontal_line());
 
   // SSH key management
-  layout->addWidget(new SshToggle());
-  layout->addWidget(horizontal_line());
-  layout->addWidget(new SshControl());
-
-  layout->addStretch(1);
+  w->addWidget(new SshToggle());
+  w->addWidget(new SshControl());
 #else
   Networking *w = new Networking(parent);
 #endif
@@ -375,10 +345,9 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
     panel->setContentsMargins(50, 25, 50, 25);
 
-    ScrollView *panel_frame = new ScrollView(panel, this);
-    panel_widget->addWidget(panel_frame);
+    panel_widget->addWidget(panel);
 
-    QObject::connect(btn, &QPushButton::released, [=, w = panel_frame]() {
+    QObject::connect(btn, &QPushButton::released, [=, w = panel]() {
       panel_widget->setCurrentWidget(w);
     });
   }
