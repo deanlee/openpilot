@@ -7,6 +7,7 @@
 #include <QOpenGLFunctions>
 #include <QOpenGLWidget>
 #include <QThread>
+#include <QWindow>
 
 #include "cereal/visionipc/visionipc_client.h"
 #include "selfdrive/common/glutil.h"
@@ -15,31 +16,36 @@
 #include "selfdrive/ui/ui.h"
 
 class Render;
-class CameraViewWidget : public QOpenGLWidget {
+class CameraViewWidget : public QWindow {
   Q_OBJECT
 public:
-  explicit CameraViewWidget(VisionStreamType stream_type, QWidget* parent = nullptr);
+  explicit CameraViewWidget(VisionStreamType stream_type);
   ~CameraViewWidget();
 
-signals:
- void frameUpdated();
- void renderRequested(bool cleanup);
+  void mousePressEvent(QMouseEvent *ev);
+// signals:
+//  void frameUpdated();
+//  void renderRequested(bool cleanup);
 
-public slots:
-  void moveContextToThread();
+// public slots:
+//   void moveContextToThread();
 
 protected:
-  void paintEvent(QPaintEvent* event) override {}
-  void hideEvent(QHideEvent *event) override;
+  // void paintEvent(QPaintEvent* event) override {}
+  // void hideEvent(QHideEvent *event) override;
   QThread *thread_;
   Render *render_;
 };
 
-class Render : public QObject, protected QOpenGLFunctions {
+class Render : public QObject {
   Q_OBJECT
 public:
   Render(VisionStreamType stream_type, CameraViewWidget *w); 
+  ~Render() {
+    glWindow_->destroy();
+  }
   void render(bool cleanup);
+  void start();
 
 signals:
   void contextWanted();
@@ -50,6 +56,7 @@ private:
   void initialize();
   void draw();
   bool inited_ = false;
+  QOpenGLContext *context_;
   CameraViewWidget * glWindow_;
   std::mutex renderMutex_;
   std::condition_variable grabCond_;

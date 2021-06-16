@@ -7,21 +7,24 @@
 
 const int FACE_IMG_SIZE = 130;
 
-DriverViewWindow::DriverViewWindow(QWidget* parent) : QWidget(parent) {
+DriverViewWindow::DriverViewWindow(QWidget* parent) : QWindow() {
   setAttribute(Qt::WA_OpaquePaintEvent);
   layout = new QStackedLayout(this);
   layout->setStackingMode(QStackedLayout::StackAll);
 
-  cameraView = new CameraViewWidget(VISION_STREAM_RGB_FRONT, this);
-  layout->addWidget(cameraView);
+  cameraView = new CameraViewWidget(VISION_STREAM_RGB_FRONT);
+  QWidget *wc = QWidget::createWindowContainer(cameraView);
+  layout->addWidget(wc);
 
   scene = new DriverViewScene(this);
-  connect(cameraView, &CameraViewWidget::frameUpdated, scene, &DriverViewScene::frameUpdated);
+  // connect(cameraView, &CameraViewWidget::frameUpdated, scene, &DriverViewScene::frameUpdated);
+  // scene->setAttribute(Qt::WA_NativeWindow);
   layout->addWidget(scene);
   layout->setCurrentWidget(scene);
 }
 
 void DriverViewWindow::mousePressEvent(QMouseEvent* e) {
+  qInfo() << "mouse clicked";
   emit done();
 }
 
@@ -49,13 +52,13 @@ void DriverViewScene::paintEvent(QPaintEvent* event) {
   QPainter p(this);
 
   // startup msg
-  if (!frame_updated) {
-    p.setPen(QColor(0xff, 0xff, 0xff));
-    p.setRenderHint(QPainter::TextAntialiasing);
-    configFont(p, "Inter", 100, "Bold");
-    p.drawText(geometry(), Qt::AlignCenter, "camera starting");
-    return;
-  }
+  // if (!frame_updated) {
+  //   p.setPen(QColor(0xff, 0xff, 0xff));
+  //   p.setRenderHint(QPainter::TextAntialiasing);
+  //   configFont(p, "Inter", 100, "Bold");
+  //   p.drawText(geometry(), Qt::AlignCenter, "camera starting");
+  //   return;
+  // }
 
   const int width = 4 * height() / 3;
   const QRect rect2 = {rect().center().x() - width / 2, rect().top(), width, rect().height()};

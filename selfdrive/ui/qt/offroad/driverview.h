@@ -3,7 +3,7 @@
 #include <memory>
 
 #include <QStackedLayout>
-
+#include <QWindow>
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 
@@ -29,7 +29,7 @@ private:
   bool frame_updated = false;
 };
 
-class DriverViewWindow : public QWidget {
+class DriverViewWindow : public QWindow {
   Q_OBJECT
 
 public:

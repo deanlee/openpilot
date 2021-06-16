@@ -1,7 +1,8 @@
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 
 #include <QDebug>
-
+#include <QOpenGLFunctions_3_3_Core>
+#include <QOpenGLFunctions_ES2>
 #include "selfdrive/ui/qt/qt_window.h"
 
 namespace {
@@ -76,29 +77,44 @@ mat4 get_driver_view_transform() {
 }
 
 } // namespace
+QSurfaceFormat getSurfaceFormat() {
+  // Don't think this format needs to be in sync with that of the context
+//   QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
+//   fmt.setVersion(3, 3);
+//   fmt.setRenderableType(QSurfaceFormat::OpenGL);
+// #ifdef __APPLE__
+//   // fmt.setRenderableType(QSurfaceFormat::OpenGL);
+// #else
+//   // fmt.setRenderableType(QSurfaceFormat::OpenGLES);
+// #endif
+//   fmt.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+//   fmt.setProfile(QSurfaceFormat::CoreProfile);
+  // format.setSwapInterval(0); // run as fast as possible for whatever reason
+   QSurfaceFormat format = QSurfaceFormat::defaultFormat();
+    format.setVersion(3, 3);
+    format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+    format.setRenderableType(QSurfaceFormat::OpenGL);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+  return format;
+}
+CameraViewWidget::CameraViewWidget(VisionStreamType stream_type) : QWindow() {
+  setFlags(Qt::Widget);
+  setSurfaceType(QSurface::OpenGLSurface);
 
-CameraViewWidget::CameraViewWidget(VisionStreamType stream_type, QWidget* parent) :  QOpenGLWidget(parent) {
-  setAttribute(Qt::WA_OpaquePaintEvent);
+  setFormat(getSurfaceFormat());
+  create();
+
   thread_ = new QThread();
   render_ = new Render(stream_type, this);
   render_->moveToThread(thread_);
+  connect(thread_, &QThread::started, render_, &Render::start);
   connect(thread_, &QThread::finished, render_, &QObject::deleteLater);
-  connect(render_, &Render::contextWanted, this, &CameraViewWidget::moveContextToThread);
-
-  connect(this, &QOpenGLWidget::aboutToResize, [=] {  render_->renderMutex_.lock(); });
-  connect(this, &QOpenGLWidget::resized, [=] {  render_->renderMutex_.unlock(); });
-  connect(this, &CameraViewWidget::aboutToCompose, [=] { render_->renderMutex_.lock(); });
-  connect(this, &CameraViewWidget::frameSwapped, [=] {
-    render_->renderMutex_.unlock();
-    if (render_->frameUpdated()) {
-      emit frameUpdated();
-    }
-    emit renderRequested(false);
-  });
-  
-  connect(this, &CameraViewWidget::renderRequested, render_, &Render::render);
-
   thread_->start();
+
+
+}
+void CameraViewWidget::mousePressEvent(QMouseEvent *ev) {
+  qInfo() << "mosue here";
 }
 
 CameraViewWidget::~CameraViewWidget() {
@@ -108,14 +124,48 @@ CameraViewWidget::~CameraViewWidget() {
   delete thread_;
 }
 
-
 // class Render
 
 Render::Render(VisionStreamType stream_type, CameraViewWidget *w) : stream_type(stream_type), glWindow_(w) {}
 
-void Render::initialize() {
-  initializeOpenGLFunctions();
+void Render::start() {
+  initialize();
+  while (!exiting_) {
+    if (!glWindow_->isExposed()) {
+      QThread::msleep(20);
+      qInfo("not exposed");
+      continue;
+    }
+    QThread::msleep(20);
 
+    context_->makeCurrent(glWindow_);
+    // auto gl = context_->versionFunctions<QOpenGLFunctions_3_3_Core>();
+    // // qInfo() << "here";
+    // gl->glViewport(0, 0, glWindow_->width(), glWindow_->height());
+    // // gl->glClearColor(.1f, .0f, .0f, .4f);
+    // const QColor &color = bg_colors[STATUS_ENGAGED];
+    // glClearColor(color.redF(), color.greenF(), color.blueF(), 1.0);
+    // gl->glClear(GL_COLOR_BUFFER_BIT);
+
+    // qInfo() << "draw" << glWindow_->width() << glWindow_->height();
+
+    updateFrame();
+    draw();
+    context_->swapBuffers(glWindow_);
+  }
+}
+void Render::initialize() {
+  context_ = new QOpenGLContext;
+  
+  context_->setFormat(getSurfaceFormat());
+  bool ret = context_->create();
+  assert(ret);
+  // qInfo() << "here1";
+  // initializeOpenGLFunctions();
+  // initializeOpenGLFunctions();
+ 
+  context_->makeCurrent(glWindow_);
+  // auto gl = context_->versionFunctions<QOpenGLFunctions_3_3_Core>();
   gl_shader = std::make_unique<GLShader>(frame_vertex_shader, frame_fragment_shader);
   GLint frame_pos_loc = glGetAttribLocation(gl_shader->prog, "aPosition");
   GLint frame_texcoord_loc = glGetAttribLocation(gl_shader->prog, "aTexCoord");
@@ -169,42 +219,42 @@ void Render::initialize() {
 }
 
 void Render::render(bool cleanup) {
-  QOpenGLContext *ctx = glWindow_->context();
-  if (!ctx) {  // QOpenGLWidget not yet initialized
-    return;
-  }
-  // move the context to this thread.
-  std::unique_lock lk(renderMutex_);
-  emit contextWanted();
-  grabCond_.wait(lk, [=] {
-    return glWindow_->context()->thread() == QThread::currentThread() || exiting_;
-  });
-  if (exiting_) {
-    return;
-  }
+  // QOpenGLContext *ctx = glWindow_->context();
+  // if (!ctx) {  // QOpenGLWidget not yet initialized
+  //   return;
+  // }
+  // // move the context to this thread.
+  // std::unique_lock lk(renderMutex_);
+  // emit contextWanted();
+  // grabCond_.wait(lk, [=] {
+  //   return glWindow_->context()->thread() == QThread::currentThread() || exiting_;
+  // });
+  // if (exiting_) {
+  //   return;
+  // }
 
-  // Make the context (and an offscreen surface) current for this thread. The
-  // QOpenGLWidget's fbo is bound in the context.
-  glWindow_->makeCurrent();
+  // // Make the context (and an offscreen surface) current for this thread. The
+  // // QOpenGLWidget's fbo is bound in the context.
+  // glWindow_->makeCurrent();
 
-  if (!inited_) {
-    inited_ = true;
-    initialize();
-  }
+  // if (!inited_) {
+  //   inited_ = true;
+  //   initialize();
+  // }
 
-  if (cleanup) {
-    vipc_client->connected = false;
-    latest_frame = nullptr;
-  } else {
-    updateFrame();
-  }
-  draw();
+  // if (cleanup) {
+  //   vipc_client->connected = false;
+  //   latest_frame = nullptr;
+  // } else {
+  //   updateFrame();
+  // }
+  // draw();
 
-  // context back to the gui thread.
-  glWindow_->doneCurrent();
-  glWindow_->context()->moveToThread(glWindow_->thread());
-  // Schedule composition.update() will be invoked on the gui thread.
-  QMetaObject::invokeMethod(glWindow_, "update");
+  // // context back to the gui thread.
+  // glWindow_->doneCurrent();
+  // glWindow_->context()->moveToThread(glWindow_->thread());
+  // // Schedule composition.update() will be invoked on the gui thread.
+  // QMetaObject::invokeMethod(glWindow_, "update");
 }
 
 void Render::updateFrame() {
