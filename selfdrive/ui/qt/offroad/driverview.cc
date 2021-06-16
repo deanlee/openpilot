@@ -7,7 +7,7 @@
 
 const int FACE_IMG_SIZE = 130;
 
-DriverViewWindow::DriverViewWindow(QWidget* parent) : QWindow(parent) {
+DriverViewWindow::DriverViewWindow(QWidget* parent) : QWidget(parent) {
   setAttribute(Qt::WA_OpaquePaintEvent);
   layout = new QStackedLayout(this);
   layout->setStackingMode(QStackedLayout::StackAll);
@@ -16,12 +16,11 @@ DriverViewWindow::DriverViewWindow(QWidget* parent) : QWindow(parent) {
   QWidget *wc = QWidget::createWindowContainer(cameraView, this);
   layout->addWidget(wc);
 
-  scene = new DriverViewScene();
-  QWidget *wscene = QWidget::createWindowContainer(scene, this);
+  scene = new DriverViewScene(this);
   // connect(cameraView, &CameraViewWidget::frameUpdated, scene, &DriverViewScene::frameUpdated);
   // scene->setAttribute(Qt::WA_NativeWindow);
-  layout->addWidget(wscene);
-  layout->setCurrentWidget(wscene);
+  layout->addWidget(scene);
+  layout->setCurrentWidget(scene);
 }
 
 void DriverViewWindow::mousePressEvent(QMouseEvent* e) {

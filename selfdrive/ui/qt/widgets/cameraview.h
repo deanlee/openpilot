@@ -22,7 +22,7 @@ public:
   explicit CameraViewWidget(VisionStreamType stream_type);
   ~CameraViewWidget();
 
-  void mousePressEvent(QMouseEvent *ev)
+  void mousePressEvent(QMouseEvent *ev);
 // signals:
 //  void frameUpdated();
 //  void renderRequested(bool cleanup);

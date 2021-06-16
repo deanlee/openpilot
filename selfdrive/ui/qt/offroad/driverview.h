@@ -7,7 +7,7 @@
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 
-class DriverViewScene : public QWindow {
+class DriverViewScene : public QWidget {
   Q_OBJECT
 
 public:
