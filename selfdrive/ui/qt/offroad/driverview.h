@@ -7,7 +7,7 @@
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 
-class DriverViewScene : public QWidget {
+class DriverViewScene : public QWindow {
   Q_OBJECT
 
 public:
@@ -29,7 +29,7 @@ private:
   bool frame_updated = false;
 };
 
-class DriverViewWindow : public QWindow {
+class DriverViewWindow : public QWidget {
   Q_OBJECT
 
 public:

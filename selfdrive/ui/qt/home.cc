@@ -37,11 +37,10 @@ HomeWindow::HomeWindow(QWidget* parent) : QWidget(parent) {
   home = new OffroadHome();
   slayout->addWidget(home);
 
-  auto d = new DriverViewWindow(this);
-  connect(d, &DriverViewWindow::done, [=] {
+  driver_view = new DriverViewWindow(this);
+  connect(driver_view, &DriverViewWindow::done, [=] {
     showDriverView(false);
   });
-  driver_view  = QWidget::createWindowContainer(d, this);
   slayout->addWidget(driver_view);
 }
 
