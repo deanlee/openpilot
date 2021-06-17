@@ -12,15 +12,12 @@ const double MILE_TO_KM = 1.60934;
 
 namespace {
 
-QLabel* numberLabel() {
-  QLabel* label = new QLabel("0");
-  label->setStyleSheet("font-size: 80px; font-weight: 600;");
-  return label;
-}
-
-QLabel* unitLabel(const QString& name) {
-  QLabel* label = new QLabel(name);
-  label->setStyleSheet("font-size: 45px; font-weight: 500;");
+QLabel* newLabel(const QString& text, bool unitLabel = true, QDataWidgetMapper *mapper = nullptr) {
+  QLabel* label = new QLabel(text);
+  if (mapper) {
+    mapper->addMapping(label, mapper->currentIndex());
+  }
+  label->setStyleSheet(unitLabel ? "font-size: 45px; font-weight: 500;" : "font-size: 80px; font-weight: 600;");
   return label;
 }
 
@@ -32,27 +29,25 @@ DriveStats::DriveStats(QWidget* parent) : QWidget(parent) {
   QGridLayout* main_layout = new QGridLayout(this);
   main_layout->setMargin(0);
 
-  mapper = new QDataWidgetMapper(this);
-  model = new QStandardItemModel(0, 11, this);
+  QDataWidgetMapper *mapper = new QDataWidgetMapper(this);
+  model = new QStandardItemModel(0, 8, this);
   mapper->setModel(model);
 
-  const char * titles[] = {"ALL TIME", "PAST WEEK"};
-  int row = 0;
-  for (int i = 0; i < 2; ++i) {
-    main_layout->addWidget(new QLabel(titles[i]), row++, 0, 1, 3);
-    for (int j = 0; j < 3; ++j) {
-      QLabel* l = numberLabel();
-      mapper->addMapping(l, i * 2 + j, "text");
-      main_layout->addWidget(l, row, j, Qt::AlignLeft);
-    }
-    main_layout->addWidget(unitLabel("DRIVES"), row + 1, 0, Qt::AlignLeft);
+  auto add_stats_layouts = [=](const QString &title) {
+    int row = main_layout->rowCount();
+    main_layout->addWidget(new QLabel(title), row++, 0, 1, 3);
 
-    QLabel* l = unitLabel(getDistanceUnit());
-    mapper->addMapping(l, i * 2 + 3, "text");
-    main_layout->addWidget(l, row + 1, 1, Qt::AlignLeft);
+    main_layout->addWidget(newLabel("0", false, mapper), row, 0, Qt::AlignLeft);
+    main_layout->addWidget(newLabel("0", false, mapper), row, 1, Qt::AlignLeft);
+    main_layout->addWidget(newLabel("0", false, mapper), row, 2, Qt::AlignLeft);
 
-    main_layout->addWidget(unitLabel("HOURS"), row + 1, 2, Qt::AlignLeft);
-  }
+    main_layout->addWidget(newLabel("DRIVES"), row + 1, 0, Qt::AlignLeft);
+    main_layout->addWidget(newLabel(getDistanceUnit(), true, mapper), row + 1, 1, Qt::AlignLeft);
+    main_layout->addWidget(newLabel("HOURS"), row + 1, 2, Qt::AlignLeft);
+  };
+
+  add_stats_layouts("ALL TIME");
+  add_stats_layouts("PAST WEEK");
 
   mapper->toFirst();
   std::string dongle_id = Params().get("DongleId");

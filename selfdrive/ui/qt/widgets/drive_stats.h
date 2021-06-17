@@ -18,7 +18,6 @@ private:
 
   bool metric_;
   QJsonDocument stats_;
-  QDataWidgetMapper *mapper;
   QStandardItemModel *model;
 
 private slots:
