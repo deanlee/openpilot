@@ -14,52 +14,81 @@ QFrame *horizontal_line(QWidget *parent) {
   return line;
 }
 
-AbstractControl::AbstractControl(const QString &title, const QString &desc, const QString &icon, QWidget *parent) : QFrame(parent) {
-  QVBoxLayout *main_layout = new QVBoxLayout(this);
+AbstractControl::AbstractControl(const QString &title, const QString &desc, QWidget *parent) : QFrame(parent) {
+  main_layout = new QVBoxLayout(this);
   main_layout->setMargin(0);
 
   hlayout = new QHBoxLayout;
   hlayout->setMargin(0);
   hlayout->setSpacing(20);
 
-  // left icon
-  if (!icon.isEmpty()) {
-    QPixmap pix(icon);
-    QLabel *icon = new QLabel();
-    icon->setPixmap(pix.scaledToWidth(80, Qt::SmoothTransformation));
-    icon->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
-    hlayout->addWidget(icon);
-  }
-
   // title
   title_label = new QPushButton(title);
   title_label->setStyleSheet("font-size: 50px; font-weight: 400; text-align: left;");
-  hlayout->addWidget(title_label);
+  hlayout->addWidget(title_label, 1);
+
+  controls_layout = new QHBoxLayout();
+  hlayout->addLayout(controls_layout, 0);
 
   main_layout->addLayout(hlayout);
 
   // description
   if (!desc.isEmpty()) {
-    description = new QLabel(desc);
-    description->setContentsMargins(40, 20, 40, 20);
-    description->setStyleSheet("font-size: 40px; color:grey");
-    description->setWordWrap(true);
-    description->setVisible(false);
-    main_layout->addWidget(description);
-
-    connect(title_label, &QPushButton::clicked, [=]() {
-      if (!description->isVisible()) {
-        emit showDescription();
-      }
-      description->setVisible(!description->isVisible());
-    });
+    setDescription(desc);
   }
 
   setStyleSheet("background-color: transparent;");
 }
 
+void AbstractControl::addItem(QWidget *w) {
+  controls_layout->addWidget(w);
+}
+
+void AbstractControl::addItem(QLayout *l) {
+  controls_layout->addLayout(l);
+}
+
+QSize AbstractControl::minimumSizeHint() const {
+  QSize size = QFrame::minimumSizeHint();
+  size.setHeight(120);
+  return size;
+};
+
+void AbstractControl::setIcon(const QString &icon) {
+  if (!icon_label) {
+    icon_label = new QLabel();
+    icon_label->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
+    hlayout->insertWidget(0, icon_label);
+  }
+
+  icon_label->setPixmap(QPixmap(icon).scaledToWidth(80, Qt::SmoothTransformation));
+}
+
+void AbstractControl::setDescription(const QString &text) {
+  if (desc_label == nullptr) {
+    desc_label = new QLabel();
+    desc_label->setContentsMargins(40, 20, 40, 20);
+    desc_label->setStyleSheet("font-size: 40px; color:grey");
+    desc_label->setWordWrap(true);
+    desc_label->setVisible(false);
+    main_layout->addWidget(desc_label);
+
+    connect(title_label, &QPushButton::clicked, [=]() {
+      if (!desc_label->isVisible()) {
+        emit showDescription();
+      }
+      desc_label->setVisible(!desc_label->isVisible());
+    });
+  }
+  desc_label->setText(text);
+};
+
+QString AbstractControl::description() const {
+  return desc_label ? desc_label->text() : "";
+}
+
 void AbstractControl::hideEvent(QHideEvent *e) {
-  if(description != nullptr) {
-    description->hide();
+  if (desc_label != nullptr) {
+    desc_label->hide();
   }
 }

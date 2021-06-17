@@ -4,14 +4,12 @@
 #include "selfdrive/ui/qt/api.h"
 #include "selfdrive/ui/qt/widgets/input.h"
 
-SshControl::SshControl() : AbstractControl("SSH Keys", "Warning: This grants SSH access to all public keys in your GitHub settings. Never enter a GitHub username other than your own. A comma employee will NEVER ask you to add their GitHub username.", "") {
+SshControl::SshControl() : AbstractControl("SSH Keys", "Warning: This grants SSH access to all public keys in your GitHub settings. Never enter a GitHub username other than your own. A comma employee will NEVER ask you to add their GitHub username.") {
 
   // setup widget
-  hlayout->addStretch(1);
-
   username_label.setAlignment(Qt::AlignVCenter);
   username_label.setStyleSheet("color: #aaaaaa");
-  hlayout->addWidget(&username_label);
+  addItem(&username_label);
 
   btn.setStyleSheet(R"(
     padding: 0;
@@ -22,7 +20,7 @@ SshControl::SshControl() : AbstractControl("SSH Keys", "Warning: This grants SSH
     background-color: #393939;
   )");
   btn.setFixedSize(250, 100);
-  hlayout->addWidget(&btn);
+  addItem(&btn);
 
   QObject::connect(&btn, &QPushButton::released, [=]() {
     if (btn.text() == "ADD") {

@@ -13,26 +13,27 @@ class AbstractControl : public QFrame {
   Q_OBJECT
 
 public:
-  void setDescription(const QString &desc) {
-    if(description) description->setText(desc);
-  }
+  void setIcon(const QString &icon);
+  void setDescription(const QString &text);
+  QString description() const;
+  void addItem(QWidget *w);
+  void addItem(QLayout *l);
 
 signals:
   void showDescription();
 
 protected:
-  AbstractControl(const QString &title, const QString &desc = "", const QString &icon = "", QWidget *parent = nullptr);
+  AbstractControl(const QString &title, const QString &desc = {}, QWidget *parent = nullptr);
   void hideEvent(QHideEvent *e) override;
+  QSize minimumSizeHint() const override;
 
-  QSize minimumSizeHint() const override {
-    QSize size = QFrame::minimumSizeHint();
-    size.setHeight(120);
-    return size;
-  };
-
+private:
+  QLabel *icon_label = nullptr;
+  QPushButton *title_label = nullptr;
+  QLabel *desc_label = nullptr;
+  QVBoxLayout *main_layout;
   QHBoxLayout *hlayout;
-  QPushButton *title_label;
-  QLabel *description = nullptr;
+  QHBoxLayout *controls_layout;
 };
 
 // widget to display a value
@@ -40,10 +41,10 @@ class LabelControl : public AbstractControl {
   Q_OBJECT
 
 public:
-  LabelControl(const QString &title, const QString &text = "", const QString &desc = "", QWidget *parent = nullptr) : AbstractControl(title, desc, "", parent) {
+  LabelControl(const QString &title, const QString &text = "", const QString &desc = "", QWidget *parent = nullptr) : AbstractControl(title, desc, parent) {
     label.setText(text);
     label.setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    hlayout->addWidget(&label);
+    addItem(&label);
   }
   void setText(const QString &text) { label.setText(text); }
 
@@ -57,7 +58,7 @@ class ButtonControl : public AbstractControl {
 
 public:
   template <typename Functor>
-  ButtonControl(const QString &title, const QString &text, const QString &desc, Functor functor, const QString &icon = "", QWidget *parent = nullptr) : AbstractControl(title, desc, icon, parent) {
+  ButtonControl(const QString &title, const QString &text, const QString &desc, Functor functor, QWidget *parent = nullptr) : AbstractControl(title, desc, parent) {
     btn.setText(text);
     btn.setStyleSheet(R"(
       QPushButton {
@@ -74,7 +75,7 @@ public:
     )");
     btn.setFixedSize(250, 100);
     QObject::connect(&btn, &QPushButton::released, functor);
-    hlayout->addWidget(&btn);
+    addItem(&btn);
   }
   void setText(const QString &text) { btn.setText(text); }
 
@@ -91,12 +92,13 @@ class ToggleControl : public AbstractControl {
   Q_OBJECT
 
 public:
-  ToggleControl(const QString &title, const QString &desc = "", const QString &icon = "", const bool state = false, QWidget *parent = nullptr) : AbstractControl(title, desc, icon, parent) {
+  ToggleControl(const QString &title, const QString &desc = "", const QString &icon = "", const bool state = false, QWidget *parent = nullptr) : AbstractControl(title, desc, parent) {
+    setIcon(icon);
     toggle.setFixedSize(150, 100);
     if (state) {
       toggle.togglePosition();
     }
-    hlayout->addWidget(&toggle);
+    addItem(&toggle);
     QObject::connect(&toggle, &Toggle::stateChanged, this, &ToggleControl::toggleFlipped);
   }
 
