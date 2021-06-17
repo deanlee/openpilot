@@ -32,22 +32,29 @@ DriveStats::DriveStats(QWidget* parent) : QWidget(parent) {
   QGridLayout* main_layout = new QGridLayout(this);
   main_layout->setMargin(0);
 
-  auto add_stats_layouts = [=](const QString &title, StatsLabels& labels) {
-    int row = main_layout->rowCount();
-    main_layout->addWidget(new QLabel(title), row++, 0, 1, 3);
+  mapper = new QDataWidgetMapper(this);
+  model = new QStandardItemModel(0, 11, this);
+  mapper->setModel(model);
 
-    main_layout->addWidget(labels.routes = numberLabel(), row, 0, Qt::AlignLeft);
-    main_layout->addWidget(labels.distance = numberLabel(), row, 1, Qt::AlignLeft);
-    main_layout->addWidget(labels.hours = numberLabel(), row, 2, Qt::AlignLeft);
-
+  const char * titles[] = {"ALL TIME", "PAST WEEK"};
+  int row = 0;
+  for (int i = 0; i < 2; ++i) {
+    main_layout->addWidget(new QLabel(titles[i]), row++, 0, 1, 3);
+    for (int j = 0; j < 3; ++j) {
+      QLabel* l = numberLabel();
+      mapper->addMapping(l, i * 2 + j, "text");
+      main_layout->addWidget(l, row, i, Qt::AlignLeft);
+    }
     main_layout->addWidget(unitLabel("DRIVES"), row + 1, 0, Qt::AlignLeft);
-    main_layout->addWidget(labels.distance_unit = unitLabel(getDistanceUnit()), row + 1, 1, Qt::AlignLeft);
+
+    QLabel* l = unitLabel(getDistanceUnit());
+    mapper->addMapping(l, i * 2 + 3, "text");
+    main_layout->addWidget(l, row + 1, 1, Qt::AlignLeft);
+
     main_layout->addWidget(unitLabel("HOURS"), row + 1, 2, Qt::AlignLeft);
-  };
+  }
 
-  add_stats_layouts("ALL TIME", all_);
-  add_stats_layouts("PAST WEEK", week_);
-
+  mapper->toFirst();
   std::string dongle_id = Params().get("DongleId");
   if (util::is_valid_dongle_id(dongle_id)) {
     std::string url = "https://api.commadotai.com/v1.1/devices/" + dongle_id + "/stats";
@@ -55,20 +62,21 @@ DriveStats::DriveStats(QWidget* parent) : QWidget(parent) {
     QObject::connect(repeater, &RequestRepeater::receivedResponse, this, &DriveStats::parseResponse);
   }
 
+  
   setStyleSheet(R"(QLabel {font-size: 48px; font-weight: 500;})");
+  updateStats();
 }
 
 void DriveStats::updateStats() {
-  auto update = [=](const QJsonObject& obj, StatsLabels& labels) {
-    labels.routes->setText(QString::number((int)obj["routes"].toDouble()));
-    labels.distance->setText(QString::number(int(obj["distance"].toDouble() * (metric_ ? MILE_TO_KM : 1))));
-    labels.distance_unit->setText(getDistanceUnit());
-    labels.hours->setText(QString::number((int)(obj["minutes"].toDouble() / 60)));
-  };
-
   QJsonObject json = stats_.object();
-  update(json["all"].toObject(), all_);
-  update(json["week"].toObject(), week_);
+  QJsonObject a[] = {json["all"].toObject(), json["week"].toObject()};
+  for (int i = 0; i < 2; ++i) {
+    auto& j = a[i];
+    model->setData(model->index(0, i * 2), (int)(j["routes"].toDouble()));
+    model->setData(model->index(0, i * 2 + 1), (int)j["distance"].toDouble() * (metric_ ? MILE_TO_KM : 1));
+    model->setData(model->index(0, i * 2 + 2), (int)(j["minutes"].toDouble() / 60));
+    model->setData(model->index(0, i * 2 + 3), getDistanceUnit());
+  }
 }
 
 void DriveStats::parseResponse(const QString& response) {
@@ -82,6 +90,7 @@ void DriveStats::parseResponse(const QString& response) {
 }
 
 void DriveStats::showEvent(QShowEvent* event) {
+  updateStats();
   bool metric = Params().getBool("IsMetric");
   if (metric_ != metric) {
     metric_ = metric;

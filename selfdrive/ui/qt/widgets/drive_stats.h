@@ -2,6 +2,8 @@
 
 #include <QJsonDocument>
 #include <QLabel>
+#include <QDataWidgetMapper>
+#include <QStandardItemModel>
 
 class DriveStats : public QWidget {
   Q_OBJECT
@@ -16,9 +18,8 @@ private:
 
   bool metric_;
   QJsonDocument stats_;
-  struct StatsLabels {
-    QLabel *routes, *distance, *distance_unit, *hours;
-  } all_, week_;
+  QDataWidgetMapper *mapper;
+  QStandardItemModel *model;
 
 private slots:
   void parseResponse(const QString &response);
