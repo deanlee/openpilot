@@ -43,7 +43,7 @@ DriveStats::DriveStats(QWidget* parent) : QWidget(parent) {
     for (int j = 0; j < 3; ++j) {
       QLabel* l = numberLabel();
       mapper->addMapping(l, i * 2 + j, "text");
-      main_layout->addWidget(l, row, i, Qt::AlignLeft);
+      main_layout->addWidget(l, row, j, Qt::AlignLeft);
     }
     main_layout->addWidget(unitLabel("DRIVES"), row + 1, 0, Qt::AlignLeft);
 
