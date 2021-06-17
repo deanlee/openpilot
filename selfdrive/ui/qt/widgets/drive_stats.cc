@@ -61,7 +61,6 @@ void DriveStats::updateStats() {
     model->setData(model->index(0, i * 2), (int)(j["routes"].toDouble()));
     model->setData(model->index(0, i * 2 + 1), (int)j["distance"].toDouble() * (metric_ ? MILE_TO_KM : 1));
     model->setData(model->index(0, i * 2 + 2), (int)(j["minutes"].toDouble() / 60));
-    qInfo() << "distance " << getDistanceUnit();
     model->setData(model->index(0, i * 2 + 4), getDistanceUnit());
   }
 }
