@@ -28,37 +28,33 @@ SshControl::SshControl() : ButtonControl("SSH Keys", "", "Warning: This grants S
 }
 
 void SshControl::refresh() {
-  QString param = QString::fromStdString(params.get("GithubSshKeys"));
-  if (param.length()) {
-    username_label.setText(QString::fromStdString(params.get("GithubUsername")));
-    setText("REMOVE");
-  } else {
-    username_label.setText("");
-    setText("ADD");
-  }
+  QString username = QString::fromStdString(params.get("GithubUsername"));
+  username_label.setText(username);
+  setText(username.isEmpty() ? "ADD" : "REMOVE");
   setEnabled(true);
 }
 
 void SshControl::getUserKeys(const QString &username) {
   HttpRequest *request = new HttpRequest(this, "https://github.com/" + username + ".keys", "", false);
+  auto handleResponse = [=](const QString &err) {
+    refresh();
+    request->deleteLater();
+    if (!err.isEmpty()) {
+      ConfirmationDialog::alert(err);
+    }
+  };
   QObject::connect(request, &HttpRequest::receivedResponse, [=](const QString &resp) {
     if (!resp.isEmpty()) {
       params.put("GithubUsername", username.toStdString());
       params.put("GithubSshKeys", resp.toStdString());
-    } else {
-      ConfirmationDialog::alert("Username '" + username + "' has no keys on GitHub");
     }
-    refresh();
-    request->deleteLater();
+    QString err = resp.isEmpty() ? QString("Username '%1' has no keys on GitHub").arg(username) : "";
+    handleResponse(err);
   });
   QObject::connect(request, &HttpRequest::failedResponse, [=] {
-    ConfirmationDialog::alert("Username '" + username + "' doesn't exist on GitHub");
-    refresh();
-    request->deleteLater();
+    handleResponse(QString("Username '%1' doesn't exist on GitHub").arg(username));
   });
   QObject::connect(request, &HttpRequest::timeoutResponse, [=] {
-    ConfirmationDialog::alert("Request timed out");
-    refresh();
-    request->deleteLater();
+    handleResponse("Request timed out");
   });
 }
