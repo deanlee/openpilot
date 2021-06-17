@@ -1,10 +1,8 @@
 #pragma once
 
 #include <QJsonDocument>
-#include <QLabel>
-#include <QDataWidgetMapper>
 #include <QStandardItemModel>
-
+#include <QWidget>
 class DriveStats : public QWidget {
   Q_OBJECT
 
