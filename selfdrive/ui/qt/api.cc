@@ -9,7 +9,10 @@
 #include <QDebug>
 #include <QFile>
 #include <QJsonDocument>
+#include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <QNetworkReply>
+#include <QTimer>
 
 #include "selfdrive/common/params.h"
 #include "selfdrive/common/util.h"
@@ -117,4 +120,8 @@ void HttpRequest::requestFinished() {
   }
   reply->deleteLater();
   reply = NULL;
+}
+
+bool HttpRequest::isRunning() const {
+  return reply && reply->isRunning();
 }

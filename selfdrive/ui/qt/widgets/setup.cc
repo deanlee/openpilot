@@ -11,6 +11,7 @@
 #include <QrCode.hpp>
 
 #include "selfdrive/common/params.h"
+#include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/request_repeater.h"
 
 using qrcodegen::QrCode;

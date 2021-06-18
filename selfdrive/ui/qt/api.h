@@ -1,9 +1,11 @@
 #pragma once
 
+#include <QObject>
 #include <QJsonObject>
-#include <QNetworkReply>
-#include <QString>
-#include <QTimer>
+
+class QNetworkAccessManager;
+class QNetworkReply;
+class QTimer;
 
 class CommaApi : public QObject {
   Q_OBJECT
@@ -23,12 +25,11 @@ class HttpRequest : public QObject {
 public:
   explicit HttpRequest(QObject* parent, const QString &requestURL, bool create_jwt_ = true);
   void sendRequest(const QString &requestURL);
-
-protected:
-  QNetworkReply *reply;
+  bool isRunning() const;
 
 private:
   QNetworkAccessManager *networkAccessManager;
+  QNetworkReply *reply;
   QTimer *networkTimer;
   bool create_jwt;
 

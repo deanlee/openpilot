@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 
 #include "selfdrive/common/params.h"
+#include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/request_repeater.h"
 
 const double MILE_TO_KM = 1.60934;
