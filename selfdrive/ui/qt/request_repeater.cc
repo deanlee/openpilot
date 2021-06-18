@@ -9,15 +9,19 @@ RequestRepeater::RequestRepeater(QObject *parent, const QString &requestURL, con
   httpRequest = new HttpRequest(this, requestURL);
   QObject::connect(httpRequest, &HttpRequest::receivedResponse, [=](const QString &resp) {
     if (resp != prevResp) {
-      params.put(cacheKey.toStdString(), resp.toStdString());
       prevResp = resp;
+      if (!prevResp.isEmpty()) {
+        params.put(cacheKey.toStdString(), resp.toStdString());
+      }
       emit receivedResponse(resp);
     }
   });
   QObject::connect(httpRequest, &HttpRequest::failedResponse, [=](const QString &err) {
     if (!prevResp.isEmpty()) {
-      params.remove(cacheKey.toStdString());
       prevResp = "";
+      if (!!cacheKey.isEmpty()) {
+        params.remove(cacheKey.toStdString());
+      }
     }
     emit failedResponse(err);
   });
