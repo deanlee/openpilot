@@ -1,16 +1,15 @@
 #pragma once
 
-#include <QJsonObject>
-#include <QNetworkReply>
-#include <QString>
-#include <QTimer>
+#include <QObject>
 
-class CommaApi : public QObject {
-  Q_OBJECT
+class QTimer;
+class QNetworkAccessManager;
+class QNetworkReply;
+class QJsonObject;
 
+class CommaApi {
 public:
-  static QByteArray rsa_sign(const QByteArray &data);
-  static QString create_jwt(const QJsonObject &payloads = {}, int expiry = 3600);
+  static QString create_jwt(const QJsonObject *payloads = nullptr, int expiry = 3600);
 };
 
 /**

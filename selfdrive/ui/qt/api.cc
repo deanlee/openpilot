@@ -9,7 +9,11 @@
 #include <QDebug>
 #include <QFile>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QString>
+#include <QTimer>
 
 #include "selfdrive/common/params.h"
 #include "selfdrive/common/util.h"
@@ -19,7 +23,7 @@ const std::string private_key_path =
     Hardware::PC() ? util::getenv_default("HOME", "/.comma/persist/comma/id_rsa", "/persist/comma/id_rsa")
                    : "/persist/comma/id_rsa";
 
-QByteArray CommaApi::rsa_sign(const QByteArray &data) {
+static QByteArray rsa_sign(const QByteArray &data) {
   auto file = QFile(private_key_path.c_str());
   if (!file.open(QIODevice::ReadOnly)) {
     qDebug() << "No RSA private key found, please run manager.py or registration.py";
@@ -43,14 +47,16 @@ QByteArray CommaApi::rsa_sign(const QByteArray &data) {
   return sig;
 }
 
-QString CommaApi::create_jwt(const QJsonObject &payloads, int expiry) {
+QString CommaApi::create_jwt(const QJsonObject *payloads, int expiry) {
   QJsonObject header = {{"alg", "RS256"}};
 
   QString dongle_id = QString::fromStdString(Params().get("DongleId"));
   auto t = QDateTime::currentSecsSinceEpoch();
   QJsonObject payload = {{"identity", dongle_id}, {"nbf", t}, {"iat", t}, {"exp", t + expiry}};
-  for (auto it = payloads.begin(); it != payloads.end(); ++it) {
-    payload.insert(it.key(), it.value());
+  if (payloads) {
+    for (auto it = payloads->begin(); it != payloads->end(); ++it) {
+      payload.insert(it.key(), it.value());
+    }
   }
 
   auto b64_opts = QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals;
