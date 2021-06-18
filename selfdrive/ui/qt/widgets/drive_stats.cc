@@ -2,7 +2,9 @@
 
 #include <QDebug>
 #include <QGridLayout>
+#include <QJsonDocument>
 #include <QJsonObject>
+#include <QLabel>
 #include <QVBoxLayout>
 
 #include "selfdrive/common/params.h"
@@ -28,6 +30,7 @@ QLabel* unitLabel(const QString& name) {
 
 DriveStats::DriveStats(QWidget* parent) : QWidget(parent) {
   metric_ = Params().getBool("IsMetric");
+  stats_ = new QJsonDocument();
 
   QGridLayout* main_layout = new QGridLayout(this);
   main_layout->setMargin(0);
@@ -66,7 +69,7 @@ void DriveStats::updateStats() {
     labels.hours->setText(QString::number((int)(obj["minutes"].toDouble() / 60)));
   };
 
-  QJsonObject json = stats_.object();
+  QJsonObject json = stats_->object();
   update(json["all"].toObject(), all_);
   update(json["week"].toObject(), week_);
 }
@@ -77,7 +80,7 @@ void DriveStats::parseResponse(const QString& response) {
     qDebug() << "JSON Parse failed on getting past drives statistics";
     return;
   }
-  stats_ = doc;
+  *stats_ = doc;
   updateStats();
 }
 

@@ -1,9 +1,13 @@
 #include "selfdrive/ui/qt/widgets/input.h"
 
+#include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
+#include <QVBoxLayout>
+#include <QWidget>
 
-#include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/hardware/hw.h"
+#include "selfdrive/ui/qt/qt_window.h"
 
 InputDialog::InputDialog(const QString &prompt_text, QWidget *parent) : QDialog(parent) {
   main_layout = new QVBoxLayout(this);

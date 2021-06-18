@@ -1,7 +1,10 @@
 #pragma once
 
-#include <QJsonDocument>
-#include <QLabel>
+
+#include <QWidget>
+
+class QLabel;
+class QJsonDocument;
 
 class DriveStats : public QWidget {
   Q_OBJECT
@@ -15,7 +18,7 @@ private:
   inline QString getDistanceUnit() const { return metric_ ? "KM" : "MILES"; }
 
   bool metric_;
-  QJsonDocument stats_;
+  QJsonDocument *stats_;
   struct StatsLabels {
     QLabel *routes, *distance, *distance_unit, *hours;
   } all_, week_;
