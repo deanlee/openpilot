@@ -2,8 +2,12 @@
 
 #include <cassert>
 #include <string>
-
 #include <QDebug>
+#include <QGraphicsItem>
+#include <QGraphicsProxyWidget>
+#include <QGraphicsScene>
+#include <QOpenGLWidget>
+#include <QResizeEvent>
 
 #ifndef QCOM
 #include "selfdrive/ui/qt/offroad/networking.h"
@@ -304,8 +308,7 @@ void SettingsWindow::showEvent(QShowEvent *event) {
     return;
   }
 }
-
-SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
+SettingsWindow::SettingsWindow(QWidget *parent) : QGraphicsView(parent) {
 
   // setup two main layouts
   sidebar_widget = new QWidget;
@@ -385,21 +388,35 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   sidebar_layout->setContentsMargins(50, 50, 100, 50);
 
   // main settings layout, sidebar + main panel
-  QHBoxLayout *main_layout = new QHBoxLayout(this);
-
+  QWidget *w = new QWidget();
+  w->setStyleSheet(R"(
+      color: white;
+      font-size: 50px;
+      background-color:black;
+  )");
+  QHBoxLayout *main_layout = new QHBoxLayout(w);
+  // lb->addLayout(main_layout);
   sidebar_widget->setFixedWidth(500);
   main_layout->addWidget(sidebar_widget);
   main_layout->addWidget(panel_widget);
 
-  setStyleSheet(R"(
-    * {
-      color: white;
-      font-size: 50px;
-    }
-    SettingsWindow {
-      background-color: black;
-    }
-  )");
+  
+  QGraphicsScene *scene = new QGraphicsScene();
+  setViewport(new QOpenGLWidget);
+  setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+  setScene(scene);
+
+  proxyWidget = scene->addWidget(w);
+  proxyWidget->setFlag(QGraphicsItem::ItemIgnoresTransformations);
+  proxyWidget->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+}
+
+void SettingsWindow::resizeEvent(QResizeEvent *event) {
+  QRect rc(QRect(QPoint(0, 0), event->size()));
+  scene()->setSceneRect(rc);
+  proxyWidget->setGeometry(rc);
+  fitInView(rc);
+  QGraphicsView::resizeEvent(event);
 }
 
 void SettingsWindow::hideEvent(QHideEvent *event) {
