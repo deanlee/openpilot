@@ -4,8 +4,12 @@
 
 #include <QStackedLayout>
 #include <QWindow>
+#include <QGraphicsView>
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
+
+class QResizeEvent;
+class QGraphicsProxyWidget;
 
 class DriverViewScene : public QWidget {
   Q_OBJECT
@@ -19,7 +23,7 @@ public slots:
 protected:
   void showEvent(QShowEvent *event) override;
   void hideEvent(QHideEvent *event) override;
-  void paintEvent(QPaintEvent *event) override;
+  // void paintEvent(QPaintEvent *event) override;
 
 private:
   Params params;
@@ -29,7 +33,7 @@ private:
   bool frame_updated = false;
 };
 
-class DriverViewWindow : public QWidget {
+class DriverViewWindow : public QGraphicsView {
   Q_OBJECT
 
 public:
@@ -40,9 +44,11 @@ signals:
 
 protected:
   void mousePressEvent(QMouseEvent* e) override;
+  void resizeEvent(QResizeEvent *event) override;
 
 private:
   CameraViewWidget *cameraView;
-  DriverViewScene *scene;
+  DriverViewScene *scene_;
+  QGraphicsProxyWidget *proxyWidget;
   QStackedLayout *layout;
 };
