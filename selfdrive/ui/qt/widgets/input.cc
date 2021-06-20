@@ -1,6 +1,9 @@
 #include "selfdrive/ui/qt/widgets/input.h"
 
+#include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
+#include <QVBoxLayout>
 
 #include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/hardware/hw.h"

@@ -1,14 +1,12 @@
 #pragma once
 
 #include <QDialog>
-#include <QLabel>
-#include <QLineEdit>
-#include <QString>
-#include <QVBoxLayout>
-#include <QWidget>
 
 #include "selfdrive/ui/qt/widgets/keyboard.h"
 
+class QLabel;
+class QLineEdit;
+class QVBoxLayout;
 class InputDialog : public QDialog {
   Q_OBJECT
 
