@@ -1,14 +1,19 @@
 #include "selfdrive/ui/qt/offroad/networking.h"
 
+#include <QButtonGroup>
 #include <QDebug>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
+#include <QPushButton>
 #include <QStackedLayout>
+#include <QVBoxLayout>
 
-#include "selfdrive/ui/qt/widgets/scrollview.h"
 #include "selfdrive/ui/qt/util.h"
-
+#include "selfdrive/ui/qt/widgets/controls.h"
+#include "selfdrive/ui/qt/widgets/input.h"
+#include "selfdrive/ui/qt/widgets/scrollview.h"
+#include "selfdrive/ui/qt/widgets/ssh_keys.h"
 
 void NetworkStrengthWidget::paintEvent(QPaintEvent* event) {
   QPainter p(this);

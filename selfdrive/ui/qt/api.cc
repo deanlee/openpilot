@@ -9,7 +9,9 @@
 #include <QDebug>
 #include <QFile>
 #include <QJsonDocument>
+#include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QTimer>
 
 #include "selfdrive/common/params.h"
 #include "selfdrive/common/util.h"

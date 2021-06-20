@@ -1,9 +1,11 @@
 #pragma once
 
+#include <QObject>
 #include <QJsonObject>
-#include <QNetworkReply>
-#include <QString>
-#include <QTimer>
+
+class QNetworkAccessManager;
+class QNetworkReply;
+class QTimer;
 
 namespace CommaApi {
 

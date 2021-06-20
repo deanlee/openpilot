@@ -2,10 +2,13 @@
 
 #include <memory>
 
-#include <QStackedLayout>
+#include <QWidget>
+#include <QImage>
 
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
+
+class QStackedLayout;
 
 class DriverViewScene : public QWidget {
   Q_OBJECT

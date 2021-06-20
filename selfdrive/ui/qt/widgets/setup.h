@@ -1,9 +1,11 @@
 #pragma once
 
-#include <QLabel>
-#include <QStackedWidget>
-#include <QVBoxLayout>
+#include <QFrame>
 #include <QWidget>
+
+class QLabel;
+class QStackedWidget;
+class QVBoxLayout;
 
 class PairingQRWidget : public QWidget {
   Q_OBJECT

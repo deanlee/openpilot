@@ -3,19 +3,20 @@
 #include <map>
 
 #include <QFrame>
+#include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
 
 #include "selfdrive/common/params.h"
-
-class QLabel;
-class QPushButton;
-class QVBoxLayout;
-class ScrollView;
+#include "selfdrive/ui/qt/widgets/scrollview.h"
 
 class OffroadAlert : public QFrame {
   Q_OBJECT
 
 public:
   explicit OffroadAlert(QWidget *parent = 0);
+  void setCurrentIndex(int id);
+
   int alertCount = 0;
   bool updateAvailable;
 

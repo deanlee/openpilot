@@ -1,6 +1,7 @@
 #include "selfdrive/ui/qt/offroad/driverview.h"
 
 #include <QPainter>
+#include <QStackedLayout>
 
 #include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/ui/qt/util.h"

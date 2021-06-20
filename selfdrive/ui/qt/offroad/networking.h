@@ -1,13 +1,15 @@
 #pragma once
 
-#include <QButtonGroup>
-#include <QVBoxLayout>
 #include <QWidget>
 
 #include "selfdrive/ui/qt/offroad/wifiManager.h"
-#include "selfdrive/ui/qt/widgets/input.h"
-#include "selfdrive/ui/qt/widgets/ssh_keys.h"
-#include "selfdrive/ui/qt/widgets/toggle.h"
+
+class QAbstractButton;
+class ButtonControl;
+class LabelControl;
+class QButtonGroup;
+class QStackedLayout;
+class QVBoxLayout;
 
 class NetworkStrengthWidget : public QWidget {
   Q_OBJECT

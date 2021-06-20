@@ -3,13 +3,10 @@
 #include <QHBoxLayout>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QLabel>
-#include <QPushButton>
 #include <QVBoxLayout>
 
 #include "selfdrive/common/util.h"
 #include "selfdrive/hardware/hw.h"
-#include "selfdrive/ui/qt/widgets/scrollview.h"
 
 OffroadAlert::OffroadAlert(QWidget* parent) : QFrame(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
@@ -25,7 +22,6 @@ OffroadAlert::OffroadAlert(QWidget* parent) : QFrame(parent) {
   // release notes
   releaseNotes.setWordWrap(true);
   releaseNotes.setVisible(false);
-  releaseNotes.setStyleSheet("font-size: 48px;");
   releaseNotes.setAlignment(Qt::AlignTop);
 
   releaseNotesScroll = new ScrollView(&releaseNotes, this);
@@ -44,6 +40,7 @@ OffroadAlert::OffroadAlert(QWidget* parent) : QFrame(parent) {
   QObject::connect(dismiss_btn, &QPushButton::released, this, &OffroadAlert::closeAlerts);
 
   rebootBtn.setText("Reboot and Update");
+  rebootBtn.setObjectName("rebootBtn");
   rebootBtn.setFixedSize(600, 125);
   rebootBtn.setVisible(false);
   footer_layout->addWidget(&rebootBtn, 0, Qt::AlignBottom | Qt::AlignRight);
@@ -70,46 +67,52 @@ OffroadAlert::OffroadAlert(QWidget* parent) : QFrame(parent) {
 void OffroadAlert::refresh() {
   if (alerts.empty()) {
     // setup labels for each alert
-    QString json = QString::fromStdString(util::read_file("../controls/lib/alerts_offroad.json"));
+    QString json = util::read_file("../controls/lib/alerts_offroad.json").c_str();
     QJsonObject obj = QJsonDocument::fromJson(json.toUtf8()).object();
-    for (auto &k : obj.keys()) {
-      QLabel *l = new QLabel(this);
-      alerts[k.toStdString()] = l;
-      int severity = obj[k].toObject()["severity"].toInt();
+    // descending sort labels by severity
+    std::vector<std::pair<std::string, int>> sorted;
+    for (auto it = obj.constBegin(); it != obj.constEnd(); ++it) {
+      sorted.push_back({it.key().toStdString(), it.value()["severity"].toInt()});
+    }
+    std::sort(sorted.begin(), sorted.end(), [=](auto &l, auto &r) {
+      return l.second > r.second;
+    });
 
+    for (auto it = sorted.begin(); it != sorted.end(); ++it) {
+      QLabel *l = new QLabel(this);
+      alerts[it->first] = l;
       l->setMargin(60);
       l->setWordWrap(true);
-      l->setStyleSheet("background-color: " + QString(severity ? "#E22C2C" : "#292929"));
       l->setVisible(false);
+      l->setStyleSheet(QString("background-color: %1").arg(it->second ? "#E22C2C" : "#292929"));
       alerts_layout->addWidget(l);
     }
     alerts_layout->addStretch(1);
   }
 
   updateAlerts();
-
-  rebootBtn.setVisible(updateAvailable);
-  releaseNotesScroll->setVisible(updateAvailable);
-  releaseNotes.setText(QString::fromStdString(params.get("ReleaseNotes")));
-
-  alertsScroll->setVisible(!updateAvailable);
-  for (const auto& [k, label] : alerts) {
-    label->setVisible(!label->text().isEmpty());
-  }
 }
 
 void OffroadAlert::updateAlerts() {
   alertCount = 0;
   updateAvailable = params.getBool("UpdateAvailable");
-  for (const auto& [key, label] : alerts) {
-    auto bytes = params.get(key.c_str());
+  releaseNotes.setText(params.get("ReleaseNotes").c_str());
+  for (const auto &[key, label] : alerts) {
+    QString text;
+    std::string bytes = params.get(key);
     if (bytes.size()) {
-      QJsonDocument doc_par = QJsonDocument::fromJson(QByteArray(bytes.data(), bytes.size()));
-      QJsonObject obj = doc_par.object();
-      label->setText(obj.value("text").toString());
-      alertCount++;
-    } else {
-      label->setText("");
+      auto doc_par = QJsonDocument::fromJson(bytes.c_str());
+      text = doc_par["text"].toString();
     }
+    label->setText(text);
+    label->setVisible(!text.isEmpty());
+    alertCount += !text.isEmpty();
   }
+}
+
+void OffroadAlert::setCurrentIndex(int idx) {
+  // show release notes when idx = 0.
+  releaseNotesScroll->setVisible(idx == 0);
+  rebootBtn.setVisible(idx == 0);
+  alertsScroll->setVisible(idx == 1);
 }
