@@ -1,9 +1,11 @@
 #include "selfdrive/ui/qt/widgets/keyboard.h"
 
+#include <QAbstractButton>
 #include <QButtonGroup>
 #include <QDebug>
 #include <QHBoxLayout>
 #include <QPushButton>
+#include <QStackedLayout>
 #include <QVBoxLayout>
 
 const int DEFAULT_STRETCH = 1;

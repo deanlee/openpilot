@@ -2,11 +2,11 @@
 
 #include <vector>
 
-#include <QAbstractButton>
 #include <QFrame>
-#include <QStackedLayout>
-#include <QString>
 #include <QWidget>
+
+class QAbstractButton;
+class QStackedLayout;
 
 class KeyboardLayout : public QWidget {
   Q_OBJECT
