@@ -101,7 +101,7 @@ CameraViewWidget::CameraViewWidget(VisionStreamType stream_type) : QWindow() {
   setFlags(Qt::Widget);
   setSurfaceType(QSurface::OpenGLSurface);
 
-  setFormat(getSurfaceFormat());
+  // setFormat(getSurfaceFormat());
   create();
 
   thread_ = new QThread();
