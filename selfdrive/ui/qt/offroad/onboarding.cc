@@ -1,7 +1,9 @@
 #include "selfdrive/ui/qt/offroad/onboarding.h"
 
 #include <QLabel>
+#include <QMouseEvent>
 #include <QPainter>
+#include <QPushButton>
 #include <QQmlContext>
 #include <QQuickWidget>
 #include <QVBoxLayout>

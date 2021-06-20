@@ -1,12 +1,13 @@
 #pragma once
 
 #include <QImage>
-#include <QMouseEvent>
-#include <QPushButton>
+#include <QFrame>
 #include <QStackedWidget>
-#include <QWidget>
 
 #include "selfdrive/common/params.h"
+
+class QMouseEvent;
+class QPushButton;
 
 class TrainingGuide : public QFrame {
   Q_OBJECT
