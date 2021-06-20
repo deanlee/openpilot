@@ -2,11 +2,11 @@
 
 #include <QDialog>
 
-#include "selfdrive/ui/qt/widgets/keyboard.h"
-
+class Keyboard;
 class QLabel;
 class QLineEdit;
 class QVBoxLayout;
+
 class InputDialog : public QDialog {
   Q_OBJECT
 

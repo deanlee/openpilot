@@ -1,5 +1,6 @@
 #include "selfdrive/ui/qt/window.h"
 
+#include <QEvent>
 #include <QFontDatabase>
 
 #include "selfdrive/hardware/hw.h"

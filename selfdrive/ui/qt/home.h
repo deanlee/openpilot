@@ -1,18 +1,19 @@
 #pragma once
 
 #include <QFrame>
-#include <QLabel>
-#include <QPushButton>
-#include <QStackedLayout>
-#include <QTimer>
-#include <QWidget>
 
-#include "selfdrive/ui/qt/offroad/driverview.h"
-#include "selfdrive/ui/qt/onroad.h"
-#include "selfdrive/ui/qt/sidebar.h"
-#include "selfdrive/ui/qt/widgets/offroad_alerts.h"
+
 #include "selfdrive/ui/ui.h"
 
+class QLabel;
+class QPushButton;
+class QStackedLayout;
+class QTimer;
+class DriverViewWindow;
+class OnroadWindow;
+class OffroadAlert;
+class OffroadHome;
+class Sidebar;
 class OffroadHome : public QFrame {
   Q_OBJECT
 

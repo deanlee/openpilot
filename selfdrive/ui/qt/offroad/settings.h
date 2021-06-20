@@ -1,15 +1,17 @@
 #pragma once
 
-#include <QButtonGroup>
-#include <QFileSystemWatcher>
+
 #include <QFrame>
-#include <QLabel>
-#include <QPushButton>
-#include <QStackedWidget>
-#include <QWidget>
 
+#include "selfdrive/common/params.h"
 
-#include "selfdrive/ui/qt/widgets/controls.h"
+class ButtonControl;
+class LabelControl;
+class QButtonGroup;
+class QFileSystemWatcher;
+class QLabel;
+class QPushButton;
+class QStackedWidget;
 
 // ********** settings window + top-level panels **********
 

@@ -3,7 +3,12 @@
 #include <cassert>
 #include <string>
 
+#include <QButtonGroup>
 #include <QDebug>
+#include <QLabel>
+#include <QPushButton>
+#include <QStackedWidget>
+#include <QFileSystemWatcher>
 
 #ifndef QCOM
 #include "selfdrive/ui/qt/offroad/networking.h"
@@ -13,7 +18,6 @@
 #include "selfdrive/ui/qt/maps/map_settings.h"
 #endif
 
-#include "selfdrive/common/params.h"
 #include "selfdrive/common/util.h"
 #include "selfdrive/hardware/hw.h"
 #include "selfdrive/ui/qt/widgets/controls.h"

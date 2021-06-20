@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 
 #include "selfdrive/ui/qt/qt_window.h"
+#include "selfdrive/ui/qt/widgets/keyboard.h"
 #include "selfdrive/hardware/hw.h"
 
 InputDialog::InputDialog(const QString &prompt_text, QWidget *parent) : QDialog(parent) {
