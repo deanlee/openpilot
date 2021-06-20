@@ -2,9 +2,6 @@
 
 #include <QFrame>
 
-
-#include "selfdrive/ui/ui.h"
-
 class QLabel;
 class QPushButton;
 class QStackedLayout;
@@ -14,6 +11,8 @@ class OnroadWindow;
 class OffroadAlert;
 class OffroadHome;
 class Sidebar;
+class UIState;
+
 class OffroadHome : public QFrame {
   Q_OBJECT
 

@@ -1,5 +1,9 @@
 #include "selfdrive/ui/qt/request_repeater.h"
 
+#include <QTimer>
+
+#include "selfdrive/ui/ui.h"
+
 RequestRepeater::RequestRepeater(QObject *parent, const QString &requestURL, const QString &cacheKey,
                                  int period) : HttpRequest(parent, requestURL) {
   timer = new QTimer(this);

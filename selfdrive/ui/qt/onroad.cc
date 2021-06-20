@@ -2,10 +2,14 @@
 
 #include <iostream>
 
+#include <QStackedLayout>
+
 #include "selfdrive/common/swaglog.h"
 #include "selfdrive/common/timing.h"
 #include "selfdrive/ui/paint.h"
 #include "selfdrive/ui/qt/util.h"
+#include "selfdrive/ui/qt/qt_window.h"
+#include "selfdrive/ui/ui.h"
 
 #ifdef ENABLE_MAPS
 #include "selfdrive/ui/qt/maps/map.h"

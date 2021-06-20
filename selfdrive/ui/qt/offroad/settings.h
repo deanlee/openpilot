@@ -5,13 +5,14 @@
 
 #include "selfdrive/common/params.h"
 
-class ButtonControl;
-class LabelControl;
 class QButtonGroup;
 class QFileSystemWatcher;
 class QLabel;
 class QPushButton;
 class QStackedWidget;
+
+class ButtonControl;
+class LabelControl;
 
 // ********** settings window + top-level panels **********
 

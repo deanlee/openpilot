@@ -2,10 +2,11 @@
 
 #include <QMouseEvent>
 
-#include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/common/util.h"
 #include "selfdrive/hardware/hw.h"
+#include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/ui/qt/util.h"
+#include "selfdrive/ui/ui.h"
 
 void Sidebar::drawMetric(QPainter &p, const QString &label, const QString &val, QColor c, int y) {
   const QRect rect = {30, y, 240, val.isEmpty() ? (label.contains("\n") ? 124 : 100) : 148};

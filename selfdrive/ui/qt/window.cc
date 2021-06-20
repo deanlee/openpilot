@@ -2,8 +2,12 @@
 
 #include <QEvent>
 #include <QFontDatabase>
+#include <QStackedLayout>
 
 #include "selfdrive/hardware/hw.h"
+#include "selfdrive/ui/qt/home.h"
+#include "selfdrive/ui/qt/offroad/onboarding.h"
+#include "selfdrive/ui/qt/offroad/settings.h"
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   main_layout = new QStackedLayout(this);

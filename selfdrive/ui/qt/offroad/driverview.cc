@@ -3,6 +3,7 @@
 #include <QPainter>
 #include <QStackedLayout>
 
+#include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/ui/qt/util.h"
 

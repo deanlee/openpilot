@@ -1,7 +1,7 @@
 #pragma once
 
-#include <QImage>
 #include <QFrame>
+#include <QImage>
 #include <QStackedWidget>
 
 #include "selfdrive/common/params.h"

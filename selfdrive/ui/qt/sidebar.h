@@ -3,7 +3,9 @@
 #include <QFrame>
 #include <QMap>
 
-#include "selfdrive/ui/ui.h"
+#include "cereal/gen/cpp/log.capnp.h"
+
+class UIState;
 
 class Sidebar : public QFrame {
   Q_OBJECT

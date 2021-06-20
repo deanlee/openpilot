@@ -5,7 +5,7 @@
 #include <QWidget>
 #include <QImage>
 
-#include "selfdrive/common/util.h"
+#include "selfdrive/common/params.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 
 class QStackedLayout;
