@@ -332,14 +332,14 @@ QUIState::QUIState(QObject *parent) : QObject(parent) {
   } else {
     fprintf(stderr, "cl_khr_gl_sharing is not supported -- sorry.\n");
   }
-  cl_context_properties props[] = {CL_GL_CONTEXT_KHR,
-              (cl_context_properties) glGetCurrentContext(), CL_WGL_HDC_KHR,
-              (cl_context_properties) glGetCurrentDC(), CL_CONTEXT_PLATFORM,
-              (cl_context_properties) platform_id, 0 };
+  // cl_context_properties props[] = {CL_GL_CONTEXT_KHR,
+  //             (cl_context_properties) glGetCurrentContext(), CL_WGL_HDC_KHR,
+  //             (cl_context_properties) glGetCurrentDC(), CL_CONTEXT_PLATFORM,
+  //             (cl_context_properties) platform_id, 0 };
 
-  cl_context context = clCreateContext(props, 0, &device_id, NULL, NULL,
+  cl_context context = clCreateContext(nullptr, 0, &device_id, NULL, NULL,
                                        &ret);
-     
+  std::cout << "***error is " << ret;
   glGenBuffers(1, &vboID_m);
   glBindBuffer(GL_ARRAY_BUFFER, vboID_m);
   {
