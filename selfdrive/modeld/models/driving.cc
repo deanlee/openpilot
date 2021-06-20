@@ -56,7 +56,7 @@ float prev_brake_3ms2_probs[3] = {0,0,0};
 // #define DUMP_YUV
 
 ModelState::ModelState(cl_device_id device_id, cl_context context) {
-  frame = new ModelFrame(device_id, context);
+  frame = std::make_unique<ModelFrame>(device_id, context);
 
   constexpr int output_size = OUTPUT_SIZE + TEMPORAL_SIZE;
   output.resize(output_size);
@@ -78,10 +78,6 @@ ModelState::ModelState(cl_device_id device_id, cl_context context) {
   traffic_convention[idx] = 1.0;
   m->addTrafficConvention(traffic_convention, TRAFFIC_CONVENTION_LEN);
 #endif
-}
-
-ModelState::~ModelState() {
-  delete frame;
 }
 
 ModelDataRaw ModelState::evalFrame(cl_mem yuv_cl, int width, int height, const mat3 &transform, float *desire_in) {

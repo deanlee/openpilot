@@ -34,14 +34,14 @@ struct ModelDataRaw {
 class ModelState {
 public:
   ModelState(cl_device_id device_id, cl_context context);
-  ~ModelState();
   ModelDataRaw evalFrame(cl_mem yuv_cl, int width, int height, const mat3 &transform, float *desire_in);
-  kj::ArrayPtr<const float> outputArray() const {
+  inline kj::ArrayPtr<const float> outputArray() const {
     return kj::ArrayPtr<const float>(output.data(), output.size());
   }
+
 private:
-  ModelFrame *frame;
   std::vector<float> output;
+  std::unique_ptr<ModelFrame> frame;
   std::unique_ptr<RunModel> m;
 #ifdef DESIRE
   float prev_desire[DESIRE_LEN] = {};
