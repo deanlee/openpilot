@@ -54,7 +54,7 @@ float prev_brake_5ms2_probs[5] = {0,0,0,0,0};
 float prev_brake_3ms2_probs[3] = {0,0,0};
 
 // #define DUMP_YUV
-
+// #include <GL/glew.h>
 ModelState::ModelState(cl_device_id device_id, cl_context context) {
   frame = std::make_unique<ModelFrame>(device_id, context);
 
@@ -78,6 +78,9 @@ ModelState::ModelState(cl_device_id device_id, cl_context context) {
   traffic_convention[idx] = 1.0;
   m->addTrafficConvention(traffic_convention, TRAFFIC_CONVENTION_LEN);
 #endif
+
+  // GLenum err = glewInit();
+  // assert(GLEW_OK == err);
 }
 
 ModelDataRaw ModelState::evalFrame(cl_mem yuv_cl, int width, int height, const mat3 &transform, float *desire_in) {

@@ -277,10 +277,95 @@ static void update_status(UIState *s) {
   started_prev = s->scene.started;
 }
 
+// #include <GL/glut.h>
+// #include <GL/glew.h>
+// #include <glad/glad.h>
+// #include <GL/gl3w.h>
+// #include <GLES3/gl3.h>
 
+#define GLFW_INCLUDE_GLEXT
+#include <GLFW/glfw3.h>
+#include <iostream>
+#include <CL/cl_gl.h>
+#include <iostream>
+bool IsCLExtensionSupported(cl_device_id Device, const char *extension) {  
+  // see if the extension is bogus:
+  if (extension == NULL || extension[0] == '\0') return false;
+  char *where = (char *)strchr(extension, ' ');
+  if (where != NULL) return false;  // get the full list of extensions:
+  size_t extensionSize;
+  clGetDeviceInfo(Device, CL_DEVICE_EXTENSIONS, 0, NULL, &extensionSize);
+  char *extensions = new char[extensionSize];
+  clGetDeviceInfo(Device, CL_DEVICE_EXTENSIONS, extensionSize, extensions, NULL);
+  for (char *start = extensions;;) {
+    where = (char *)strstr((const char *)start, extension);
+    if (where == 0) {
+      delete[] extensions;
+      return false;
+    }
+    char *terminator = where + strlen(extension);  // points to what should be the separator
+    if (*terminator == ' ' || *terminator == '\0' || *terminator == '\r' || *terminator == '\n') {
+      delete[] extensions;
+      return true;
+    }
+    start = terminator;
+  }
+}
+
+// https://web.engr.oregonstate.edu/~mjb/cs575/Handouts/opencl.opengl.vbo.2pp.pdf
 QUIState::QUIState(QObject *parent) : QObject(parent) {
+  // glutInit();
+  int err = glfwInit();
+  assert(err != 0);
+  GLuint vboID_m = 0;
+  cl_platform_id platform_id = NULL;
+  cl_device_id device_id = NULL;
+  cl_uint ret_num_devices;
+  cl_uint ret_num_platforms;
+  cl_int ret = clGetPlatformIDs(1, &platform_id, &ret_num_platforms);
+
+  ret = clGetDeviceIDs(platform_id, CL_DEVICE_TYPE_GPU, 1, &device_id,
+                       &ret_num_devices);
+
+  if (IsCLExtensionSupported(device_id, "cl_khr_gl_sharing")) {
+    fprintf(stderr, "cl_khr_gl_sharing is supported.\n");
+  } else {
+    fprintf(stderr, "cl_khr_gl_sharing is not supported -- sorry.\n");
+  }
+  cl_context_properties props[] = {CL_GL_CONTEXT_KHR,
+              (cl_context_properties) glGetCurrentContext(), CL_WGL_HDC_KHR,
+              (cl_context_properties) glGetCurrentDC(), CL_CONTEXT_PLATFORM,
+              (cl_context_properties) platform_id, 0 };
+
+  cl_context context = clCreateContext(props, 0, &device_id, NULL, NULL,
+                                       &ret);
+     
+  glGenBuffers(1, &vboID_m);
+  glBindBuffer(GL_ARRAY_BUFFER, vboID_m);
+  {
+    std::vector<float> tmp = {0., 0., 0., 0., 0., 0., 0., 0., 0.};
+
+    glBufferData(GL_ARRAY_BUFFER, (tmp.size()) * sizeof(float), 0,
+                 GL_STATIC_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, tmp.size() * sizeof(float),
+                    tmp.data());
+  }
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+  glFlush();
+
+  cl_int status;
+  clCreateFromGLBuffer(context, CL_MEM_READ_WRITE, vboID_m, &status);
+  std::cout << "********" << status;
+  //  if(err!=GLFW_OK) {
+    // Problem: glewInit failed, something is seriously wrong.
+    
+    // std::cout << "glewInit failed: " << glew << std::endl;
+    // exit(1);
+  // }
   ui_state.sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
-    "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "liveLocationKalman",
+    "modelV2", "controlsState", 
+    "liveCalibration", "radarState", "deviceState", "liveLocationKalman",
     "pandaState", "carParams", "driverMonitoringState", "sensorEvents", "carState", "ubloxGnss",
     "gpsLocationExternal", "roadCameraState",
   });
@@ -300,6 +385,7 @@ QUIState::QUIState(QObject *parent) : QObject(parent) {
   timer = new QTimer(this);
   QObject::connect(timer, &QTimer::timeout, this, &QUIState::update);
   timer->start(0);
+  
 }
 
 void QUIState::update() {
