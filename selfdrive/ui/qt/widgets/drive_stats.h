@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QJsonDocument>
-#include <QLabel>
+#include <QWidget>
+
+class QLabel;
 
 class DriveStats : public QWidget {
   Q_OBJECT

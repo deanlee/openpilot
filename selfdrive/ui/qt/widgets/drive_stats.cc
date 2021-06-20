@@ -2,8 +2,9 @@
 
 #include <QDebug>
 #include <QGridLayout>
+#include <QLabel>
+#include <QJsonDocument>
 #include <QJsonObject>
-#include <QVBoxLayout>
 
 #include "selfdrive/common/params.h"
 #include "selfdrive/ui/qt/request_repeater.h"
