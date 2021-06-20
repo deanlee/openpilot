@@ -282,9 +282,11 @@ static void update_status(UIState *s) {
 // #include <glad/glad.h>
 // #include <GL/gl3w.h>
 // #include <GLES3/gl3.h>
+#include <GLES2/gl2.h>
+#include <EGL/egl.h>
 
 #define GLFW_INCLUDE_GLEXT
-#include <GLFW/glfw3.h>
+// #include <GLFW/glfw3.h>
 #include <iostream>
 #include <CL/cl_gl.h>
 #include <iostream>
@@ -315,9 +317,22 @@ bool IsCLExtensionSupported(cl_device_id Device, const char *extension) {
 // https://web.engr.oregonstate.edu/~mjb/cs575/Handouts/opencl.opengl.vbo.2pp.pdf
 QUIState::QUIState(QObject *parent) : QObject(parent) {
   // glutInit();
-  int err = glfwInit();
-  assert(err != 0);
+  EGLDisplay disp = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+
+   EGLDisplay mEglDisplay = eglGetCurrentDisplay();
+   assert(mEglDisplay != EGL_NO_DISPLAY);
+    EGLContext mEglContext = eglGetCurrentContext();
+    assert(mEglContext != EGL_NO_CONTEXT);
+     cl_context_properties props[] =
+    {   CL_GL_CONTEXT_KHR,   (cl_context_properties) mEglContext,
+        CL_EGL_DISPLAY_KHR,  (cl_context_properties) mEglDisplay,
+        CL_CONTEXT_PLATFORM, 0,
+        0 };
+
+  // int err = ();
+  // assert(err != 0);
   GLuint vboID_m = 0;
+
   cl_platform_id platform_id = NULL;
   cl_device_id device_id = NULL;
   cl_uint ret_num_devices;
@@ -337,9 +352,12 @@ QUIState::QUIState(QObject *parent) : QObject(parent) {
   //             (cl_context_properties) glGetCurrentDC(), CL_CONTEXT_PLATFORM,
   //             (cl_context_properties) platform_id, 0 };
 
-  cl_context context = clCreateContext(nullptr, 0, &device_id, NULL, NULL,
+  cl_context context = clCreateContext(props, std::size(props), &device_id, NULL, NULL,
                                        &ret);
   std::cout << "***error is " << ret;
+  // cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+  // cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+
   glGenBuffers(1, &vboID_m);
   glBindBuffer(GL_ARRAY_BUFFER, vboID_m);
   {
