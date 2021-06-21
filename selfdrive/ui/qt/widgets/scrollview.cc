@@ -6,6 +6,7 @@
 #include <QDebug>
 
 ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
+  this->setAttribute(Qt::WA_OpaquePaintEvent);
   w->setAttribute(Qt::WA_OpaquePaintEvent);
   setWidget(w);
   setWidgetResizable(true);
