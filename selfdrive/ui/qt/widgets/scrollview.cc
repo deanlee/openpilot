@@ -6,6 +6,7 @@
 #include <QDebug>
 
 ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
+  w->setAttribute(Qt::WA_OpaquePaintEvent);
   setWidget(w);
   setWidgetResizable(true);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -69,7 +70,8 @@ void 	ScrollView::scrollContentsBy(int dx, int dy) {
   // widget->move(widget->width() < viewport->width() ? aligned.x() : scrolled.x(),
   //              widget->height() < viewport->height() ? aligned.y() : scrolled.y());
   viewport()->setUpdatesEnabled(false);
-  QScrollArea::scrollContentsBy(dx, dy);
+  // QScrollArea::scrollContentsBy(dx, dy);
+  widget()->scroll(dx, dy);
   viewport()->setUpdatesEnabled(true);
 
 }
