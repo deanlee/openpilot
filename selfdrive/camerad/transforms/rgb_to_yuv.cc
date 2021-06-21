@@ -3,7 +3,7 @@
 #include <cassert>
 #include <cstdio>
 
-Rgb2Yuv::Rgb2Yuv(cl_context ctx, cl_device_id device_id, int width, int height, int rgb_stride) {
+Rgb2Yuv::Rgb2Yuv(int width, int height, int rgb_stride) {
   assert(width % 2 == 0 && height % 2 == 0);
   char args[1024];
   snprintf(args, sizeof(args),
@@ -14,7 +14,7 @@ Rgb2Yuv::Rgb2Yuv(cl_context ctx, cl_device_id device_id, int width, int height, 
            "-DWIDTH=%d -DHEIGHT=%d -DUV_WIDTH=%d -DUV_HEIGHT=%d -DRGB_STRIDE=%d -DRGB_SIZE=%d",
            width, height, width / 2, height / 2, rgb_stride, width * height);
 
-  cl_program prg = cl_program_from_file(ctx, device_id, "transforms/rgb_to_yuv.cl", args);
+  cl_program prg = CLContext::buildProgramFromFile("transforms/rgb_to_yuv.cl", args);
   krnl = CL_CHECK_ERR(clCreateKernel(prg, "rgb_to_yuv", &err));
   CL_CHECK(clReleaseProgram(prg));
 

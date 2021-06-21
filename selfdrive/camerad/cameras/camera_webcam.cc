@@ -58,14 +58,14 @@ void camera_close(CameraState *s) {
   // empty
 }
 
-void camera_init(VisionIpcServer * v, CameraState *s, int camera_id, unsigned int fps, cl_device_id device_id, cl_context ctx, VisionStreamType rgb_type, VisionStreamType yuv_type) {
+void camera_init(VisionIpcServer * v, CameraState *s, int camera_id, unsigned int fps, VisionStreamType rgb_type, VisionStreamType yuv_type) {
   assert(camera_id < std::size(cameras_supported));
   s->ci = cameras_supported[camera_id];
   assert(s->ci.frame_width != 0);
 
   s->camera_num = camera_id;
   s->fps = fps;
-  s->buf.init(device_id, ctx, s, v, FRAME_BUF_COUNT, rgb_type, yuv_type);
+  s->buf.init(s, v, FRAME_BUF_COUNT, rgb_type, yuv_type);
 }
 
 void run_camera(CameraState *s, cv::VideoCapture &video_cap, float *ts) {
@@ -139,10 +139,10 @@ void driver_camera_thread(CameraState *s) {
 
 }  // namespace
 
-void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
-  camera_init(v, &s->road_cam, CAMERA_ID_LGC920, 20, device_id, ctx,
+void cameras_init(VisionIpcServer *v, MultiCameraState *s) {
+  camera_init(v, &s->road_cam, CAMERA_ID_LGC920, 20,
               VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
-  camera_init(v, &s->driver_cam, CAMERA_ID_LGC615, 10, device_id, ctx,
+  camera_init(v, &s->driver_cam, CAMERA_ID_LGC615, 10,
               VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
   s->pm = new PubMaster({"roadCameraState", "driverCameraState", "thumbnail"});
 }

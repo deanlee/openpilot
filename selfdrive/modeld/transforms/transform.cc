@@ -5,16 +5,16 @@
 
 #include "selfdrive/common/clutil.h"
 
-void transform_init(Transform* s, cl_context ctx, cl_device_id device_id) {
+void transform_init(Transform* s) {
   memset(s, 0, sizeof(*s));
 
-  cl_program prg = cl_program_from_file(ctx, device_id, "transforms/transform.cl", "");
+  cl_program prg = CLContext::buildProgramFromFile("transforms/transform.cl", "");
   s->krnl = CL_CHECK_ERR(clCreateKernel(prg, "warpPerspective", &err));
   // done with this
   CL_CHECK(clReleaseProgram(prg));
 
-  s->m_y_cl = CL_CHECK_ERR(clCreateBuffer(ctx, CL_MEM_READ_WRITE, 3*3*sizeof(float), NULL, &err));
-  s->m_uv_cl = CL_CHECK_ERR(clCreateBuffer(ctx, CL_MEM_READ_WRITE, 3*3*sizeof(float), NULL, &err));
+  s->m_y_cl = CL_CHECK_ERR(clCreateBuffer(CLContext::context(), CL_MEM_READ_WRITE, 3*3*sizeof(float), NULL, &err));
+  s->m_uv_cl = CL_CHECK_ERR(clCreateBuffer(CLContext::context(), CL_MEM_READ_WRITE, 3*3*sizeof(float), NULL, &err));
 }
 
 void transform_destroy(Transform* s) {

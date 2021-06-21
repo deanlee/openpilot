@@ -164,7 +164,7 @@ static int ov8865_apply_exposure(CameraState *s, int gain, int integ_lines, uint
 
 static void camera_init(VisionIpcServer *v, CameraState *s, int camera_id, int camera_num,
                         uint32_t pixel_clock, uint32_t line_length_pclk,
-                        uint32_t max_gain, uint32_t fps, cl_device_id device_id, cl_context ctx,
+                        uint32_t max_gain, uint32_t fps,
                         VisionStreamType rgb_type, VisionStreamType yuv_type) {
   s->camera_num = camera_num;
   s->camera_id = camera_id;
@@ -180,10 +180,10 @@ static void camera_init(VisionIpcServer *v, CameraState *s, int camera_id, int c
   s->self_recover = 0;
 
   s->apply_exposure = (camera_id == CAMERA_ID_IMX298) ? imx298_apply_exposure : ov8865_apply_exposure;
-  s->buf.init(device_id, ctx, s, v, FRAME_BUF_COUNT, rgb_type, yuv_type, camera_release_buffer);
+  s->buf.init(s, v, FRAME_BUF_COUNT, rgb_type, yuv_type, camera_release_buffer);
 }
 
-void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
+void cameras_init(VisionIpcServer *v, MultiCameraState *s) {
   char project_name[1024] = {0};
   property_get("ro.boot.project_name", project_name, "");
   assert(strlen(project_name) == 0);
@@ -210,12 +210,11 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
 #else
               /*fps*/ 20,
 #endif
-              device_id, ctx,
               VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK);
 
   camera_init(v, &s->driver_cam, CAMERA_ID_OV8865, 1,
               /*pixel_clock=*/72000000, /*line_length_pclk=*/1602,
-              /*max_gain=*/510, 10, device_id, ctx,
+              /*max_gain=*/510, 10,
               VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
 
   s->sm = new SubMaster({"driverState"});
@@ -227,7 +226,7 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
     s->stats_bufs[i].allocate(0xb80);
   }
   std::fill_n(s->lapres, std::size(s->lapres), 16160);
-  s->lap_conv = new LapConv(device_id, ctx, s->road_cam.buf.rgb_width, s->road_cam.buf.rgb_height, 3);
+  s->lap_conv = new LapConv(s->road_cam.buf.rgb_width, s->road_cam.buf.rgb_height, 3);
 }
 
 static void set_exposure(CameraState *s, float exposure_frac, float gain_frac) {

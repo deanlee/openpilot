@@ -9,17 +9,17 @@
 #include "selfdrive/common/mat.h"
 #include "selfdrive/common/timing.h"
 
-ModelFrame::ModelFrame(cl_device_id device_id, cl_context context) {
+ModelFrame::ModelFrame() {
   input_frames = std::make_unique<float[]>(buf_size);
 
-  q = CL_CHECK_ERR(clCreateCommandQueue(context, device_id, 0, &err));
-  y_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, MODEL_WIDTH * MODEL_HEIGHT, NULL, &err));
-  u_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (MODEL_WIDTH / 2) * (MODEL_HEIGHT / 2), NULL, &err));
-  v_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (MODEL_WIDTH / 2) * (MODEL_HEIGHT / 2), NULL, &err));
-  net_input_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, MODEL_FRAME_SIZE * sizeof(float), NULL, &err));
+  q = CL_CHECK_ERR(clCreateCommandQueue(CLContext::context(), CLContext::deviceId(), 0, &err));
+  y_cl = CL_CHECK_ERR(clCreateBuffer(CLContext::context(), CL_MEM_READ_WRITE, MODEL_WIDTH * MODEL_HEIGHT, NULL, &err));
+  u_cl = CL_CHECK_ERR(clCreateBuffer(CLContext::context(), CL_MEM_READ_WRITE, (MODEL_WIDTH / 2) * (MODEL_HEIGHT / 2), NULL, &err));
+  v_cl = CL_CHECK_ERR(clCreateBuffer(CLContext::context(), CL_MEM_READ_WRITE, (MODEL_WIDTH / 2) * (MODEL_HEIGHT / 2), NULL, &err));
+  net_input_cl = CL_CHECK_ERR(clCreateBuffer(CLContext::context(), CL_MEM_READ_WRITE, MODEL_FRAME_SIZE * sizeof(float), NULL, &err));
 
-  transform_init(&transform, context, device_id);
-  loadyuv_init(&loadyuv, context, device_id, MODEL_WIDTH, MODEL_HEIGHT);
+  transform_init(&transform);
+  loadyuv_init(&loadyuv, MODEL_WIDTH, MODEL_HEIGHT);
 }
 
 float* ModelFrame::prepare(cl_mem yuv_cl, int frame_width, int frame_height, const mat3 &transform) {

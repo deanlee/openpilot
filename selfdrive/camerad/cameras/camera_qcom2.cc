@@ -511,7 +511,7 @@ void enqueue_req_multi(struct CameraState *s, int start, int n, bool dp) {
 
 // ******************* camera *******************
 
-static void camera_init(MultiCameraState *multi_cam_state, VisionIpcServer * v, CameraState *s, int camera_id, int camera_num, unsigned int fps, cl_device_id device_id, cl_context ctx, VisionStreamType rgb_type, VisionStreamType yuv_type) {
+static void camera_init(MultiCameraState *multi_cam_state, VisionIpcServer * v, CameraState *s, int camera_id, int camera_num, unsigned int fps, VisionStreamType rgb_type, VisionStreamType yuv_type) {
   LOGD("camera init %d", camera_num);
   s->multi_cam_state = multi_cam_state;
   assert(camera_id < std::size(cameras_supported));
@@ -530,7 +530,7 @@ static void camera_init(MultiCameraState *multi_cam_state, VisionIpcServer * v, 
   s->skipped = true;
   s->ef_filtered = 1.0;
 
-  s->buf.init(device_id, ctx, s, v, FRAME_BUF_COUNT, rgb_type, yuv_type);
+  s->buf.init(s, v, FRAME_BUF_COUNT, rgb_type, yuv_type);
 }
 
 // TODO: refactor this to somewhere nicer, perhaps use in camera_qcom as well
@@ -754,14 +754,14 @@ static void camera_open(CameraState *s) {
   enqueue_req_multi(s, 1, FRAME_BUF_COUNT, 0);
 }
 
-void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
-  camera_init(s, v, &s->road_cam, CAMERA_ID_AR0231, 1, 20, device_id, ctx,
+void cameras_init(VisionIpcServer *v, MultiCameraState *s) {
+  camera_init(s, v, &s->road_cam, CAMERA_ID_AR0231, 1, 20,
               VISION_STREAM_RGB_BACK, VISION_STREAM_YUV_BACK); // swap left/right
   printf("road camera initted \n");
-  camera_init(s, v, &s->wide_road_cam, CAMERA_ID_AR0231, 0, 20, device_id, ctx,
+  camera_init(s, v, &s->wide_road_cam, CAMERA_ID_AR0231, 0, 20,
               VISION_STREAM_RGB_WIDE, VISION_STREAM_YUV_WIDE);
   printf("wide road camera initted \n");
-  camera_init(s, v, &s->driver_cam, CAMERA_ID_AR0231, 2, 20, device_id, ctx,
+  camera_init(s, v, &s->driver_cam, CAMERA_ID_AR0231, 2, 20,
               VISION_STREAM_RGB_FRONT, VISION_STREAM_YUV_FRONT);
   printf("driver camera initted \n");
 

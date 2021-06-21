@@ -184,3 +184,17 @@ const char* cl_get_error_string(int err) {
     default: return "CL_UNKNOWN_ERROR";
   }
 }
+
+void CLContext::init(cl_device_type device_type, cl_context_properties *props) {
+  assert(def_ctx_.context_ == 0);
+  def_ctx_.device_id_ = cl_get_device_id(device_type);
+  def_ctx_.context_ = CL_CHECK_ERR(clCreateContext(props, 1, &def_ctx_.device_id_, NULL, NULL, &err));
+}
+
+CLContext::~CLContext() {
+  if (context_) {
+    CL_CHECK(clReleaseContext(context_));
+  }
+}
+
+CLContext CLContext::def_ctx_;

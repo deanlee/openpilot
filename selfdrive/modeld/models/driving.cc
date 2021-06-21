@@ -55,8 +55,8 @@ float prev_brake_3ms2_probs[3] = {0,0,0};
 
 // #define DUMP_YUV
 
-void model_init(ModelState* s, cl_device_id device_id, cl_context context) {
-  s->frame = new ModelFrame(device_id, context);
+void model_init(ModelState* s) {
+  s->frame = new ModelFrame();
 
   constexpr int output_size = OUTPUT_SIZE + TEMPORAL_SIZE;
   s->output.resize(output_size);

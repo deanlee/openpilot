@@ -14,7 +14,7 @@ typedef struct {
   cl_mem m_y_cl, m_uv_cl;
 } Transform;
 
-void transform_init(Transform* s, cl_context ctx, cl_device_id device_id);
+void transform_init(Transform* s);
 
 void transform_destroy(Transform* transform);
 

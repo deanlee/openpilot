@@ -145,15 +145,14 @@ int main(int argc, char **argv) {
   std::thread thread = std::thread(calibration_thread, wide_camera);
 
   // cl init
-  cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
-  cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+  CLContext::init(CL_DEVICE_TYPE_DEFAULT);
 
   // init the models
   ModelState model;
-  model_init(&model, device_id, context);
+  model_init(&model);
   LOGW("models loaded, modeld starting");
 
-  VisionIpcClient vipc_client = VisionIpcClient("camerad", wide_camera ? VISION_STREAM_YUV_WIDE : VISION_STREAM_YUV_BACK, true, device_id, context);
+  VisionIpcClient vipc_client = VisionIpcClient("camerad", wide_camera ? VISION_STREAM_YUV_WIDE : VISION_STREAM_YUV_BACK, true, CLContext::deviceId(), CLContext::context());
   while (!do_exit && !vipc_client.connect(false)) {
     util::sleep_for(100);
   }
@@ -169,6 +168,5 @@ int main(int argc, char **argv) {
   model_free(&model);
   LOG("joining calibration thread");
   thread.join();
-  CL_CHECK(clReleaseContext(context));
   return 0;
 }
