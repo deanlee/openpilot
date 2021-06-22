@@ -335,12 +335,23 @@ Segment::Segment(int seg_num, const SegmentFile &file, QObject *parent) : seg_nu
   for (const auto &[cam_type, file] : cam_files) {
     if (!file.isEmpty()) {
       loading_ += 1;
-      frames[cam_type] = std::make_shared<FrameReader>(file.toStdString());
-      // QObject::connect(frames[cam_type].get(), &FrameReader::finished, [=]() { if(--loading_ == 0) emit finishedRead(); });
+      std::shared_ptr<FrameReader> fr = std::make_shared<FrameReader>(file.toStdString());
+      // frames[cam_type] = fr;
+      QThread::create([&]() {
+        fr->process();
+        if (--loading_ == 0) {
+          emit finishedRead();    
+        }
+      });
+      QThread::msleep(100);
+        fr.reset();
     }
   }
 }
 
 Segment::~Segment() {
-  
+  // free frames
+  for (auto& f: frames) {
+    f.reset();
+  }
 }

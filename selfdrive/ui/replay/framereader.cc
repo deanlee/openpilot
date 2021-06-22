@@ -43,13 +43,11 @@ static AVInitializer av_initializer;
 
 FrameReader::FrameReader(const std::string &url) : url_(url) {
   av_initializer.init();
-  process_thread_ = std::thread(&FrameReader::processThread, this);
 }
 
 FrameReader::~FrameReader() {
   // wait until thread is finished.
   exit_ = true;
-  process_thread_.join();
   cv_decode_.notify_all();
   cv_frame_.notify_all();
   if (decode_thread_.joinable()) {
@@ -72,20 +70,25 @@ FrameReader::~FrameReader() {
   avcodec_free_context(&pCodecCtx_);
   avformat_close_input(&pFormatCtx_);
   sws_freeContext(sws_ctx_);
+  printf("*****************exit \n***********");
 }
 
 int FrameReader::check_interrupt(void *p) {
   FrameReader *reader = (FrameReader *)p;
+  printf("check_interrupt\n");
   return reader->exit_;
 }
 
-void FrameReader::processThread() {
+bool FrameReader::process() {
   pFormatCtx_ = avformat_alloc_context();
   pFormatCtx_->interrupt_callback.callback = &FrameReader::check_interrupt;
   pFormatCtx_->interrupt_callback.opaque = (void *)this;
+
+  
   if (avformat_open_input(&pFormatCtx_, url_.c_str(), NULL, NULL) != 0) {
-    printf("error loading %s", url_.c_str());
-    return;
+    printf("error loading %s\n", url_.c_str());
+    assert(0);
+    return false;
   }
   avformat_find_stream_info(pFormatCtx_, NULL);
   av_dump_format(pFormatCtx_, 0, url_.c_str(), 0);
@@ -122,9 +125,11 @@ void FrameReader::processThread() {
   } while (!exit_);
 
   valid_ = !exit_;
-
-  // start decode thread
-  decode_thread_ = std::thread(&FrameReader::decodeThread, this);
+  if (valid_) {
+    // start decode thread
+    decode_thread_ = std::thread(&FrameReader::decodeThread, this);
+  }
+  return valid_;
 }
 
 uint8_t *FrameReader::get(int idx) {

@@ -21,14 +21,15 @@ class FrameReader {
 public:
   FrameReader(const std::string &url);
   ~FrameReader();
+  bool process();
   uint8_t *get(int idx);
-  int getRGBSize() { return width * height * 3; }
+  int getRGBSize() const { return width * height * 3; }
+  size_t getFrameCount() const { return frames_.size(); }
   bool valid() const { return valid_; }
 
   int width = 0, height = 0;
 
 private:
-  void processThread();
   void decodeThread();
   uint8_t *decodeFrame(AVPacket *pkt);
   static int check_interrupt(void *p);
@@ -52,5 +53,5 @@ private:
   std::atomic<bool> exit_ = false;
   bool valid_ = false;
   std::string url_;
-  std::thread process_thread_, decode_thread_;
+  std::thread decode_thread_;
 };
