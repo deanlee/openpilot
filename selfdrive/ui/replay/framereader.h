@@ -10,8 +10,6 @@
 #include <thread>
 #include <vector>
 
-#include <QThread>
-
 // independent of QT, needs ffmpeg
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -19,11 +17,9 @@ extern "C" {
 #include <libswscale/swscale.h>
 }
 
-class FrameReader : public QObject {
-  Q_OBJECT
-
+class FrameReader {
 public:
-  FrameReader(const std::string &url, QObject *parent = nullptr);
+  FrameReader(const std::string &url);
   ~FrameReader();
   uint8_t *get(int idx);
   int getRGBSize() { return width * height * 3; }
@@ -31,15 +27,11 @@ public:
 
   int width = 0, height = 0;
 
-signals:
-  void finished();
-
 private:
-  void process();
-  bool processFrames();
+  void processThread();
   void decodeThread();
   uint8_t *decodeFrame(AVPacket *pkt);
-
+  static int check_interrupt(void *p);
   struct Frame {
     AVPacket pkt = {};
     uint8_t *data = nullptr;
@@ -60,6 +52,5 @@ private:
   std::atomic<bool> exit_ = false;
   bool valid_ = false;
   std::string url_;
-  QThread *process_thread_;
-  std::thread decode_thread_;
+  std::thread process_thread_, decode_thread_;
 };

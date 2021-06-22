@@ -14,6 +14,7 @@ class Segment : public QObject {
 
 public:
   Segment(int seg_num, const SegmentFile &file, QObject *parent = nullptr);
+  ~Segment();
 
   const int seg_num;
   LogReader *log = nullptr;
