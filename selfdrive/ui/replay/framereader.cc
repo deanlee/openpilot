@@ -47,6 +47,7 @@ FrameReader::FrameReader(const std::string &url) : url_(url) {
 
 FrameReader::~FrameReader() {
   // wait until thread is finished.
+  printf("*****************exit 1\n***********");
   exit_ = true;
   cv_decode_.notify_all();
   cv_frame_.notify_all();
@@ -84,7 +85,6 @@ bool FrameReader::process() {
   pFormatCtx_->interrupt_callback.callback = &FrameReader::check_interrupt;
   pFormatCtx_->interrupt_callback.opaque = (void *)this;
 
-  
   if (avformat_open_input(&pFormatCtx_, url_.c_str(), NULL, NULL) != 0) {
     printf("error loading %s\n", url_.c_str());
     assert(0);
