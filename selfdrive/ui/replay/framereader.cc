@@ -41,7 +41,7 @@ private:
 
 static AVInitializer av_initializer;
 
-FrameReader::FrameReader(const std::string &url) : url_(url) {
+FrameReader::FrameReader(const std::string &url, int timeout) : url_(url), timeout_(timeout) {
   av_initializer.init();
 }
 
@@ -66,11 +66,19 @@ FrameReader::~FrameReader() {
     delete[] buffer_pool.front();
     buffer_pool.pop();
   }
-  av_frame_free(&frmRgb_);
-  avcodec_close(pCodecCtx_);
-  avcodec_free_context(&pCodecCtx_);
-  avformat_close_input(&pFormatCtx_);
-  sws_freeContext(sws_ctx_);
+  if (frmRgb_) {
+    av_frame_free(&frmRgb_);
+  }
+  if (pCodecCtx_) {
+    avcodec_close(pCodecCtx_);
+    avcodec_free_context(&pCodecCtx_);
+  }
+  if (pFormatCtx_) {
+    avformat_close_input(&pFormatCtx_);
+  }
+  if (sws_ctx_) {
+    sws_freeContext(sws_ctx_);
+  }
   printf("*****************exit \n***********");
 }
 
@@ -86,8 +94,8 @@ bool FrameReader::process() {
   pFormatCtx_->interrupt_callback.opaque = (void *)this;
 
   if (avformat_open_input(&pFormatCtx_, url_.c_str(), NULL, NULL) != 0) {
+    // AVERROR_EXIT timeout
     printf("error loading %s\n", url_.c_str());
-    assert(0);
     return false;
   }
   avformat_find_stream_info(pFormatCtx_, NULL);
@@ -95,14 +103,14 @@ bool FrameReader::process() {
 
   auto pCodecCtxOrig = pFormatCtx_->streams[0]->codec;
   auto pCodec = avcodec_find_decoder(pCodecCtxOrig->codec_id);
-  assert(pCodec);
+  if (!pCodec) return false;
 
   pCodecCtx_ = avcodec_alloc_context3(pCodec);
   int ret = avcodec_copy_context(pCodecCtx_, pCodecCtxOrig);
-  assert(ret == 0);
+  if (ret != 0) return false;
 
   ret = avcodec_open2(pCodecCtx_, pCodec, NULL);
-  assert(ret >= 0);
+  if (ret < 0) return false;
 
   width = pCodecCtxOrig->width;
   height = pCodecCtxOrig->height;
@@ -110,10 +118,10 @@ bool FrameReader::process() {
   sws_ctx_ = sws_getContext(width, height, AV_PIX_FMT_YUV420P,
                             width, height, AV_PIX_FMT_BGR24,
                             SWS_BILINEAR, NULL, NULL, NULL);
-  assert(sws_ctx_);
+  if (!sws_ctx_) return false;
 
   frmRgb_ = av_frame_alloc();
-  assert(frmRgb_);
+  if (!frmRgb_) return false;
 
   frames_.reserve(60 * 20);  // 20fps, one minute
   do {

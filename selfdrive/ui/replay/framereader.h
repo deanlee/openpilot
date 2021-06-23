@@ -19,7 +19,7 @@ extern "C" {
 
 class FrameReader {
 public:
-  FrameReader(const std::string &url);
+  FrameReader(const std::string &url, int timeout = -1);
   ~FrameReader();
   bool process();
   uint8_t *get(int idx);
@@ -40,11 +40,11 @@ private:
   };
   std::vector<Frame> frames_;
 
-  AVFormatContext *pFormatCtx_ = NULL;
-  AVCodecContext *pCodecCtx_ = NULL;
+  AVFormatContext *pFormatCtx_ = nullptr;
+  AVCodecContext *pCodecCtx_ = nullptr;
   AVFrame *frmRgb_ = nullptr;
   std::queue<uint8_t *> buffer_pool;
-  struct SwsContext *sws_ctx_ = NULL;
+  struct SwsContext *sws_ctx_ = nullptr;
 
   std::mutex mutex_;
   std::condition_variable cv_decode_;
@@ -54,4 +54,5 @@ private:
   bool valid_ = false;
   std::string url_;
   std::thread decode_thread_;
+  int timeout_;
 };
