@@ -1,5 +1,6 @@
 #include "selfdrive/ui/replay/replay.h"
 
+#include <QDebug>
 #include <capnp/dynamic.h>
 
 #include "cereal/services.h"
@@ -315,10 +316,10 @@ Segment::Segment(int seg_num, const SegmentFile &file, QObject *parent) : seg_nu
   }
 
   loading_ = 1;
-  log = new LogReader(log_file, this);
-  QObject::connect(log, &LogReader::finished, [&](bool success) {
-    if (--loading_ == 0) emit finishedRead();
-  });
+  log = new LogReader(log_file);
+  // QObject::connect(log, &LogReader::finished, [&](bool success) {
+  //   if (--loading_ == 0) emit finishedRead();
+  // });
 
   // fallback to qcamera if camera not exists.
   std::pair<CameraType, QString> cam_files[] = {{RoadCam, file.camera.isEmpty() ? file.qcamera : file.camera},
@@ -327,8 +328,19 @@ Segment::Segment(int seg_num, const SegmentFile &file, QObject *parent) : seg_nu
   for (const auto &[cam_type, file] : cam_files) {
     if (!file.isEmpty()) {
       loading_ += 1;
-      frames[cam_type] = new FrameReader(file.toStdString(), this);
-      QObject::connect(frames[cam_type], &FrameReader::finished, [=]() { if(--loading_ == 0) emit finishedRead(); });
+      FrameReader *fr = frames[cam_type] = new FrameReader(file.toStdString());
+      thread_.push_back(QThread::create([=]() {
+        fr->process();
+        if (--loading_ == 0) {
+          emit finishedRead();
+        }
+      }));
     }
+  }
+}
+
+Segment::~Segment() {
+  for (auto fr : frames) {
+    delete fr;
   }
 }

@@ -6,6 +6,7 @@
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/replay/camera.h"
 #include "selfdrive/ui/replay/filereader.h"
+#include "selfdrive/ui/replay/logreader.h"
 #include "selfdrive/ui/replay/framereader.h"
 #include "selfdrive/ui/replay/route.h"
 
@@ -14,6 +15,7 @@ class Segment : public QObject {
 
 public:
   Segment(int seg_num, const SegmentFile &file, QObject *parent = nullptr);
+  ~Segment();
 
   const int seg_num;
   LogReader *log = nullptr;
@@ -25,6 +27,7 @@ signals:
 
 private:
   std::atomic<int> loading_ = 0;
+  std::vector<QThread *> thread_;
 };
 
 class Replay : public QObject {
