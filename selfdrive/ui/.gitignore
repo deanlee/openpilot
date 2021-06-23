@@ -2,6 +2,7 @@ moc_*
 *.moc
 
 replay/replay
+replay/tests/test_framereader
 qt/text
 qt/spinner
 qt/setup/setup
