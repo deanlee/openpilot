@@ -10,12 +10,11 @@ void process_thread(FrameReader *r) {
 TEST_CASE("FrameReader") {
   SECTION("abort input") {
     {
-        FrameReader *reader = new FrameReader("https://commadataci.blob.core.windows.net/openpilotci/0c94aa1e1296d7c6/2021-05-05--19-48-37/0/fcamera.hevc");
-        std::thread t = std::thread(process_thread, reader);
-        util::sleep_for(50);
-        delete reader;
-        t.join();
+      FrameReader *reader = new FrameReader("https://commadataci.blob.core.windows.net/openpilotci/0c94aa1e1296d7c6/2021-05-05--19-48-37/0/qcamera.ts");
+      std::thread t = std::thread(process_thread, reader);
+      util::sleep_for(50);
+      delete reader;
+      t.join();
     }
-    
   }
 }
