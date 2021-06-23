@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include <cassert>
+#include "selfdrive/common/timing.h"
 
 static int ffmpeg_lockmgr_cb(void **arg, enum AVLockOp op) {
   std::mutex *mutex = (std::mutex *)*arg;
@@ -24,30 +25,35 @@ static int ffmpeg_lockmgr_cb(void **arg, enum AVLockOp op) {
 
 class AVInitializer {
 public:
-  AVInitializer() {}
-  ~AVInitializer() { avformat_network_deinit(); }
-  void init() {
-    std::call_once(init_flag, [=]() {
-      int ret = av_lockmgr_register(ffmpeg_lockmgr_cb);
-      assert(ret >= 0);
-      av_register_all();
-      avformat_network_init();
-    });
-  }
+ AVInitializer() {}
+ ~AVInitializer() {
+   if (inited_) {
+     avformat_network_deinit();
+   }
+ }
+ void init() {
+   std::call_once(init_flag, [=]() {
+     int ret = av_lockmgr_register(ffmpeg_lockmgr_cb);
+     assert(ret >= 0);
+     av_register_all();
+     avformat_network_init();
+     inited_ = true;
+   });
+ }
 
 private:
+  bool inited_ = false;
   inline static std::once_flag init_flag;
 };
 
 static AVInitializer av_initializer;
 
-FrameReader::FrameReader(const std::string &url, int timeout) : url_(url), timeout_(timeout) {
+FrameReader::FrameReader(const std::string &url, int timeout_sec) : url_(url), timeout_(timeout_sec) {
   av_initializer.init();
 }
 
 FrameReader::~FrameReader() {
   // wait until thread is finished.
-  printf("*****************exit 1\n***********");
   exit_ = true;
   cv_decode_.notify_all();
   cv_frame_.notify_all();
@@ -79,26 +85,25 @@ FrameReader::~FrameReader() {
   if (sws_ctx_) {
     sws_freeContext(sws_ctx_);
   }
-  printf("*****************exit \n***********");
 }
 
 int FrameReader::check_interrupt(void *p) {
-  FrameReader *reader = (FrameReader *)p;
-  printf("check_interrupt\n");
-  return reader->exit_;
+  return p && millis_since_boot() > static_cast<FrameReader*>(p)->timeout_ms_;
 }
 
 bool FrameReader::process() {
   pFormatCtx_ = avformat_alloc_context();
-  process_start_time_ = millis_since_boot() + timeout_;
-  pFormatCtx_->interrupt_callback.callback = &FrameReader::check_interrupt;
-  pFormatCtx_->interrupt_callback.opaque = (void *)this;
+  if (timeout_ > 0) {
+    timeout_ms_ = millis_since_boot() + timeout_ * 1000;
+    pFormatCtx_->interrupt_callback.callback = &FrameReader::check_interrupt;
+    pFormatCtx_->interrupt_callback.opaque = (void *)this;
+  }
 
   if (avformat_open_input(&pFormatCtx_, url_.c_str(), NULL, NULL) != 0) {
-    // AVERROR_EXIT timeout
     printf("error loading %s\n", url_.c_str());
     return false;
   }
+
   avformat_find_stream_info(pFormatCtx_, NULL);
   av_dump_format(pFormatCtx_, 0, url_.c_str(), 0);
 
@@ -127,13 +132,15 @@ bool FrameReader::process() {
   frames_.reserve(60 * 20);  // 20fps, one minute
   do {
     Frame &frame = frames_.emplace_back();
-    if (av_read_frame(pFormatCtx_, &frame.pkt) < 0) {
+    int err = av_read_frame(pFormatCtx_, &frame.pkt);
+    if (err < 0) {
+      // printf("*************err is %s\n", av_err2str(err));
       frames_.pop_back();
+      valid_ = (err == AVERROR_EOF);
       break;
     }
   } while (!exit_);
 
-  valid_ = !exit_;
   if (valid_) {
     // start decode thread
     decode_thread_ = std::thread(&FrameReader::decodeThread, this);

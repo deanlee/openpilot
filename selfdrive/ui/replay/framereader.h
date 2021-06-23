@@ -19,7 +19,7 @@ extern "C" {
 
 class FrameReader {
 public:
-  FrameReader(const std::string &url, int timeout = -1);
+  FrameReader(const std::string &url, int timeout_sec = 0);
   ~FrameReader();
   bool process();
   uint8_t *get(int idx);
@@ -55,5 +55,5 @@ private:
   std::string url_;
   std::thread decode_thread_;
   int timeout_;
-  double process_start_time_;
+  double timeout_ms_;
 };
