@@ -90,6 +90,7 @@ int FrameReader::check_interrupt(void *p) {
 
 bool FrameReader::process() {
   pFormatCtx_ = avformat_alloc_context();
+  process_start_time_ = millis_since_boot() + timeout_;
   pFormatCtx_->interrupt_callback.callback = &FrameReader::check_interrupt;
   pFormatCtx_->interrupt_callback.opaque = (void *)this;
 

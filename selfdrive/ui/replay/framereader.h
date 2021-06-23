@@ -55,4 +55,5 @@ private:
   std::string url_;
   std::thread decode_thread_;
   int timeout_;
+  double process_start_time_;
 };
