@@ -10,6 +10,8 @@
 
 const double MILE_TO_KM = 1.60934;
 
+namespace {
+
 QLabel* newLabel(const QString& text, const QString &style) {
   QLabel* label = new QLabel(text);
   label->setStyleSheet(style);
@@ -17,6 +19,8 @@ QLabel* newLabel(const QString& text, const QString &style) {
 }
 QLabel* numberLabel(const QString &text) { return newLabel(text, "font-size: 80px; font-weight: 600;");
 QLabel* unitLabel(const QString &text) { return newLabel(text, "font-size: 45px; font-weight: 500;");
+
+}  // namespace
 
 DriveStats::DriveStats(QWidget* parent) : QWidget(parent) {
   metric_ = Params().getBool("IsMetric");
