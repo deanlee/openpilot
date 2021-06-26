@@ -12,17 +12,13 @@ const double MILE_TO_KM = 1.60934;
 
 namespace {
 
-QLabel* numberLabel() {
-  QLabel* label = new QLabel("0");
-  label->setStyleSheet("font-size: 80px; font-weight: 600;");
+QLabel* newLabel(const QString& text, const QString &style) {
+  QLabel* label = new QLabel(text);
+  label->setStyleSheet(style);
   return label;
 }
-
-QLabel* unitLabel(const QString& name) {
-  QLabel* label = new QLabel(name);
-  label->setStyleSheet("font-size: 45px; font-weight: 500;");
-  return label;
-}
+QLabel* numberLabel(const QString &text) { return newLabel(text, "font-size: 80px; font-weight: 600;");
+QLabel* unitLabel(const QString &text) { return newLabel(text, "font-size: 45px; font-weight: 500;");
 
 }  // namespace
 
@@ -34,11 +30,11 @@ DriveStats::DriveStats(QWidget* parent) : QWidget(parent) {
 
   auto add_stats_layouts = [=](const QString &title, StatsLabels& labels) {
     int row = main_layout->rowCount();
-    main_layout->addWidget(new QLabel(title), row++, 0, 1, 3);
+    main_layout->addWidget(newLabel(title, "font-size: 48px; font-weight: 500;"), row++, 0, 1, 3);
 
-    main_layout->addWidget(labels.routes = numberLabel(), row, 0, Qt::AlignLeft);
-    main_layout->addWidget(labels.distance = numberLabel(), row, 1, Qt::AlignLeft);
-    main_layout->addWidget(labels.hours = numberLabel(), row, 2, Qt::AlignLeft);
+    main_layout->addWidget(labels.routes = numberLabel("0"), row, 0, Qt::AlignLeft);
+    main_layout->addWidget(labels.distance = numberLabel("0"), row, 1, Qt::AlignLeft);
+    main_layout->addWidget(labels.hours = numberLabel("0"), row, 2, Qt::AlignLeft);
 
     main_layout->addWidget(unitLabel("DRIVES"), row + 1, 0, Qt::AlignLeft);
     main_layout->addWidget(labels.distance_unit = unitLabel(getDistanceUnit()), row + 1, 1, Qt::AlignLeft);
@@ -54,8 +50,6 @@ DriveStats::DriveStats(QWidget* parent) : QWidget(parent) {
     RequestRepeater* repeater = new RequestRepeater(this, QString::fromStdString(url), "ApiCache_DriveStats", 30);
     QObject::connect(repeater, &RequestRepeater::receivedResponse, this, &DriveStats::parseResponse);
   }
-
-  setStyleSheet(R"(QLabel {font-size: 48px; font-weight: 500;})");
 }
 
 void DriveStats::updateStats() {
