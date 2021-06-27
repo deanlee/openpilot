@@ -29,7 +29,7 @@ DriverViewWindow::DriverViewWindow(QWidget* parent) : QGraphicsView(parent) {
   palette.setBrush(QPalette::Background, Qt::transparent);
   scene_->setPalette(palette);
 
-  scene_->setAutoFillBackground(false);
+  // scene_->setAutoFillBackground(false);
   scene_->setStyleSheet("background-color: transparent;");
   // connect(cameraView, &CameraViewWidget::frameUpdated, scene, &DriverViewScene::frameUpdated);
   // scene->setAttribute(Qt::WA_NativeWindow);
