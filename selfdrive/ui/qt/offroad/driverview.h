@@ -10,6 +10,7 @@
 
 class QResizeEvent;
 class QGraphicsProxyWidget;
+class QGraphicsRectItem;
 
 class DriverViewScene : public QWidget {
   Q_OBJECT
@@ -23,7 +24,7 @@ public slots:
 protected:
   void showEvent(QShowEvent *event) override;
   void hideEvent(QHideEvent *event) override;
-  // void paintEvent(QPaintEvent *event) override;
+  void paintEvent(QPaintEvent *event) override;
 
 private:
   Params params;
@@ -43,12 +44,16 @@ signals:
   void done();
 
 protected:
+  void showEvent(QShowEvent *event) override;
+  void hideEvent(QHideEvent *event) override;
   void mousePressEvent(QMouseEvent* e) override;
   void resizeEvent(QResizeEvent *event) override;
 
 private:
   CameraViewWidget *cameraView;
   DriverViewScene *scene_;
+  QGraphicsPixmapItem *pixmap_;
+  QGraphicsRectItem *rect_;
   QWidget *wc;
   QGraphicsProxyWidget *proxyWidget;
   QStackedLayout *layout;

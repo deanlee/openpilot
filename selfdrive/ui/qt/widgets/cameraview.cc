@@ -133,7 +133,7 @@ void Render::start() {
   while (!exiting_) {
     if (!glWindow_->isExposed()) {
       QThread::msleep(20);
-      qInfo("not exposed");
+      // qInfo("not exposed");
       continue;
     }
     QThread::msleep(20);
