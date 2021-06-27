@@ -19,36 +19,40 @@ DriverViewWindow::DriverViewWindow(QWidget* parent) : QGraphicsView(parent) {
   // layout->setStackingMode(QStackedLayout::StackAll);
 
   cameraView = new CameraViewWidget(VISION_STREAM_RGB_FRONT);
-  QWidget *wc = QWidget::createWindowContainer(cameraView, this);
+  wc = QWidget::createWindowContainer(cameraView, this);
   // layout->addWidget(wc);
 
   scene_ = new DriverViewScene(this);
-  scene_->setAttribute(Qt::WA_NoSystemBackground);
+  // scene_->setAttribute(Qt::WA_NoSystemBackground);
   // scene_->setWindowOpacity(0.8);
-  QPalette palette;
-  palette.setBrush(QPalette::Background, Qt::transparent);
-  scene_->setPalette(palette);
+  // QPalette palette;
+  // palette.setBrush(QPalette::Background, Qt::transparent);
+  // scene_->setPalette(palette);
 
-  // scene_->setAutoFillBackground(false);
+  // // scene_->setAutoFillBackground(false);
   scene_->setStyleSheet("background-color: transparent;");
   // connect(cameraView, &CameraViewWidget::frameUpdated, scene, &DriverViewScene::frameUpdated);
   // scene->setAttribute(Qt::WA_NativeWindow);
   // layout->addWidget(scene);
   // layout->setCurrentWidget(scene);
   QGraphicsScene *s = new QGraphicsScene();
+  setScene(s);
   // scene_->setAttribute(Qt::WA_TranslucentBackground);
+  // proxyWidget = s->addWidget(wc);
   proxyWidget = s->addWidget(scene_);
+  s->addText("love is loving");
+  // s->addText("hello");
   foreach (QGraphicsItem *item, s->items()) {
-    // item->setFlag(QGraphicsItem::ItemIsMovable);
-    // item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
-    item->setPos(500, 500);
+    item->setFlag(QGraphicsItem::ItemIsMovable);
+    item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+    // item->setPos(500, 500);
   }
 
   setViewport(wc);
   setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
-  setStyleSheet("background: transparent");
-  setScene(s);
-
+  // setStyleSheet("background: transparent");
+  
+// Params().putBool("IsDriverViewEnabled", true);
 }
 
 void DriverViewWindow::mousePressEvent(QMouseEvent* e) {
@@ -57,18 +61,20 @@ void DriverViewWindow::mousePressEvent(QMouseEvent* e) {
 }
 
 void DriverViewWindow::resizeEvent(QResizeEvent *event) {
- QRect rc(QRect(QPoint(0, 0), event->size()));
+  QRect rc(QRect(QPoint(0, 0), event->size()));
   scene()->setSceneRect(rc);
   QRect rc2 = {500, 500, 500, 500};
+  wc->setGeometry(rc);
   scene_->setGeometry(rc2);
   
-  proxyWidget->setGeometry(rc2);
-  // fitInView(rc);
+  // proxyWidget->setGeometry(rc2);
+  fitInView(rc);
   QGraphicsView::resizeEvent(event);
 }
 
 DriverViewScene::DriverViewScene(QWidget* parent) : sm({"driverState"}), QWidget(parent) {
   face = QImage("../assets/img_driver_face.png").scaled(FACE_IMG_SIZE, FACE_IMG_SIZE, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+  setWindowOpacity(0.8);
 }
 
 void DriverViewScene::showEvent(QShowEvent* event) {
@@ -89,7 +95,6 @@ void DriverViewScene::frameUpdated() {
 
 // void DriverViewScene::paintEvent(QPaintEvent* event) {
 //   QPainter p(this);
-
 //   // startup msg
 //   // if (!frame_updated) {
 //   //   p.setPen(QColor(0xff, 0xff, 0xff));

@@ -49,6 +49,7 @@ protected:
 private:
   CameraViewWidget *cameraView;
   DriverViewScene *scene_;
+  QWidget *wc;
   QGraphicsProxyWidget *proxyWidget;
   QStackedLayout *layout;
 };
