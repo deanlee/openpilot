@@ -1,28 +1,60 @@
 #include "selfdrive/ui/qt/offroad/driverview.h"
 
 #include <QPainter>
-
+#include <QGraphicsScene>
+#include <QGraphicsRectItem>
 #include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/ui/qt/util.h"
 
 const int FACE_IMG_SIZE = 130;
 
-DriverViewWindow::DriverViewWindow(QWidget* parent) : QWidget(parent) {
-  setAttribute(Qt::WA_OpaquePaintEvent);
-  layout = new QStackedLayout(this);
-  layout->setStackingMode(QStackedLayout::StackAll);
+DriverViewWindow::DriverViewWindow(QWidget* parent) : sm({"driverState"}), QGraphicsView(parent) {
+  // setAttribute(Qt::WA_OpaquePaintEvent);
+  // layout = new QStackedLayout(this);
+  // layout->setStackingMode(QStackedLayout::StackAll);
 
   cameraView = new CameraViewWidget(VISION_STREAM_RGB_FRONT, this);
-  layout->addWidget(cameraView);
+  // layout->addWidget(cameraView);
 
-  scene = new DriverViewScene(this);
-  connect(cameraView, &CameraViewWidget::frameUpdated, scene, &DriverViewScene::frameUpdated);
-  layout->addWidget(scene);
-  layout->setCurrentWidget(scene);
+  // scene = new DriverViewScene(this);
+  // connect(cameraView, &CameraViewWidget::frameUpdated, scene, &DriverViewScene::frameUpdated);
+  // layout->addWidget(scene);
+  // layout->setCurrentWidget(scene);
+  QGraphicsScene *scene = new QGraphicsScene();
+    // scene->addWidget(cameraView);
+  rect_ = scene->addRect(0, 0, 0, 0, QPen(Qt::red), QBrush(Qt::blue));
+  scene->addText("love ddddddddddddddddddddddddddddddddddddddddddddd");
+  foreach (QGraphicsItem *item, scene->items()) {
+    item->setFlag(QGraphicsItem::ItemIsMovable);
+    item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+  }
+  setViewport(cameraView);
+  // setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+  setScene(scene);
 }
 
 void DriverViewWindow::mousePressEvent(QMouseEvent* e) {
   emit done();
+}
+void DriverViewWindow::resizeEvent(QResizeEvent *event) {
+  QRect rc(QRect(QPoint(0, 0), event->size()));
+  // scene()->setSceneRect(rc);
+  // fitInView(rc);
+  // cameraView->setGeometry(0, 0, 500, 800);
+  // rect_->setRect(0,0, 1000, 500);
+  QGraphicsView::resizeEvent(event);
+}
+
+void DriverViewWindow::showEvent(QShowEvent* event) {
+  frame_updated = false;
+  is_rhd = params.getBool("IsRHD");
+  params.putBool("IsDriverViewEnabled", true);
+
+  cameraView->start();
+}
+
+void DriverViewWindow::hideEvent(QHideEvent* event) {
+  params.putBool("IsDriverViewEnabled", false);
 }
 
 DriverViewScene::DriverViewScene(QWidget* parent) : sm({"driverState"}), QWidget(parent) {

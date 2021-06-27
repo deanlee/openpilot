@@ -3,6 +3,7 @@
 #include <memory>
 
 #include <QStackedLayout>
+#include <QGraphicsView>
 
 #include "selfdrive/common/util.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
@@ -29,7 +30,7 @@ private:
   bool frame_updated = false;
 };
 
-class DriverViewWindow : public QWidget {
+class DriverViewWindow : public QGraphicsView {
   Q_OBJECT
 
 public:
@@ -39,10 +40,19 @@ signals:
   void done();
 
 protected:
+  void showEvent(QShowEvent *event) override;
+  void hideEvent(QHideEvent *event) override;
   void mousePressEvent(QMouseEvent* e) override;
+  void resizeEvent(QResizeEvent *event) override;
 
 private:
   CameraViewWidget *cameraView;
-  DriverViewScene *scene;
-  QStackedLayout *layout;
+  Params params;
+  SubMaster sm;
+  QImage face;
+  bool is_rhd = false;
+  QGraphicsRectItem *rect_;
+  bool frame_updated = false;
+  // DriverViewScene *scene;
+  // QStackedLayout *layout;
 };
