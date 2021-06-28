@@ -144,7 +144,7 @@ float dmonitoring_eval_frame(DMonitoringModelState* s, void* stream_buf, int wid
   return (millis_since_boot() - t1) / 1000.;
 }
 
-void dmonitoring_publish(PubMaster &pm, uint32_t frame_id, const float *res, float execution_time, float dsp_execution_time) {
+void dmonitoring_publish(PubMaster &pm, uint32_t frame_id, const float *output, float execution_time, float dsp_execution_time) {
   // make msg
   MessageBuilder msg;
   auto framed = msg.initEvent().initDriverState();
@@ -152,24 +152,24 @@ void dmonitoring_publish(PubMaster &pm, uint32_t frame_id, const float *res, flo
   framed.setModelExecutionTime(execution_time);
   framed.setDspExecutionTime(dsp_execution_time);
 
-  framed.setFaceOrientation(Arr<3>(&res[0]));
-  framed.setFaceOrientationStd(Arr<3, softplus>(&res[6]));
-  framed.setFacePosition(Arr<2>(&res[3]));
-  framed.setFacePositionStd(Arr<2, softplus>(&res[9]));
-  framed.setFaceProb(res[12]);
-  framed.setLeftEyeProb(res[21]);
-  framed.setRightEyeProb(res[30]);
-  framed.setLeftBlinkProb(res[31]);
-  framed.setRightBlinkProb(res[32]);
-  framed.setSunglassesProb(res[33]);
-  framed.setPoorVision(res[34]);
-  framed.setPartialFace(res[35]);
-  framed.setDistractedPose(res[36]);
-  framed.setDistractedEyes(res[37]);
-  framed.setEyesOnRoad(res[38]);
-  framed.setPhoneUse(res[39]);
+  framed.setFaceOrientation(Arr<3>(&output[0]));
+  framed.setFaceOrientationStd(Arr<3, softplus>(&output[6]));
+  framed.setFacePosition(Arr<2>(&output[3]));
+  framed.setFacePositionStd(Arr<2, softplus>(&output[9]));
+  framed.setFaceProb(output[12]);
+  framed.setLeftEyeProb(output[21]);
+  framed.setRightEyeProb(output[30]);
+  framed.setLeftBlinkProb(output[31]);
+  framed.setRightBlinkProb(output[32]);
+  framed.setSunglassesProb(output[33]);
+  framed.setPoorVision(output[34]);
+  framed.setPartialFace(output[35]);
+  framed.setDistractedPose(output[36]);
+  framed.setDistractedEyes(output[37]);
+  framed.setEyesOnRoad(output[38]);
+  framed.setPhoneUse(output[39]);
   if (send_raw_pred) {
-    framed.setRawPredictions(kj::ArrayPtr<const float>(res, OUTPUT_SIZE).asBytes());
+    framed.setRawPredictions(kj::ArrayPtr<const float>(output, OUTPUT_SIZE).asBytes());
   }
 
   pm.send("driverState", msg);
