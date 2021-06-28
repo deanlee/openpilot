@@ -12,6 +12,8 @@
 #include <CL/cl.h>
 #endif
 
+#include <kj/array.h>
+
 #include "selfdrive/common/mat.h"
 #include "selfdrive/modeld/transforms/loadyuv.h"
 #include "selfdrive/modeld/transforms/transform.h"
@@ -40,4 +42,17 @@ class ModelFrame {
   cl_command_queue q;
   cl_mem y_cl, u_cl, v_cl, net_input_cl;
   std::unique_ptr<float[]> input_frames;
+};
+
+template <size_t size, float (F)(float)=nullptr> 
+class Arr {
+public:
+  Arr(const float *src, int stride = 1) {
+    for (int i = 0, j = 0; i < size; ++i, j += stride) {
+      a_[i] = F != nullptr ? F(src[j]) : src[j];
+    }
+  }
+  inline operator kj::ArrayPtr<const float>() { return {a_.data(), a_.size()}; }
+  inline float operator[](int id) { return a_[id]; }
+  std::array<float, size> a_;
 };

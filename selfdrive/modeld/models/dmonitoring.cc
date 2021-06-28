@@ -52,7 +52,7 @@ void crop_yuv(uint8_t *raw, int width, int height, uint8_t *y, uint8_t *u, uint8
   }
 }
 
-DMonitoringResult dmonitoring_eval_frame(DMonitoringModelState* s, void* stream_buf, int width, int height) {
+float dmonitoring_eval_frame(DMonitoringModelState* s, void* stream_buf, int width, int height) {
   Rect crop_rect;
   if (Hardware::TICI()) {
     const int full_width_tici = 1928;
@@ -141,59 +141,35 @@ DMonitoringResult dmonitoring_eval_frame(DMonitoringModelState* s, void* stream_
 
   double t1 = millis_since_boot();
   s->m->execute(net_input_buf, yuv_buf_len);
-  double t2 = millis_since_boot();
-
-  DMonitoringResult ret = {0};
-  for (int i = 0; i < 3; ++i) {
-    ret.face_orientation[i] = s->output[i];
-    ret.face_orientation_meta[i] = softplus(s->output[6 + i]);
-  }
-  for (int i = 0; i < 2; ++i) {
-    ret.face_position[i] = s->output[3 + i];
-    ret.face_position_meta[i] = softplus(s->output[9 + i]);
-  }
-  ret.face_prob = s->output[12];
-  ret.left_eye_prob = s->output[21];
-  ret.right_eye_prob = s->output[30];
-  ret.left_blink_prob = s->output[31];
-  ret.right_blink_prob = s->output[32];
-  ret.sg_prob = s->output[33];
-  ret.poor_vision = s->output[34];
-  ret.partial_face = s->output[35];
-  ret.distracted_pose = s->output[36];
-  ret.distracted_eyes = s->output[37];
-  ret.eyes_on_road = s->output[38];
-  ret.phone_use = s->output[39];
-  ret.dsp_execution_time = (t2 - t1) / 1000.;
-  return ret;
+  return (millis_since_boot() - t1) / 1000.;
 }
 
-void dmonitoring_publish(PubMaster &pm, uint32_t frame_id, const DMonitoringResult &res, float execution_time, kj::ArrayPtr<const float> raw_pred) {
+void dmonitoring_publish(PubMaster &pm, uint32_t frame_id, const float *res, float execution_time, float dsp_execution_time) {
   // make msg
   MessageBuilder msg;
   auto framed = msg.initEvent().initDriverState();
   framed.setFrameId(frame_id);
   framed.setModelExecutionTime(execution_time);
-  framed.setDspExecutionTime(res.dsp_execution_time);
+  framed.setDspExecutionTime(dsp_execution_time);
 
-  framed.setFaceOrientation(res.face_orientation);
-  framed.setFaceOrientationStd(res.face_orientation_meta);
-  framed.setFacePosition(res.face_position);
-  framed.setFacePositionStd(res.face_position_meta);
-  framed.setFaceProb(res.face_prob);
-  framed.setLeftEyeProb(res.left_eye_prob);
-  framed.setRightEyeProb(res.right_eye_prob);
-  framed.setLeftBlinkProb(res.left_blink_prob);
-  framed.setRightBlinkProb(res.right_blink_prob);
-  framed.setSunglassesProb(res.sg_prob);
-  framed.setPoorVision(res.poor_vision);
-  framed.setPartialFace(res.partial_face);
-  framed.setDistractedPose(res.distracted_pose);
-  framed.setDistractedEyes(res.distracted_eyes);
-  framed.setEyesOnRoad(res.eyes_on_road);
-  framed.setPhoneUse(res.phone_use);
+  framed.setFaceOrientation(Arr<3>(&res[0]));
+  framed.setFaceOrientationStd(Arr<3, softplus>(&res[6]));
+  framed.setFacePosition(Arr<2>(&res[3]));
+  framed.setFacePositionStd(Arr<2, softplus>(&res[9]));
+  framed.setFaceProb(res[12]);
+  framed.setLeftEyeProb(res[21]);
+  framed.setRightEyeProb(res[30]);
+  framed.setLeftBlinkProb(res[31]);
+  framed.setRightBlinkProb(res[32]);
+  framed.setSunglassesProb(res[33]);
+  framed.setPoorVision(res[34]);
+  framed.setPartialFace(res[35]);
+  framed.setDistractedPose(res[36]);
+  framed.setDistractedEyes(res[37]);
+  framed.setEyesOnRoad(res[38]);
+  framed.setPhoneUse(res[39]);
   if (send_raw_pred) {
-    framed.setRawPredictions(raw_pred.asBytes());
+    framed.setRawPredictions(kj::ArrayPtr<const float>(res, OUTPUT_SIZE).asBytes());
   }
 
   pm.send("driverState", msg);

@@ -122,19 +122,6 @@ void model_free(ModelState* s) {
   delete s->frame;
 }
 
-template <size_t size, float (F)(float)=nullptr> 
-class Arr {
-public:
-  Arr(const float *src, int stride = 1) {
-    for (int i = 0, j = 0; i < size; ++i, j += stride) {
-      a_[i] = F != nullptr ? F(src[j]) : src[j];
-    }
-  }
-  inline operator kj::ArrayPtr<const float>() { return {a_.data(), a_.size()}; }
-  inline float operator[](int id) { return a_[id]; }
-  std::array<float, size> a_;
-};
-
 static const float *get_best_data(const float *data, int size, int group_size, int offset) {
   int max_idx = 0;
   for (int i = 1; i < size; i++) {

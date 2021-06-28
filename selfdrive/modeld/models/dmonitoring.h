@@ -9,26 +9,6 @@
 
 #define OUTPUT_SIZE 40
 
-typedef struct DMonitoringResult {
-  float face_orientation[3];
-  float face_orientation_meta[3];
-  float face_position[2];
-  float face_position_meta[2];
-  float face_prob;
-  float left_eye_prob;
-  float right_eye_prob;
-  float left_blink_prob;
-  float right_blink_prob;
-  float sg_prob;
-  float poor_vision;
-  float partial_face;
-  float distracted_pose;
-  float distracted_eyes;
-  float eyes_on_road;
-  float phone_use;
-  float dsp_execution_time;
-} DMonitoringResult;
-
 typedef struct DMonitoringModelState {
   RunModel *m;
   bool is_rhd;
@@ -40,7 +20,7 @@ typedef struct DMonitoringModelState {
 } DMonitoringModelState;
 
 void dmonitoring_init(DMonitoringModelState* s);
-DMonitoringResult dmonitoring_eval_frame(DMonitoringModelState* s, void* stream_buf, int width, int height);
-void dmonitoring_publish(PubMaster &pm, uint32_t frame_id, const DMonitoringResult &res, float execution_time, kj::ArrayPtr<const float> raw_pred);
+float dmonitoring_eval_frame(DMonitoringModelState* s, void* stream_buf, int width, int height);
+void dmonitoring_publish(PubMaster &pm, uint32_t frame_id, const float *res, float execution_time, float dsp_execution_time);
 void dmonitoring_free(DMonitoringModelState* s);
 
