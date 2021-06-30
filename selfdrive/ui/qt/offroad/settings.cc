@@ -362,8 +362,10 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     nav_btns->addButton(btn);
     sidebar_layout->addWidget(btn, 0, Qt::AlignRight);
     // panel->setStyleSheet("background-color:blue;");
-  //   panel->setAutoFillBackground(true);
-  // panel->setAttribute(Qt::WA_OpaquePaintEvent);
+    panel->setAutoFillBackground(true);
+    // panel->
+    panel->setBackgroundRole(QPalette::Dark);
+  panel->setAttribute(Qt::WA_OpaquePaintEvent);
     panel->setContentsMargins(50, 25, 50, 25);
 
     ScrollView *panel_frame = new ScrollView(panel, this);
