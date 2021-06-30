@@ -292,7 +292,6 @@ void SettingsWindow::showEvent(QShowEvent *event) {
 }
 
 SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
-
   // setup two main layouts
   sidebar_widget = new QWidget;
   QVBoxLayout *sidebar_layout = new QVBoxLayout(sidebar_widget);
@@ -302,7 +301,9 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     border-radius: 30px;
     background-color: #292929;
   )");
-
+  // panel_widget->setStyleSheet("background-color:red");
+  // panel_widget->setAutoFillBackground(true);
+  // panel_widget->setAttribute(Qt::WA_OpaquePaintEvent);
   // close button
   QPushButton *close_btn = new QPushButton("X");
   close_btn->setStyleSheet(R"(
@@ -360,7 +361,9 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
     nav_btns->addButton(btn);
     sidebar_layout->addWidget(btn, 0, Qt::AlignRight);
-
+    // panel->setStyleSheet("background-color:blue;");
+  //   panel->setAutoFillBackground(true);
+  // panel->setAttribute(Qt::WA_OpaquePaintEvent);
     panel->setContentsMargins(50, 25, 50, 25);
 
     ScrollView *panel_frame = new ScrollView(panel, this);

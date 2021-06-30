@@ -6,11 +6,12 @@
 #include <QEasingCurve>
 
 ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
+  // w->setAutoFillBackground(true);
+  // w->setAttribute(Qt::WA_OpaquePaintEvent);
   setWidget(w);
   setWidgetResizable(true);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  setStyleSheet("ScrollView { background-color:transparent; }");
 
   QString style = R"(
     QScrollBar:vertical {
