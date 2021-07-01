@@ -311,8 +311,8 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   //   background-color: #292929;
   // )");
   // panel_widget->setStyleSheet("background-color:red");
-  panel_widget->setAutoFillBackground(true);
-  panel_widget->setBackgroundRole(QPalette::Shadow);
+  // panel_widget->setAutoFillBackground(true);
+  // panel_widget->setBackgroundRole(QPalette::Shadow);
   // panel_widget->setAttribute(Qt::WA_OpaquePaintEvent);
   // close button
   QPushButton *close_btn = new QPushButton("X");
