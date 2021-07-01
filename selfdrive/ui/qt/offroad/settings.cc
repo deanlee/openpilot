@@ -97,6 +97,10 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
 
 DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
+  for (int i = 0; i < 20; ++i) {
+    main_layout->addWidget(new QLabel("test"));
+  }
+  return;
   Params params = Params();
 
   QString dongle = QString::fromStdString(params.get("DongleId", false));
@@ -302,8 +306,8 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   //   background-color: #292929;
   // )");
   // panel_widget->setStyleSheet("background-color:red");
-  panel_widget->setAutoFillBackground(true);
-  panel->setBackgroundRole(QPalette::Dark);
+  // panel_widget->setAutoFillBackground(true);
+  // panel_widget->setBackgroundRole(QPalette::Dark);
   // panel_widget->setAttribute(Qt::WA_OpaquePaintEvent);
   // close button
   QPushButton *close_btn = new QPushButton("X");
@@ -326,9 +330,9 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
   QList<QPair<QString, QWidget *>> panels = {
     {"Device", device},
-    {"Network", network_panel(this)},
-    {"Toggles", new TogglesPanel(this)},
-    {"Software", new SoftwarePanel(this)},
+    // {"Network", network_panel(this)},
+    // {"Toggles", new TogglesPanel(this)},
+    // {"Software", new SoftwarePanel(this)},
   };
 
 #ifdef ENABLE_MAPS
