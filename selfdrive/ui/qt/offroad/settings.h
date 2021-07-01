@@ -26,6 +26,7 @@ class TogglesPanel : public QWidget {
   Q_OBJECT
 public:
   explicit TogglesPanel(QWidget *parent = nullptr);
+  void paintEvent(QPaintEvent *event) override;
 };
 
 class SoftwarePanel : public QWidget {

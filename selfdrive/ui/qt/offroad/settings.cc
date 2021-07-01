@@ -24,6 +24,11 @@
 #include "selfdrive/ui/ui.h"
 #include "selfdrive/ui/qt/util.h"
 
+void TogglesPanel::paintEvent(QPaintEvent *event) {
+  qInfo() << "TogglesPanel::paintEvent";
+  QWidget::paintEvent(event);
+
+}
 TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
 
@@ -301,10 +306,10 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   QVBoxLayout *sidebar_layout = new QVBoxLayout(sidebar_widget);
   sidebar_layout->setMargin(0);
   panel_widget = new QStackedWidget();
-  // panel_widget->setStyleSheet(R"(
-  //   border-radius: 30px;
-  //   background-color: #292929;
-  // )");
+  panel_widget->setStyleSheet(R"(
+    border-radius: 30px;
+    background-color: #292929;
+  )");
   // panel_widget->setStyleSheet("background-color:red");
   // panel_widget->setAutoFillBackground(true);
   // panel_widget->setBackgroundRole(QPalette::Dark);
@@ -330,9 +335,9 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
   QList<QPair<QString, QWidget *>> panels = {
     {"Device", device},
-    // {"Network", network_panel(this)},
-    // {"Toggles", new TogglesPanel(this)},
-    // {"Software", new SoftwarePanel(this)},
+    {"Network", network_panel(this)},
+    {"Toggles", new TogglesPanel(this)},
+    {"Software", new SoftwarePanel(this)},
   };
 
 #ifdef ENABLE_MAPS
