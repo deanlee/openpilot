@@ -2,6 +2,7 @@
 
 #include <QFontDatabase>
 
+#include <QDebug>
 #include "selfdrive/hardware/hw.h"
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
@@ -90,4 +91,9 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
   }
 #endif
   return false;
+}
+
+void MainWindow::paintEvent(QPaintEvent* e) {
+  qInfo() << "MainWindow::paintEvent";
+  QWidget::paintEvent(e);
 }

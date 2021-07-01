@@ -413,3 +413,9 @@ void SettingsWindow::hideEvent(QHideEvent *event) {
     }
   }
 }
+
+
+void SettingsWindow::paintEvent(QPaintEvent *event) {
+  qInfo() << "SettingsWindow::paintEvent";
+  QFrame::paintEvent(event);
+}

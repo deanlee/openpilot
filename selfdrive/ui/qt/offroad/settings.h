@@ -53,10 +53,11 @@ class SettingsWindow : public QFrame {
 
 public:
   explicit SettingsWindow(QWidget *parent = 0);
-
+  
 protected:
   void hideEvent(QHideEvent *event) override;
   void showEvent(QShowEvent *event) override;
+  void paintEvent(QPaintEvent *event) override;
 
 signals:
   void closeSettings();

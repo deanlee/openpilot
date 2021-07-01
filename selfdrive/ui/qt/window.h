@@ -17,6 +17,7 @@ private:
   bool eventFilter(QObject *obj, QEvent *event) override;
   void openSettings();
   void closeSettings();
+  void paintEvent(QPaintEvent*) override;
 
   Device device;
   QUIState qs;
