@@ -10,7 +10,7 @@
 class TestWidget :public QWidget {
 Q_OBJECT
 public:
-TestWidget(QWidget *parent=0) : QWidget(parent) {}
+TestWidget(QWidget *parent=0);
 void paintEvent(QPaintEvent*) override;
 };
 class MainWindow : public QWidget {

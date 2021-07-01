@@ -6,6 +6,16 @@
 #include "selfdrive/hardware/hw.h"
 #include <QPaintEvent>
 
+TestWidget::TestWidget(QWidget *parent ) : QWidget(parent) {
+  //  setAutoFillBackground(true);
+  //  setBackgroundRole(QPalette::Window);
+   
+  //  setAttribute(Qt::WA_OpaquePaintEvent);
+    QVBoxLayout *l2 = new QVBoxLayout(this);
+   for (int i = 0; i < 70; ++i) {
+    l2->addWidget(new QLabel("test2"));     
+   }
+}
 void TestWidget::paintEvent(QPaintEvent* e) {
   qInfo() << e->rect();
   // QWidget::paintEvent(e);
@@ -17,32 +27,34 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   //  setAutoFillBackground(true);
   //  setBackgroundRole(QPalette::Shadow);
   //  setAttribute(Qt::WA_OpaquePaintEvent);
-   QVBoxLayout *l = new QVBoxLayout(this);
+  //  QVBoxLayout *l = new QVBoxLayout(this);
    TestWidget *w = new TestWidget;
-   w->setAutoFillBackground(true);
-   w->setBackgroundRole(QPalette::Window);
-   
-  //  w->setAttribute(Qt::WA_OpaquePaintEvent);
+    QPalette palette = w->palette();
+    palette.setBrush(QPalette::Window,QBrush(QColor(61,61,61)));
+    w->setAutoFillBackground(true);
+    w->setPalette(palette);
   // w->setAutoFillBackground(true);
   //  w->setAttribute(Qt::WA_NoSystemBackground);
-   QVBoxLayout *l2 = new QVBoxLayout(w);
-   for (int i = 0; i < 50; ++i) {
-    l2->addWidget(new QLabel("test2"));     
-   }
-   ScrollView *panel_frame = new ScrollView(w, 0);
-   panel_frame->setAutoFillBackground(true);
-   panel_frame->setBackgroundRole(QPalette::Window);
+  
+   ScrollView *panel_frame = new ScrollView(w, this);
+  //  panel_frame->setAutoFillBackground(true);
+  //  panel_frame->setBackgroundRole(QPalette::Window);
    
   //  panel_frame->setAttribute(Qt::WA_OpaquePaintEvent);
-   l->addWidget(panel_frame);
+   QHBoxLayout *pLayout = new QHBoxLayout;
+    pLayout->addWidget(panel_frame);
+    pLayout->setMargin(0);
+    pLayout->setSpacing(0);
+    setLayout(pLayout);
+  //  l->addWidget(panel_frame);
   //  l->addWidget(w);
-     setStyleSheet(R"(
-    * {
-      font-size:50px;
-      font-family: Inter;
-      outline: none;
-    }
-  )");
+  //    setStyleSheet(R"(
+  //   * {
+  //     font-size:50px;
+  //     font-family: Inter;
+  //     outline: none;
+  //   }
+  // )");
    return;
    
   //  setAttribute(Qt::WA_OpaquePaintEvent);

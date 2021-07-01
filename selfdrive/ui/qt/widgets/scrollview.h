@@ -10,4 +10,5 @@ public:
 protected:
   void hideEvent(QHideEvent *e) override;
   void scrollContentsBy(int dx, int dy) override;
+  void paintEvent(QPaintEvent* e) override;
 };

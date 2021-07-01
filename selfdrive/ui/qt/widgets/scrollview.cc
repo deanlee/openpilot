@@ -10,31 +10,31 @@ ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
   // w->setAttribute(Qt::WA_OpaquePaintEvent);
   setWidget(w);
   setWidgetResizable(true);
-  setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  // setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-  QString style = R"(
-    QScrollBar:vertical {
-      border: none;
-      background: transparent;
-      width:10px;
-      margin: 0;
-    }
-    QScrollBar::handle:vertical {
-      min-height: 0px;
-      border-radius: 4px;
-      background-color: white;
-    }
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-      height: 0px;
-    }
-    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-      background: none;
-    }
-  )";
+  // QString style = R"(
+  //   QScrollBar:vertical {
+  //     border: none;
+  //     background: transparent;
+  //     width:10px;
+  //     margin: 0;
+  //   }
+  //   QScrollBar::handle:vertical {
+  //     min-height: 0px;
+  //     border-radius: 4px;
+  //     background-color: white;
+  //   }
+  //   QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+  //     height: 0px;
+  //   }
+  //   QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+  //     background: none;
+  //   }
+  // )";
 
-  verticalScrollBar()->setStyleSheet(style);
-  horizontalScrollBar()->setStyleSheet(style);
+  // verticalScrollBar()->setStyleSheet(style);
+  // horizontalScrollBar()->setStyleSheet(style);
 
   QScroller *scroller = QScroller::scroller(this->viewport());
   QScrollerProperties sp = scroller->scrollerProperties();
@@ -45,7 +45,7 @@ ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
   sp.setScrollMetric(QScrollerProperties::DragStartDistance, 0.001);
   sp.setScrollMetric(QScrollerProperties::ScrollingCurve, QEasingCurve::Linear);
 
-  scroller->grabGesture(this->viewport(), QScroller::LeftMouseButtonGesture);
+  // scroller->grabGesture(this->viewport(), QScroller::LeftMouseButtonGesture);
   scroller->setScrollerProperties(sp);
 }
 
@@ -54,8 +54,13 @@ void ScrollView::hideEvent(QHideEvent *e) {
 }
 
 void ScrollView::scrollContentsBy(int dx, int dy) {
-  qInfo() << verticalScrollBar()->value();
+  // qInfo() << verticalScrollBar()->value();
   // widget()->move(0, -verticalScrollBar()->value());
   // widget()->scroll(0, -verticalScrollBar()->value());
   QScrollArea::scrollContentsBy(dx, dy);
+}
+
+void ScrollView::paintEvent(QPaintEvent* e) {
+  qInfo() << "paint";
+
 }
