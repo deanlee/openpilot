@@ -54,7 +54,7 @@ void ScrollView::hideEvent(QHideEvent *e) {
 }
 
 void ScrollView::scrollContentsBy(int dx, int dy) {
-  qInfo() << verticalScrollBar()->value();
-  widget()->move(0, -verticalScrollBar()->value());
-  // QScrollArea::scrollContentsBy(dx, dy);
+  // qInfo() << verticalScrollBar()->value();
+  // widget()->move(0, -verticalScrollBar()->value());
+  QScrollArea::scrollContentsBy(dx, dy);
 }
