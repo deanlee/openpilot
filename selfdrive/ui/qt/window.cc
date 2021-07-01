@@ -28,10 +28,10 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
     // setAttribute(Qt::WA_TranslucentBackground);
     // // setAttribute(Qt::WA_PaintOnScreen);
 
-    QPalette palette = this->palette();
-    palette.setBrush(QPalette::Background,QBrush(QColor(61,0, 0)));
-    setAutoFillBackground(true);
-    setPalette(palette);
+    // QPalette palette = this->palette();
+    // palette.setBrush(QPalette::Background,QBrush(QColor(255,0, 0)));
+    // setAutoFillBackground(true);
+    // setPalette(palette);
 
      // transparent background
     // setAttribute(Qt::WA_TranslucentBackground);
@@ -48,16 +48,20 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   //  setAttribute(Qt::WA_OpaquePaintEvent);
   //  QVBoxLayout *l = new QVBoxLayout(this);
    TestWidget *w = new TestWidget;
+   QPalette pal = w->palette();
+    pal.setBrush(QPalette::Background,QBrush(QColor(0,255, 0)));
+    w->setAutoFillBackground(true);
+    w->setPalette(pal);
     // QPalette palette = w->palette();
     // palette.setBrush(QPalette::Window,QBrush(QColor(61,61,61)));
     // w->setAutoFillBackground(true);
     // w->setPalette(palette);
-    w->setWindowFlags(Qt::FramelessWindowHint);
-    w->setAutoFillBackground(false);
-		w->setAttribute(Qt::WA_OpaquePaintEvent);
-		w->setAttribute(Qt::WA_NoSystemBackground);
-		w->setAttribute(Qt::WA_NoBackground);
-		w->setAttribute(Qt::WA_StyledBackground, false);	
+    // w->setWindowFlags(Qt::FramelessWindowHint);
+    // w->setAutoFillBackground(false);
+		// w->setAttribute(Qt::WA_OpaquePaintEvent);
+		// w->setAttribute(Qt::WA_NoSystemBackground);
+		// w->setAttribute(Qt::WA_NoBackground);
+		// w->setAttribute(Qt::WA_StyledBackground, false);	
   // w->setAutoFillBackground(true);
   //  w->setAttribute(Qt::WA_NoSystemBackground);
   
