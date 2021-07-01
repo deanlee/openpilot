@@ -22,13 +22,25 @@ void TestWidget::paintEvent(QPaintEvent* e) {
 }
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
-    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    // setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
 
-    setAttribute(Qt::WA_NoSystemBackground);
-    setAttribute(Qt::WA_TranslucentBackground);
-    // setAttribute(Qt::WA_PaintOnScreen);
+    // setAttribute(Qt::WA_NoSystemBackground);
+    // setAttribute(Qt::WA_TranslucentBackground);
+    // // setAttribute(Qt::WA_PaintOnScreen);
 
-    setAttribute(Qt::WA_TransparentForMouseEvents);
+    QPalette palette = this->palette();
+    palette.setBrush(QPalette::Background,QBrush(QColor(61,0, 0)));
+    setAutoFillBackground(true);
+    setPalette(palette);
+
+     // transparent background
+    // setAttribute(Qt::WA_TranslucentBackground);
+    // setStyleSheet("background:transparent;");
+
+    // no window decorations
+    // setWindowFlags(Qt::FramelessWindowHint);
+
+    // setAttribute(Qt::WA_TransparentForMouseEvents);
   //  device.setAwake(true, true);
   // setAttribute(Qt::WA_PaintOnScreen);
   //  setAutoFillBackground(true);
