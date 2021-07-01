@@ -22,6 +22,13 @@ void TestWidget::paintEvent(QPaintEvent* e) {
 }
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+
+    setAttribute(Qt::WA_NoSystemBackground);
+    setAttribute(Qt::WA_TranslucentBackground);
+    // setAttribute(Qt::WA_PaintOnScreen);
+
+    setAttribute(Qt::WA_TransparentForMouseEvents);
   //  device.setAwake(true, true);
   // setAttribute(Qt::WA_PaintOnScreen);
   //  setAutoFillBackground(true);
@@ -29,14 +36,20 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   //  setAttribute(Qt::WA_OpaquePaintEvent);
   //  QVBoxLayout *l = new QVBoxLayout(this);
    TestWidget *w = new TestWidget;
-    QPalette palette = w->palette();
-    palette.setBrush(QPalette::Window,QBrush(QColor(61,61,61)));
-    w->setAutoFillBackground(true);
-    w->setPalette(palette);
+    // QPalette palette = w->palette();
+    // palette.setBrush(QPalette::Window,QBrush(QColor(61,61,61)));
+    // w->setAutoFillBackground(true);
+    // w->setPalette(palette);
+    w->setWindowFlags(Qt::FramelessWindowHint);
+    w->setAutoFillBackground(false);
+		w->setAttribute(Qt::WA_OpaquePaintEvent);
+		w->setAttribute(Qt::WA_NoSystemBackground);
+		w->setAttribute(Qt::WA_NoBackground);
+		w->setAttribute(Qt::WA_StyledBackground, false);	
   // w->setAutoFillBackground(true);
   //  w->setAttribute(Qt::WA_NoSystemBackground);
   
-   ScrollView *panel_frame = new ScrollView(w, this);
+   ScrollView *panel_frame = new ScrollView(w);
   //  panel_frame->setAutoFillBackground(true);
   //  panel_frame->setBackgroundRole(QPalette::Window);
    
