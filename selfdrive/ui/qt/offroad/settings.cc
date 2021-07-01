@@ -306,10 +306,10 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   QVBoxLayout *sidebar_layout = new QVBoxLayout(sidebar_widget);
   sidebar_layout->setMargin(0);
   panel_widget = new QStackedWidget();
-  panel_widget->setStyleSheet(R"(
-    border-radius: 30px;
-    background-color: #292929;
-  )");
+  // panel_widget->setStyleSheet(R"(
+  //   border-radius: 30px;
+  //   background-color: #292929;
+  // )");
   // panel_widget->setStyleSheet("background-color:red");
   // panel_widget->setAutoFillBackground(true);
   // panel_widget->setBackgroundRole(QPalette::Dark);
@@ -376,6 +376,11 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   //   // panel->
   //   panel->setBackgroundRole(QPalette::Dark);
   // panel->setAttribute(Qt::WA_OpaquePaintEvent);
+  //   panel->setStyleSheet(R"(
+  //   border-radius: 30px;
+  //   background-color: red;
+  // )");
+  
     panel->setContentsMargins(50, 25, 50, 25);
 
     ScrollView *panel_frame = new ScrollView(panel, this);
