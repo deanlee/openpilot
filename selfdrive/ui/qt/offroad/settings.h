@@ -20,6 +20,9 @@ public:
 signals:
   void reviewTrainingGuide();
   void showDriverView();
+private:
+
+void paintEvent(QPaintEvent *event) override;
 };
 
 class TogglesPanel : public QWidget {

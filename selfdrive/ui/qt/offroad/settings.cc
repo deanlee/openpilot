@@ -100,6 +100,11 @@ TogglesPanel::TogglesPanel(QWidget *parent) : QWidget(parent) {
   }
 }
 
+void DevicePanel::paintEvent(QPaintEvent *event) {
+  qInfo() << "DevicePanel::paintEvent" << event->rect();
+  QWidget::paintEvent(event);
+
+}
 DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   for (int i = 0; i < 20; ++i) {
@@ -302,6 +307,10 @@ void SettingsWindow::showEvent(QShowEvent *event) {
 
 SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   // setup two main layouts
+   setAutoFillBackground(true);
+   setBackgroundRole(QPalette::Shadow);
+   setAttribute(Qt::WA_OpaquePaintEvent);
+
   sidebar_widget = new QWidget;
   QVBoxLayout *sidebar_layout = new QVBoxLayout(sidebar_widget);
   sidebar_layout->setMargin(0);
@@ -310,10 +319,10 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   //   border-radius: 30px;
   //   background-color: #292929;
   // )");
-  // panel_widget->setStyleSheet("background-color:red");
+  // panel_widget->setStyleSheet("background:transparent");
   // panel_widget->setAutoFillBackground(true);
   // panel_widget->setBackgroundRole(QPalette::Shadow);
-  // panel_widget->setAttribute(Qt::WA_OpaquePaintEvent);
+  panel_widget->setAttribute(Qt::WA_OpaquePaintEvent);
   // close button
   QPushButton *close_btn = new QPushButton("X");
   close_btn->setStyleSheet(R"(
@@ -371,10 +380,14 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
     nav_btns->addButton(btn);
     sidebar_layout->addWidget(btn, 0, Qt::AlignRight);
-    panel->setStyleSheet("background-color:blue;");
-  //   panel->setAutoFillBackground(true);
+    // panel->setStyleSheet("background-color:blue;");
+    panel->setAutoFillBackground(true);
   //   // panel->
-  //   panel->setBackgroundRole(QPalette::Dark);
+    panel->setBackgroundRole(QPalette::Dark);
+
+    // panel->setAttribute(Qt::WA_NoSystemBackground);
+    // panel->setAttribute(Qt::WA_TranslucentBackground);
+    // panel->setAttribute(Qt::WA_PaintOnScreen);
   // panel->setAttribute(Qt::WA_OpaquePaintEvent);
   //   panel->setStyleSheet(R"(
   //   border-radius: 30px;
@@ -384,6 +397,8 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     panel->setContentsMargins(50, 25, 50, 25);
 
     ScrollView *panel_frame = new ScrollView(panel, this);
+    panel_frame->setAutoFillBackground(true);
+   panel_frame->setBackgroundRole(QPalette::Shadow);
     panel_widget->addWidget(panel_frame);
 
     QObject::connect(btn, &QPushButton::released, [=, w = panel_frame]() {

@@ -6,6 +6,10 @@
 #include "selfdrive/hardware/hw.h"
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
+   setAutoFillBackground(true);
+   setBackgroundRole(QPalette::Shadow);
+  //  setAttribute(Qt::WA_OpaquePaintEvent);
+  //  setAttribute(Qt::WA_PaintOnScreen);
   main_layout = new QStackedLayout(this);
   main_layout->setMargin(0);
 
