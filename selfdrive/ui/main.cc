@@ -16,6 +16,8 @@ int main(int argc, char *argv[]) {
     QSslConfiguration::setDefaultConfiguration(ssl);
   }
 
+  Hardware::set_display_power(true);
+  Hardware::set_brightness(65);
   QApplication a(argc, argv);
   MainWindow w;
   setMainWindow(&w);

@@ -4,10 +4,35 @@
 
 #include <QDebug>
 #include "selfdrive/hardware/hw.h"
+#include <QPaintEvent>
+
+void TestWidget::paintEvent(QPaintEvent* e) {
+  qInfo() << e->rect();
+  QWidget::paintEvent(e);
+}
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
-   setAutoFillBackground(true);
-   setBackgroundRole(QPalette::Shadow);
+  //  device.setAwake(true, true);
+  //  setAutoFillBackground(true);
+  //  setBackgroundRole(QPalette::Shadow);
+   QVBoxLayout *l = new QVBoxLayout(this);
+   TestWidget *w = new TestWidget;
+   QVBoxLayout *l2 = new QVBoxLayout(w);
+   for (int i = 0; i < 50; ++i) {
+    l2->addWidget(new QLabel("test2"));     
+   }
+   ScrollView *panel_frame = new ScrollView(w, 0);
+   l->addWidget(panel_frame);
+  //  l->addWidget(w);
+     setStyleSheet(R"(
+    * {
+      font-size:50px;
+      font-family: Inter;
+      outline: none;
+    }
+  )");
+   return;
+   
   //  setAttribute(Qt::WA_OpaquePaintEvent);
   //  setAttribute(Qt::WA_PaintOnScreen);
   main_layout = new QStackedLayout(this);
