@@ -371,7 +371,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
     nav_btns->addButton(btn);
     sidebar_layout->addWidget(btn, 0, Qt::AlignRight);
-    // panel->setStyleSheet("background-color:blue;");
+    panel->setStyleSheet("background-color:blue;");
   //   panel->setAutoFillBackground(true);
   //   // panel->
   //   panel->setBackgroundRole(QPalette::Dark);
