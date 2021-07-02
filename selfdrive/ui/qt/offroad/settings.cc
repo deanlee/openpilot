@@ -285,10 +285,12 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   QVBoxLayout *sidebar_layout = new QVBoxLayout(sidebar_widget);
   sidebar_layout->setMargin(0);
   panel_widget = new QStackedWidget();
-  panel_widget->setStyleSheet(R"(
-    border-radius: 30px;
-    background-color: #292929;
-  )");
+  // panel_widget->setStyleSheet(R"(
+  //   border-radius: 30px;
+  //   background-color: #292929;
+  // )");
+  panel_widget->setAutoFillBackground(true);
+  panel_widget->setBackgroundRole(QPalette::Window);
 
   // close button
   QPushButton *close_btn = new QPushButton("X");

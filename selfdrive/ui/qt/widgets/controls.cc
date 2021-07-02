@@ -116,7 +116,9 @@ ListWidget::ListWidget(QWidget *parent) : QListWidget(parent) {
   // layout_.setMargin(0);
   // default spacing is 25
   // setSpacing(25);
-  setAutoFillBackground(true);
+  // setAutoFillBackground(true);
+  // setBackgroundRole(QPalette::Shadow);
+  // setAttribute(Qt::WA_OpaquePaintEvent);
   setItemDelegate(new Delegate(this));
   setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
   // QScroller::grabGesture(this, QScroller::LeftMouseButtonGesture);
