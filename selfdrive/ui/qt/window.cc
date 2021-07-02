@@ -1,80 +1,134 @@
 #include "selfdrive/ui/qt/window.h"
 
-#include <QFontDatabase>
-
 #include <QDebug>
-#include "selfdrive/hardware/hw.h"
+#include <QFontDatabase>
+#include <QPainter>
+#include <QPaintEngine>
 #include <QPaintEvent>
 
-TestWidget::TestWidget(QWidget *parent ) : QWidget(parent) {
+#include "selfdrive/hardware/hw.h"
+
+TestWidget2::TestWidget2(QWidget *parent) : QListWidget(parent) {
+
+}
+void TestWidget2::paintEvent(QPaintEvent* e) {
+  qInfo() << e->rect();// << p.paintEngine()->type();
+}
+TestWidget::TestWidget(QWidget *parent) : QWidget(parent) {
+  QPalette pal = palette();
+  // //  w->setWindowFlags(Qt::FramelessWindowHint);
+  // pal.setBrush(QPalette::Background, QBrush(QColor(255, 0, 0)));
+  // setAutoFillBackground(true);
+  // setPalette(pal);
+  // setWindowFlags(Qt::FramelessWindowHint);
   //  setAutoFillBackground(true);
   //  setBackgroundRole(QPalette::Window);
-   
+  //  QPalette pal = palette();
+  //   //  w->setWindowFlags(Qt::FramelessWindowHint);
+  //   pal.setBrush(QPalette::Background, QBrush(QColor(0, 0, 255)));
+  //   setAutoFillBackground(true);
+  //   setPalette(pal);
+  //   setAttribute(Qt::WA_OpaquePaintEvent);
+  // setBackgroundRole(QPalette::Window);
+  pal.setBrush(QPalette::Background, QBrush(QColor(255, 0, 0)));
+  setAutoFillBackground(true);
+  // setAttribute(Qt::WA_OpaquePaintEvent);
+
   //  setAttribute(Qt::WA_OpaquePaintEvent);
-    QVBoxLayout *l2 = new QVBoxLayout(this);
-   for (int i = 0; i < 70; ++i) {
-    l2->addWidget(new QLabel("test2"));     
-   }
+  // QVBoxLayout *l2 = new QVBoxLayout(this);
+  // for (int i = 0; i < 70; ++i) {
+  //   QLabel *w = new QLabel("test");
+  //   QPalette pal = w->palette();
+  //   //  w->setWindowFlags(Qt::FramelessWindowHint);
+  //   pal.setBrush(QPalette::Background, QBrush(QColor(0, 255, 0)));
+  //   w->setAutoFillBackground(true);
+  //   w->setPalette(pal);
+  //   l2->addWidget(w);
+  // }
+  setMinimumSize(QSize(1024, 3048));
 }
-void TestWidget::paintEvent(QPaintEvent* e) {
-  qInfo() << e->rect();
+void TestWidget::paintEvent(QPaintEvent *e) {
+  QPainter p(this);
+  qInfo() << e->rect() << p.paintEngine()->type();
+  // assert(p.paintEngine()->type() == QPaintEngine::OpenGL2);
   // QWidget::paintEvent(e);
 }
 
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
-    // setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+  // qInfo() << QSurfaceFormat::defaultFormat();
 
-    // setAttribute(Qt::WA_NoSystemBackground);
-    // setAttribute(Qt::WA_TranslucentBackground);
-    // // setAttribute(Qt::WA_PaintOnScreen);
-
-    // QPalette palette = this->palette();
-    // palette.setBrush(QPalette::Background,QBrush(QColor(255,0, 0)));
+  // setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+  {
+    // QPalette pal = palette();
+    // //  w->setWindowFlags(Qt::FramelessWindowHint);
+    // pal.setBrush(QPalette::Background, QBrush(QColor(0, 0, 255)));
     // setAutoFillBackground(true);
-    // setPalette(palette);
+    // setPalette(pal);
+    // setAttribute(Qt::WA_OpaquePaintEvent);
+  // }
+  TestWidget2 *w = new TestWidget2();
+  for (int i = 0; i< 50; ++i) {
+    w->addItem("test");
+  }
+  QVBoxLayout *l = new QVBoxLayout(this);
+  l->addWidget(w);
+  return;
+}
+  // setAttribute(Qt::WA_NoSystemBackground);
+  // setAttribute(Qt::WA_TranslucentBackground);
+  // // setAttribute(Qt::WA_PaintOnScreen);
 
-     // transparent background
-    // setAttribute(Qt::WA_TranslucentBackground);
-    // setStyleSheet("background:transparent;");
+  // QPalette palette = this->palette();
+  // palette.setBrush(QPalette::Background,QBrush(QColor(255,0, 0)));
+  // setAutoFillBackground(true);
+  // setPalette(palette);
 
-    // no window decorations
-    // setWindowFlags(Qt::FramelessWindowHint);
+  // transparent background
+  // setAttribute(Qt::WA_TranslucentBackground);
+  // setStyleSheet("background:transparent;");
 
-    // setAttribute(Qt::WA_TransparentForMouseEvents);
+  // no window decorations
+  // setWindowFlags(Qt::FramelessWindowHint);
+
+  // setAttribute(Qt::WA_TransparentForMouseEvents);
   //  device.setAwake(true, true);
   // setAttribute(Qt::WA_PaintOnScreen);
   //  setAutoFillBackground(true);
   //  setBackgroundRole(QPalette::Shadow);
   //  setAttribute(Qt::WA_OpaquePaintEvent);
   //  QVBoxLayout *l = new QVBoxLayout(this);
-   TestWidget *w = new TestWidget;
-   QPalette pal = w->palette();
-    pal.setBrush(QPalette::Background,QBrush(QColor(0,255, 0)));
-    w->setAutoFillBackground(true);
-    w->setPalette(pal);
-    // QPalette palette = w->palette();
-    // palette.setBrush(QPalette::Window,QBrush(QColor(61,61,61)));
-    // w->setAutoFillBackground(true);
-    // w->setPalette(palette);
-    // w->setWindowFlags(Qt::FramelessWindowHint);
-    // w->setAutoFillBackground(false);
-		// w->setAttribute(Qt::WA_OpaquePaintEvent);
-		// w->setAttribute(Qt::WA_NoSystemBackground);
-		// w->setAttribute(Qt::WA_NoBackground);
-		// w->setAttribute(Qt::WA_StyledBackground, false);	
+  TestWidget *w = new TestWidget;
+ 
+  // QPalette palette = w->palette();
+  // palette.setBrush(QPalette::Window,QBrush(QColor(61,61,61)));
+  // w->setAutoFillBackground(true);
+  // w->setPalette(palette);
+  // w->setWindowFlags(Qt::FramelessWindowHint);
+  // w->setAutoFillBackground(false);
+  // w->setAttribute(Qt::WA_OpaquePaintEvent);
+  // w->setAttribute(Qt::WA_NoSystemBackground);
+  // w->setAttribute(Qt::WA_NoBackground);
+  // w->setAttribute(Qt::WA_StyledBackground, false);
   // w->setAutoFillBackground(true);
   //  w->setAttribute(Qt::WA_NoSystemBackground);
-  
-   ScrollView *panel_frame = new ScrollView(w);
+
+  ScrollView *panel_frame = new ScrollView(w);
+  {
+    // QPalette pal = panel_frame->palette();
+    // //  w->setWindowFlags(Qt::FramelessWindowHint);
+    // pal.setBrush(QPalette::Background, QBrush(QColor(0, 255, 0)));
+    // panel_frame->setAutoFillBackground(true);
+    // panel_frame->setPalette(pal);
+  }
   //  panel_frame->setAutoFillBackground(true);
   //  panel_frame->setBackgroundRole(QPalette::Window);
-   
+
   //  panel_frame->setAttribute(Qt::WA_OpaquePaintEvent);
-   QHBoxLayout *pLayout = new QHBoxLayout;
-    pLayout->addWidget(panel_frame);
-    pLayout->setMargin(0);
-    pLayout->setSpacing(0);
-    setLayout(pLayout);
+  QHBoxLayout *pLayout = new QHBoxLayout;
+  pLayout->addWidget(panel_frame);
+  pLayout->setMargin(0);
+  pLayout->setSpacing(0);
+  setLayout(pLayout);
   //  l->addWidget(panel_frame);
   //  l->addWidget(w);
   //    setStyleSheet(R"(
@@ -84,8 +138,8 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   //     outline: none;
   //   }
   // )");
-   return;
-   
+  return;
+
   //  setAttribute(Qt::WA_OpaquePaintEvent);
   //  setAttribute(Qt::WA_PaintOnScreen);
   main_layout = new QStackedLayout(this);
@@ -125,9 +179,9 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
     }
   });
   QObject::connect(&device, &Device::displayPowerChanged, [=]() {
-     if(main_layout->currentWidget() != onboardingWindow) {
-       closeSettings();
-     }
+    if (main_layout->currentWidget() != onboardingWindow) {
+      closeSettings();
+    }
   });
 
   // load fonts
@@ -175,7 +229,8 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
   return false;
 }
 
-void MainWindow::paintEvent(QPaintEvent* e) {
+void MainWindow::paintEvent(QPaintEvent *e) {
   qInfo() << "MainWindow::paintEvent";
-  QWidget::paintEvent(e);
+  // QWidget::paintEvent(e);
+  // assert(0);
 }

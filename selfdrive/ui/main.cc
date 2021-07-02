@@ -7,8 +7,8 @@
 #include "selfdrive/ui/qt/window.h"
 
 int main(int argc, char *argv[]) {
-  // setQtSurfaceFormat();
-
+  setQtSurfaceFormat();
+  
   if (Hardware::EON()) {
     QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
     QSslConfiguration ssl = QSslConfiguration::defaultConfiguration();

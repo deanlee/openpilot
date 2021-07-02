@@ -2,11 +2,17 @@
 
 #include <QStackedLayout>
 #include <QWidget>
+#include <QListWidget>
 
 #include "selfdrive/ui/qt/home.h"
 #include "selfdrive/ui/qt/offroad/onboarding.h"
 #include "selfdrive/ui/qt/offroad/settings.h"
-
+class TestWidget2 : public QListWidget {
+  Q_OBJECT
+  public:
+  TestWidget2(QWidget *parent = 0);
+  void paintEvent(QPaintEvent*) override;
+};
 class TestWidget :public QWidget {
 Q_OBJECT
 public:

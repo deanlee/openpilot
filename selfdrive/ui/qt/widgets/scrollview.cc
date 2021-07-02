@@ -37,16 +37,16 @@ ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
   // horizontalScrollBar()->setStyleSheet(style);
 
   QScroller *scroller = QScroller::scroller(this->viewport());
-  // QScrollerProperties sp = scroller->scrollerProperties();
+  QScrollerProperties sp = scroller->scrollerProperties();
 
-  // sp.setScrollMetric(QScrollerProperties::FrameRate, QScrollerProperties::Fps30);
-  // sp.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy, QScrollerProperties::OvershootAlwaysOff);
-  // sp.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy, QScrollerProperties::OvershootAlwaysOff);
-  // sp.setScrollMetric(QScrollerProperties::DragStartDistance, 0.001);
-  // sp.setScrollMetric(QScrollerProperties::ScrollingCurve, QEasingCurve::Linear);
+  sp.setScrollMetric(QScrollerProperties::FrameRate, QScrollerProperties::Fps30);
+  sp.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy, QScrollerProperties::OvershootAlwaysOff);
+  sp.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy, QScrollerProperties::OvershootAlwaysOff);
+  sp.setScrollMetric(QScrollerProperties::DragStartDistance, 0.001);
+  sp.setScrollMetric(QScrollerProperties::ScrollingCurve, QEasingCurve::Linear);
 
   scroller->grabGesture(this->viewport(), QScroller::LeftMouseButtonGesture);
-  // scroller->setScrollerProperties(sp);
+  scroller->setScrollerProperties(sp);
 }
 
 void ScrollView::hideEvent(QHideEvent *e) {
@@ -61,6 +61,7 @@ void ScrollView::scrollContentsBy(int dx, int dy) {
 }
 
 void ScrollView::paintEvent(QPaintEvent* e) {
-  qInfo() << "paint";
+  qInfo() << "ScrollView::paintEvent";
+  assert(0);
 
 }
