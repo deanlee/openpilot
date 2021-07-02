@@ -248,7 +248,7 @@ QWidget * network_panel(QWidget * parent) {
   layout->setMargin(0);
 
   ListWidget *list = new ListWidget();
-  list->setSpacing(30);
+  // list->setSpacing(30);
   // wifi + tethering buttons
   auto wifiBtn = new ButtonControl("WiFi Settings", "OPEN");
   QObject::connect(wifiBtn, &ButtonControl::released, [=]() { HardwareEon::launch_wifi(); });
@@ -262,7 +262,7 @@ QWidget * network_panel(QWidget * parent) {
   list->addItem(new SshToggle());
   list->addItem(new SshControl());
 
-  layout->addItem(list);
+  layout->addWidget(list);
   layout->addStretch(1);
 #else
   Networking *w = new Networking(parent);
@@ -350,10 +350,10 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
     panel->setContentsMargins(50, 50, 50, 50);
 
-    ScrollView *panel_frame = new ScrollView(panel, this);
-    panel_widget->addWidget(panel_frame);
+    // ScrollView *panel_frame = new ScrollView(panel, this);
+    panel_widget->addWidget(panel);
 
-    QObject::connect(btn, &QPushButton::released, [=, w = panel_frame]() {
+    QObject::connect(btn, &QPushButton::released, [=, w = panel]() {
       panel_widget->setCurrentWidget(w);
     });
   }

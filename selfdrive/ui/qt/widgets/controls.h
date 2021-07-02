@@ -5,7 +5,7 @@
 #include <QLabel>
 #include <QPainter>
 #include <QPushButton>
-
+#include <QListWidget>
 #include "selfdrive/common/params.h"
 #include "selfdrive/ui/qt/widgets/toggle.h"
 
@@ -111,26 +111,14 @@ private:
   Params params;
 };
 
-class ListWidget : public QWidget {
+class ListWidget : public QListWidget {
   Q_OBJECT
  public:
-  explicit ListWidget(QWidget *parent = 0) : QWidget(parent), layout_(this) {
-    layout_.setMargin(0);
-    // default spacing is 25
-    setSpacing(25);
-  }
-  inline void addItem(QWidget *w) { layout_.addWidget(w); }
-  inline void setSpacing(int spacing) { layout_.setSpacing(spacing); }
+  explicit ListWidget(QWidget *parent = 0);
+  void addItem(QWidget *w);
+  inline void setSpacing(int spacing) {  }
 
  private:
-  void paintEvent(QPaintEvent *) override {
-    QPainter p(this);
-    p.setPen(Qt::gray);
-    for (int i = 0; i < layout_.count() - 1; ++i) {
-      QRect r = layout_.itemAt(i)->geometry();
-      int bottom = r.bottom() + layout_.spacing() / 2;
-      p.drawLine(r.left() + 40, bottom, r.right() - 40, bottom);
-    }
-  }
-  QVBoxLayout layout_;
+  void paintEvent(QPaintEvent *) override;
+  // QVBoxLayout layout_;
 };

@@ -1,5 +1,11 @@
 #include "selfdrive/ui/qt/widgets/controls.h"
 
+#include <QDebug>
+#include <QStyledItemDelegate>
+#include <QScrollBar>
+#include <QScroller>
+#include <QVariant>
+
 QFrame *horizontal_line(QWidget *parent) {
   QFrame *line = new QFrame(parent);
   line->setFrameShape(QFrame::StyledPanel);
@@ -85,4 +91,63 @@ ButtonControl::ButtonControl(const QString &title, const QString &text, const QS
   btn.setFixedSize(250, 100);
   QObject::connect(&btn, &QPushButton::released, this, &ButtonControl::released);
   hlayout->addWidget(&btn);
+}
+
+class Delegate : public QStyledItemDelegate {
+  public:
+  Delegate(QObject *parent = nullptr) :  QStyledItemDelegate(parent) {
+
+  }
+
+  void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+    qInfo() << "QStyledItemDelegate::paint";
+
+  }
+  QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+    // QSize  size = QStyledItemDelegate::sizeHint(option, index);
+    // QWidget *w = reinterpret_cast<QWidget*>(index.data(Qt::UserRole).value<void*>());
+    // QSize size = w->sizeHint();
+    // qInfo() << "sizeHint****";
+    return QSize(0, 200);
+  }
+};
+
+ListWidget::ListWidget(QWidget *parent) : QListWidget(parent) {
+  // layout_.setMargin(0);
+  // default spacing is 25
+  // setSpacing(25);
+  setAutoFillBackground(true);
+  setItemDelegate(new Delegate(this));
+  setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+  // QScroller::grabGesture(this, QScroller::LeftMouseButtonGesture);
+  QScroller *scroller = QScroller::scroller(this->viewport());
+  QScrollerProperties sp = scroller->scrollerProperties();
+
+  sp.setScrollMetric(QScrollerProperties::VerticalOvershootPolicy, QVariant::fromValue<QScrollerProperties::OvershootPolicy>(QScrollerProperties::OvershootAlwaysOff));
+  sp.setScrollMetric(QScrollerProperties::HorizontalOvershootPolicy, QVariant::fromValue<QScrollerProperties::OvershootPolicy>(QScrollerProperties::OvershootAlwaysOff));
+
+  scroller->grabGesture(this->viewport(), QScroller::LeftMouseButtonGesture);
+  scroller->setScrollerProperties(sp);
+}
+
+void ListWidget::addItem(QWidget *w) { 
+  // layout_.addWidget(w); 
+  
+  QListWidgetItem *item = new QListWidgetItem(this);
+  // QVariant v =w;
+  // item->setData(Qt::UserRole, w);
+  QListWidget::addItem(item);
+  setItemWidget(item, w);
+
+}
+
+void ListWidget::paintEvent(QPaintEvent *e) {
+  // QPainter p(this);
+  qInfo() << e->rect();
+  // p.setPen(Qt::gray);
+  // for (int i = 0; i < layout_.count() - 1; ++i) {
+  //   QRect r = layout_.itemAt(i)->geometry();
+  //   int bottom = r.bottom() + layout_.spacing() / 2;
+  //   p.drawLine(r.left() + 40, bottom, r.right() - 40, bottom);
+  // }
 }
