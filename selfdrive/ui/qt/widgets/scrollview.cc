@@ -55,13 +55,15 @@ void ScrollView::hideEvent(QHideEvent *e) {
 
 void ScrollView::scrollContentsBy(int dx, int dy) {
   // qInfo() << verticalScrollBar()->value();
-  // widget()->move(0, -verticalScrollBar()->value());
-  // widget()->scroll(0, -verticalScrollBar()->value());
+  widget()->move(0, -verticalScrollBar()->value());
+  
+  // viewport()->scroll(0, -verticalScrollBar()->value());
   QScrollArea::scrollContentsBy(dx, dy);
 }
 
 void ScrollView::paintEvent(QPaintEvent* e) {
   qInfo() << "ScrollView::paintEvent";
-  assert(0);
+  // assert(0);
+  QScrollArea::paintEvent(e);
 
 }
