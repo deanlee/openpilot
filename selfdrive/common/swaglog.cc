@@ -88,8 +88,7 @@ void log(int levelnum, const char* filename, int lineno, const char* func, const
   if (levelnum >= s.print_level) {
     printf("%s: %s\n", filename, msg);
   }
-  char levelnum_c = levelnum;
-  zmq_send(s.sock, (levelnum_c + log_s).c_str(), log_s.length() + 1, ZMQ_NOBLOCK);
+  zmq_send(s.sock, log_s.c_str(), log_s.length(), ZMQ_NOBLOCK);
 }
 
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
@@ -111,7 +110,8 @@ void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func
     {"funcname", func},
     {"created", seconds_since_epoch()}
   };
-  std::string log_s = log_j.dump();
+  std::string log_s(1, (char)levelnum);
+  log_j.dump(log_s);
   log(levelnum, filename, lineno, func, msg_buf, log_s);
   free(msg_buf);
 }
