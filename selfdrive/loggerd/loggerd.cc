@@ -16,6 +16,8 @@
 #include <string>
 #include <thread>
 
+#include <jpeglib.h>
+
 #include "cereal/messaging/messaging.h"
 #include "cereal/services.h"
 #include "cereal/visionipc/visionipc.h"
@@ -158,6 +160,72 @@ struct LoggerdState {
 };
 LoggerdState s;
 
+// this takes 10ms???
+static void write_thumbnail(LoggerHandle *lh, uint32_t frame_id, uint64_t tm, const uint8_t *addr, int width, int height, int stride) {
+  uint8_t* thumbnail_buffer = NULL;
+  unsigned long thumbnail_len = 0;
+
+  unsigned char *row = (unsigned char *)malloc(width/4*3);
+
+  struct jpeg_compress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+
+  cinfo.err = jpeg_std_error(&jerr);
+  jpeg_create_compress(&cinfo);
+  jpeg_mem_dest(&cinfo, &thumbnail_buffer, &thumbnail_len);
+
+  cinfo.image_width = width / 4;
+  cinfo.image_height = height / 4;
+  cinfo.input_components = 3;
+  cinfo.in_color_space = JCS_RGB;
+
+  jpeg_set_defaults(&cinfo);
+#ifndef __APPLE__
+  jpeg_set_quality(&cinfo, 50, true);
+  jpeg_start_compress(&cinfo, true);
+#else
+  jpeg_set_quality(&cinfo, 50, static_cast<boolean>(true) );
+  jpeg_start_compress(&cinfo, static_cast<boolean>(true) );
+#endif
+
+  JSAMPROW row_pointer[1];
+  const uint8_t *bgr_ptr = (const uint8_t *)addr;
+  for (int ii = 0; ii < height/4; ii+=1) {
+    for (int j = 0; j < width*3; j+=12) {
+      for (int k = 0; k < 3; k++) {
+        uint16_t dat = 0;
+        int i = ii * 4;
+        dat += bgr_ptr[stride*i + j + k];
+        dat += bgr_ptr[stride*i + j+3 + k];
+        dat += bgr_ptr[stride*(i+1) + j + k];
+        dat += bgr_ptr[stride*(i+1) + j+3 + k];
+        dat += bgr_ptr[stride*(i+2) + j + k];
+        dat += bgr_ptr[stride*(i+2) + j+3 + k];
+        dat += bgr_ptr[stride*(i+3) + j + k];
+        dat += bgr_ptr[stride*(i+3) + j+3 + k];
+        row[(j/4) + (2-k)] = dat/8;
+      }
+    }
+    row_pointer[0] = row;
+    jpeg_write_scanlines(&cinfo, row_pointer, 1);
+  }
+  jpeg_finish_compress(&cinfo);
+  jpeg_destroy_compress(&cinfo);
+  free(row);
+
+  MessageBuilder msg;
+  auto thumbnaild = msg.initEvent().initThumbnail();
+  thumbnaild.setFrameId(frame_id);
+  thumbnaild.setTimestampEof(tm);
+  thumbnaild.setThumbnail(kj::arrayPtr((const uint8_t*)thumbnail_buffer, thumbnail_len));
+
+  auto bytes = msg.toBytes();
+  lh_log(lh, bytes.begin(), bytes.size(), true);
+  util::write_file("/home/deanlee/thumbnail1.jpeg", thumbnail_buffer, thumbnail_len);
+  free(thumbnail_buffer);
+}
+
+
 void encoder_thread(int cam_idx) {
   assert(cam_idx < LOG_CAMERA_ID_MAX-1);
 
@@ -281,6 +349,10 @@ void encoder_thread(int cam_idx) {
             lh_log(lh, bytes.begin(), bytes.size(), true);
           }
         }
+      }
+
+      if (cnt % 100 == 3) {
+        write_thumbnail(lh, extra.frame_id, extra.timestamp_eof, (const uint8_t*)buf->addr, buf->width, buf->height, buf->stride);
       }
 
       cnt++;

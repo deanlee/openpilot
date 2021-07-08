@@ -8,7 +8,6 @@
 #include <thread>
 
 #include "libyuv.h"
-#include <jpeglib.h>
 
 #include "selfdrive/camerad/imgproc/utils.h"
 #include "selfdrive/common/clutil.h"
@@ -216,68 +215,6 @@ kj::Array<uint8_t> get_frame_image(const CameraBuf *b) {
   return kj::mv(frame_image);
 }
 
-static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
-  uint8_t* thumbnail_buffer = NULL;
-  unsigned long thumbnail_len = 0;
-
-  unsigned char *row = (unsigned char *)malloc(b->rgb_width/4*3);
-
-  struct jpeg_compress_struct cinfo;
-  struct jpeg_error_mgr jerr;
-
-  cinfo.err = jpeg_std_error(&jerr);
-  jpeg_create_compress(&cinfo);
-  jpeg_mem_dest(&cinfo, &thumbnail_buffer, &thumbnail_len);
-
-  cinfo.image_width = b->rgb_width / 4;
-  cinfo.image_height = b->rgb_height / 4;
-  cinfo.input_components = 3;
-  cinfo.in_color_space = JCS_RGB;
-
-  jpeg_set_defaults(&cinfo);
-#ifndef __APPLE__
-  jpeg_set_quality(&cinfo, 50, true);
-  jpeg_start_compress(&cinfo, true);
-#else
-  jpeg_set_quality(&cinfo, 50, static_cast<boolean>(true) );
-  jpeg_start_compress(&cinfo, static_cast<boolean>(true) );
-#endif
-
-  JSAMPROW row_pointer[1];
-  const uint8_t *bgr_ptr = (const uint8_t *)b->cur_rgb_buf->addr;
-  for (int ii = 0; ii < b->rgb_height/4; ii+=1) {
-    for (int j = 0; j < b->rgb_width*3; j+=12) {
-      for (int k = 0; k < 3; k++) {
-        uint16_t dat = 0;
-        int i = ii * 4;
-        dat += bgr_ptr[b->rgb_stride*i + j + k];
-        dat += bgr_ptr[b->rgb_stride*i + j+3 + k];
-        dat += bgr_ptr[b->rgb_stride*(i+1) + j + k];
-        dat += bgr_ptr[b->rgb_stride*(i+1) + j+3 + k];
-        dat += bgr_ptr[b->rgb_stride*(i+2) + j + k];
-        dat += bgr_ptr[b->rgb_stride*(i+2) + j+3 + k];
-        dat += bgr_ptr[b->rgb_stride*(i+3) + j + k];
-        dat += bgr_ptr[b->rgb_stride*(i+3) + j+3 + k];
-        row[(j/4) + (2-k)] = dat/8;
-      }
-    }
-    row_pointer[0] = row;
-    jpeg_write_scanlines(&cinfo, row_pointer, 1);
-  }
-  jpeg_finish_compress(&cinfo);
-  jpeg_destroy_compress(&cinfo);
-  free(row);
-
-  MessageBuilder msg;
-  auto thumbnaild = msg.initEvent().initThumbnail();
-  thumbnaild.setFrameId(b->cur_frame_data.frame_id);
-  thumbnaild.setTimestampEof(b->cur_frame_data.timestamp_eof);
-  thumbnaild.setThumbnail(kj::arrayPtr((const uint8_t*)thumbnail_buffer, thumbnail_len));
-
-  pm->send("thumbnail", msg);
-  free(thumbnail_buffer);
-}
-
 float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip, int y_start, int y_end, int y_skip, int analog_gain, bool hist_ceil, bool hl_weighted) {
   const uint8_t *pix_ptr = b->cur_yuv_buf->y;
   uint32_t lum_binning[256] = {0};
@@ -334,10 +271,6 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
 
     callback(cameras, cs, cnt);
 
-    if (cs == &(cameras->road_cam) && cameras->pm && cnt % 100 == 3) {
-      // this takes 10ms???
-      publish_thumbnail(cameras->pm, &(cs->buf));
-    }
     cs->buf.release();
     ++cnt;
   }

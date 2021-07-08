@@ -3,7 +3,7 @@ Import('env', 'arch', 'cereal', 'messaging', 'common', 'visionipc', 'gpucommon')
 
 logger_lib = env.Library('logger', ["logger.cc"])
 libs = [logger_lib, common, cereal, messaging, visionipc,
-        'zmq', 'capnp', 'kj', 'z',
+        'zmq', 'jpeg', 'capnp', 'kj', 'z',
         'avformat', 'avcodec', 'swscale', 'avutil',
         'yuv', 'bz2', 'OpenCL']
 
