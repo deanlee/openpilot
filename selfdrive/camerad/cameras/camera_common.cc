@@ -216,7 +216,79 @@ kj::Array<uint8_t> get_frame_image(const CameraBuf *b) {
   return kj::mv(frame_image);
 }
 
-static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
+class JpegThumbnail {
+ public:
+  JpegThumbnail() : thumb_(nullptr), thumb_len_(0) {
+    cinfo.err = jpeg_std_error(&jerr);
+    jpeg_create_compress(&cinfo);
+    jpeg_mem_dest(&cinfo, &thumb_, &thumb_len_);
+    thumb_ = new unsigned char[1024*1024];
+    thumb_len_ = 1024*1024;
+  }
+
+  ~JpegThumbnail() {
+    jpeg_destroy_compress(&cinfo);
+    // free(thumb_);
+  }
+
+  std::tuple<const uint8_t *, u_long> Generate(const CameraBuf *b) {//const uint8_t *bgr_ptr, int width, int height, int stride) {
+    
+  //  uint8_t* thumbnail_buffer = NULL;
+  // unsigned long thumbnail_len = 0;
+  // unsigned char *row = (unsigned char *)malloc(b->rgb_width/4*3);
+  row_.resize(b->rgb_width/4*3 * 2);
+  unsigned char *row = row_.data();
+  // struct jpeg_compress_struct cinfo;
+  // struct jpeg_error_mgr jerr;
+
+  // cinfo.err = jpeg_std_error(&jerr);
+  // jpeg_create_compress(&cinfo);
+  
+  // printf("GENERATE thumbnail....******************* %zu\n\n", thumb_len_);
+
+  cinfo.image_width = b->rgb_width / 4;
+  cinfo.image_height = b->rgb_height / 4;
+  cinfo.input_components = 3;
+  cinfo.in_color_space = JCS_RGB;
+
+  jpeg_set_defaults(&cinfo);
+#ifndef __APPLE__
+  jpeg_set_quality(&cinfo, 50, true);
+  jpeg_start_compress(&cinfo, true);
+#else
+  jpeg_set_quality(&cinfo, 50, static_cast<boolean>(true) );
+  jpeg_start_compress(&cinfo, static_cast<boolean>(true) );
+#endif
+
+  JSAMPROW row_pointer[1];
+  const int stride = b->rgb_stride;
+  const int w = b->rgb_width*3;
+  const uint8_t *bgr_ptr = (const uint8_t *)b->cur_rgb_buf->addr;
+  for (int ii = 0; ii < b->rgb_height/4; ii+=1) {
+    for (int j = 0; j < w; j+=12) {
+      for (int k = 0; k < 3; k++) {
+        const uint8_t * d = &bgr_ptr[j+k];
+        row[(j/4) + (2-k)] = (d[0] + d[3] + d[stride] + d[stride +3] + d[stride*2] + d[stride*2 + 3]+d[stride*3]+d[stride*3 + 3])/8;
+      }
+    }
+    bgr_ptr += stride*4;
+    row_pointer[0] = row;
+    jpeg_write_scanlines(&cinfo, row_pointer, 1);
+  }
+  jpeg_finish_compress(&cinfo);
+  // jpeg_destroy_compress(&cinfo);
+  // free(row);
+   return {thumb_, thumb_len_};
+  }
+  std::vector<unsigned char> row_;
+  struct jpeg_compress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  unsigned char *thumb_;
+  size_t thumb_len_;
+};
+
+static void publish_thumbnail(PubMaster *pm, const CameraBuf *b, JpegThumbnail &thumb) {
+  double t1 = millis_since_boot();
   uint8_t* thumbnail_buffer = NULL;
   unsigned long thumbnail_len = 0;
 
@@ -267,7 +339,7 @@ static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
   jpeg_finish_compress(&cinfo);
   jpeg_destroy_compress(&cinfo);
   free(row);
-
+  double t2 = millis_since_boot();
   MessageBuilder msg;
   auto thumbnaild = msg.initEvent().initThumbnail();
   thumbnaild.setFrameId(b->cur_frame_data.frame_id);
@@ -276,6 +348,13 @@ static void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
 
   pm->send("thumbnail", msg);
   free(thumbnail_buffer);
+
+  double t3 = millis_since_boot();
+  thumb.Generate(b);
+  double t4 = millis_since_boot();
+  // assert(size == thumbnail_len);
+  // int ret = memcmp(d, thumbnail_buffer, size);
+  printf("******** %f %f\n", t2-t1, t4-t3);
 }
 
 float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip, int y_start, int y_end, int y_skip, int analog_gain, bool hist_ceil, bool hl_weighted) {
@@ -317,6 +396,8 @@ float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip
 
 extern ExitHandler do_exit;
 
+
+
 void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
   const char *thread_name = nullptr;
   if (cs == &cameras->road_cam) {
@@ -327,16 +408,16 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
     thread_name = "WideRoadCamera";
   }
   set_thread_name(thread_name);
-
+  JpegThumbnail tnumbnail;
   uint32_t cnt = 0;
   while (!do_exit) {
     if (!cs->buf.acquire()) continue;
 
     callback(cameras, cs, cnt);
 
-    if (cs == &(cameras->road_cam) && cameras->pm && cnt % 100 == 3) {
+    if (cameras->pm && cnt % 100 == 3) {
       // this takes 10ms???
-      publish_thumbnail(cameras->pm, &(cs->buf));
+      publish_thumbnail(cameras->pm, &(cs->buf), tnumbnail);
     }
     cs->buf.release();
     ++cnt;
