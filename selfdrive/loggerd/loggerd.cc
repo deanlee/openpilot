@@ -221,7 +221,14 @@ static void write_thumbnail(LoggerHandle *lh, uint32_t frame_id, uint64_t tm, co
 
   auto bytes = msg.toBytes();
   lh_log(lh, bytes.begin(), bytes.size(), true);
-  util::write_file("/home/deanlee/thumbnail1.jpeg", thumbnail_buffer, thumbnail_len);
+  printf("*****************here %zu \n\n", thumbnail_len);
+  // char d[2] = {};
+  // util::write_file("/home/deanlee/dd.jpeg", d, 2);
+  FILE *f = fopen("/home/deanlee/thumb.jpg", "wb");
+  fwrite(thumbnail_buffer, thumbnail_len, sizeof(uint8_t), f);
+  fclose(f);
+
+  // assert(ret == 0);
   free(thumbnail_buffer);
 }
 
@@ -351,9 +358,9 @@ void encoder_thread(int cam_idx) {
         }
       }
 
-      if (cnt % 100 == 3) {
+       if (cnt % 10 == 0) {
         write_thumbnail(lh, extra.frame_id, extra.timestamp_eof, (const uint8_t*)buf->addr, buf->width, buf->height, buf->stride);
-      }
+       }
 
       cnt++;
     }
