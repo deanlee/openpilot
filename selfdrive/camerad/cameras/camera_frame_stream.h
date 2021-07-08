@@ -11,7 +11,7 @@
 
 #define FRAME_BUF_COUNT 16
 
-typedef struct CameraState {
+ struct CameraState {
   int camera_num;
   CameraInfo ci;
 

@@ -13,6 +13,8 @@
 
 #include "cereal/gen/cpp/log.capnp.h"
 
+#include "selfdrive/camerad/cameras/camera_common.h"
+
 class FileReader : public QObject {
   Q_OBJECT
 
@@ -30,14 +32,6 @@ private:
   QNetworkReply *reply_ = nullptr;
   QUrl url_;
 };
-
-enum CameraType {
-  RoadCam = 0,
-  DriverCam,
-  WideRoadCam
-};
-const CameraType ALL_CAMERAS[] = {RoadCam, DriverCam, WideRoadCam};
-const int MAX_CAMERAS = std::size(ALL_CAMERAS);
 
 struct EncodeIdx {
   int segmentNum;

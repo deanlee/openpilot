@@ -44,6 +44,21 @@ const bool env_send_wide_road = getenv("SEND_WIDE_ROAD") != NULL;
 
 typedef void (*release_cb)(void *cookie, int buf_idx);
 
+enum CameraType{
+  RoadCam = 0,
+  DriverCam,
+  WideRoadCam,
+  MAX_CAMERAS
+};
+
+const CameraType ALL_CAMERAS[] = {RoadCam, DriverCam, WideRoadCam};
+
+class CameraBase {
+public:
+  CameraBase(CameraType type) cam_type(type) {}
+  CameraType cam_type;
+};
+
 typedef struct CameraInfo {
   int frame_width, frame_height;
   int frame_stride;
