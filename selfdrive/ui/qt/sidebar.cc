@@ -7,32 +7,35 @@
 #include "selfdrive/hardware/hw.h"
 #include "selfdrive/ui/qt/util.h"
 
-void Sidebar::drawMetric(QPainter &p, const QString &label, const QString &val, QColor c, int y) {
-  const QRect rect = {30, y, 240, val.isEmpty() ? (label.contains("\n") ? 124 : 100) : 148};
 
-  p.setPen(Qt::NoPen);
-  p.setBrush(QBrush(c));
-  p.setClipRect(rect.x() + 6, rect.y(), 18, rect.height(), Qt::ClipOperation::ReplaceClip);
-  p.drawRoundedRect(QRect(rect.x() + 6, rect.y() + 6, 100, rect.height() - 12), 10, 10);
-  p.setClipping(false);
+void Sidebar::drawMetric(QPainter &painter, const QString &label, const QString &val, QColor c, int y) {
+  const QString key = QString("sidebar-metric-%1%2%3").arg(label).arg(val).arg(c.valueF());
+  QRect rect = {30, y, 240, val.isEmpty() ? (label.contains("\n") ? 124 : 100) : 148};
+  cachePaint(key, painter, rect, [=](QPainter &p, QRect rect) {
+    p.setPen(Qt::NoPen);
+    p.setBrush(QBrush(c));
+    p.setClipRect(rect.x() + 6, rect.y(), 18, rect.height(), Qt::ClipOperation::ReplaceClip);
+    p.drawRoundedRect(QRect(rect.x() + 6, rect.y() + 6, 100, rect.height() - 12), 10, 10);
+    p.setClipping(false);
 
-  QPen pen = QPen(QColor(0xff, 0xff, 0xff, 0x55));
-  pen.setWidth(2);
-  p.setPen(pen);
-  p.setBrush(Qt::NoBrush);
-  p.drawRoundedRect(rect, 20, 20);
+    QPen pen = QPen(QColor(0xff, 0xff, 0xff, 0x55));
+    pen.setWidth(2);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(rect, 20, 20);
 
-  p.setPen(QColor(0xff, 0xff, 0xff));
-  if (val.isEmpty()) {
-    configFont(p, "Open Sans", 35, "Bold");
-    const QRect r = QRect(rect.x() + 35, rect.y(), rect.width() - 50, rect.height());
-    p.drawText(r, Qt::AlignCenter, label);
-  } else {
-    configFont(p, "Open Sans", 58, "Bold");
-    p.drawText(rect.x() + 50, rect.y() + 71, val);
-    configFont(p, "Open Sans", 35, "Regular");
-    p.drawText(rect.x() + 50, rect.y() + 50 + 77, label);
-  }
+    p.setPen(QColor(0xff, 0xff, 0xff));
+    if (val.isEmpty()) {
+      configFont(p, "Open Sans", 35, "Bold");
+      const QRect r = QRect(rect.x() + 35, rect.y(), rect.width() - 50, rect.height());
+      p.drawText(r, Qt::AlignCenter, label);
+    } else {
+      configFont(p, "Open Sans", 58, "Bold");
+      p.drawText(rect.x() + 50, rect.y() + 71, val);
+      configFont(p, "Open Sans", 35, "Regular");
+      p.drawText(rect.x() + 50, rect.y() + 50 + 77, label);
+    }
+  });
 }
 
 Sidebar::Sidebar(QWidget *parent) : QFrame(parent) {
@@ -93,9 +96,9 @@ void Sidebar::updateState(const UIState &s) {
   setProperty("pandaStatus", pandaStatus);
 }
 
+
 void Sidebar::paintEvent(QPaintEvent *event) {
   QPainter p(this);
-  p.setPen(Qt::NoPen);
   p.setRenderHint(QPainter::Antialiasing);
 
   // static imgs
@@ -105,13 +108,17 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.drawImage(60, 1080 - 180 - 40, home_img);
 
   // network
-  int x = 58;
-  const QColor gray(0x54, 0x54, 0x54);
-  for (int i = 0; i < 5; ++i) {
-    p.setBrush(i < net_strength ? Qt::white : gray);
-    p.drawEllipse(x, 196, 27, 27);
-    x += 37;
-  }
+  QRect rc = {58, 196, 290, 35};
+  cachePaint(QString("sidebarNetStrength_%1").arg(net_strength), p, rc, [=](QPainter &p, QRect rc) {
+    p.setPen(Qt::NoPen);
+    int x = 58;
+    const QColor gray(0x54, 0x54, 0x54);
+    for (int i = 0; i < 5; ++i) {
+      p.setBrush(i < net_strength ? Qt::white : gray);
+      p.drawEllipse(x, 196, 27, 27);
+      x += 37;
+    }
+  });
 
   configFont(p, "Open Sans", 35, "Regular");
   p.setPen(QColor(0xff, 0xff, 0xff));
