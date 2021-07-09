@@ -111,11 +111,10 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   QRect rc = {58, 196, 290, 35};
   cachePaint(QString("sidebarNetStrength_%1").arg(net_strength), p, rc, [=](QPainter &p, QRect rc) {
     p.setPen(Qt::NoPen);
-    int x = 58;
     const QColor gray(0x54, 0x54, 0x54);
     for (int i = 0; i < 5; ++i) {
       p.setBrush(i < net_strength ? Qt::white : gray);
-      p.drawEllipse(x, 196, 27, 27);
+      p.drawEllipse(rc.left(), rc.top(), 27, 27);
       x += 37;
     }
   });
