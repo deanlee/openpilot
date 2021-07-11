@@ -74,8 +74,12 @@ void MainWindow::paintEvent(QPaintEvent* e) {
   printf("MainWindow::paintEvent %d %d\n", e->rect().width(), e->rect().height());
 }
 
+#include <QPixmapCache>
+
 // MainWindow
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
+  printf("%d\n", QPixmapCache::cacheLimit());
+  return;
   // setAutoFillBackground(true);
   // setPalette(Qt::white);
   // auto fmt = QSurfaceFormat::defaultFormat();
