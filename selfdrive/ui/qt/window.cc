@@ -5,9 +5,17 @@
 #include "selfdrive/hardware/hw.h"
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 
+Scroll::Scroll(QWidget *parent) : QAbstractScrollArea(parent) {
+
+}
+
+
+// TestLabel
+
 TestLabel::TestLabel(int idx, const QString &text, QWidget *parent) : QLabel(text, parent) {
-  setAutoFillBackground(true);
-  setPalette(Qt::blue);
+  // setAutoFillBackground(true);
+  // setPalette(Qt::blue);
+  // setAttribute(Qt::WA_OpaquePaintEvent);
   id_ = idx;
 }
 
@@ -22,8 +30,9 @@ void TestLabel::paintEvent(QPaintEvent* e) {
 }
 
 TestWidget::TestWidget(QWidget *parent) : QWidget(parent) {
-   setAutoFillBackground(true);
-    setPalette(Qt::white);
+  //  setAutoFillBackground(true);
+    // setPalette(Qt::white);
+    setAttribute(Qt::WA_OpaquePaintEvent);
   QVBoxLayout *v = new QVBoxLayout(this);
   for (int i = 0; i < 80; ++i) {
     v->addWidget(new TestLabel(i, "label", this));

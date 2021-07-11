@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QAbstractScrollArea>
 #include <QStackedLayout>
 #include <QWidget>
 #include <QLabel>
@@ -7,6 +8,12 @@
 #include "selfdrive/ui/qt/home.h"
 #include "selfdrive/ui/qt/offroad/onboarding.h"
 #include "selfdrive/ui/qt/offroad/settings.h"
+
+class Scroll : public QAbstractScrollArea {
+  Q_OBJECT
+public:
+  explicit Scroll(QWidget *parent = 0);  
+};
 class TestLabel : public QLabel {
   Q_OBJECT
 public:
