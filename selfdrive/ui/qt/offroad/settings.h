@@ -18,6 +18,7 @@ class DevicePanel : public QWidget {
 public:
   explicit DevicePanel(QWidget* parent = nullptr);
   void paintEvent(QPaintEvent*) override;
+  QSize sizeHint() const override;
 signals:
   void reviewTrainingGuide();
   void showDriverView();
@@ -49,7 +50,7 @@ private:
   QFileSystemWatcher *fs_watch;
 };
 
-class SettingsWindow : public QFrame {
+class SettingsWindow : public QWidget {
   Q_OBJECT
 
 public:

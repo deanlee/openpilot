@@ -101,7 +101,7 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 
   QString dongle = QString::fromStdString(params.get("DongleId", false));
   main_layout->addWidget(new LabelControl("Dongle ID", dongle));
-  main_layout->addWidget(horizontal_line());
+  // main_layout->addWidget(horizontal_line());
 
   QString serial = QString::fromStdString(params.get("HardwareSerial", false));
   main_layout->addWidget(new LabelControl("Serial", serial));
@@ -161,7 +161,7 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 
   for (auto btn : {dcamBtn, resetCalibBtn, retrainingBtn, uninstallBtn}) {
     if (btn) {
-      main_layout->addWidget(horizontal_line());
+      // main_layout->addWidget(horizontal_line());
       connect(parent, SIGNAL(offroadTransition(bool)), btn, SLOT(setEnabled(bool)));
       main_layout->addWidget(btn);
     }
@@ -194,6 +194,12 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 
 void DevicePanel::paintEvent(QPaintEvent* e) {
   printf("DevicePanel::paintEvent %d, %d\n", e->rect().width(), e->rect().height());
+}
+
+QSize DevicePanel::sizeHint() const {
+  QSize size = QWidget::sizeHint();
+  printf("DevicePanel::sizeHint %d, %d\n", size.width(), size.height());
+  return {960, 1409};
 }
 
 SoftwarePanel::SoftwarePanel(QWidget* parent) : QWidget(parent) {
@@ -260,31 +266,31 @@ void SoftwarePanel::updateLabels() {
 
 QWidget * network_panel(QWidget * parent) {
 #ifdef QCOM
-  QWidget *w = new QWidget(parent);
-  QVBoxLayout *layout = new QVBoxLayout(w);
-  layout->setSpacing(30);
+  // QWidget *w = new QWidget(parent);
+  // QVBoxLayout *layout = new QVBoxLayout(w);
+  // layout->setSpacing(30);
 
-  // wifi + tethering buttons
-  auto wifiBtn = new ButtonControl("WiFi Settings", "OPEN");
-  QObject::connect(wifiBtn, &ButtonControl::released, [=]() { HardwareEon::launch_wifi(); });
-  layout->addWidget(wifiBtn);
-  layout->addWidget(horizontal_line());
+  // // wifi + tethering buttons
+  // auto wifiBtn = new ButtonControl("WiFi Settings", "OPEN");
+  // QObject::connect(wifiBtn, &ButtonControl::released, [=]() { HardwareEon::launch_wifi(); });
+  // layout->addWidget(wifiBtn);
+  // layout->addWidget(horizontal_line());
 
-  auto tetheringBtn = new ButtonControl("Tethering Settings", "OPEN");
-  QObject::connect(tetheringBtn, &ButtonControl::released, [=]() { HardwareEon::launch_tethering(); });
-  layout->addWidget(tetheringBtn);
-  layout->addWidget(horizontal_line());
+  // auto tetheringBtn = new ButtonControl("Tethering Settings", "OPEN");
+  // QObject::connect(tetheringBtn, &ButtonControl::released, [=]() { HardwareEon::launch_tethering(); });
+  // layout->addWidget(tetheringBtn);
+  // layout->addWidget(horizontal_line());
 
-  // SSH key management
-  layout->addWidget(new SshToggle());
-  layout->addWidget(horizontal_line());
-  layout->addWidget(new SshControl());
+  // // SSH key management
+  // layout->addWidget(new SshToggle());
+  // layout->addWidget(horizontal_line());
+  // layout->addWidget(new SshControl());
 
-  layout->addStretch(1);
+  // layout->addStretch(1);
 #else
   Networking *w = new Networking(parent);
 #endif
-  return w;
+  return nullptr;
 }
 
 void SettingsWindow::showEvent(QShowEvent *event) {
@@ -292,7 +298,7 @@ void SettingsWindow::showEvent(QShowEvent *event) {
   nav_btns->buttons()[0]->setChecked(true);
 }
 
-SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
+SettingsWindow::SettingsWindow(QWidget *parent) : QWidget(parent) {
 
   // setup two main layouts
   sidebar_widget = new QWidget;
@@ -328,7 +334,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
   QList<QPair<QString, QWidget *>> panels = {
     {"Device", device},
-    {"Network", network_panel(this)},
+    // {"Network", network_panel(this)},
     {"Toggles", new TogglesPanel(this)},
     {"Software", new SoftwarePanel(this)},
   };
@@ -400,7 +406,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
 
 void SettingsWindow::hideEvent(QHideEvent *event) {
 #ifdef QCOM
-  HardwareEon::close_activities();
+  // HardwareEon::close_activities();
 #endif
 }
 

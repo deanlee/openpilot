@@ -75,6 +75,7 @@ void initApp() {
   setQtSurfaceFormat();
   if (Hardware::EON()) {
     QApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    QApplication::setAttribute(Qt::AA_UseOpenGLES);
   }
 }
 

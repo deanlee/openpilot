@@ -38,11 +38,11 @@ protected:
   AbstractControl(const QString &title, const QString &desc = "", const QString &icon = "", QWidget *parent = nullptr);
   void hideEvent(QHideEvent *e) override;
 
-  QSize minimumSizeHint() const override {
-    QSize size = QFrame::minimumSizeHint();
-    size.setHeight(120);
-    return size;
-  };
+  // QSize minimumSizeHint() const override {
+  //   QSize size = QFrame::minimumSizeHint();
+  //   size.setHeight(120);
+  //   return size;
+  // };
 
   QHBoxLayout *hlayout;
   QPushButton *title_label;
