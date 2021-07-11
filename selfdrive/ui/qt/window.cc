@@ -3,8 +3,68 @@
 #include <QFontDatabase>
 
 #include "selfdrive/hardware/hw.h"
+#include "selfdrive/ui/qt/widgets/scrollview.h"
 
+TestLabel::TestLabel(int idx, const QString &text, QWidget *parent) : QLabel(text, parent) {
+  setAutoFillBackground(true);
+  setPalette(Qt::blue);
+  id_ = idx;
+}
+
+QSize TestLabel::sizeHint() const {
+  QSize sz = QWidget::sizeHint();
+  printf("TestLabel::sizeHint %d (%d %d)\n", id_, sz.width(), sz.height());
+  return sz;
+}
+
+void TestLabel::paintEvent(QPaintEvent* e) {
+  printf("TestLabel::paintEvent %d (%d %d)\n", id_, e->rect().width(), e->rect().height());
+}
+
+TestWidget::TestWidget(QWidget *parent) : QWidget(parent) {
+   setAutoFillBackground(true);
+    setPalette(Qt::white);
+  QVBoxLayout *v = new QVBoxLayout(this);
+  for (int i = 0; i < 80; ++i) {
+    v->addWidget(new TestLabel(i, "label", this));
+  }
+}
+
+// TestWidget
+
+QSize TestWidget::sizeHint() const {
+  QSize sz = QWidget::sizeHint();
+  printf("TestWidget::sizeHint %d %d\n", sz.width(), sz.height());
+  return sz;
+}
+
+void TestWidget::paintEvent(QPaintEvent* e) {
+  printf("TestWidget::paintEvent %d %d\n", e->rect().width(), e->rect().height());
+}
+
+
+QSize MainWindow::sizeHint() const {
+  QSize sz = QWidget::sizeHint();
+  printf("MainWindow::sizeHint %d %d\n", sz.width(), sz.height());
+  return sz;
+}
+
+void MainWindow::paintEvent(QPaintEvent* e) {
+  printf("MainWindow::paintEvent %d %d\n", e->rect().width(), e->rect().height());
+}
+
+// MainWindow
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
+  setAutoFillBackground(true);
+    setPalette(Qt::red);
+  {
+    QVBoxLayout *v = new QVBoxLayout(this);
+    v->setMargin(50);
+    TestWidget *w = new TestWidget(this);
+    ScrollView *panel_frame = new ScrollView(w, this);
+    v->addWidget(panel_frame);
+    return;
+  }
   main_layout = new QStackedLayout(this);
   main_layout->setMargin(0);
 
@@ -75,9 +135,9 @@ void MainWindow::closeSettings() {
 
 bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
   // wake screen on tap
-  if (event->type() == QEvent::MouseButtonPress) {
-    device.setAwake(true, true);
-  }
+  // if (event->type() == QEvent::MouseButtonPress) {
+  //   device.setAwake(true, true);
+  // }
 
 #ifdef QCOM
   // filter out touches while in android activity
@@ -89,5 +149,6 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
   //   }
   // }
 #endif
-  return false;
+  // return false;
+  return QWidget::eventFilter(obj, event);
 }
