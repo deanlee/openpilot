@@ -34,13 +34,21 @@ void TestLabel::paintEvent(QPaintEvent* e) {
 
 TestWidget::TestWidget(QWidget *parent) : QWidget(parent) {
    setAutoFillBackground(true);
-    setBackgroundRole(QPalette::Window);
+   QPalette pal(Qt::red);
+    setBackgroundRole(QPalette::Button);
+    // setWindowFlags(Qt::FramelessWindowHint);
     // setAttribute(Qt::WA_OpaquePaintEvent);
     // setAttribute(Qt::WA_StaticContents);
-  QVBoxLayout *v = new QVBoxLayout(this);
-  for (int i = 0; i < 80; ++i) {
-    v->addWidget(new TestLabel(i, QString("label%1").arg(i), this));
-  }
+  // QVBoxLayout *v = new QVBoxLayout(this);
+  // for (int i = 0; i < 80; ++i) {
+  //   v->addWidget(new TestLabel(i, QString("label%1").arg(i), this));
+  // }
+  setFixedSize(500, 3042);
+  QTimer *t = new QTimer(this);
+  t->start(100);
+  t->callOnTimeout([=]() {
+    this->scroll(0, -10);
+  });
 }
 
 // TestWidget
@@ -48,7 +56,7 @@ TestWidget::TestWidget(QWidget *parent) : QWidget(parent) {
 QSize TestWidget::sizeHint() const {
   QSize sz = QWidget::sizeHint();
   printf("TestWidget::sizeHint %d %d\n", sz.width(), sz.height());
-  return sz;
+  return {500, 3042};
 }
 
 void TestWidget::paintEvent(QPaintEvent* e) {
@@ -73,12 +81,15 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   // auto fmt = QSurfaceFormat::defaultFormat();
   // printf("fmt %d %d \n**\n", fmt.renderableType(), fmt.swapBehavior());
   // return;
+  // setAttribute(Qt::WA_TranslucentBackground);
+  // setWindowFlags(Qt::FramelessWindowHint);
   {
     QVBoxLayout *v = new QVBoxLayout(this);
     v->setMargin(50);
     TestWidget *w = new TestWidget(this);
-    ScrollView *panel_frame = new ScrollView(w, this);
-    v->addWidget(panel_frame);
+    v->addWidget(w);
+    // ScrollView *panel_frame = new ScrollView(w, this);
+    // v->addWidget(panel_frame);
     return;
   }
   main_layout = new QStackedLayout(this);
