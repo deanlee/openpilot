@@ -16,6 +16,8 @@ TestLabel::TestLabel(int idx, const QString &text, QWidget *parent) : QLabel(tex
   // setAutoFillBackground(true);
   // setPalette(Qt::blue);
   // setAttribute(Qt::WA_OpaquePaintEvent);
+      // setAttribute(Qt::WA_OpaquePaintEvent);
+    // setAttribute(Qt::WA_StaticContents);
   id_ = idx;
 }
 
@@ -26,16 +28,18 @@ QSize TestLabel::sizeHint() const {
 }
 
 void TestLabel::paintEvent(QPaintEvent* e) {
-  printf("TestLabel::paintEvent %d (%d %d)\n", id_, e->rect().width(), e->rect().height());
+  // printf("TestLabel::paintEvent %d (%d %d)\n", id_, e->rect().width(), e->rect().height());
+  QLabel::paintEvent(e);
 }
 
 TestWidget::TestWidget(QWidget *parent) : QWidget(parent) {
-  //  setAutoFillBackground(true);
-    // setPalette(Qt::white);
-    setAttribute(Qt::WA_OpaquePaintEvent);
+   setAutoFillBackground(true);
+    setBackgroundRole(QPalette::Window);
+    // setAttribute(Qt::WA_OpaquePaintEvent);
+    // setAttribute(Qt::WA_StaticContents);
   QVBoxLayout *v = new QVBoxLayout(this);
   for (int i = 0; i < 80; ++i) {
-    v->addWidget(new TestLabel(i, "label", this));
+    v->addWidget(new TestLabel(i, QString("label%1").arg(i), this));
   }
 }
 
@@ -64,8 +68,11 @@ void MainWindow::paintEvent(QPaintEvent* e) {
 
 // MainWindow
 MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
-  setAutoFillBackground(true);
-    setPalette(Qt::red);
+  // setAutoFillBackground(true);
+  // setPalette(Qt::white);
+  // auto fmt = QSurfaceFormat::defaultFormat();
+  // printf("fmt %d %d \n**\n", fmt.renderableType(), fmt.swapBehavior());
+  // return;
   {
     QVBoxLayout *v = new QVBoxLayout(this);
     v->setMargin(50);

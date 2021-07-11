@@ -64,7 +64,7 @@ void setQtSurfaceFormat() {
   fmt.setProfile(QSurfaceFormat::OpenGLContextProfile::CoreProfile);
   fmt.setRenderableType(QSurfaceFormat::OpenGL);
 #else
-  fmt.setRenderableType(QSurfaceFormat::OpenGLES);
+  // fmt.setRenderableType(QSurfaceFormat::OpenGLES);
 #endif
   QSurfaceFormat::setDefaultFormat(fmt);
 }

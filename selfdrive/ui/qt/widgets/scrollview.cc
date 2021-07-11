@@ -8,6 +8,12 @@ ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
   setBackgroundRole(QPalette::Dark);
   setWidget(w);
   setWidgetResizable(true);
+   setAutoFillBackground(true);
+    setBackgroundRole(QPalette::Window);
+
+     viewport()->setAutoFillBackground(true);
+    // viewport()->setBackgroundRole(QPalette::Window);
+    viewport()->setPalette(Qt::blue);
 
   // setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   // setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -55,7 +61,8 @@ void ScrollView::paintEvent(QPaintEvent *event) {
 }
 
 bool ScrollView::viewportEvent(QEvent *event) {
-  return QScrollArea::viewportEvent(event);
+  // return QScrollArea::viewportEvent(event);
+  return true;
 }
 
 void ScrollView::scrollContentsBy(int dx, int dy) {
