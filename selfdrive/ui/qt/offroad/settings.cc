@@ -196,6 +196,11 @@ void DevicePanel::paintEvent(QPaintEvent* e) {
   printf("DevicePanel::paintEvent %d, %d\n", e->rect().width(), e->rect().height());
 }
 
+bool DevicePanel::eventFilter(QObject *o, QEvent *e) {
+  
+  return QWidget::eventFilter(o, e);
+}
+
 QSize DevicePanel::sizeHint() const {
   QSize size = QWidget::sizeHint();
   printf("DevicePanel::sizeHint %d, %d\n", size.width(), size.height());
@@ -289,6 +294,7 @@ QWidget * network_panel(QWidget * parent) {
   // layout->addStretch(1);
 #else
   Networking *w = new Networking(parent);
+  return w;
 #endif
   return nullptr;
 }

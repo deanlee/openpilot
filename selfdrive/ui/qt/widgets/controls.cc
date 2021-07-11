@@ -19,8 +19,9 @@ QFrame *horizontal_line(QWidget *parent) {
 
 AbstractControl::AbstractControl(const QString &title, const QString &desc, const QString &icon, QWidget *parent) : QFrame(parent) {
   setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-  setAutoFillBackground(true);
-    setPalette(Qt::red);
+  // setAutoFillBackground(true);
+    // setPalette(Qt::red);
+    setAttribute(Qt::WA_OpaquePaintEvent);
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setMargin(0);
 
@@ -68,6 +69,11 @@ void AbstractControl::hideEvent(QHideEvent *e) {
   }
 }
 
+QSize AbstractControl::sizeHint() const {
+  QSize sz = QFrame::sizeHint();
+  printf("AbstractControl::sizeHint %d %d\n", sz.width(), sz.height());
+  return {500, 300};
+}
 // controls
 
 ButtonControl::ButtonControl(const QString &title, const QString &text, const QString &desc, QWidget *parent) : AbstractControl(title, desc, "", parent) {

@@ -19,6 +19,7 @@ public:
   explicit DevicePanel(QWidget* parent = nullptr);
   void paintEvent(QPaintEvent*) override;
   QSize sizeHint() const override;
+  bool eventFilter(QObject *o, QEvent *e) override;  
 signals:
   void reviewTrainingGuide();
   void showDriverView();
