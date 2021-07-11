@@ -18,6 +18,8 @@ QFrame *horizontal_line(QWidget *parent) {
 }
 
 AbstractControl::AbstractControl(const QString &title, const QString &desc, const QString &icon, QWidget *parent) : QFrame(parent) {
+  setAutoFillBackground(true);
+    setPalette(Qt::red);
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setMargin(0);
 
@@ -47,7 +49,7 @@ AbstractControl::AbstractControl(const QString &title, const QString &desc, cons
     description->setContentsMargins(40, 20, 40, 20);
     description->setStyleSheet("font-size: 40px; color:grey");
     description->setWordWrap(true);
-    description->setVisible(false);
+    description->setVisible(true);
     main_layout->addWidget(description);
 
     connect(title_label, &QPushButton::clicked, [=]() {

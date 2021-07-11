@@ -17,6 +17,7 @@ class DevicePanel : public QWidget {
   Q_OBJECT
 public:
   explicit DevicePanel(QWidget* parent = nullptr);
+  void paintEvent(QPaintEvent*) override;
 signals:
   void reviewTrainingGuide();
   void showDriverView();
@@ -57,6 +58,7 @@ public:
 protected:
   void hideEvent(QHideEvent *event) override;
   void showEvent(QShowEvent *event) override;
+  void paintEvent(QPaintEvent*) override;
 
 signals:
   void closeSettings();

@@ -192,6 +192,10 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
   main_layout->addLayout(power_layout);
 }
 
+void DevicePanel::paintEvent(QPaintEvent* e) {
+  printf("DevicePanel::paintEvent %d, %d\n", e->rect().width(), e->rect().height());
+}
+
 SoftwarePanel::SoftwarePanel(QWidget* parent) : QWidget(parent) {
   gitBranchLbl = new LabelControl("Git Branch");
   gitCommitLbl = new LabelControl("Git Commit");
@@ -295,10 +299,13 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   QVBoxLayout *sidebar_layout = new QVBoxLayout(sidebar_widget);
   sidebar_layout->setMargin(0);
   panel_widget = new QStackedWidget();
-  panel_widget->setStyleSheet(R"(
+  panel_widget->setStyleSheet(R"( QStackedWidget {
     border-radius: 30px;
     background-color: #292929;
+    }
   )");
+  // panel_widget->setPalette(Qt::black);
+  // panel_widget->setAutoFillBackground(true);
 
   // close button
   QPushButton *close_btn = new QPushButton("X");
@@ -359,6 +366,9 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     sidebar_layout->addWidget(btn, 0, Qt::AlignRight);
 
     panel->setContentsMargins(50, 25, 50, 25);
+    // panel->setAttribute(Qt::WA_OpaquePaintEvent);
+    panel->setAutoFillBackground(true);
+    panel->setPalette(Qt::white);
 
     ScrollView *panel_frame = new ScrollView(panel, this);
     panel_widget->addWidget(panel_frame);
@@ -392,4 +402,8 @@ void SettingsWindow::hideEvent(QHideEvent *event) {
 #ifdef QCOM
   HardwareEon::close_activities();
 #endif
+}
+
+void SettingsWindow::paintEvent(QPaintEvent* e) {
+  printf("SettingsWindow::paintEvent %d, %d\n", e->rect().width(), e->rect().height());
 }
