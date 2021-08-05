@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sstream>
 #include "selfdrive/common/timing.h"
 
 #define CLOUDLOG_DEBUG 10
@@ -46,10 +47,22 @@ void cloudlog_bind(const char* k, const char* v);
   }                                                 \
 }
 
-#define LOGD(fmt, ...) cloudlog(CLOUDLOG_DEBUG, fmt, ## __VA_ARGS__)
-#define LOG(fmt, ...) cloudlog(CLOUDLOG_INFO, fmt, ## __VA_ARGS__)
-#define LOGW(fmt, ...) cloudlog(CLOUDLOG_WARNING, fmt, ## __VA_ARGS__)
-#define LOGE(fmt, ...) cloudlog(CLOUDLOG_ERROR, fmt, ## __VA_ARGS__)
+class ScopedLogger : public std::stringstream {
+public:
+  ScopedLogger(int level, const char* fn, int line, const char* func) : level_(level), fn_(fn), line_(line), func_(func) {
+  }
+  ~ScopedLogger(){ 
+    cloudlog_e(level_, fn_, line_, func_, "%s", str().c_str());
+  }
+private:
+  int level_, line_;
+  const char *fn_, *func_;
+};
+
+#define LOGD(What) ScopedLogger(CLOUDLOG_DEBUG, __FILE__, __LINE__, __func__) << What
+#define LOG(What) ScopedLogger(CLOUDLOG_INFO, __FILE__, __LINE__, __func__) << What
+#define LOGW(What) ScopedLogger(CLOUDLOG_WARNING, __FILE__, __LINE__, __func__) << What
+#define LOGE(What) ScopedLogger(CLOUDLOG_ERROR, __FILE__, __LINE__, __func__) << What
 
 #define LOGD_100(fmt, ...) cloudlog_rl(2, 100, CLOUDLOG_DEBUG, fmt, ## __VA_ARGS__)
 #define LOG_100(fmt, ...) cloudlog_rl(2, 100, CLOUDLOG_INFO, fmt, ## __VA_ARGS__)

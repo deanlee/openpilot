@@ -267,7 +267,7 @@ static void set_exposure(CameraState *s, float exposure_frac, float gain_frac) {
       s->cur_gain = gain;
       s->cur_integ_lines = integ_lines;
     } else {
-      LOGE("camera %d apply_exposure err: %d", s->camera_num, err);
+      LOGE("camera" << s->camera_num << "apply_exposure err:" << err);
     }
   }
 
@@ -1131,7 +1131,7 @@ void cameras_run(MultiCameraState *s) {
     int ret = poll(fds, std::size(fds), 1000);
     if (ret < 0) {
       if (errno == EINTR || errno == EAGAIN) continue;
-      LOGE("poll failed (%d - %d)", ret, errno);
+      LOGE("poll failed (" << ret << "-" << errno << ")");
       break;
     }
 
@@ -1180,7 +1180,7 @@ void cameras_run(MultiCameraState *s) {
         c->frame_metadata_idx = (c->frame_metadata_idx + 1) % METADATA_BUF_COUNT;
 
       } else if (ev.type == ISP_EVENT_ERROR) {
-        LOGE("ISP_EVENT_ERROR! err type: 0x%08x", isp_event_data->u.error_info.err_type);
+        LOGE("ISP_EVENT_ERROR! err type:" << isp_event_data->u.error_info.err_type);
       }
     }
   }

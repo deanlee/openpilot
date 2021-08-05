@@ -32,7 +32,7 @@ class BZFile {
     int bzerror;
     BZ2_bzWriteClose(&bzerror, bz_file, 0, nullptr, nullptr);
     if (bzerror != BZ_OK) {
-      LOGE("BZ2_bzWriteClose error, bzerror=%d", bzerror);
+      LOGE("BZ2_bzWriteClose error, bzerror=" << bzerror);
     }
     int err = fclose(file);
     assert(err == 0);
@@ -41,7 +41,7 @@ class BZFile {
     int bzerror;
     BZ2_bzWrite(&bzerror, bz_file, data, size);
     if (bzerror != BZ_OK && !error_logged) {
-      LOGE("BZ2_bzWrite error, bzerror=%d", bzerror);
+      LOGE("BZ2_bzWrite error, bzerror=" << bzerror);
       error_logged = true;
     }
   }

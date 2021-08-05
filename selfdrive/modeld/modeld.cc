@@ -161,7 +161,7 @@ int main(int argc, char **argv) {
   // vipc_client.connected is false only when do_exit is true
   if (vipc_client.connected) {
     const VisionBuf *b = &vipc_client.buffers[0];
-    LOGW("connected with buffer size: %d (%d x %d)", b->len, b->width, b->height);
+    LOGW("connected with buffer size: " << b->len << "(" << b->width << "x" << b->height << ")");
     run_model(model, vipc_client);
   }
 

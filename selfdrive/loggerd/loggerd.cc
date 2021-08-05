@@ -180,7 +180,7 @@ void encoder_thread(int cam_idx) {
     // init encoders
     if (encoders.empty()) {
       VisionBuf buf_info = vipc_client.buffers[0];
-      LOGD("encoder init %dx%d", buf_info.width, buf_info.height);
+      LOGD("encoder init " << buf_info.width << "x" << buf_info.height);
 
       // main encoder
       encoders.push_back(new Encoder(cam_info.filename, buf_info.width, buf_info.height,
@@ -216,7 +216,7 @@ void encoder_thread(int cam_idx) {
 
         // rotate the encoder if the logger is on a newer segment
         if (rotate_state.should_rotate) {
-          LOGW("camera %d rotate encoder to %s", cam_idx, s.segment_path);
+          LOGW("camera " << cam_idx << " rotate encoder to " <<  s.segment_path);
 
           if (!rotate_state.initialized) {
             rotate_state.last_rotate_frame_id = extra.frame_id - 1;
@@ -457,7 +457,7 @@ int main(int argc, char** argv) {
 
       int err = logger_next(&s.logger, LOG_ROOT.c_str(), s.segment_path, sizeof(s.segment_path), &s.rotate_segment);
       assert(err == 0);
-      LOGW((s.logger.part == 0) ? "logging to %s" : "rotated to %s", s.segment_path);
+      LOGW((s.logger.part == 0 ? "logging to" : "rotated to") <<  s.segment_path);
 
       // rotate encoders
       for (auto &r : s.rotate_state) r.rotate();

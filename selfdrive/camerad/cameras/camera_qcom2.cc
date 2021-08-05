@@ -1111,7 +1111,7 @@ void cameras_run(MultiCameraState *s) {
     int ret = poll(fds, std::size(fds), 1000);
     if (ret < 0) {
       if (errno == EINTR || errno == EAGAIN) continue;
-      LOGE("poll failed (%d - %d)", ret, errno);
+      LOGE("poll failed (" << ret << "-" << errnor << ")");
       break;
     }
 

@@ -17,12 +17,12 @@ int LSM6DS3_Gyro::init() {
 
   ret = read_register(LSM6DS3_GYRO_I2C_REG_ID, buffer, 1);
   if(ret < 0) {
-    LOGE("Reading chip ID failed: %d", ret);
+    LOGE("Reading chip ID failed: " << ret);
     goto fail;
   }
 
   if(buffer[0] != LSM6DS3_GYRO_CHIP_ID && buffer[0] != LSM6DS3TRC_GYRO_CHIP_ID) {
-    LOGE("Chip ID wrong. Got: %d, Expected %d", buffer[0], LSM6DS3_GYRO_CHIP_ID);
+    LOGE("Chip ID wrong. Got: " << buffer[0] << ", Expected " << LSM6DS3_GYRO_CHIP_ID);
     ret = -1;
     goto fail;
   }
