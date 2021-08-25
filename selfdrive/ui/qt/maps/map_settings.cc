@@ -63,8 +63,7 @@ MapPanel::MapPanel(QWidget* parent) : QWidget(parent) {
 
   QWidget * no_prime_widget = new QWidget;
   QVBoxLayout *no_prime_layout = new QVBoxLayout(no_prime_widget);
-  QLabel *signup_header = new QLabel("Try the Navigation Beta");
-  signup_header->setStyleSheet(R"(font-size: 75px; color: white; font-weight:600;)");
+  QLabel *signup_header = styledLabel("Try the Navigation Beta", "font-size: 75px; color: white; font-weight:600;");
   signup_header->setAlignment(Qt::AlignCenter);
 
   no_prime_layout->addWidget(signup_header);
@@ -194,15 +193,10 @@ void MapPanel::parseResponse(const QString &response) {
         layout->addSpacing(10);
 
 
-        QLabel *recent_label = new QLabel(shorten(name + " " + details, 45));
-        recent_label->setStyleSheet(R"(font-size: 50px;)");
-
-        layout->addWidget(recent_label);
+        layout->addWidget(styledLabel(shorten(name + " " + details, 45), "font-size: 50px;");
         layout->addStretch();
 
-        QLabel *arrow = new QLabel("→");
-        arrow->setStyleSheet(R"(font-size: 60px;)");
-        layout->addWidget(arrow);
+        layout->addWidget(styledLabel("→", "font-size: 60px;"));
 
         widget->setStyleSheet(R"(
           .ClickableWidget {
@@ -231,9 +225,7 @@ void MapPanel::parseResponse(const QString &response) {
   }
 
   if (!has_recents) {
-    QLabel *no_recents = new QLabel("no recent destinations");
-    no_recents->setStyleSheet(R"(font-size: 50px; color: #9c9c9c)");
-    recent_layout->addWidget(no_recents);
+    recent_layout->addWidget(styledLabel("no recent destinations", "font-size: 50px; color: #9c9c9c"));
   }
 
   recent_layout->addStretch();
