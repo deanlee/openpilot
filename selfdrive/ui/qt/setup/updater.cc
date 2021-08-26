@@ -22,7 +22,7 @@ Updater::Updater(const QString &updater_path, const QString &manifest_path, QWid
     QVBoxLayout *layout = new QVBoxLayout(prompt);
     layout->setContentsMargins(100, 250, 100, 100);
 
-    layout->addWidget(new StyledLabel("Update Required", "font-size: 80px; font-weight: bold;"));
+    layout->addWidget(new StyledLabel("Update Required", 80, 700));
     layout->addSpacing(75);
 
     QLabel *desc = new QLabel("An operating system update is required. Connect your device to WiFi for the fastest update experience. The download size is approximately 1GB.");
@@ -76,7 +76,7 @@ Updater::Updater(const QString &updater_path, const QString &manifest_path, QWid
     layout->setContentsMargins(150, 330, 150, 150);
     layout->setSpacing(0);
 
-    text = new StyledLabel("Installing...", "font-size: 90px; font-weight: 600;");
+    text = new StyledLabel("Installing...", 90, 600);
     layout->addWidget(text, 0, Qt::AlignTop);
 
     layout->addSpacing(100);

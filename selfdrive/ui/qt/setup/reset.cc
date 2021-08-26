@@ -51,7 +51,7 @@ Reset::Reset(bool recover, QWidget *parent) : QWidget(parent) {
   main_layout->setContentsMargins(45, 220, 45, 45);
   main_layout->setSpacing(0);
 
-  main_layout->addWidget(new StyledLabel("System Reset", "font-size: 90px; font-weight: 600;"), 0, Qt::AlignTop | Qt::AlignLeft);
+  main_layout->addWidget(new StyledLabel("System Reset", 90, 600), 0, Qt::AlignTop | Qt::AlignLeft);
 
   main_layout->addSpacing(60);
 

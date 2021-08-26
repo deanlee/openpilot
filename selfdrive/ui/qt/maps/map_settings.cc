@@ -63,7 +63,7 @@ MapPanel::MapPanel(QWidget* parent) : QWidget(parent) {
 
   QWidget * no_prime_widget = new QWidget;
   QVBoxLayout *no_prime_layout = new QVBoxLayout(no_prime_widget);
-  QLabel *signup_header = new StyledLabel("Try the Navigation Beta", "font-size: 75px; color: white; font-weight:600;");
+  QLabel *signup_header = new StyledLabel("Try the Navigation Beta", 75, 600);
   signup_header->setAlignment(Qt::AlignCenter);
 
   no_prime_layout->addWidget(signup_header);
@@ -182,7 +182,7 @@ void MapPanel::parseResponse(const QString &response) {
         QHBoxLayout *layout = new QHBoxLayout(widget);
         layout->setContentsMargins(15, 14, 40, 14);
 
-        QLabel *star = new StyledLabel("★", "font-size: 60px;");
+        QLabel *star = new StyledLabel("★", 60);
         auto sp = star->sizePolicy();
         sp.setRetainSizeWhenHidden(true);
         star->setSizePolicy(sp);
@@ -192,10 +192,10 @@ void MapPanel::parseResponse(const QString &response) {
         layout->addSpacing(10);
 
 
-        layout->addWidget(new StyledLabel(shorten(name + " " + details, 45), "font-size: 50px;"));
+        layout->addWidget(new StyledLabel(shorten(name + " " + details, 45), 50));
         layout->addStretch();
 
-        layout->addWidget(new StyledLabel("→", "font-size: 60px;"));
+        layout->addWidget(new StyledLabel("→", 60));
 
         widget->setStyleSheet(R"(
           .ClickableWidget {

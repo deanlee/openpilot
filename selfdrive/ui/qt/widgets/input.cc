@@ -60,7 +60,7 @@ InputDialog::InputDialog(const QString &title, QWidget *parent, const QString &s
 
   QVBoxLayout *vlayout = new QVBoxLayout;
   header_layout->addLayout(vlayout);
-  vlayout->addWidget(new StyledLabel(title, "font-size: 90px; font-weight: bold;"), 1, Qt::AlignTop | Qt::AlignLeft);
+  vlayout->addWidget(new StyledLabel(title, 90, 700), 1, Qt::AlignTop | Qt::AlignLeft);
 
   if (!subtitle.isEmpty()) {
     vlayout->addWidget(new StyledLabel(subtitle, "font-size: 55px; font-weight: light; color: #BDBDBD;"), 1, Qt::AlignTop | Qt::AlignLeft);

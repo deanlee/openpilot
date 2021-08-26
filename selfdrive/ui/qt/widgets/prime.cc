@@ -76,7 +76,7 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   primeLayout->addWidget(new StyledLabel("✓ SUBSCRIBED", "font-size: 41px; font-weight: bold; color: #86FF4E;"), 0, Qt::AlignTop);
   primeLayout->addSpacing(60);
 
-  primeLayout->addWidget(new StyledLabel("comma prime", "font-size: 75px; font-weight: bold;"), 0, Qt::AlignTop);
+  primeLayout->addWidget(new StyledLabel("comma prime", 75, 700), 0, Qt::AlignTop);
   primeLayout->addSpacing(20);
 
   primeLayout->addWidget(new StyledLabel("CONNECT.COMMA.AI", "font-size: 41px; font-family: Inter SemiBold; color: #A0A0A0;"), 0, Qt::AlignTop);
@@ -90,7 +90,7 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   pointsWidget->setContentsMargins(60, 50, 60, 50);
 
   pointsLayout->addWidget(new StyledLabel("COMMA POINTS", "font-size: 41px; font-family: Inter SemiBold;"), 0, Qt::AlignTop);
-  pointsLayout->addWidget(new StyledLabel("210", "font-size: 91px; font-weight: bold;"), 0, Qt::AlignTop);
+  pointsLayout->addWidget(new StyledLabel("210", 91, 700), 0, Qt::AlignTop);
   mainLayout->addWidget(pointsWidget);
 
   mainLayout->addStretch();
@@ -119,7 +119,7 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   main_layout->setContentsMargins(80, 90, 80, 60);
   main_layout->setSpacing(0);
 
-  main_layout->addWidget(new StyledLabel("Upgrade Now", "font-size: 75px; font-weight: bold;"), 0, Qt::AlignTop);
+  main_layout->addWidget(new StyledLabel("Upgrade Now", 75, 700), 0, Qt::AlignTop);
   main_layout->addSpacing(50);
 
   QLabel *description = new QLabel("Become a comma prime member at connect.comma.ai");

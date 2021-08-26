@@ -14,6 +14,9 @@ class StyledLabel : public QLabel {
   Q_OBJECT
 
 public:
+ StyledLabel(const QString &text, int font_size, int font_height = 400) : QLabel(text) {
+   setStyleSheet(QString("QLabel{font-size: %1px; font-weight: %2}").arg(font_size).arg(font_height));
+ }
   StyledLabel(const QString &text, const QString &stylesheet) : QLabel(text) {
     setStyleSheet(QString("QLabel{%1}").arg(stylesheet));
   }

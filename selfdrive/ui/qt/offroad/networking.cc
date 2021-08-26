@@ -180,7 +180,7 @@ WifiUI::WifiUI(QWidget *parent, WifiManager* wifi) : QWidget(parent), wifi(wifi)
   checkmark = QPixmap(ASSET_PATH + "offroad/icon_checkmark.svg").scaledToWidth(49, Qt::SmoothTransformation);
   circled_slash = QPixmap(ASSET_PATH + "img_circled_slash.svg").scaledToWidth(49, Qt::SmoothTransformation);
 
-  main_layout->addWidget(new StyledLabel("Scanning for networks...", "font-size: 65px;"), 0, Qt::AlignCenter);
+  main_layout->addWidget(new StyledLabel("Scanning for networks...", 65), 0, Qt::AlignCenter);
 
   setStyleSheet(R"(
     QScrollBar::handle:vertical {
@@ -231,7 +231,7 @@ void WifiUI::refresh() {
   clearLayout(main_layout);
 
   if (wifi->seenNetworks.size() == 0) {
-    main_layout->addWidget(new StyledLabel("Scanning for networks...", "font-size: 65px;"), 0, Qt::AlignCenter);
+    main_layout->addWidget(new StyledLabel("Scanning for networks...", 65), 0, Qt::AlignCenter);
     return;
   }
   QList<Network> sortedNetworks = wifi->seenNetworks.values();

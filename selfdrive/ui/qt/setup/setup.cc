@@ -58,12 +58,11 @@ QWidget * Setup::getting_started() {
   vlayout->setContentsMargins(165, 280, 100, 0);
   main_layout->addLayout(vlayout);
 
-  vlayout->addWidget(new StyledLabel("Getting Started", "font-size: 90px; font-weight: 500;"), 0, Qt::AlignTop | Qt::AlignLeft);
+  vlayout->addWidget(new StyledLabel("Getting Started", 90, 500), 0, Qt::AlignTop | Qt::AlignLeft);
 
   vlayout->addSpacing(90);
-  QLabel *desc = new QLabel("Before we get on the road, let’s finish installation and cover some details.");
+  QLabel *desc = new StyledLabel("Before we get on the road, let’s finish installation and cover some details.", 80, 300);
   desc->setWordWrap(true);
-  desc->setStyleSheet("font-size: 80px; font-weight: 300;");
   vlayout->addWidget(desc, 0, Qt::AlignTop | Qt::AlignLeft);
 
   vlayout->addStretch();
@@ -86,7 +85,7 @@ QWidget * Setup::network_setup() {
   main_layout->setContentsMargins(55, 50, 55, 50);
 
   // title
-  main_layout->addWidget(new StyledLabel("Connect to WiFi", "font-size: 90px; font-weight: 500;"), 0, Qt::AlignLeft | Qt::AlignTop);
+  main_layout->addWidget(new StyledLabel("Connect to WiFi", 90, 500), 0, Qt::AlignLeft | Qt::AlignTop);
 
   main_layout->addSpacing(25);
 
@@ -175,7 +174,7 @@ QWidget * Setup::software_selection() {
   main_layout->setSpacing(0);
 
   // title
-  main_layout->addWidget(new StyledLabel("Choose Software to Install", "font-size: 90px; font-weight: 500;"), 0, Qt::AlignLeft | Qt::AlignTop);
+  main_layout->addWidget(new StyledLabel("Choose Software to Install", 90, 500), 0, Qt::AlignLeft | Qt::AlignTop);
   main_layout->addSpacing(50);
 
   // dashcam + custom radio buttons
@@ -237,7 +236,7 @@ QWidget * Setup::software_selection() {
 QWidget * Setup::downloading() {
   QWidget *widget = new QWidget();
   QVBoxLayout *main_layout = new QVBoxLayout(widget);
-  main_layout->addWidget(new StyledLabel("Downloading...", "font-size: 90px; font-weight: 500;"), 0, Qt::AlignCenter);
+  main_layout->addWidget(new StyledLabel("Downloading...", 90, 500), 0, Qt::AlignCenter);
   return widget;
 }
 
@@ -247,7 +246,7 @@ QWidget * Setup::download_failed() {
   main_layout->setContentsMargins(55, 225, 55, 55);
   main_layout->setSpacing(0);
 
-  main_layout->addWidget(new StyledLabel("Download Failed", "font-size: 90px; font-weight: 500;"), 0, Qt::AlignTop | Qt::AlignLeft);
+  main_layout->addWidget(new StyledLabel("Download Failed", 90, 500), 0, Qt::AlignTop | Qt::AlignLeft);
   main_layout->addSpacing(67);
 
   QLabel *body = new QLabel("Ensure the entered URL is valid, and the device’s internet connection is good.");
