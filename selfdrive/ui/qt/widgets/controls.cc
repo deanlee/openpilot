@@ -17,22 +17,13 @@ QFrame *horizontal_line(QWidget *parent) {
   return line;
 }
 
-AbstractControl::AbstractControl(const QString &title, const QString &desc, const QString &icon, QWidget *parent) : QFrame(parent) {
-  QVBoxLayout *main_layout = new QVBoxLayout(this);
+AbstractControl::AbstractControl(const QString &title, QWidget *parent) : QFrame(parent) {
+  main_layout = new QVBoxLayout(this);
   main_layout->setMargin(0);
 
   hlayout = new QHBoxLayout;
   hlayout->setMargin(0);
   hlayout->setSpacing(20);
-
-  // left icon
-  if (!icon.isEmpty()) {
-    QPixmap pix(icon);
-    QLabel *icon = new QLabel();
-    icon->setPixmap(pix.scaledToWidth(80, Qt::SmoothTransformation));
-    icon->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
-    hlayout->addWidget(icon);
-  }
 
   // title
   title_label = new QPushButton(title);
@@ -40,10 +31,11 @@ AbstractControl::AbstractControl(const QString &title, const QString &desc, cons
   hlayout->addWidget(title_label);
 
   main_layout->addLayout(hlayout);
+}
 
-  // description
-  if (!desc.isEmpty()) {
-    description = new QLabel(desc);
+void AbstractControl::setDescription(const QString &desc) {
+  if (!description) {
+    description = new QLabel();
     description->setContentsMargins(40, 20, 40, 20);
     description->setStyleSheet("font-size: 40px; color:grey");
     description->setWordWrap(true);
@@ -57,6 +49,18 @@ AbstractControl::AbstractControl(const QString &title, const QString &desc, cons
       description->setVisible(!description->isVisible());
     });
   }
+  description->setText(desc);
+}
+
+void AbstractControl::setIcon(const QString &icon) {
+  // left icon
+  if (!icon_label) {
+    icon_label = new QLabel();
+    icon_label->setFixedSize(80, 80);
+    hlayout->insertWidget(0, icon_label);
+    
+  }
+  icon_label->setPixmap(QPixmap(icon).scaledToWidth(80, Qt::SmoothTransformation));
 }
 
 void AbstractControl::hideEvent(QHideEvent *e) {
@@ -67,7 +71,7 @@ void AbstractControl::hideEvent(QHideEvent *e) {
 
 // controls
 
-ButtonControl::ButtonControl(const QString &title, const QString &text, const QString &desc, QWidget *parent) : AbstractControl(title, desc, "", parent) {
+ButtonControl::ButtonControl(const QString &title, const QString &text, QWidget *parent) : AbstractControl(title, parent) {
   btn.setText(text);
   btn.setStyleSheet(R"(
     QPushButton {

@@ -104,12 +104,13 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 
   // offroad-only buttons
 
-  auto dcamBtn = new ButtonControl("Driver Camera", "PREVIEW",
-                                        "Preview the driver facing camera to help optimize device mounting position for best driver monitoring experience. (vehicle must be off)");
+  auto dcamBtn = new ButtonControl("Driver Camera", "PREVIEW");
+  dcamBtn->setDescription("Preview the driver facing camera to help optimize device mounting position for best driver monitoring experience. (vehicle must be off)");
   connect(dcamBtn, &ButtonControl::clicked, [=]() { emit showDriverView(); });
 
   QString resetCalibDesc = "openpilot requires the device to be mounted within 4° left or right and within 5° up or down. openpilot is continuously calibrating, resetting is rarely required.";
-  auto resetCalibBtn = new ButtonControl("Reset Calibration", "RESET", resetCalibDesc);
+  auto resetCalibBtn = new ButtonControl("Reset Calibration", "RESET");
+  resetCalibBtn->setDescription(resetCalibDesc);
   connect(resetCalibBtn, &ButtonControl::clicked, [=]() {
     if (ConfirmationDialog::confirm("Are you sure you want to reset calibration?", this)) {
       Params().remove("CalibrationParams");
@@ -139,7 +140,8 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 
   ButtonControl *retrainingBtn = nullptr;
   if (!params.getBool("Passive")) {
-    retrainingBtn = new ButtonControl("Review Training Guide", "REVIEW", "Review the rules, features, and limitations of openpilot");
+    retrainingBtn = new ButtonControl("Review Training Guide", "REVIEW");
+    retrainingBtn->setDescription("Review the rules, features, and limitations of openpilot");
     connect(retrainingBtn, &ButtonControl::clicked, [=]() {
       if (ConfirmationDialog::confirm("Are you sure you want to review the training guide?", this)) {
         Params().remove("CompletedTrainingVersion");
@@ -150,7 +152,7 @@ DevicePanel::DevicePanel(QWidget* parent) : QWidget(parent) {
 
   ButtonControl *regulatoryBtn = nullptr;
   if (Hardware::TICI()) {
-    regulatoryBtn = new ButtonControl("Regulatory", "VIEW", "");
+    regulatoryBtn = new ButtonControl("Regulatory", "VIEW");
     connect(regulatoryBtn, &ButtonControl::clicked, [=]() {
       const std::string txt = util::read_file(ASSET_PATH.toStdString() + "/offroad/fcc.html");
       RichTextDialog::alert(QString::fromStdString(txt), this);
@@ -204,8 +206,10 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : QWidget(parent) {
   gitBranchLbl = new LabelControl("Git Branch");
   gitCommitLbl = new LabelControl("Git Commit");
   osVersionLbl = new LabelControl("OS Version");
-  versionLbl = new LabelControl("Version", "", QString::fromStdString(params.get("ReleaseNotes")).trimmed());
-  lastUpdateLbl = new LabelControl("Last Update Check", "", "The last time openpilot successfully checked for an update. The updater only runs while the car is off.");
+  versionLbl = new LabelControl("Version");
+  versionLbl->setDescription(QString::fromStdString(params.get("ReleaseNotes")).trimmed());
+  lastUpdateLbl = new LabelControl("Last Update Check");
+  lastUpdateLbl->setDescription("The last time openpilot successfully checked for an update. The updater only runs while the car is off.");
   updateBtn = new ButtonControl("Check for Update", "");
   connect(updateBtn, &ButtonControl::clicked, [=]() {
     if (params.getBool("IsOffroad")) {
