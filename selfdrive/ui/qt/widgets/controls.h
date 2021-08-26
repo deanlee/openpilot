@@ -10,11 +10,14 @@
 
 QFrame *horizontal_line(QWidget *parent = nullptr);
 
-inline QLabel *styledLabel(const QString &text, const QString &stylesheet) {
-  QLabel *label = new QLabel(text);
-  label->setStyleSheet(QString("QLabel{%1}").arg(stylesheet));
-  return label;
-}
+class StyledLabel : public QLabel {
+  Q_OBJECT
+
+public:
+  StyledLabel(const QString &text, const QString &stylesheet) : QLabel(text) {
+    setStyleSheet(QString("QLabel{%1}").arg(stylesheet));
+  }
+};
 
 class ElidedLabel : public QLabel {
   Q_OBJECT

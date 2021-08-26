@@ -193,7 +193,7 @@ void MapPanel::parseResponse(const QString &response) {
         layout->addSpacing(10);
 
 
-        layout->addWidget(styledLabel(shorten(name + " " + details, 45), "font-size: 50px;");
+        layout->addWidget(new StyledLabel(shorten(name + " " + details, 45), "font-size: 50px;");
         layout->addStretch();
 
         layout->addWidget(styledLabel("→", "font-size: 60px;"));
@@ -225,7 +225,7 @@ void MapPanel::parseResponse(const QString &response) {
   }
 
   if (!has_recents) {
-    recent_layout->addWidget(styledLabel("no recent destinations", "font-size: 50px; color: #9c9c9c"));
+    recent_layout->addWidget(new StyledLabel("no recent destinations", "font-size: 50px; color: #9c9c9c"));
   }
 
   recent_layout->addStretch();

@@ -59,14 +59,10 @@ InputDialog::InputDialog(const QString &title, QWidget *parent, const QString &s
 
   QVBoxLayout *vlayout = new QVBoxLayout;
   header_layout->addLayout(vlayout);
-  label = new QLabel(title, this);
-  label->setStyleSheet("font-size: 90px; font-weight: bold;");
-  vlayout->addWidget(label, 1, Qt::AlignTop | Qt::AlignLeft);
+  vlayout->addWidget(new StyledLabel(title, "font-size: 90px; font-weight: bold;"), 1, Qt::AlignTop | Qt::AlignLeft);
 
   if (!subtitle.isEmpty()) {
-    sublabel = new QLabel(subtitle, this);
-    sublabel->setStyleSheet("font-size: 55px; font-weight: light; color: #BDBDBD;");
-    vlayout->addWidget(sublabel, 1, Qt::AlignTop | Qt::AlignLeft);
+    vlayout->addWidget(new StyledLabel(subtitle, "font-size: 55px; font-weight: light; color: #BDBDBD;"), 1, Qt::AlignTop | Qt::AlignLeft);
   }
 
   QPushButton* cancel_btn = new QPushButton("Cancel");
