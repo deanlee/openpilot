@@ -9,6 +9,7 @@
 #include "selfdrive/common/util.h"
 #include "selfdrive/common/params.h"
 #include "selfdrive/ui/qt/util.h"
+#include "selfdrive/ui/qt/widgets/controls.h"
 #include "selfdrive/ui/qt/widgets/input.h"
 
 TrainingGuide::TrainingGuide(QWidget *parent) : QFrame(parent) {
@@ -125,9 +126,7 @@ void DeclinePage::showEvent(QShowEvent *event) {
   main_layout->setMargin(45);
   main_layout->setSpacing(40);
 
-  QLabel *text = new QLabel(this);
-  text->setText("You must accept the Terms and Conditions in order to use openpilot.");
-  text->setStyleSheet(R"(font-size: 80px; font-weight: 300; margin: 200px;)");
+  StyledLabel *text = new StyledLabel("You must accept the Terms and Conditions in order to use openpilot.", "font-size: 80px; font-weight: 300; margin: 200px;");
   text->setWordWrap(true);
   main_layout->addWidget(text, 0, Qt::AlignCenter);
 

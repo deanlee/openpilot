@@ -13,6 +13,7 @@
 #include "selfdrive/ui/installer/installer.h"
 #include "selfdrive/ui/qt/util.h"
 #include "selfdrive/ui/qt/qt_window.h"
+#include "selfdrive/ui/qt/widgets/controls.h"
 
 #define GIT_URL "https://github.com/commaai/openpilot.git"
 #define GIT_SSH_URL "git@github.com:commaai/openpilot.git"
@@ -49,10 +50,7 @@ Installer::Installer(QWidget *parent) : QWidget(parent) {
   layout->setContentsMargins(150, 290, 150, 150);
   layout->setSpacing(0);
 
-  QLabel *title = new QLabel("Installing...");
-  title->setStyleSheet("font-size: 90px; font-weight: 600;");
-  layout->addWidget(title, 0, Qt::AlignTop);
-
+  layout->addWidget(new StyledLabel("Installing...", "font-size: 90px; font-weight: 600;"), 0, Qt::AlignTop);
   layout->addSpacing(170);
 
   bar = new QProgressBar();
@@ -63,10 +61,7 @@ Installer::Installer(QWidget *parent) : QWidget(parent) {
 
   layout->addSpacing(30);
 
-  val = new QLabel("0%");
-  val->setStyleSheet("font-size: 70px; font-weight: 300;");
-  layout->addWidget(val, 0, Qt::AlignTop);
-
+  layout->addWidget(new StyledLabel("0%", "font-size: 70px; font-weight: 300;"), 0, Qt::AlignTop);
   layout->addStretch();
 
   QObject::connect(&proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &Installer::cloneFinished);

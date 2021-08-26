@@ -7,6 +7,7 @@
 
 #include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/ui/qt/setup/reset.h"
+#include "selfdrive/ui/qt/widgets/controls.h"
 
 #define NVME "/dev/nvme0n1"
 #define USERDATA "/dev/disk/by-partlabel/userdata"
@@ -50,9 +51,7 @@ Reset::Reset(bool recover, QWidget *parent) : QWidget(parent) {
   main_layout->setContentsMargins(45, 220, 45, 45);
   main_layout->setSpacing(0);
 
-  QLabel *title = new QLabel("System Reset");
-  title->setStyleSheet("font-size: 90px; font-weight: 600;");
-  main_layout->addWidget(title, 0, Qt::AlignTop | Qt::AlignLeft);
+  main_layout->addWidget(new StyledLabel("System Reset", "font-size: 90px; font-weight: 600;"), 0, Qt::AlignTop | Qt::AlignLeft);
 
   main_layout->addSpacing(60);
 

@@ -11,6 +11,7 @@
 #include <QrCode.hpp>
 
 #include "selfdrive/ui/qt/request_repeater.h"
+#include "selfdrive/ui/qt/widgets/controls.h"
 #include "selfdrive/ui/qt/util.h"
 
 using qrcodegen::QrCode;
@@ -72,22 +73,13 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   primeLayout->setMargin(0);
   primeWidget->setContentsMargins(60, 50, 60, 50);
 
-  QLabel* subscribed = new QLabel("✓ SUBSCRIBED");
-  subscribed->setStyleSheet("font-size: 41px; font-weight: bold; color: #86FF4E;");
-  primeLayout->addWidget(subscribed, 0, Qt::AlignTop);
-
+  primeLayout->addWidget(new StyledLabel("✓ SUBSCRIBED", "font-size: 41px; font-weight: bold; color: #86FF4E;"), 0, Qt::AlignTop);
   primeLayout->addSpacing(60);
 
-  QLabel* commaPrime = new QLabel("comma prime");
-  commaPrime->setStyleSheet("font-size: 75px; font-weight: bold;");
-  primeLayout->addWidget(commaPrime, 0, Qt::AlignTop);
-
+  primeLayout->addWidget(new StyledLabel("comma prime", "font-size: 75px; font-weight: bold;"), 0, Qt::AlignTop);
   primeLayout->addSpacing(20);
 
-  QLabel* connectUrl = new QLabel("CONNECT.COMMA.AI");
-  connectUrl->setStyleSheet("font-size: 41px; font-family: Inter SemiBold; color: #A0A0A0;");
-  primeLayout->addWidget(connectUrl, 0, Qt::AlignTop);
-
+  primeLayout->addWidget(new StyledLabel("CONNECT.COMMA.AI", "font-size: 41px; font-family: Inter SemiBold; color: #A0A0A0;"), 0, Qt::AlignTop);
   mainLayout->addWidget(primeWidget);
 
   // comma points layout
@@ -97,14 +89,8 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QWidget(parent) {
   pointsLayout->setMargin(0);
   pointsWidget->setContentsMargins(60, 50, 60, 50);
 
-  QLabel* commaPoints = new QLabel("COMMA POINTS");
-  commaPoints->setStyleSheet("font-size: 41px; font-family: Inter SemiBold;");
-  pointsLayout->addWidget(commaPoints, 0, Qt::AlignTop);
-
-  points = new QLabel("210");
-  points->setStyleSheet("font-size: 91px; font-weight: bold;");
-  pointsLayout->addWidget(points, 0, Qt::AlignTop);
-
+  pointsLayout->addWidget(new StyledLabel("COMMA POINTS", "font-size: 41px; font-family: Inter SemiBold;"), 0, Qt::AlignTop);
+  pointsLayout->addWidget(new StyledLabel("210", "font-size: 91px; font-weight: bold;"), 0, Qt::AlignTop);
   mainLayout->addWidget(pointsWidget);
 
   mainLayout->addStretch();
@@ -133,9 +119,7 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   main_layout->setContentsMargins(80, 90, 80, 60);
   main_layout->setSpacing(0);
 
-  QLabel *upgrade = new QLabel("Upgrade Now");
-  upgrade->setStyleSheet("font-size: 75px; font-weight: bold;");
-  main_layout->addWidget(upgrade, 0, Qt::AlignTop);
+  main_layout->addWidget(new StyledLabel("Upgrade Now", "font-size: 75px; font-weight: bold;"), 0, Qt::AlignTop);
   main_layout->addSpacing(50);
 
   QLabel *description = new QLabel("Become a comma prime member at connect.comma.ai");
@@ -145,9 +129,7 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
 
   main_layout->addStretch();
 
-  QLabel *features = new QLabel("PRIME FEATURES:");
-  features->setStyleSheet("font-size: 41px; font-weight: bold; color: #E5E5E5;");
-  main_layout->addWidget(features, 0, Qt::AlignBottom);
+  main_layout->addWidget(new StyledLabel("PRIME FEATURES:", "font-size: 41px; font-weight: bold; color: #E5E5E5;"), 0, Qt::AlignBottom);
   main_layout->addSpacing(30);
 
   QVector<QString> bullets = {"Remote access", "14 days of storage", "Developer perks"};
@@ -179,10 +161,7 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
   finishRegistationLayout->setContentsMargins(30, 75, 30, 45);
   finishRegistationLayout->setSpacing(0);
 
-  QLabel* registrationTitle = new QLabel("Finish Setup");
-  registrationTitle->setStyleSheet("font-size: 75px; font-weight: bold; margin-left: 55px;");
-  finishRegistationLayout->addWidget(registrationTitle);
-
+  finishRegistationLayout->addWidget(new StyledLabel("Finish Setup", "font-size: 75px; font-weight: bold; margin-left: 55px;"));
   finishRegistationLayout->addSpacing(30);
 
   QLabel* registrationDescription = new QLabel("Pair your device with comma connect (connect.comma.ai) and claim your comma prime offer.");
