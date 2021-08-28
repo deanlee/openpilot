@@ -27,7 +27,9 @@ public:
   void destroySession(int32_t session_handle);
   int32_t linkDevice(int32_t session_handle, int32_t dev_hdl_1, int32_t dev_hdl_2);
   void unlinkDevice(int32_t session_handle, int32_t dev_handle);
-  CmdBuffer allocCmdBuffer(size_t len, uint64_t align = 8, uint32_t flags = CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE | CAM_MEM_FLAG_HW_READ_WRITE);
+  CmdBuffer allocCmdBuffer(size_t len, uint64_t align = 8, 
+        uint32_t flags = CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
+        int mmu_hdl = 0, int mmu_hdl2 = 0);
   void freeCmdBuffer(CmdBuffer &buf);
   unique_fd video0_fd;
 };

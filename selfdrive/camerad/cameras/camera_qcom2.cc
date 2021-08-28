@@ -84,36 +84,6 @@ int device_control(int fd, int op_code, int session_handle, int dev_handle) {
   return cam_control(fd, op_code, &release_dev_cmd, sizeof(release_dev_cmd));
 }
 
-void *alloc_w_mmu_hdl(int video0_fd, int len, uint32_t *handle, int align = 8, int flags = CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
-                      int mmu_hdl = 0, int mmu_hdl2 = 0) {
-  struct cam_mem_mgr_alloc_cmd mem_mgr_alloc_cmd = {0};
-  mem_mgr_alloc_cmd.len = len;
-  mem_mgr_alloc_cmd.align = align;
-  mem_mgr_alloc_cmd.flags = flags;
-  mem_mgr_alloc_cmd.num_hdl = 0;
-  if (mmu_hdl != 0) {
-    mem_mgr_alloc_cmd.mmu_hdls[0] = mmu_hdl;
-    mem_mgr_alloc_cmd.num_hdl++;
-  }
-  if (mmu_hdl2 != 0) {
-    mem_mgr_alloc_cmd.mmu_hdls[1] = mmu_hdl2;
-    mem_mgr_alloc_cmd.num_hdl++;
-  }
-
-  cam_control(video0_fd, CAM_REQ_MGR_ALLOC_BUF, &mem_mgr_alloc_cmd, sizeof(mem_mgr_alloc_cmd));
-  *handle = mem_mgr_alloc_cmd.out.buf_handle;
-
-  void *ptr = NULL;
-  if (mem_mgr_alloc_cmd.out.fd > 0) {
-    ptr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, mem_mgr_alloc_cmd.out.fd, 0);
-    assert(ptr != MAP_FAILED);
-  }
-
-  // LOGD("allocated: %x %d %llx mapped %p", mem_mgr_alloc_cmd.out.buf_handle, mem_mgr_alloc_cmd.out.fd, mem_mgr_alloc_cmd.out.vaddr, ptr);
-
-  return ptr;
-}
-
 void release(int video0_fd, uint32_t handle) {
   int ret;
   struct cam_mem_mgr_release_cmd mem_mgr_release_cmd = {0};
@@ -121,12 +91,6 @@ void release(int video0_fd, uint32_t handle) {
 
   ret = cam_control(video0_fd, CAM_REQ_MGR_RELEASE_BUF, &mem_mgr_release_cmd, sizeof(mem_mgr_release_cmd));
   assert(ret == 0);
-}
-
-void release_fd(int video0_fd, uint32_t handle) {
-  // handle to fd
-  close(handle>>16);
-  release(video0_fd, handle);
 }
 
 void clear_req_queue(int fd, int32_t session_hdl, int32_t link_hdl) {
@@ -194,21 +158,20 @@ void ReqManager::unlinkDevice(int32_t session_handle, int32_t dev_handle) {
   LOGD("unlink: %d", ret);
 }
 
-CmdBuffer ReqManager::allocCmdBuffer(size_t len, uint64_t align, uint32_t flags) {
+CmdBuffer ReqManager::allocCmdBuffer(size_t len, uint64_t align, uint32_t flags, int mmu_hdl, int mmu_hdl2) {
   struct cam_mem_mgr_alloc_cmd cmd = {
       .len = len,
       .align = align,
       .flags = flags,
       .num_hdl = 0};
-  // if (mmu_hdl != 0) {
-  //   mem_mgr_alloc_cmd.mmu_hdls[0] = mmu_hdl;
-  //   mem_mgr_alloc_cmd.num_hdl++;
-  // }
-  // if (mmu_hdl2 != 0) {
-  //   mem_mgr_alloc_cmd.mmu_hdls[1] = mmu_hdl2;
-  //   mem_mgr_alloc_cmd.num_hdl++;
-  // }
-
+  if (mmu_hdl != 0) {
+    cmd.mmu_hdls[0] = mmu_hdl;
+    cmd.num_hdl++;
+  }
+  if (mmu_hdl2 != 0) {
+    cmd.mmu_hdls[1] = mmu_hdl2;
+    cmd.num_hdl++;
+  }
   cam_control(video0_fd, CAM_REQ_MGR_ALLOC_BUF, &cmd, sizeof(cmd));
 
   void *ptr = NULL;
@@ -772,8 +735,11 @@ static void camera_open(CameraState *s) {
   // acquires done
 
   // config ISP
-  // CmdBuffer cmd_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(984480, 0x20);
-  alloc_w_mmu_hdl(s->multi_cam_state->req_mgr.video0_fd, 984480, (uint32_t*)&s->buf0_handle, 0x20, CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE, s->multi_cam_state->device_iommu, s->multi_cam_state->cdm_iommu);
+  CmdBuffer cmd_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(
+      984480, 0x20,
+      CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
+      s->multi_cam_state->device_iommu, s->multi_cam_state->cdm_iommu);
+  s->buf0_handle = cmd_buf.handle;
   config_isp(s, 0, 0, 1, s->buf0_handle, 0);
 
   LOG("-- Configuring sensor");
@@ -816,9 +782,7 @@ static void camera_open(CameraState *s) {
     config_dev_cmd.offset = 0;
     config_dev_cmd.packet_handle = cmd_buf.handle;
 
-    printf("**here\n");
     int ret = cam_control(s->csiphy_fd, CAM_CONFIG_DEV, &config_dev_cmd, sizeof(config_dev_cmd));
-    printf("**here2\n");
     assert(ret == 0);
 
     s->multi_cam_state->req_mgr.freeCmdBuffer(csiphy_buf);
