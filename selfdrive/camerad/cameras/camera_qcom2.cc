@@ -816,7 +816,9 @@ static void camera_open(CameraState *s) {
     config_dev_cmd.offset = 0;
     config_dev_cmd.packet_handle = cmd_buf.handle;
 
+    printf("**here\n");
     int ret = cam_control(s->csiphy_fd, CAM_CONFIG_DEV, &config_dev_cmd, sizeof(config_dev_cmd));
+    printf("**here2\n");
     assert(ret == 0);
 
     s->multi_cam_state->req_mgr.freeCmdBuffer(csiphy_buf);
