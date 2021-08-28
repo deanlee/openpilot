@@ -11,6 +11,27 @@
 
 #define FRAME_BUF_COUNT 4
 #define DEBAYER_LOCAL_WORKSIZE 16
+
+struct CmdBuffer {
+  uint32_t handle;
+  void *address;
+  uint64_t size;
+};
+
+class ReqManager {
+public:
+  ReqManager();
+  ~ReqManager();
+  bool init();
+  int32_t createSession();
+  void destroySession(int32_t session_handle);
+  int32_t linkDevice(int32_t session_handle, int32_t dev_hdl_1, int32_t dev_hdl_2);
+  void unlinkDevice(int32_t session_handle, int32_t dev_handle);
+  CmdBuffer allocCmdBuffer(size_t len, uint64_t align = 8, uint32_t flags = CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE | CAM_MEM_FLAG_HW_READ_WRITE);
+  void freeCmdBuffer(CmdBuffer &buf);
+  unique_fd video0_fd;
+};
+
 typedef struct CameraState {
   MultiCameraState *multi_cam_state;
   CameraInfo ci;
@@ -50,15 +71,13 @@ typedef struct CameraState {
   int idx_offset;
   bool skipped;
 
-  struct cam_req_mgr_session_info req_mgr_session_info;
-
   CameraBuf buf;
 } CameraState;
 
 typedef struct MultiCameraState {
   int device;
-
-  unique_fd video0_fd;
+  ReqManager req_mgr;
+  // unique_fd video0_fd;
   unique_fd video1_fd;
   unique_fd isp_fd;
   int device_iommu;

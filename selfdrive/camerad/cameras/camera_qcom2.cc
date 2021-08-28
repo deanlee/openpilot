@@ -139,15 +139,111 @@ void clear_req_queue(int fd, int32_t session_hdl, int32_t link_hdl) {
   // LOGD("flushed all req: %d", ret);
 }
 
+
+ReqManager::ReqManager() {
+
+}
+
+ReqManager::~ReqManager() {
+
+}
+
+bool ReqManager::init() {
+  video0_fd = open("/dev/v4l/by-path/platform-soc:qcom_cam-req-mgr-video-index0", O_RDWR | O_NONBLOCK);
+  assert(video0_fd >= 0);
+  LOGD("opened video0");
+  LOG("-- Subscribing");
+  // id should use boot time for sof
+  static struct v4l2_event_subscription sub = {
+      .type = 0x8000000,
+      .id = 2};
+  int ret = ioctl(video0_fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
+  printf("req mgr subscribe: %d\n", ret);
+  return ret != -1;
+}
+
+int32_t ReqManager::createSession() {
+  struct cam_req_mgr_session_info session_info = {};
+  int ret = cam_control(video0_fd, CAM_REQ_MGR_CREATE_SESSION, &session_info, sizeof(session_info));
+  LOGD("get session: %d 0x%X", ret, session_info.session_hdl);
+  return session_info.session_hdl;
+}
+
+void ReqManager::destroySession(int32_t session_handle) {
+  struct cam_req_mgr_session_info session_info = {.session_hdl = session_handle};
+  int ret = cam_control(video0_fd, CAM_REQ_MGR_DESTROY_SESSION, &session_info, sizeof(session_info));
+  LOGD("destroyed session: %d", ret);
+}
+
+int32_t ReqManager::linkDevice(int32_t session_handle, int32_t dev_hdl_1, int32_t dev_hdl_2) {
+  struct cam_req_mgr_link_info link_info = {
+      .session_hdl = session_handle,
+      .num_devices = 2,
+      .dev_hdls[0] = dev_hdl_1,
+      .dev_hdls[1] = dev_hdl_2};
+  int ret = cam_control(video0_fd, CAM_REQ_MGR_LINK, &link_info, sizeof(link_info));
+  LOGD("link: %d", ret);
+  return link_info.link_hdl;
+}
+
+void ReqManager::unlinkDevice(int32_t session_handle, int32_t dev_handle) {
+  struct cam_req_mgr_unlink_info info = {
+      .session_hdl = session_handle,
+      .link_hdl = dev_handle};
+  int ret = cam_control(video0_fd, CAM_REQ_MGR_UNLINK, &info, sizeof(info));
+  LOGD("unlink: %d", ret);
+}
+
+CmdBuffer ReqManager::allocCmdBuffer(size_t len, uint64_t align, uint32_t flags) {
+  struct cam_mem_mgr_alloc_cmd cmd = {
+      .len = len,
+      .align = align,
+      .flags = flags,
+      .num_hdl = 0};
+  // if (mmu_hdl != 0) {
+  //   mem_mgr_alloc_cmd.mmu_hdls[0] = mmu_hdl;
+  //   mem_mgr_alloc_cmd.num_hdl++;
+  // }
+  // if (mmu_hdl2 != 0) {
+  //   mem_mgr_alloc_cmd.mmu_hdls[1] = mmu_hdl2;
+  //   mem_mgr_alloc_cmd.num_hdl++;
+  // }
+
+  cam_control(video0_fd, CAM_REQ_MGR_ALLOC_BUF, &cmd, sizeof(cmd));
+
+  void *ptr = NULL;
+  if (cmd.out.fd > 0) {
+    ptr = mmap(NULL, cmd.len, PROT_READ | PROT_WRITE, MAP_SHARED, cmd.out.fd, 0);
+    assert(ptr != MAP_FAILED);
+  }
+  return CmdBuffer{
+      .handle = cmd.out.buf_handle,
+      .address = ptr,
+      .size = cmd.len};
+}
+
+void ReqManager::freeCmdBuffer(CmdBuffer &buf) {
+  if (buf.address) {
+    int ret = munmap(buf.address, buf.size);
+    if (ret != 0) {
+    }
+  }
+  close(buf.handle >> 16);
+  struct cam_mem_mgr_release_cmd cmd = {
+      .buf_handle = (int32_t)buf.handle};
+  int ret = cam_control(video0_fd, CAM_REQ_MGR_RELEASE_BUF, &cmd, sizeof(cmd));
+  assert(ret == 0);
+}
+
+
 // ************** high level camera helpers ****************
 
 void sensors_poke(struct CameraState *s, int request_id) {
-  uint32_t cam_packet_handle = 0;
-  int size = sizeof(struct cam_packet);
-  struct cam_packet *pkt = (struct cam_packet *)alloc_w_mmu_hdl(s->multi_cam_state->video0_fd, size, &cam_packet_handle);
+  CmdBuffer cmd_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(sizeof(struct cam_packet));
+  struct cam_packet *pkt = (struct cam_packet *)cmd_buf.address;
   pkt->num_cmd_buf = 0;
   pkt->kmd_cmd_buf_index = -1;
-  pkt->header.size = size;
+  pkt->header.size = cmd_buf.size;
   pkt->header.op_code = 0x7f;
   pkt->header.request_id = request_id;
 
@@ -155,30 +251,27 @@ void sensors_poke(struct CameraState *s, int request_id) {
   config_dev_cmd.session_handle = s->session_handle;
   config_dev_cmd.dev_handle = s->sensor_dev_handle;
   config_dev_cmd.offset = 0;
-  config_dev_cmd.packet_handle = cam_packet_handle;
+  config_dev_cmd.packet_handle = cmd_buf.handle;
 
   int ret = cam_control(s->sensor_fd, CAM_CONFIG_DEV, &config_dev_cmd, sizeof(config_dev_cmd));
   assert(ret == 0);
-
-  munmap(pkt, size);
-  release_fd(s->multi_cam_state->video0_fd, cam_packet_handle);
+  s->multi_cam_state->req_mgr.freeCmdBuffer(cmd_buf);
 }
 
 void sensors_i2c(struct CameraState *s, struct i2c_random_wr_payload* dat, int len, int op_code) {
-  // LOGD("sensors_i2c: %d", len);
-  uint32_t cam_packet_handle = 0;
-  int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1;
-  struct cam_packet *pkt = (struct cam_packet *)alloc_w_mmu_hdl(s->multi_cam_state->video0_fd, size, &cam_packet_handle);
+  CmdBuffer cmd_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc));
+  struct cam_packet *pkt = (struct cam_packet *)cmd_buf.address;
   pkt->num_cmd_buf = 1;
   pkt->kmd_cmd_buf_index = -1;
-  pkt->header.size = size;
+  pkt->header.size = cmd_buf.size;
   pkt->header.op_code = op_code;
+  
+  CmdBuffer i2c_cmd_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(sizeof(struct i2c_rdwr_header) + len*sizeof(struct i2c_random_wr_payload));
   struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
-
-  buf_desc[0].size = buf_desc[0].length = sizeof(struct i2c_rdwr_header) + len*sizeof(struct i2c_random_wr_payload);
   buf_desc[0].type = CAM_CMD_BUF_I2C;
-
-  struct cam_cmd_i2c_random_wr *i2c_random_wr = (struct cam_cmd_i2c_random_wr *)alloc_w_mmu_hdl(s->multi_cam_state->video0_fd, buf_desc[0].size, (uint32_t*)&buf_desc[0].mem_handle);
+  buf_desc[0].size = buf_desc[0].length = i2c_cmd_buf.size;
+  buf_desc[0].mem_handle = i2c_cmd_buf.handle;
+  struct cam_cmd_i2c_random_wr *i2c_random_wr = (struct cam_cmd_i2c_random_wr *)i2c_cmd_buf.address;
   i2c_random_wr->header.count = len;
   i2c_random_wr->header.op_code = 1;
   i2c_random_wr->header.cmd_type = CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR;
@@ -190,15 +283,13 @@ void sensors_i2c(struct CameraState *s, struct i2c_random_wr_payload* dat, int l
   config_dev_cmd.session_handle = s->session_handle;
   config_dev_cmd.dev_handle = s->sensor_dev_handle;
   config_dev_cmd.offset = 0;
-  config_dev_cmd.packet_handle = cam_packet_handle;
+  config_dev_cmd.packet_handle = cmd_buf.handle;
 
   int ret = cam_control(s->sensor_fd, CAM_CONFIG_DEV, &config_dev_cmd, sizeof(config_dev_cmd));
   assert(ret == 0);
 
-  munmap(i2c_random_wr, buf_desc[0].size);
-  release_fd(s->multi_cam_state->video0_fd, buf_desc[0].mem_handle);
-  munmap(pkt, size);
-  release_fd(s->multi_cam_state->video0_fd, cam_packet_handle);
+  s->multi_cam_state->req_mgr.freeCmdBuffer(i2c_cmd_buf);
+  s->multi_cam_state->req_mgr.freeCmdBuffer(cmd_buf);
 }
 static cam_cmd_power *power_set_wait(cam_cmd_power *power, int16_t delay_ms) {
   cam_cmd_unconditional_wait *unconditional_wait = (cam_cmd_unconditional_wait *)((char *)power + (sizeof(struct cam_cmd_power) + (power->count - 1) * sizeof(struct cam_power_settings)));
@@ -208,19 +299,21 @@ static cam_cmd_power *power_set_wait(cam_cmd_power *power, int16_t delay_ms) {
   return (struct cam_cmd_power *)(unconditional_wait + 1);
 };
 
-void sensors_init(int video0_fd, int sensor_fd, int camera_num) {
-  uint32_t cam_packet_handle = 0;
-  int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*2;
-  struct cam_packet *pkt = (struct cam_packet *)alloc_w_mmu_hdl(video0_fd, size, &cam_packet_handle);
+void sensors_init(MultiCameraState *s, int sensor_fd, int camera_num) {
+  CmdBuffer cmd_buf = s->req_mgr.allocCmdBuffer(sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*2);
+  struct cam_packet *pkt = (struct cam_packet *)cmd_buf.address;
   pkt->num_cmd_buf = 2;
   pkt->kmd_cmd_buf_index = -1;
   pkt->header.op_code = 0x1000003;
-  pkt->header.size = size;
+  pkt->header.size = cmd_buf.size;
+  
+  CmdBuffer i2c_info_buf = s->req_mgr.allocCmdBuffer(sizeof(struct cam_cmd_i2c_info) + sizeof(struct cam_cmd_probe));
   struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
-
-  buf_desc[0].size = buf_desc[0].length = sizeof(struct cam_cmd_i2c_info) + sizeof(struct cam_cmd_probe);
+  buf_desc[0].mem_handle = i2c_info_buf.handle;
+  buf_desc[0].size = buf_desc[0].length = i2c_info_buf.size;
   buf_desc[0].type = CAM_CMD_BUF_LEGACY;
-  struct cam_cmd_i2c_info *i2c_info = (struct cam_cmd_i2c_info *)alloc_w_mmu_hdl(video0_fd, buf_desc[0].size, (uint32_t*)&buf_desc[0].mem_handle);
+  
+  struct cam_cmd_i2c_info *i2c_info = (struct cam_cmd_i2c_info *) i2c_info_buf.address;
   struct cam_cmd_probe *probe = (struct cam_cmd_probe *)((uint8_t *)i2c_info) + sizeof(struct cam_cmd_i2c_info);
 
   switch (camera_num) {
@@ -254,11 +347,12 @@ void sensors_init(int video0_fd, int sensor_fd, int camera_num) {
   probe->expected_data = 0x354; //0x7750; //0x885a;
   probe->data_mask = 0;
 
-  //buf_desc[1].size = buf_desc[1].length = 148;
-  buf_desc[1].size = buf_desc[1].length = 196;
+  CmdBuffer power_cmd_buf = s->req_mgr.allocCmdBuffer(196);
+  buf_desc[1].mem_handle = power_cmd_buf.handle;
+  buf_desc[1].size = buf_desc[1].length = power_cmd_buf.size;
   buf_desc[1].type = CAM_CMD_BUF_I2C;
-  struct cam_cmd_power *power_settings = (struct cam_cmd_power *)alloc_w_mmu_hdl(video0_fd, buf_desc[1].size, (uint32_t*)&buf_desc[1].mem_handle);
-  memset(power_settings, 0, buf_desc[1].size);
+  struct cam_cmd_power *power_settings = (struct cam_cmd_power *)power_cmd_buf.address;
+  memset(power_settings, 0, power_cmd_buf.size);
   // 7750
   /*power->count = 2;
   power->cmd_type = CAMERA_SENSOR_CMD_TYPE_PWR_UP;
@@ -327,24 +421,21 @@ void sensors_init(int video0_fd, int sensor_fd, int camera_num) {
   power->power_settings[2].power_seq_type = 3;
 
   LOGD("probing the sensor");
-  int ret = cam_control(sensor_fd, CAM_SENSOR_PROBE_CMD, (void *)(uintptr_t)cam_packet_handle, 0);
+  int ret = cam_control(sensor_fd, CAM_SENSOR_PROBE_CMD, (void *)(uintptr_t)cmd_buf.handle, 0);
   assert(ret == 0);
 
-  munmap(i2c_info, buf_desc[0].size);
-  release_fd(video0_fd, buf_desc[0].mem_handle);
-  munmap(power_settings, buf_desc[1].size);
-  release_fd(video0_fd, buf_desc[1].mem_handle);
-  munmap(pkt, size);
-  release_fd(video0_fd, cam_packet_handle);
+  s->req_mgr.freeCmdBuffer(i2c_info_buf);
+  s->req_mgr.freeCmdBuffer(power_cmd_buf);
+  s->req_mgr.freeCmdBuffer(cmd_buf);
 }
 
 void config_isp(struct CameraState *s, int io_mem_handle, int fence, int request_id, int buf0_mem_handle, int buf0_offset) {
-  uint32_t cam_packet_handle = 0;
   int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*2;
   if (io_mem_handle != 0) {
     size += sizeof(struct cam_buf_io_cfg);
   }
-  struct cam_packet *pkt = (struct cam_packet *)alloc_w_mmu_hdl(s->multi_cam_state->video0_fd, size, &cam_packet_handle);
+  CmdBuffer cmd_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(size);
+  struct cam_packet *pkt = (struct cam_packet *)cmd_buf.address;
   pkt->num_cmd_buf = 2;
   pkt->kmd_cmd_buf_index = 0;
 
@@ -380,7 +471,10 @@ void config_isp(struct CameraState *s, int io_mem_handle, int fence, int request
   }
   buf_desc[1].type = CAM_CMD_BUF_GENERIC;
   buf_desc[1].meta_data = CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON;
-  uint32_t *buf2 = (uint32_t *)alloc_w_mmu_hdl(s->multi_cam_state->video0_fd, buf_desc[1].size, (uint32_t*)&buf_desc[1].mem_handle, 0x20);
+
+  CmdBuffer buffer = s->multi_cam_state->req_mgr.allocCmdBuffer(buf_desc[1].size, 0x20);
+  buf_desc[1].mem_handle = buffer.handle;
+  uint32_t *buf2 = (uint32_t *)buffer.address;
 
   // cam_isp_packet_generic_blob_handler
   uint32_t tmp[] = {
@@ -436,18 +530,15 @@ void config_isp(struct CameraState *s, int io_mem_handle, int fence, int request
   config_dev_cmd.session_handle = s->session_handle;
   config_dev_cmd.dev_handle = s->isp_dev_handle;
   config_dev_cmd.offset = 0;
-  config_dev_cmd.packet_handle = cam_packet_handle;
+  config_dev_cmd.packet_handle = cmd_buf.handle;
 
   int ret = cam_control(s->multi_cam_state->isp_fd, CAM_CONFIG_DEV, &config_dev_cmd, sizeof(config_dev_cmd));
   if (ret != 0) {
     printf("ISP CONFIG FAILED\n");
   }
 
-  munmap(buf2, buf_desc[1].size);
-  release_fd(s->multi_cam_state->video0_fd, buf_desc[1].mem_handle);
-  // release_fd(s->multi_cam_state->video0_fd, buf_desc[0].mem_handle);
-  munmap(pkt, size);
-  release_fd(s->multi_cam_state->video0_fd, cam_packet_handle);
+  s->multi_cam_state->req_mgr.freeCmdBuffer(buffer);
+  s->multi_cam_state->req_mgr.freeCmdBuffer(cmd_buf);
 }
 
 void enqueue_buffer(struct CameraState *s, int i, bool dp) {
@@ -455,7 +546,7 @@ void enqueue_buffer(struct CameraState *s, int i, bool dp) {
   int request_id = s->request_ids[i];
 
   if (s->buf_handle[i]) {
-    release(s->multi_cam_state->video0_fd, s->buf_handle[i]);
+    release(s->multi_cam_state->req_mgr.video0_fd, s->buf_handle[i]);
     // wait
     struct cam_sync_wait sync_wait = {0};
     sync_wait.sync_obj = s->sync_objs[i];
@@ -479,7 +570,7 @@ void enqueue_buffer(struct CameraState *s, int i, bool dp) {
   req_mgr_sched_request.session_hdl = s->session_handle;
   req_mgr_sched_request.link_hdl = s->link_handle;
   req_mgr_sched_request.req_id = request_id;
-  ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_SCHED_REQ, &req_mgr_sched_request, sizeof(req_mgr_sched_request));
+  ret = cam_control(s->multi_cam_state->req_mgr.video0_fd, CAM_REQ_MGR_SCHED_REQ, &req_mgr_sched_request, sizeof(req_mgr_sched_request));
   // LOGD("sched req: %d %d", ret, request_id);
 
   // create output fence
@@ -495,7 +586,7 @@ void enqueue_buffer(struct CameraState *s, int i, bool dp) {
   mem_mgr_map_cmd.num_hdl = 1;
   mem_mgr_map_cmd.flags = 1;
   mem_mgr_map_cmd.fd = s->buf.camera_bufs[i].fd;
-  ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_MAP_BUF, &mem_mgr_map_cmd, sizeof(mem_mgr_map_cmd));
+  ret = cam_control(s->multi_cam_state->req_mgr.video0_fd, CAM_REQ_MGR_MAP_BUF, &mem_mgr_map_cmd, sizeof(mem_mgr_map_cmd));
   // LOGD("map buf req: (fd: %d) 0x%x %d", s->bufs[i].fd, mem_mgr_map_cmd.out.buf_handle, ret);
   s->buf_handle[i] = mem_mgr_map_cmd.out.buf_handle;
 
@@ -580,12 +671,9 @@ static void camera_open(CameraState *s) {
 
   // probe the sensor
   LOGD("-- Probing sensor %d", s->camera_num);
-  sensors_init(s->multi_cam_state->video0_fd, s->sensor_fd, s->camera_num);
+  sensors_init(s->multi_cam_state, s->sensor_fd, s->camera_num);
 
-  memset(&s->req_mgr_session_info, 0, sizeof(s->req_mgr_session_info));
-  ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_CREATE_SESSION, &s->req_mgr_session_info, sizeof(s->req_mgr_session_info));
-  LOGD("get session: %d 0x%X", ret, s->req_mgr_session_info.session_hdl);
-  s->session_handle = s->req_mgr_session_info.session_hdl;
+  s->session_handle = s->multi_cam_state->req_mgr.createSession();
   // access the sensor
   LOGD("-- Accessing sensor");
   static struct cam_acquire_dev_cmd acquire_dev_cmd = {0};
@@ -684,7 +772,8 @@ static void camera_open(CameraState *s) {
   // acquires done
 
   // config ISP
-  alloc_w_mmu_hdl(s->multi_cam_state->video0_fd, 984480, (uint32_t*)&s->buf0_handle, 0x20, CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE, s->multi_cam_state->device_iommu, s->multi_cam_state->cdm_iommu);
+  // CmdBuffer cmd_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(984480, 0x20);
+  alloc_w_mmu_hdl(s->multi_cam_state->req_mgr.video0_fd, 984480, (uint32_t*)&s->buf0_handle, 0x20, CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE, s->multi_cam_state->device_iommu, s->multi_cam_state->cdm_iommu);
   config_isp(s, 0, 0, 1, s->buf0_handle, 0);
 
   LOG("-- Configuring sensor");
@@ -698,18 +787,20 @@ static void camera_open(CameraState *s) {
   // config csiphy
   LOG("-- Config CSI PHY");
   {
-    uint32_t cam_packet_handle = 0;
-    int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1;
-    struct cam_packet *pkt = (struct cam_packet *)alloc_w_mmu_hdl(s->multi_cam_state->video0_fd, size, &cam_packet_handle);
+    CmdBuffer cmd_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1);
+    struct cam_packet *pkt = (struct cam_packet *)cmd_buf.address;
     pkt->num_cmd_buf = 1;
     pkt->kmd_cmd_buf_index = -1;
-    pkt->header.size = size;
+    pkt->header.size = cmd_buf.size;
+    
+    
+    CmdBuffer csiphy_buf = s->multi_cam_state->req_mgr.allocCmdBuffer(sizeof(struct cam_csiphy_info));
     struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
-
-    buf_desc[0].size = buf_desc[0].length = sizeof(struct cam_csiphy_info);
+    buf_desc[0].mem_handle = csiphy_buf.handle;
+    buf_desc[0].size = buf_desc[0].length = csiphy_buf.size;
     buf_desc[0].type = CAM_CMD_BUF_GENERIC;
 
-    struct cam_csiphy_info *csiphy_info = (struct cam_csiphy_info *)alloc_w_mmu_hdl(s->multi_cam_state->video0_fd, buf_desc[0].size, (uint32_t*)&buf_desc[0].mem_handle);
+    struct cam_csiphy_info *csiphy_info = (struct cam_csiphy_info *)csiphy_buf.address;
     csiphy_info->lane_mask = 0x1f;
     csiphy_info->lane_assign = 0x3210;// skip clk. How is this 16 bit for 5 channels??
     csiphy_info->csiphy_3phase = 0x0; // no 3 phase, only 2 conductors per lane
@@ -723,32 +814,25 @@ static void camera_open(CameraState *s) {
     config_dev_cmd.session_handle = s->session_handle;
     config_dev_cmd.dev_handle = s->csiphy_dev_handle;
     config_dev_cmd.offset = 0;
-    config_dev_cmd.packet_handle = cam_packet_handle;
+    config_dev_cmd.packet_handle = cmd_buf.handle;
 
     int ret = cam_control(s->csiphy_fd, CAM_CONFIG_DEV, &config_dev_cmd, sizeof(config_dev_cmd));
     assert(ret == 0);
 
-    release(s->multi_cam_state->video0_fd, buf_desc[0].mem_handle);
-    release(s->multi_cam_state->video0_fd, cam_packet_handle);
+    s->multi_cam_state->req_mgr.freeCmdBuffer(csiphy_buf);
+    s->multi_cam_state->req_mgr.freeCmdBuffer(cmd_buf);
   }
 
   // link devices
   LOG("-- Link devices");
-  static struct cam_req_mgr_link_info req_mgr_link_info = {0};
-  req_mgr_link_info.session_hdl = s->session_handle;
-  req_mgr_link_info.num_devices = 2;
-  req_mgr_link_info.dev_hdls[0] = s->isp_dev_handle;
-  req_mgr_link_info.dev_hdls[1] = s->sensor_dev_handle;
-  ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_LINK, &req_mgr_link_info, sizeof(req_mgr_link_info));
-  LOGD("link: %d", ret);
-  s->link_handle = req_mgr_link_info.link_hdl;
+  s->link_handle = s->multi_cam_state->req_mgr.linkDevice(s->session_handle, s->isp_dev_handle, s->sensor_dev_handle);
 
   static struct cam_req_mgr_link_control req_mgr_link_control = {0};
   req_mgr_link_control.ops = 0;
   req_mgr_link_control.session_hdl = s->session_handle;
   req_mgr_link_control.num_links = 1;
   req_mgr_link_control.link_hdls[0] = s->link_handle;
-  ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
+  ret = cam_control(s->multi_cam_state->req_mgr.video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
   LOGD("link control: %d", ret);
 
   LOGD("start csiphy: %d", ret);
@@ -780,10 +864,10 @@ void cameras_open(MultiCameraState *s) {
   int ret;
 
   LOG("-- Opening devices");
-  // video0 is req_mgr, the target of many ioctls
-  s->video0_fd = open("/dev/v4l/by-path/platform-soc:qcom_cam-req-mgr-video-index0", O_RDWR | O_NONBLOCK);
-  assert(s->video0_fd >= 0);
-  LOGD("opened video0");
+  // // video0 is req_mgr, the target of many ioctls
+  // s->video0_fd = open("/dev/v4l/by-path/platform-soc:qcom_cam-req-mgr-video-index0", O_RDWR | O_NONBLOCK);
+  // assert(s->video0_fd >= 0);
+  // LOGD("opened video0");
 
   // video1 is cam_sync, the target of some ioctls
   s->video1_fd = open("/dev/v4l/by-path/platform-cam_sync-video-index0", O_RDWR | O_NONBLOCK);
@@ -810,12 +894,13 @@ void cameras_open(MultiCameraState *s) {
   s->cdm_iommu = isp_query_cap_cmd.cdm_iommu.non_secure;
 
   // subscribe
-  LOG("-- Subscribing");
-  static struct v4l2_event_subscription sub = {0};
-  sub.type = 0x8000000;
-  sub.id = 2; // should use boot time for sof
-  ret = ioctl(s->video0_fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
-  printf("req mgr subscribe: %d\n", ret);
+  // LOG("-- Subscribing");
+  // static struct v4l2_event_subscription sub = {0};
+  // sub.type = 0x8000000;
+  // sub.id = 2; // should use boot time for sof
+  // ret = ioctl(s->video0_fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
+  // printf("req mgr subscribe: %d\n", ret);
+  s->req_mgr.init();
 
   camera_open(&s->road_cam);
   printf("road camera opened \n");
@@ -843,16 +928,11 @@ static void camera_close(CameraState *s) {
   req_mgr_link_control.session_hdl = s->session_handle;
   req_mgr_link_control.num_links = 1;
   req_mgr_link_control.link_hdls[0] = s->link_handle;
-  ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
+  ret = cam_control(s->multi_cam_state->req_mgr.video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
   LOGD("link control stop: %d", ret);
 
   // unlink
-  LOG("-- Unlink");
-  static struct cam_req_mgr_unlink_info req_mgr_unlink_info = {0};
-  req_mgr_unlink_info.session_hdl = s->session_handle;
-  req_mgr_unlink_info.link_hdl = s->link_handle;
-  ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_UNLINK, &req_mgr_unlink_info, sizeof(req_mgr_unlink_info));
-  LOGD("unlink: %d", ret);
+  s->multi_cam_state->req_mgr.unlinkDevice(s->session_handle, s->link_handle);
 
   // release devices
   LOGD("-- Release devices");
@@ -863,7 +943,7 @@ static void camera_close(CameraState *s) {
   ret = device_control(s->csiphy_fd, CAM_RELEASE_DEV, s->session_handle, s->csiphy_dev_handle);
   LOGD("release csiphy: %d", ret);
 
-  ret = cam_control(s->multi_cam_state->video0_fd, CAM_REQ_MGR_DESTROY_SESSION, &s->req_mgr_session_info, sizeof(s->req_mgr_session_info));
+  s->multi_cam_state->req_mgr.destroySession(s->session_handle);
   LOGD("destroyed session: %d", ret);
 }
 
@@ -892,7 +972,7 @@ void handle_camera_event(CameraState *s, void *evdat) {
     // check for skipped frames
     if (main_id > s->frame_id_last + 1 && !s->skipped) {
       // realign
-      clear_req_queue(s->multi_cam_state->video0_fd, event_data->session_hdl, event_data->u.frame_msg.link_hdl);
+      clear_req_queue(s->multi_cam_state->req_mgr.video0_fd, event_data->session_hdl, event_data->u.frame_msg.link_hdl);
       enqueue_req_multi(s, real_id + 1, FRAME_BUF_COUNT - 1, 0);
       s->skipped = true;
     } else if (main_id == s->frame_id_last + 1) {
@@ -924,7 +1004,7 @@ void handle_camera_event(CameraState *s, void *evdat) {
   } else { // not ready
     // reset after half second of no response
     if (main_id > s->frame_id_last + 10) {
-      clear_req_queue(s->multi_cam_state->video0_fd, event_data->session_hdl, event_data->u.frame_msg.link_hdl);
+      clear_req_queue(s->multi_cam_state->req_mgr.video0_fd, event_data->session_hdl, event_data->u.frame_msg.link_hdl);
       enqueue_req_multi(s, s->request_id_last + 1, FRAME_BUF_COUNT, 0);
       s->frame_id_last = main_id;
       s->skipped = true;
@@ -1083,7 +1163,7 @@ void cameras_run(MultiCameraState *s) {
   while (!do_exit) {
     struct pollfd fds[1] = {{0}};
 
-    fds[0].fd = s->video0_fd;
+    fds[0].fd = s->req_mgr.video0_fd;
     fds[0].events = POLLPRI;
 
     int ret = poll(fds, std::size(fds), 1000);
@@ -1102,11 +1182,11 @@ void cameras_run(MultiCameraState *s) {
       // LOGD("v4l2 event: sess_hdl %d, link_hdl %d, frame_id %d, req_id %lld, timestamp 0x%llx, sof_status %d\n", event_data->session_hdl, event_data->u.frame_msg.link_hdl, event_data->u.frame_msg.frame_id, event_data->u.frame_msg.request_id, event_data->u.frame_msg.timestamp, event_data->u.frame_msg.sof_status);
       // printf("sess_hdl %d, link_hdl %d, frame_id %lu, req_id %lu, timestamp 0x%lx, sof_status %d\n", event_data->session_hdl, event_data->u.frame_msg.link_hdl, event_data->u.frame_msg.frame_id, event_data->u.frame_msg.request_id, event_data->u.frame_msg.timestamp, event_data->u.frame_msg.sof_status);
 
-      if (event_data->session_hdl == s->road_cam.req_mgr_session_info.session_hdl) {
+      if (event_data->session_hdl == s->road_cam.session_handle) {
         handle_camera_event(&s->road_cam, event_data);
-      } else if (event_data->session_hdl == s->wide_road_cam.req_mgr_session_info.session_hdl) {
+      } else if (event_data->session_hdl == s->wide_road_cam.session_handle) {
         handle_camera_event(&s->wide_road_cam, event_data);
-      } else if (event_data->session_hdl == s->driver_cam.req_mgr_session_info.session_hdl) {
+      } else if (event_data->session_hdl == s->driver_cam.session_handle) {
         handle_camera_event(&s->driver_cam, event_data);
       } else {
         printf("Unknown vidioc event source\n");
