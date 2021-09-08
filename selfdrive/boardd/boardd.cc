@@ -41,7 +41,7 @@ std::atomic<bool> ignition(false);
 ExitHandler do_exit;
 
 void safety_setter_thread(Panda *panda) {
-  auto get_carvin = [](){
+  auto get_car_vin = [](){
     std::string v = Params().get("CarVin");
     return v.empty() ? std::nullopt : std::make_optional(v);
   };
@@ -52,16 +52,16 @@ void safety_setter_thread(Panda *panda) {
 
   LOGD("Starting safety setter thread");
   // diagnostic only is the default, needed for VIN query
-  panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327);
+  panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327, 0);
 
-  std::optional<std::string> carvin, car_params;
+  std::optional<std::string> car_vin, car_params;
   while (!do_exit && panda->connected) {
-    if (!carvin && (carvin = get_carvin())) {
+    if (!car_vin && (car_vin = get_car_vin())) {
       // sanity check VIN format
-      assert((*carvin).size() == 17);
+      assert((*car_vin).size() == 17);
       panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327, 1);
     }
-    if (carvin && (car_params = get_car_params())) {
+    if (car_vin && (car_params = get_car_params())) {
       AlignedBuffer aligned_buf;
       capnp::FlatArrayMessageReader cmsg(aligned_buf.align((*car_params).data(), (*car_params).size()));
       auto car = cmsg.getRoot<cereal::CarParams>();
@@ -74,7 +74,6 @@ void safety_setter_thread(Panda *panda) {
   }
   safety_setter_thread_running = false;
 }
-
 
 Panda *usb_connect() {
   std::unique_ptr<Panda> panda;
