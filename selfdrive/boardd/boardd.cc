@@ -58,12 +58,14 @@ void safety_setter_thread(Panda *panda) {
   while (!do_exit && panda->connected) {
     if (!car_vin && (car_vin = get_car_vin())) {
       // sanity check VIN format
-      assert((*car_vin).size() == 17);
+      assert(car_vin->size() == 17);
+      // VIN query done, stop listening to OBDII
       panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327, 1);
     }
     if (car_vin && (car_params = get_car_params())) {
+      LOGW("got %d bytes CarParams", car_params->size());
       AlignedBuffer aligned_buf;
-      capnp::FlatArrayMessageReader cmsg(aligned_buf.align((*car_params).data(), (*car_params).size()));
+      capnp::FlatArrayMessageReader cmsg(aligned_buf.align(car_params->data(), car_params->size()));
       auto car = cmsg.getRoot<cereal::CarParams>();
       panda->set_unsafe_mode(0);  // see safety_declarations.h for allowed values
       LOGW("setting safety model: %d with param %d", (int)car.getSafetyModel(), car.getSafetyParam());
