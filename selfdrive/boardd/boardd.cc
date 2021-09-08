@@ -41,60 +41,37 @@ std::atomic<bool> ignition(false);
 ExitHandler do_exit;
 
 void safety_setter_thread(Panda *panda) {
+  auto get_carvin = [](){
+    std::string v = Params().get("CarVin");
+    return v.empty() ? std::nullopt : std::make_optional(v);
+  };
+  auto get_car_params = []() {
+    std::string v = Params().getBool("ControlsReady") ? Params().get("CarParams") : "";
+    return v.empty() ? std::nullopt : std::make_optional(v);
+  };
+
   LOGD("Starting safety setter thread");
   // diagnostic only is the default, needed for VIN query
   panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327);
 
-  Params p = Params();
-
-  // switch to SILENT when CarVin param is read
-  while (true) {
-    if (do_exit || !panda->connected) {
-      safety_setter_thread_running = false;
-      return;
-    };
-
-    std::string value_vin = p.get("CarVin");
-    if (value_vin.size() > 0) {
+  std::optional<std::string> carvin, car_params;
+  while (!do_exit && panda->connected) {
+    if (!carvin && (carvin = get_carvin())) {
       // sanity check VIN format
-      assert(value_vin.size() == 17);
-      LOGW("got CarVin %s", value_vin.c_str());
+      assert((*carvin).size() == 17);
+      panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327, 1);
+    }
+    if (carvin && (car_params = get_car_params())) {
+      AlignedBuffer aligned_buf;
+      capnp::FlatArrayMessageReader cmsg(aligned_buf.align((*car_params).data(), (*car_params).size()));
+      auto car = cmsg.getRoot<cereal::CarParams>();
+      panda->set_unsafe_mode(0);  // see safety_declarations.h for allowed values
+      LOGW("setting safety model: %d with param %d", (int)car.getSafetyModel(), car.getSafetyParam());
+      panda->set_safety_model(car.getSafetyModel(), car.getSafetyParam());
       break;
     }
     util::sleep_for(100);
   }
-
-  // VIN query done, stop listening to OBDII
-  panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327, 1);
-
-  std::string params;
-  LOGW("waiting for params to set safety model");
-  while (true) {
-    if (do_exit || !panda->connected) {
-      safety_setter_thread_running = false;
-      return;
-    };
-
-    if (p.getBool("ControlsReady")) {
-      params = p.get("CarParams");
-      if (params.size() > 0) break;
-    }
-    util::sleep_for(100);
-  }
-  LOGW("got %d bytes CarParams", params.size());
-
-  AlignedBuffer aligned_buf;
-  capnp::FlatArrayMessageReader cmsg(aligned_buf.align(params.data(), params.size()));
-  cereal::CarParams::Reader car_params = cmsg.getRoot<cereal::CarParams>();
-  cereal::CarParams::SafetyModel safety_model = car_params.getSafetyModel();
-
-  panda->set_unsafe_mode(0);  // see safety_declarations.h for allowed values
-
-  auto safety_param = car_params.getSafetyParam();
-  LOGW("setting safety model: %d with param %d", (int)safety_model, safety_param);
-
-  panda->set_safety_model(safety_model, safety_param);
-
   safety_setter_thread_running = false;
 }
 
