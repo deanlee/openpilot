@@ -52,7 +52,7 @@ void safety_setter_thread(Panda *panda) {
 
   LOGD("Starting safety setter thread");
   // diagnostic only is the default, needed for VIN query
-  panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327, 0);
+  panda->set_safety_model(cereal::CarParams::SafetyModel::ELM327);
 
   std::optional<std::string> car_vin, car_params;
   while (!do_exit && panda->connected) {
