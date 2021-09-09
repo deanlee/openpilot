@@ -5,7 +5,7 @@
 
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 #include "selfdrive/ui/ui.h"
-
+#include "selfdrive/ui/paint.h"
 
 // ***** onroad widgets *****
 
@@ -24,19 +24,6 @@ private:
   Alert alert = {};
 };
 
-// container window for the NVG UI
-class NvgWindow : public CameraViewWidget {
-  Q_OBJECT
-
-public:
-  explicit NvgWindow(VisionStreamType type, QWidget* parent = 0) : CameraViewWidget(type, true, parent) {}
-  void updateState(const UIState &s);
-
-protected:
-  void paintGL() override;
-  void initializeGL() override;
-  double prev_draw_t = 0;
-};
 
 // container for all onroad widgets
 class OnroadWindow : public QWidget {
@@ -50,7 +37,8 @@ private:
   void paintEvent(QPaintEvent *event);
   void mousePressEvent(QMouseEvent* e) override;
   OnroadAlerts *alerts;
-  NvgWindow *nvg;
+  // NvgWindow *nvg;
+  OnroadGraphicsView *graphics_view;
   QColor bg = bg_colors[STATUS_DISENGAGED];
   QWidget *map = nullptr;
   QHBoxLayout* split;

@@ -17,14 +17,15 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   stacked_layout->setStackingMode(QStackedLayout::StackAll);
   main_layout->addLayout(stacked_layout);
 
-  nvg = new NvgWindow(VISION_STREAM_RGB_BACK, this);
-  QObject::connect(this, &OnroadWindow::updateStateSignal, nvg, &NvgWindow::updateState);
+  // nvg = new NvgWindow(VISION_STREAM_RGB_BACK, this);
+  graphics_view = new OnroadGraphicsView(this);
+  QObject::connect(this, &OnroadWindow::updateStateSignal, graphics_view, &OnroadGraphicsView::updateState);
 
   QWidget * split_wrapper = new QWidget;
   split = new QHBoxLayout(split_wrapper);
   split->setContentsMargins(0, 0, 0, 0);
   split->setSpacing(0);
-  split->addWidget(nvg);
+  split->addWidget(graphics_view);
 
   stacked_layout->addWidget(split_wrapper);
 
@@ -100,8 +101,8 @@ void OnroadWindow::offroadTransition(bool offroad) {
   alerts->updateAlert({}, bg);
 
   // update stream type
-  bool wide_cam = Hardware::TICI() && Params().getBool("EnableWideCamera");
-  nvg->setStreamType(wide_cam ? VISION_STREAM_RGB_WIDE : VISION_STREAM_RGB_BACK);
+  // bool wide_cam = Hardware::TICI() && Params().getBool("EnableWideCamera");
+  // nvg->setStreamType(wide_cam ? VISION_STREAM_RGB_WIDE : VISION_STREAM_RGB_BACK);
 }
 
 void OnroadWindow::paintEvent(QPaintEvent *event) {

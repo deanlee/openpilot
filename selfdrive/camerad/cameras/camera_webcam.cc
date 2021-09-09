@@ -119,23 +119,23 @@ static void road_camera_thread(CameraState *s) {
   run_camera(s, cap_road, ts);
 }
 
-void driver_camera_thread(CameraState *s) {
-  cv::VideoCapture cap_driver(DRIVER_CAMERA_ID, cv::CAP_V4L2); // driver
-  cap_driver.set(cv::CAP_PROP_FRAME_WIDTH, 853);
-  cap_driver.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
-  cap_driver.set(cv::CAP_PROP_FPS, s->fps);
-  // cv::Rect roi_front(320, 0, 960, 720);
+// void driver_camera_thread(CameraState *s) {
+//   cv::VideoCapture cap_driver(DRIVER_CAMERA_ID, cv::CAP_V4L2); // driver
+//   cap_driver.set(cv::CAP_PROP_FRAME_WIDTH, 853);
+//   cap_driver.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+//   cap_driver.set(cv::CAP_PROP_FPS, s->fps);
+//   // cv::Rect roi_front(320, 0, 960, 720);
 
-  // transforms calculation see tools/webcam/warp_vis.py
-  float ts[9] = {1.42070485, 0.0, -30.16740088,
-                  0.0, 1.42070485, 91.030837,
-                  0.0, 0.0, 1.0};
-  // if camera upside down:
-  // float ts[9] = {-1.42070485, 0.0, 1182.2,
-  //                 0.0, -1.42070485, 773.0,
-  //                 0.0, 0.0, 1.0};
-  run_camera(s, cap_driver, ts);
-}
+//   // transforms calculation see tools/webcam/warp_vis.py
+//   float ts[9] = {1.42070485, 0.0, -30.16740088,
+//                   0.0, 1.42070485, 91.030837,
+//                   0.0, 0.0, 1.0};
+//   // if camera upside down:
+//   // float ts[9] = {-1.42070485, 0.0, 1182.2,
+//   //                 0.0, -1.42070485, 773.0,
+//   //                 0.0, 0.0, 1.0};
+//   run_camera(s, cap_driver, ts);
+// }
 
 }  // namespace
 
@@ -162,13 +162,13 @@ void cameras_close(MultiCameraState *s) {
   delete s->pm;
 }
 
-void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) {
-  MessageBuilder msg;
-  auto framed = msg.initEvent().initDriverCameraState();
-  framed.setFrameType(cereal::FrameData::FrameType::FRONT);
-  fill_frame_data(framed, c->buf.cur_frame_data);
-  s->pm->send("driverCameraState", msg);
-}
+// void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) {
+//   MessageBuilder msg;
+//   auto framed = msg.initEvent().initDriverCameraState();
+//   framed.setFrameType(cereal::FrameData::FrameType::FRONT);
+//   fill_frame_data(framed, c->buf.cur_frame_data);
+//   s->pm->send("driverCameraState", msg);
+// }
 
 void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
   const CameraBuf *b = &c->buf;
@@ -183,11 +183,11 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
 void cameras_run(MultiCameraState *s) {
   std::vector<std::thread> threads;
   threads.push_back(start_process_thread(s, &s->road_cam, process_road_camera));
-  threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
+  // threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
 
   std::thread t_rear = std::thread(road_camera_thread, &s->road_cam);
   set_thread_name("webcam_thread");
-  driver_camera_thread(&s->driver_cam);
+  // driver_camera_thread(&s->driver_cam);
 
   t_rear.join();
 

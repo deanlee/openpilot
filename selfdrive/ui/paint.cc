@@ -20,6 +20,8 @@
 #include "selfdrive/hardware/hw.h"
 #include "selfdrive/ui/ui.h"
 
+#include "selfdrive/ui/qt/util.h"
+
 static void ui_draw_text(const UIState *s, float x, float y, const char *string, float size, NVGcolor color, const char *font_name) {
   nvgFontFace(s->vg, font_name);
   nvgFontSize(s->vg, size);
@@ -310,4 +312,160 @@ void ui_resize(UIState *s, int width, int height) {
 
   nvgCurrentTransform(s->vg, s->car_space_transform);
   nvgResetTransform(s->vg);
+}
+
+
+// OnroadGraphicsView
+
+static QGraphicsSimpleTextItem *newTextItem(const QString &text, const QString &style, int size, QColor color) {
+  QFont f("Open Sans");
+  f.setPixelSize(size);
+  f.setStyleName(style);
+  QGraphicsSimpleTextItem *item = new QGraphicsSimpleTextItem(text);
+  item->setFont(f);
+  item->setBrush(color);
+  return item;
+}
+
+OnroadGraphicsView::OnroadGraphicsView(QWidget *parent) : QGraphicsView(parent) {
+  maxSpeed = new MaxSpeed;
+  wheel = new IconItem("../assets/img_chffr_wheel.png");
+  face = new IconItem("../assets/img_driver_face.png");
+  speed = newTextItem("0", "Bold", 165, Qt::white);
+  unit = newTextItem("km/h", "Regular", 65, QColor(0xff, 0xff, 0xff, 200));
+  // alerts = new OnroadAlerts();
+
+  scene_ = new QGraphicsScene;
+  scene_->addItem(maxSpeed);
+  scene_->addItem(wheel);
+  scene_->addItem(face);
+  scene_->addItem(speed);
+  scene_->addItem(unit);
+  // scene_->addItem(alerts);
+  setScene(scene_);
+  foreach (QGraphicsItem *item, items()) {
+    item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+  }
+
+  setFrameStyle(QFrame::NoFrame);
+  setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+  nvg = new NvgWindow(VISION_STREAM_RGB_BACK, this);
+  setViewport(nvg);
+  setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+  setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform);
+}
+
+void OnroadGraphicsView::drawBackground(QPainter *painter, const QRectF &rect) {
+  ui_draw(&QUIState::ui_state, width(), height());
+}
+
+void OnroadGraphicsView::addMapToScene(QWidget *m, int width) {
+  map_proxy = scene_->addWidget(m);
+  m->resize(width, 1000);
+  // map_proxy->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+  // alerts->setZValue(20);
+}
+
+void OnroadGraphicsView::updateState(const UIState &s) {
+  nvg->update();
+
+  SubMaster &sm = *(s.sm);
+  // alerts->updateState(s);
+
+  auto cs = sm["controlsState"].getControlsState();
+  const int SET_SPEED_NA = 255;
+  auto vcruise = cs.getVCruise();
+  if (vcruise != 0 && vcruise != SET_SPEED_NA) {
+    auto max = vcruise * (s.scene.is_metric ? 1 : 0.6225);
+    maxSpeed->setMaxSpeed(QString::number((int)max));
+    wheel->setVisible(true);
+  } else {
+    maxSpeed->setMaxSpeed("N/A");
+    wheel->setVisible(false);
+  }
+  wheel->setColor(bg_colors[s.status]);
+  bool dm_active = sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode();
+  // face->setVisible(alerts->isVisible());
+  face->setColor(QColor(0, 0, 0, 70), dm_active ? 1.0 : 0.2);
+  unit->setText(s.scene.is_metric ? "km/h" : "mph");
+}
+
+void OnroadGraphicsView::resizeEvent(QResizeEvent* event) {
+  setSceneRect(0, 0, event->size().width(), event->size().height());
+  fitInView(sceneRect());
+  QRectF r = sceneRect();
+  int width = r.width();
+  // if (map_proxy && map_proxy->isVisible()) {
+  //   map_proxy->setPos(r.right() - map_proxy->boundingRect().width(), 0);
+  //   width -= map_proxy->boundingRect().width();
+  // }
+  face->setPos(r.left() + bdr_s*2, r.bottom() - footer_h/2 - face->boundingRect().height()/2);
+  maxSpeed->setPos(r.left() + bdr_s*2, r.top() + bdr_s*1.5);
+  speed->setPos(r.left() + width / 2 - speed->boundingRect().width()/2, r.top() + bdr_s*1.5);
+  unit->setPos(r.left() + width / 2 - unit->boundingRect().width()/2, r.top() + bdr_s*1 + 195);
+  wheel->setPos(r.left() + width - wheel->boundingRect().width() - bdr_s*2, r.top() + bdr_s*1.5);
+  // alerts->setPos(r.left() - 2, r.top() + r.height() - alerts->boundingRect().height() + 2);
+  QGraphicsView::resizeEvent(event);
+}
+
+// IconItem
+
+IconItem::IconItem(const QString &fn) : QGraphicsItem() {
+  img = QPixmap(fn).scaled(img_size, img_size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+}
+
+void IconItem::setColor(const QColor color, float opacity) {
+  if (color_ != color || opacity_ != opacity) {
+    color_ = color;
+    opacity_ = opacity;
+    update();
+  }
+}
+
+QRectF IconItem::boundingRect() const {
+  return {0, 0, radius, radius};
+}
+
+void IconItem::paint(QPainter *p, const QStyleOptionGraphicsItem *option, QWidget *widget) {
+  p->setPen(Qt::NoPen);
+  p->setBrush(color_);
+  p->drawEllipse(0, 0, radius, radius);
+  p->setOpacity(opacity_);
+  p->drawPixmap((radius-img_size) / 2, (radius - img_size) / 2, img);
+}
+
+// Maxspeed
+
+static void drawText(QPainter &p, int x, int y, Qt::Alignment flag, const QString &text, int alpha = 255) {
+  p.setPen(QColor(0xff, 0xff, 0xff, alpha));
+  QFontMetrics fm(p.font());
+  QRect r = fm.tightBoundingRect(text);
+  r.moveCenter({x, y});
+  if (flag & Qt::AlignTop) {
+    r.moveTop(r.top() + r.height() / 2);
+  } else if (flag & Qt::AlignBottom) {
+    r.moveTop(r.top() - r.height() / 2);
+  }
+  p.drawText(r.x() - 2, r.bottom(), text);
+}
+
+MaxSpeed::MaxSpeed() : QGraphicsItem() {}
+
+QRectF MaxSpeed::boundingRect() const {
+  return {- 5, - 5, 184 + 10, 202 + 10};
+}
+
+void MaxSpeed::paint(QPainter *p, const QStyleOptionGraphicsItem *option, QWidget *widget) {
+  QRectF rc = boundingRect();
+  p->setPen(QPen(QColor(0xff, 0xff, 0xff, 100), 10));
+  p->setBrush(QColor(0, 0, 0, 100));
+  p->drawRoundedRect(rc.adjusted(5, 5, -5, -5), 20, 20);
+
+  bool is_cruise_set = maxSpeed_ != "N/A";
+  configFont(*p, "Open Sans", 48, "Regular");
+  drawText(*p, rc.center().x(), rc.top() + bdr_s * 1.5, Qt::AlignTop, "MAX", is_cruise_set ? 200 : 100);
+  configFont(*p, "Open Sans", 78, is_cruise_set ? "Bold" : "SemiBold");
+  drawText(*p, rc.center().x(), rc.bottom() - bdr_s*1.5, Qt::AlignBottom, maxSpeed_, is_cruise_set ? 255 : 100);
 }
