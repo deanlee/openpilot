@@ -56,7 +56,6 @@ void OnroadWindow::updateState(const UIState &s) {
   }
 
   alerts->updateAlert(alert, bgColor);
-  nvg->updateAlert(alert, bgColor);
   if (bg != bgColor) {
     // repaint border
     bg = bgColor;
@@ -113,14 +112,14 @@ void OnroadWindow::paintEvent(QPaintEvent *event) {
 // ***** onroad widgets *****
 
 void OnroadAlerts::updateAlert(const Alert &a, const QColor &color) {
-  // if (!alert.equal(a) || color != bg) {
-  //   alert = a;
-  //   bg = color;
-  //   update();
-  // }
-  alert = a;
-  bg = color;
-  update();
+  bool alert_equal = alert.equal(a);
+  if (!alert_equal || a.blinking_rate > 0 || color != bg) {
+    bg = color;
+    if (!alert_equal) {
+      alert = a;
+    }
+    update();
+  }
 }
 
 void OnroadAlerts::paintEvent(QPaintEvent *event) {
@@ -149,6 +148,8 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
   p.setCompositionMode(QPainter::CompositionMode_DestinationOver);
   p.setBrush(QBrush(g));
   p.fillRect(r, g);
+  p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+
   double t2 = millis_since_boot();
   printf("flash %f\n", t2 - t1);
   // QRect r = QRect(0, height() - h, width(), h);
@@ -184,38 +185,9 @@ void NvgWindow::initializeGL() {
   setBackgroundColor(bg_colors[STATUS_DISENGAGED]);
 }
 
-void NvgWindow::fillAlertBackground() {
-  // auto get_alert_alpha = [](float blink_rate) {
-  //   return 0.375 * cos((millis_since_boot() / 1000) * 2 * M_PI * blink_rate) + 0.625;
-  // };
-
-  // QPainter p(this);
-
-  // const int h = getAlertHeight(alert.size, height());
-  // QRect r = QRect(0, height() - h, width(), h);
-  // p.setPen(Qt::NoPen);
-  // p.setCompositionMode(QPainter::CompositionMode_SourceOver);
-
-  // QColor bg = alert_bg;
-  // bg.setAlphaF(get_alert_alpha(alert.blinking_rate));
-  // p.fillRect(r, bg);
-
-  // QLinearGradient g(0, r.y(), 0, r.bottom());
-  // g.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.05));
-  // g.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0.35));
-
-  // p.setCompositionMode(QPainter::CompositionMode_DestinationOver);
-  // p.setBrush(QBrush(g));
-  // p.fillRect(r, g);
-}
-
 void NvgWindow::paintGL() {
   CameraViewWidget::paintGL();
   ui_draw(&QUIState::ui_state, width(), height());
-
-  if (alert.size != cereal::ControlsState::AlertSize::NONE) {
-    fillAlertBackground();
-  }
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
@@ -224,9 +196,4 @@ void NvgWindow::paintGL() {
     LOGW("slow frame time: %.2f", dt);
   }
   prev_draw_t = cur_draw_t;
-}
-
-void NvgWindow::updateAlert(const Alert &a, const QColor &color) {
-  alert_bg = color;
-  if (!alert.equal(a)) alert = a;
 }
