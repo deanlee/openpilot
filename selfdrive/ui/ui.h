@@ -63,6 +63,9 @@ struct Alert {
   }
 
   static Alert get(const SubMaster &sm, uint64_t started_frame) {
+    return {"TAKE CONTROL IMMEDIATELY", "Controls Unresponsive",
+            "controlsUnresponsive", cereal::ControlsState::AlertSize::MID,
+            AudibleAlert::CHIME_WARNING_REPEAT, .75};
     if (sm.updated("controlsState")) {
       const cereal::ControlsState::Reader &cs = sm["controlsState"].getControlsState();
       return {cs.getAlertText1().cStr(), cs.getAlertText2().cStr(),

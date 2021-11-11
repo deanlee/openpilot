@@ -113,22 +113,45 @@ void OnroadWindow::paintEvent(QPaintEvent *event) {
 // ***** onroad widgets *****
 
 void OnroadAlerts::updateAlert(const Alert &a, const QColor &color) {
-  if (!alert.equal(a) || color != bg) {
-    alert = a;
-    bg = color;
-    update();
-  }
+  // if (!alert.equal(a) || color != bg) {
+  //   alert = a;
+  //   bg = color;
+  //   update();
+  // }
+  alert = a;
+  bg = color;
+  update();
 }
 
 void OnroadAlerts::paintEvent(QPaintEvent *event) {
+    auto get_alert_alpha = [](float blink_rate) {
+    return 0.375 * cos((millis_since_boot() / 1000) * 2 * M_PI * blink_rate) + 0.625;
+  };
   if (alert.size == cereal::ControlsState::AlertSize::NONE) {
     return;
   }
-
+  double t1 = millis_since_boot();
   QPainter p(this);
 
   const int h = getAlertHeight(alert.size, height());
   QRect r = QRect(0, height() - h, width(), h);
+  p.setPen(Qt::NoPen);
+  p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+
+  QColor alert_bg = bg;
+  alert_bg.setAlphaF(get_alert_alpha(alert.blinking_rate));
+  p.fillRect(r, alert_bg);
+
+  QLinearGradient g(0, r.y(), 0, r.bottom());
+  g.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.05));
+  g.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0.35));
+
+  p.setCompositionMode(QPainter::CompositionMode_DestinationOver);
+  p.setBrush(QBrush(g));
+  p.fillRect(r, g);
+  double t2 = millis_since_boot();
+  printf("flash %f\n", t2 - t1);
+  // QRect r = QRect(0, height() - h, width(), h);
   const QPoint c = r.center();
   p.setPen(QColor(0xff, 0xff, 0xff));
   p.setRenderHint(QPainter::TextAntialiasing);
@@ -162,28 +185,28 @@ void NvgWindow::initializeGL() {
 }
 
 void NvgWindow::fillAlertBackground() {
-  auto get_alert_alpha = [](float blink_rate) {
-    return 0.375 * cos((millis_since_boot() / 1000) * 2 * M_PI * blink_rate) + 0.625;
-  };
+  // auto get_alert_alpha = [](float blink_rate) {
+  //   return 0.375 * cos((millis_since_boot() / 1000) * 2 * M_PI * blink_rate) + 0.625;
+  // };
 
-  QPainter p(this);
+  // QPainter p(this);
 
-  const int h = getAlertHeight(alert.size, height());
-  QRect r = QRect(0, height() - h, width(), h);
-  p.setPen(Qt::NoPen);
-  p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+  // const int h = getAlertHeight(alert.size, height());
+  // QRect r = QRect(0, height() - h, width(), h);
+  // p.setPen(Qt::NoPen);
+  // p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
-  QColor bg = alert_bg;
-  bg.setAlphaF(get_alert_alpha(alert.blinking_rate));
-  p.fillRect(r, bg);
+  // QColor bg = alert_bg;
+  // bg.setAlphaF(get_alert_alpha(alert.blinking_rate));
+  // p.fillRect(r, bg);
 
-  QLinearGradient g(0, r.y(), 0, r.bottom());
-  g.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.05));
-  g.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0.35));
+  // QLinearGradient g(0, r.y(), 0, r.bottom());
+  // g.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.05));
+  // g.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0.35));
 
-  p.setCompositionMode(QPainter::CompositionMode_DestinationOver);
-  p.setBrush(QBrush(g));
-  p.fillRect(r, g);
+  // p.setCompositionMode(QPainter::CompositionMode_DestinationOver);
+  // p.setBrush(QBrush(g));
+  // p.fillRect(r, g);
 }
 
 void NvgWindow::paintGL() {
