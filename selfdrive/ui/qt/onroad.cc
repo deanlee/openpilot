@@ -138,7 +138,9 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
   p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
   QColor alert_bg = bg;
-  alert_bg.setAlphaF(get_alert_alpha(alert.blinking_rate));
+  if (alert.blinking_rate > 0) {
+    alert_bg.setAlphaF(get_alert_alpha(alert.blinking_rate));
+  }
   p.fillRect(r, alert_bg);
 
   QLinearGradient g(0, r.y(), 0, r.bottom());
