@@ -4,9 +4,7 @@
 
 #include "selfdrive/ui/qt/util.h"
 
-void Sidebar::drawMetric(QPainter &p, const QString &label, QColor c, int y) {
-  const QRect rect = {30, y, 240, label.contains("\n") ? 124 : 100};
-
+void Sidebar::drawMetric(QPainter &p, const QRect &rect, const QString &label, QColor c) {
   p.setPen(Qt::NoPen);
   p.setBrush(QBrush(c));
   p.setClipRect(rect.x() + 6, rect.y(), 18, rect.height(), Qt::ClipOperation::ReplaceClip);
@@ -80,6 +78,8 @@ void Sidebar::updateState(const UIState &s) {
 }
 
 void Sidebar::paintEvent(QPaintEvent *event) {
+  const QSize padding{30, 50};
+
   QPainter p(this);
   p.setPen(Qt::NoPen);
   p.setRenderHint(QPainter::Antialiasing);
@@ -90,7 +90,7 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.setOpacity(0.65);
   p.drawImage(settings_btn.x(), settings_btn.y(), settings_img);
   p.setOpacity(1.0);
-  p.drawImage(60, 1080 - 180 - 40, home_img);
+  p.drawImage((width() - home_img.width()) / 2, height() - home_img.height() - padding.height(), home_img);
 
   // network
   int x = 58;
@@ -107,7 +107,13 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.drawText(r, Qt::AlignCenter, net_type);
 
   // metrics
-  drawMetric(p, temp_status.first, temp_status.second, 338);
-  drawMetric(p, panda_status.first, panda_status.second, 496);
-  drawMetric(p, connect_status.first, connect_status.second, 654);
+  int y = 338;
+  QRect rect = {30, y, 240, 124};
+  for (auto metric : {&temp_status, &panda_status, &connect_status}) {
+    drawMetric(p, rect, metric->first, metric->second);  
+    rect.moveTop(rect.bottom() + 34);
+  }
+  // drawMetric(p, temp_status.first, temp_status.second, 338);
+  // drawMetric(p, panda_status.first, panda_status.second, 496);
+  // drawMetric(p, connect_status.first, connect_status.second, 654);
 }
