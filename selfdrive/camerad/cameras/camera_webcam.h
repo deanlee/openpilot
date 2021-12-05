@@ -19,10 +19,10 @@ typedef struct CameraState {
 } CameraState;
 
 
-typedef struct MultiCameraState {
+class MultiCameraState : public CameraServerBase {
+public:
+  void initCameras() override;
+  void run() override;
   CameraState road_cam;
   CameraState driver_cam;
-
-  SubMaster *sm;
-  PubMaster *pm;
-} MultiCameraState;
+};
