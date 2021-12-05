@@ -9,6 +9,9 @@
 
 #include "libyuv.h"
 #include <jpeglib.h>
+#ifdef QCOM
+#include "CL/cl_ext_qcom.h"
+#endif
 
 #include "selfdrive/camerad/imgproc/utils.h"
 #include "selfdrive/common/clutil.h"
@@ -425,14 +428,14 @@ void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, 
 }
 
 CameraServerBase::CameraServerBase() {
-  cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+  device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
 
   // TODO: do this for QCOM2 too
 #if defined(QCOM)
   const cl_context_properties props[] = {CL_CONTEXT_PRIORITY_HINT_QCOM, CL_PRIORITY_HINT_HIGH_QCOM, 0};
-  cl_context context = CL_CHECK_ERR(clCreateContext(props, 1, &device_id, NULL, NULL, &err));
+  context = CL_CHECK_ERR(clCreateContext(props, 1, &device_id, NULL, NULL, &err));
 #else
-  cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+  context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
 #endif
   vipc_server = new VisionIpcServer("camerad", device_id, context);
 
@@ -448,10 +451,7 @@ CameraServerBase::~CameraServerBase() {
 }
 
 void CameraServerBase::start() {
-  cameras_init(this);
-  cameras_open(this);
-
+  initCameras();
   vipc_server->start_listener();
-
-  cameras_run(this));
+  run();
 }

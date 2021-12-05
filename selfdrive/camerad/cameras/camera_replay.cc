@@ -99,7 +99,6 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
 void cameras_init(MultiCameraState *s) {
   camera_init(s, &s->road_cam, CAMERA_ID_LGC920, 20,  VISION_STREAM_RGB_BACK, VISION_STREAM_ROAD, get_url(road_camera_route, "fcamera", 0));
   // camera_init(s, &s->driver_cam, CAMERA_ID_LGC615, 10, VISION_STREAM_RGB_FRONT, VISION_STREAM_DRIVER, get_url(driver_camera_route, "dcamera", 0));
-  s->pm = new PubMaster({"roadCameraState", "driverCameraState", "thumbnail"});
 }
 
 void cameras_open(MultiCameraState *s) {}
@@ -107,17 +106,22 @@ void cameras_open(MultiCameraState *s) {}
 void cameras_close(MultiCameraState *s) {
   camera_close(&s->road_cam);
   camera_close(&s->driver_cam);
-  delete s->pm;
 }
 
-void cameras_run(MultiCameraState *s) {
+
+void MultiCameraState::initCameras() {
+  cameras_init(this);
+  cameras_open(this);
+}
+
+void MultiCameraState::run() {
   std::vector<std::thread> threads;
-  threads.push_back(start_process_thread(s, &s->road_cam, process_road_camera));
-  // threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
-  // threads.push_back(std::thread(driver_camera_thread, &s->driver_cam));
-  road_camera_thread(&s->road_cam);
+  threads.push_back(start_process_thread(this, &road_cam, process_road_camera));
+  // threads.push_back(start_process_thread(this, &driver_cam, process_driver_camera));
+  // threads.push_back(std::thread(driver_camera_thread, &driver_cam));
+  road_camera_thread(&road_cam);
 
   for (auto &t : threads) t.join();
 
-  cameras_close(s);
+  cameras_close(this);
 }

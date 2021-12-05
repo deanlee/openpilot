@@ -85,8 +85,10 @@ class Debayer;
 class CameraServerBase {
 public:
   CameraServerBase();
-  ~CameraServerBase();
+  virtual ~CameraServerBase();
   void start();
+  virtual void initCameras() = 0;
+  virtual void run() = 0;
 
   SubMaster *sm = nullptr;
   PubMaster *pm = nullptr;

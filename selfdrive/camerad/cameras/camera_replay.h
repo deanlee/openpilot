@@ -16,8 +16,11 @@ typedef struct CameraState {
   FrameReader *frame = nullptr;
 } CameraState;
 
-class MultiCameraState : public CameraServerbase {
+class MultiCameraState : public CameraServerBase {
 public:
+  void initCameras() override;
+  void run() override;
+
   CameraState road_cam;
   CameraState driver_cam;
 };
