@@ -73,8 +73,8 @@ private:
   cl_kernel krnl_;
 };
 
-void CameraBuf::init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt, VisionStreamType init_rgb_type, VisionStreamType init_yuv_type, release_cb init_release_callback) {
-  vipc_server = v;
+void CameraBuf::init(CameraServerBase *server, CameraState *s, int frame_cnt, VisionStreamType init_rgb_type, VisionStreamType init_yuv_type, release_cb init_release_callback) {
+  vipc_server = server->vipc_server;
   this->rgb_type = init_rgb_type;
   this->yuv_type = init_yuv_type;
   this->release_callback = init_release_callback;
@@ -90,7 +90,7 @@ void CameraBuf::init(cl_device_id device_id, cl_context context, CameraState *s,
 
   for (int i = 0; i < frame_buf_count; i++) {
     camera_bufs[i].allocate(frame_size);
-    camera_bufs[i].init_cl(device_id, context);
+    camera_bufs[i].init_cl(server->device_id, server->context);
   }
 
   rgb_width = ci->frame_width;
@@ -110,15 +110,15 @@ void CameraBuf::init(cl_device_id device_id, cl_context context, CameraState *s,
   vipc_server->create_buffers(yuv_type, YUV_BUFFER_COUNT, false, rgb_width, rgb_height);
 
   if (ci->bayer) {
-    debayer = new Debayer(device_id, context, this, s);
+    debayer = new Debayer(server->device_id, server->context, this, s);
   }
-  rgb2yuv = std::make_unique<Rgb2Yuv>(context, device_id, rgb_width, rgb_height, rgb_stride);
+  rgb2yuv = std::make_unique<Rgb2Yuv>(server->context, server->device_id, rgb_width, rgb_height, rgb_stride);
 
 #ifdef __APPLE__
-  q = CL_CHECK_ERR(clCreateCommandQueue(context, device_id, 0, &err));
+  q = CL_CHECK_ERR(clCreateCommandQueue(server->context, server->device_id, 0, &err));
 #else
   const cl_queue_properties props[] = {0};  //CL_QUEUE_PRIORITY_KHR, CL_QUEUE_PRIORITY_HIGH_KHR, 0};
-  q = CL_CHECK_ERR(clCreateCommandQueueWithProperties(context, device_id, props, &err));
+  q = CL_CHECK_ERR(clCreateCommandQueueWithProperties(server->context, server->device_id, props, &err));
 #endif
 }
 
@@ -422,4 +422,36 @@ void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, 
     framed.setImage(get_frame_image(&c->buf));
   }
   pm->send("driverCameraState", msg);
+}
+
+CameraServerBase::CameraServerBase() {
+  cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+
+  // TODO: do this for QCOM2 too
+#if defined(QCOM)
+  const cl_context_properties props[] = {CL_CONTEXT_PRIORITY_HINT_QCOM, CL_PRIORITY_HINT_HIGH_QCOM, 0};
+  cl_context context = CL_CHECK_ERR(clCreateContext(props, 1, &device_id, NULL, NULL, &err));
+#else
+  cl_context context = CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+#endif
+  vipc_server = new VisionIpcServer("camerad", device_id, context);
+
+  pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
+  sm = new SubMaster({"driverState"});
+}
+
+CameraServerBase::~CameraServerBase() {
+  delete vipc_server;
+  delete pm;
+  delete sm;
+  CL_CHECK(clReleaseContext(context));
+}
+
+void CameraServerBase::start() {
+  cameras_init(this);
+  cameras_open(this);
+
+  vipc_server->start_listener();
+
+  cameras_run(this));
 }
