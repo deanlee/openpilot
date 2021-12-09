@@ -78,11 +78,10 @@ CameraInfo cameras_supported[CAMERA_ID_MAX] = {
   },
 };
 
-static void camera_release_buffer(void* cookie, int buf_idx) {
-  CameraState *s = (CameraState *)cookie;
+void CameraState::releaseCallback(int buf_idx) {
   // printf("camera_release_buffer %d\n", buf_idx);
-  s->ss[0].qbuf_info[buf_idx].dirty_buf = 1;
-  HANDLE_EINTR(ioctl(s->isp_fd, VIDIOC_MSM_ISP_ENQUEUE_BUF, &s->ss[0].qbuf_info[buf_idx]));
+  ss[0].qbuf_info[buf_idx].dirty_buf = 1;
+  HANDLE_EINTR(ioctl(isp_fd, VIDIOC_MSM_ISP_ENQUEUE_BUF, &ss[0].qbuf_info[buf_idx]));
 }
 
 int sensor_write_regs(CameraState *s, struct msm_camera_i2c_reg_array* arr, size_t size, msm_camera_i2c_data_type data_type) {
@@ -164,8 +163,7 @@ static int ov8865_apply_exposure(CameraState *s, int gain, int integ_lines, uint
 
 static void camera_init(VisionIpcServer *v, CameraState *s, int camera_id, int camera_num,
                         uint32_t pixel_clock, uint32_t line_length_pclk,
-                        uint32_t max_gain, uint32_t fps, cl_device_id device_id, cl_context ctx,
-                        VisionStreamType rgb_type, VisionStreamType yuv_type) {
+                        uint32_t max_gain, uint32_t fps, cl_device_id device_id, cl_context ctx) {
   s->camera_num = camera_num;
   s->camera_id = camera_id;
 
@@ -180,7 +178,7 @@ static void camera_init(VisionIpcServer *v, CameraState *s, int camera_id, int c
   s->self_recover = 0;
 
   s->apply_exposure = (camera_id == CAMERA_ID_IMX298) ? imx298_apply_exposure : ov8865_apply_exposure;
-  s->buf.init(device_id, ctx, s, v, FRAME_BUF_COUNT, rgb_type, yuv_type, camera_release_buffer);
+  s->buf.init(device_id, ctx, s, v, FRAME_BUF_COUNTcamera_release_buffer);
 }
 
 void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
@@ -210,13 +208,11 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
 #else
               /*fps*/ 20,
 #endif
-              device_id, ctx,
-              VISION_STREAM_RGB_BACK, VISION_STREAM_ROAD);
+              device_id, ctx);
 
   camera_init(v, &s->driver_cam, CAMERA_ID_OV8865, 1,
               /*pixel_clock=*/72000000, /*line_length_pclk=*/1602,
-              /*max_gain=*/510, 10, device_id, ctx,
-              VISION_STREAM_RGB_FRONT, VISION_STREAM_DRIVER);
+              /*max_gain=*/510, 10, device_id, ctx);
 
   s->sm = new SubMaster({"driverState"});
   s->pm = new PubMaster({"roadCameraState", "driverCameraState", "thumbnail"});

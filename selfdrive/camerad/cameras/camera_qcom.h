@@ -39,12 +39,12 @@ typedef struct StreamState {
   VisionBuf *bufs;
 } StreamState;
 
-typedef struct CameraState {
-  int camera_num;
-  int camera_id;
+class CameraState : public CameraStateBase {
+public:
+  CameraState(CameraType cam_type) : CameraStateBase(cam_type) {}
+  void releaseCallback(int cur_buf_idx) override;
 
-  int fps;
-  CameraInfo ci;
+  int camera_id;
 
   unique_fd csid_fd;
   unique_fd csiphy_fd;
@@ -54,7 +54,6 @@ typedef struct CameraState {
   struct msm_vfe_axi_stream_cfg_cmd stream_cfg;
 
   StreamState ss[3];
-  CameraBuf buf;
 
   std::mutex frame_info_lock;
   FrameMetadata frame_metadata[METADATA_BUF_COUNT];
@@ -70,7 +69,6 @@ typedef struct CameraState {
   float measured_grey_fraction;
   float target_grey_fraction;
 
-  std::atomic<float> digital_gain;
   camera_apply_exposure_func apply_exposure;
 
   // rear camera only,used for focusing
@@ -83,7 +81,7 @@ typedef struct CameraState {
   uint16_t cur_lens_pos;
   int16_t focus[NUM_FOCUS];
   uint8_t confidence[NUM_FOCUS];
-} CameraState;
+};
 
 
 typedef struct MultiCameraState {

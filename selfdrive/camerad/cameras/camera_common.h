@@ -125,7 +125,7 @@ public:
   CameraInfo ci;
 
   int fps;
-  float digital_gain = 0;
+  std::atomic<float> digital_gain = 0;
   VisionStreamType rgb_stream_type;
   VisionStreamType yuv_stream_type;
   CameraBuf buf;

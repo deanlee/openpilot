@@ -9,9 +9,11 @@
 
 #define FRAME_BUF_COUNT 4
 
-typedef struct CameraState {
+class CameraState : public CameraStateBase {
+public:
+  CameraState(CameraType cam_type) : CameraStateBase(cam_type) {}
+  
   MultiCameraState *multi_cam_state;
-  CameraInfo ci;
 
   std::mutex exp_lock;
 
@@ -29,8 +31,6 @@ typedef struct CameraState {
   unique_fd sensor_fd;
   unique_fd csiphy_fd;
 
-  int camera_num;
-
   int32_t session_handle;
   int32_t sensor_dev_handle;
   int32_t isp_dev_handle;
@@ -46,9 +46,7 @@ typedef struct CameraState {
   int frame_id_last;
   int idx_offset;
   bool skipped;
-
-  CameraBuf buf;
-} CameraState;
+};
 
 typedef struct MultiCameraState {
   unique_fd video0_fd;
@@ -58,9 +56,9 @@ typedef struct MultiCameraState {
   int cdm_iommu;
 
 
-  CameraState road_cam;
-  CameraState wide_road_cam;
-  CameraState driver_cam;
+  CameraState road_cam{RoadCam};
+  CameraState wide_road_cam{WideRoadCam};
+  CameraState driver_cam{DriverCam};
 
   SubMaster *sm;
   PubMaster *pm;
