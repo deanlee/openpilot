@@ -1,25 +1,22 @@
 #pragma once
 
 #include "selfdrive/camerad/cameras/camera_common.h"
-#include "selfdrive/ui/replay/framereader.h"
+
+class FrameReader;
 
 #define FRAME_BUF_COUNT 16
 
-typedef struct CameraState {
-  int camera_num;
-  CameraInfo ci;
-
-  int fps;
-  float digital_gain = 0;
-
-  CameraBuf buf;
+class CameraState : public CameraStateBase {
+public:
+  CameraState(CameraType cam_type) : CameraStateBase(cam_type) {}
   FrameReader *frame = nullptr;
-} CameraState;
+};
 
-typedef struct MultiCameraState {
-  CameraState road_cam;
-  CameraState driver_cam;
+class MultiCameraState {
+public:
+  CameraState road_cam{RoadCam};
+  CameraState driver_cam{DriverCam};
 
   SubMaster *sm = nullptr;
   PubMaster *pm = nullptr;
-} MultiCameraState;
+};

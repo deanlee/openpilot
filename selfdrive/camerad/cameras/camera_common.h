@@ -41,8 +41,6 @@ const bool env_send_driver = getenv("SEND_DRIVER") != NULL;
 const bool env_send_road = getenv("SEND_ROAD") != NULL;
 const bool env_send_wide_road = getenv("SEND_WIDE_ROAD") != NULL;
 
-typedef void (*release_cb)(void *cookie, int buf_idx);
-
 typedef struct CameraInfo {
   int frame_width, frame_height;
   int frame_stride;
@@ -81,6 +79,7 @@ typedef struct CameraExpInfo {
 struct MultiCameraState;
 struct CameraState;
 class Debayer;
+class CameraStateBase;
 
 class CameraBuf {
 private:
@@ -89,14 +88,11 @@ private:
   Debayer *debayer = nullptr;
   std::unique_ptr<Rgb2Yuv> rgb2yuv;
 
-  VisionStreamType rgb_type, yuv_type;
-
   int cur_buf_idx;
 
   SafeQueue<int> safe_queue;
 
   int frame_buf_count;
-  release_cb release_callback;
 
 public:
   cl_command_queue q;
@@ -111,10 +107,27 @@ public:
 
   CameraBuf() = default;
   ~CameraBuf();
-  void init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt, VisionStreamType rgb_type, VisionStreamType yuv_type, release_cb release_callback=nullptr);
+  void init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt);
   bool acquire();
   void release();
   void queue(size_t buf_idx);
+};
+
+class CameraStateBase {
+public:
+  CameraStateBase(CameraType cam_type);
+  // ~CameraStateBase();
+  virtual void releaseCallback(int cur_buf_idx) {}
+  
+  CameraType type;
+  int camera_num;
+  CameraInfo ci;
+
+  int fps;
+  float digital_gain = 0;
+  VisionStreamType rgb_stream_type;
+  VisionStreamType yuv_stream_type;
+  CameraBuf buf;
 };
 
 typedef void (*process_thread_cb)(MultiCameraState *s, CameraState *c, int cnt);

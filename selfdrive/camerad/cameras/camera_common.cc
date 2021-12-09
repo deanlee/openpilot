@@ -73,12 +73,8 @@ private:
   cl_kernel krnl_;
 };
 
-void CameraBuf::init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt, VisionStreamType init_rgb_type, VisionStreamType init_yuv_type, release_cb init_release_callback) {
+void CameraBuf::init(cl_device_id device_id, cl_context context, CameraState *s, VisionIpcServer * v, int frame_cnt) {
   vipc_server = v;
-  this->rgb_type = init_rgb_type;
-  this->yuv_type = init_yuv_type;
-  this->release_callback = init_release_callback;
-
   const CameraInfo *ci = &s->ci;
   camera_state = s;
   frame_buf_count = frame_cnt;
@@ -104,10 +100,10 @@ void CameraBuf::init(cl_device_id device_id, cl_context context, CameraState *s,
 
   yuv_transform = get_model_yuv_transform(ci->bayer);
 
-  vipc_server->create_buffers(rgb_type, UI_BUF_COUNT, true, rgb_width, rgb_height);
-  rgb_stride = vipc_server->get_buffer(rgb_type)->stride;
+  vipc_server->create_buffers(camera_state->rgb_stream_type, UI_BUF_COUNT, true, rgb_width, rgb_height);
+  rgb_stride = vipc_server->get_buffer(camera_state->rgb_stream_type)->stride;
 
-  vipc_server->create_buffers(yuv_type, YUV_BUFFER_COUNT, false, rgb_width, rgb_height);
+  vipc_server->create_buffers(camera_state->yuv_stream_type, YUV_BUFFER_COUNT, false, rgb_width, rgb_height);
 
   if (ci->bayer) {
     debayer = new Debayer(device_id, context, this, s);
@@ -140,7 +136,7 @@ bool CameraBuf::acquire() {
   }
 
   cur_frame_data = camera_bufs_metadata[cur_buf_idx];
-  cur_rgb_buf = vipc_server->get_buffer(rgb_type);
+  cur_rgb_buf = vipc_server->get_buffer(camera_state->rgb_stream_type);
   cl_mem camrabuf_cl = camera_bufs[cur_buf_idx].buf_cl;
   cl_event event;
 
@@ -161,7 +157,7 @@ bool CameraBuf::acquire() {
   clWaitForEvents(1, &event);
   CL_CHECK(clReleaseEvent(event));
 
-  cur_yuv_buf = vipc_server->get_buffer(yuv_type);
+  cur_yuv_buf = vipc_server->get_buffer(camera_state->yuv_stream_type);
   rgb2yuv->queue(q, cur_rgb_buf->buf_cl, cur_yuv_buf->buf_cl);
 
   VisionIpcBufExtra extra = {
@@ -178,9 +174,7 @@ bool CameraBuf::acquire() {
 }
 
 void CameraBuf::release() {
-  if (release_callback) {
-    release_callback((void*)camera_state, cur_buf_idx);
-  }
+  camera_state->releaseCallback(cur_buf_idx);
 }
 
 void CameraBuf::queue(size_t buf_idx) {
@@ -422,4 +416,20 @@ void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, 
     framed.setImage(get_frame_image(&c->buf));
   }
   pm->send("driverCameraState", msg);
+}
+
+
+CameraStateBase::CameraStateBase(CameraType cam_type) : type(cam_type) {
+  if (cam_type == RoadCam) {
+    yuv_stream_type = VISION_STREAM_ROAD;
+    rgb_stream_type = VISION_STREAM_RGB_BACK;
+  } else if (cam_type == DriverCam) {
+    yuv_stream_type = VISION_STREAM_DRIVER;
+    rgb_stream_type = VISION_STREAM_RGB_FRONT;
+  } else if (cam_type == WideRoadCam) {
+    yuv_stream_type = VISION_STREAM_WIDE_ROAD;
+    rgb_stream_type = VISION_STREAM_RGB_WIDE;
+  } else {
+    assert(0);
+  }
 }
