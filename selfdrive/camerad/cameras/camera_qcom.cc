@@ -893,8 +893,8 @@ static void do_autofocus(CameraState *s, SubMaster *sm) {
   actuator_move(s, target);
 }
 
-void camera_autoexposure(CameraState *s, float grey_frac) {
-  if (s->camera_num == 0) {
+void CameraState::autoexposure(float grey_frac) {
+  if (camera_num == 0) {
     CameraExpInfo tmp = road_cam_exp.load();
     tmp.op_id++;
     tmp.grey_frac = grey_frac;
@@ -1113,7 +1113,7 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
   if (cnt % 3 == 0) {
     const int x = 290, y = 322, width = 560, height = 314;
     const int skip = 1;
-    camera_autoexposure(c, set_exposure_target(b, x, x + width, skip, y, y + height, skip));
+    c->autoexposure(set_exposure_target(b, x, x + width, skip, y, y + height, skip));
   }
 }
 

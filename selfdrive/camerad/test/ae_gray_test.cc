@@ -13,8 +13,6 @@
 // needed by camera_common.cc
 ExitHandler do_exit;
 
-void camera_autoexposure(CameraState *s, float grey_frac) {}
-
 int main() {
   // set up fake camerabuf
   CameraBuf cb = {};

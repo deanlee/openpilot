@@ -983,8 +983,8 @@ static void set_camera_exposure(CameraState *s, float grey_frac) {
 
 }
 
-void camera_autoexposure(CameraState *s, float grey_frac) {
-  set_camera_exposure(s, grey_frac);
+void CameraState::autoexposure(float grey_frac) {
+  set_camera_exposure(this, grey_frac);
 }
 
 
@@ -1009,7 +1009,7 @@ void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
 
   const auto [x, y, w, h] = (c == &s->wide_road_cam) ? std::tuple(96, 250, 1734, 524) : std::tuple(96, 160, 1734, 986);
   const int skip = 2;
-  camera_autoexposure(c, set_exposure_target(b, x, x + w, skip, y, y + h, skip));
+  c->autoexposure(set_exposure_target(b, x, x + w, skip, y, y + h, skip));
 }
 
 void cameras_run(MultiCameraState *s) {

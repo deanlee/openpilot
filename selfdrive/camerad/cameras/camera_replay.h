@@ -12,11 +12,10 @@ public:
   FrameReader *frame = nullptr;
 };
 
-class MultiCameraState {
-public:
+typedef struct MultiCameraState {
   CameraState road_cam{RoadCam};
   CameraState driver_cam{DriverCam};
 
   SubMaster *sm = nullptr;
   PubMaster *pm = nullptr;
-};
+} MultiCameraState;

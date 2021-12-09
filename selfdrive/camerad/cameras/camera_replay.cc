@@ -9,8 +9,6 @@
 
 extern ExitHandler do_exit;
 
-void camera_autoexposure(CameraState *s, float grey_frac) {}
-
 namespace {
 
 const char *BASE_URL = "https://commadataci.blob.core.windows.net/openpilotci/";

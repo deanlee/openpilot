@@ -118,6 +118,7 @@ public:
   CameraStateBase(CameraType cam_type);
   // ~CameraStateBase();
   virtual void releaseCallback(int cur_buf_idx) {}
+  virtual void autoexposure(float grey_frac) {}
   
   CameraType type;
   int camera_num;
@@ -142,4 +143,3 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
 void cameras_open(MultiCameraState *s);
 void cameras_run(MultiCameraState *s);
 void cameras_close(MultiCameraState *s);
-void camera_autoexposure(CameraState *s, float grey_frac);
