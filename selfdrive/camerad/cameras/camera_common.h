@@ -141,8 +141,4 @@ float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip
 std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback);
 void common_process_driver_camera(SubMaster *sm, PubMaster *pm, CameraState *c, int cnt);
 
-void cameras_init(MultiCameraState *s);
-void cameras_open(MultiCameraState *s);
-void cameras_run(MultiCameraState *s);
-void cameras_close(MultiCameraState *s);
 void camera_autoexposure(CameraState *s, float grey_frac);

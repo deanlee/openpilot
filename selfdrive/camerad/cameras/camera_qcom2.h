@@ -50,7 +50,11 @@ typedef struct CameraState {
   CameraBuf buf;
 } CameraState;
 
-typedef struct MultiCameraState {
+class MultiCameraState : public CameraServerBase {
+public:
+  void initCameras() override;
+  void run() override;
+
   unique_fd video0_fd;
   unique_fd video1_fd;
   unique_fd isp_fd;
@@ -61,7 +65,4 @@ typedef struct MultiCameraState {
   CameraState road_cam;
   CameraState wide_road_cam;
   CameraState driver_cam;
-
-  SubMaster *sm;
-  PubMaster *pm;
-} MultiCameraState;
+};
