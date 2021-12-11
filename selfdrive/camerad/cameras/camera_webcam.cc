@@ -31,17 +31,15 @@ extern ExitHandler do_exit;
 
 namespace {
 
-CameraInfo cameras_supported[CAMERA_ID_MAX] = {
-  // road facing
-  [CAMERA_ID_LGC920] = {
+CameraInfo cameras_supported[] = {
+  [RoadCam] = {
       .frame_width = FRAME_WIDTH,
       .frame_height = FRAME_HEIGHT,
       .frame_stride = FRAME_WIDTH*3,
       .bayer = false,
       .bayer_flip = false,
   },
-  // driver facing
-  [CAMERA_ID_LGC615] = {
+  [DriverCam] = {
       .frame_width = FRAME_WIDTH_FRONT,
       .frame_height = FRAME_HEIGHT_FRONT,
       .frame_stride = FRAME_WIDTH_FRONT*3,
@@ -58,12 +56,8 @@ void camera_close(CameraState *s) {
   // empty
 }
 
-void camera_init(VisionIpcServer * v, CameraState *s, int camera_id, unsigned int fps, cl_device_id device_id, cl_context ctx) {
-  assert(camera_id < std::size(cameras_supported));
-  s->ci = cameras_supported[camera_id];
-  assert(s->ci.frame_width != 0);
-
-  s->camera_num = camera_id;
+void camera_init(VisionIpcServer * v, CameraState *s, unsigned int fps, cl_device_id device_id, cl_context ctx) {
+  s->ci = cameras_supported[RoadCam];
   s->fps = fps;
   s->buf.init(device_id, ctx, s, v, FRAME_BUF_COUNT);
 }
@@ -140,8 +134,8 @@ void driver_camera_thread(CameraState *s) {
 }  // namespace
 
 void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
-  camera_init(v, &s->road_cam, CAMERA_ID_LGC920, 20, device_id, ctx);
-  camera_init(v, &s->driver_cam, CAMERA_ID_LGC615, 10, device_id, ctx);
+  camera_init(v, &s->road_cam, 20, device_id, ctx);
+  camera_init(v, &s->driver_cam, 10, device_id, ctx);
   s->pm = new PubMaster({"roadCameraState", "driverCameraState", "thumbnail"});
 }
 
