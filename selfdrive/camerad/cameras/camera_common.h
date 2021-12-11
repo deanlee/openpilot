@@ -86,8 +86,8 @@ public:
   cl_device_id device_id;
   cl_context context;
   std::unique_ptr<VisionIpcServer> vipc_server;
-  SubMaster *sm = nullptr;
-  PubMaster *pm = nullptr;
+  std::unique_ptr<SubMaster> sm;
+  std::unique_ptr<PubMaster> pm;
 };
 
 class CameraBuf {

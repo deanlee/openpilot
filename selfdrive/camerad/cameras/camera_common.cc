@@ -361,7 +361,7 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
 
     if (cs == &(cameras->road_cam) && cnt % 100 == 3) {
       // this takes 10ms???
-      publish_thumbnail(cameras->pm, &(cs->buf));
+      publish_thumbnail(cameras->pm.get(), &(cs->buf));
     }
     cs->buf.release();
     ++cnt;
@@ -437,14 +437,12 @@ CameraServerBase::CameraServerBase() {
 #endif
   vipc_server = std::make_unique<VisionIpcServer>("camerad", device_id, context);
 
-  sm = new SubMaster({"driverState"});
-  pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
+  sm.reset(new SubMaster({"driverState"}));
+  pm.reset(new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"}));
 }
 
 CameraServerBase::~CameraServerBase() {
   CL_CHECK(clReleaseContext(context));
-  delete sm;
-  delete pm;
 }
 
 void start_camera_server() {
