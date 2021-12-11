@@ -451,6 +451,9 @@ void start_camera_server() {
   MultiCameraState cameras{};
   cameras_init(&cameras);
   cameras_open(&cameras);
+
   cameras.vipc_server->start_listener();
+
   cameras_run(&cameras);
+  cameras_close(&cameras);
 }

@@ -1165,8 +1165,6 @@ void cameras_run(MultiCameraState *s) {
   LOG(" ************** STOPPING **************");
 
   for (auto &t : threads) t.join();
-
-  cameras_close(s);
 }
 
 void cameras_close(MultiCameraState *s) {

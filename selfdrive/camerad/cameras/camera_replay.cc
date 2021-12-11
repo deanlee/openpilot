@@ -113,6 +113,4 @@ void cameras_run(MultiCameraState *s) {
   road_camera_thread(&s->road_cam);
 
   for (auto &t : threads) t.join();
-
-  cameras_close(s);
 }

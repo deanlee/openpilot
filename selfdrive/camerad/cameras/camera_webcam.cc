@@ -183,6 +183,4 @@ void cameras_run(MultiCameraState *s) {
   t_rear.join();
 
   for (auto &t : threads) t.join();
-
-  cameras_close(s);
 }
