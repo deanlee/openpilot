@@ -190,14 +190,13 @@ void ui_update_params(UIState *s) {
 
 static void update_status(UIState *s) {
   if (s->scene.started && s->sm->updated("controlsState")) {
-    auto controls_state = (*s->sm)["controlsState"].getControlsState();
-    auto alert_status = controls_state.getAlertStatus();
-    if (alert_status == cereal::ControlsState::AlertStatus::USER_PROMPT) {
+    s->alert = Alert::get(*(s->sm), s->scene.started_frame);
+    if (s->alert.status() == cereal::ControlsState::AlertStatus::USER_PROMPT) {
       s->status = STATUS_WARNING;
     } else if (alert_status == cereal::ControlsState::AlertStatus::CRITICAL) {
       s->status = STATUS_ALERT;
     } else {
-      s->status = controls_state.getEnabled() ? STATUS_ENGAGED : STATUS_DISENGAGED;
+      s->status = (*s->sm)["controlsState"].getControlsState().getEnabled() ? STATUS_ENGAGED : STATUS_DISENGAGED;
     }
   }
 
