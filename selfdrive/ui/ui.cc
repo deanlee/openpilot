@@ -90,7 +90,7 @@ static void update_model(UIState *s, const cereal::ModelDataV2::Reader &model) {
   }
 
   // update path
-  auto lead_one = (*s->sm)["radarState"].getRadarState().getLeadOne();
+  auto lead_one = s->sm["radarState"].getRadarState().getLeadOne();
   if (lead_one.getStatus()) {
     const float lead_d = lead_one.getDRel() * 2.;
     max_distance = std::clamp((float)(lead_d - fmin(lead_d * 0.35, 10.)), 0.0f, max_distance);
@@ -100,11 +100,11 @@ static void update_model(UIState *s, const cereal::ModelDataV2::Reader &model) {
 }
 
 static void update_sockets(UIState *s) {
-  s->sm->update(0);
+  s->sm.update(0);
 }
 
 static void update_state(UIState *s) {
-  SubMaster &sm = *(s->sm);
+  SubMaster &sm = s->sm;
   UIScene &scene = s->scene;
 
   if (sm.updated("modelV2")) {
@@ -145,7 +145,7 @@ static void update_state(UIState *s) {
         }
       }
     }
-  } else if ((s->sm->frame - s->sm->rcv_frame("pandaStates")) > 5*UI_FREQ) {
+  } else if ((s->sm.frame - s->sm.rcv_frame("pandaStates")) > 5*UI_FREQ) {
     scene.pandaType = cereal::PandaState::PandaType::UNKNOWN;
   }
   if (sm.updated("carParams")) {
@@ -189,8 +189,8 @@ void ui_update_params(UIState *s) {
 }
 
 static void update_status(UIState *s) {
-  if (s->scene.started && s->sm->updated("controlsState")) {
-    auto controls_state = (*s->sm)["controlsState"].getControlsState();
+  if (s->scene.started && s->sm.updated("controlsState")) {
+    auto controls_state = s->sm["controlsState"].getControlsState();
     auto alert_status = controls_state.getAlertStatus();
     if (alert_status == cereal::ControlsState::AlertStatus::USER_PROMPT) {
       s->status = STATUS_WARNING;
@@ -206,7 +206,7 @@ static void update_status(UIState *s) {
   if (s->scene.started != started_prev) {
     if (s->scene.started) {
       s->status = STATUS_DISENGAGED;
-      s->scene.started_frame = s->sm->frame;
+      s->scene.started_frame = s->sm.frame;
       s->scene.end_to_end = Params().getBool("EndToEndToggle");
       s->wide_camera = Hardware::TICI() ? Params().getBool("EnableWideCamera") : false;
     }
@@ -214,13 +214,10 @@ static void update_status(UIState *s) {
   started_prev = s->scene.started;
 }
 
-
-UIState::UIState(QObject *parent) : QObject(parent) {
-  sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
-    "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
-    "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman",
-  });
-
+UIState::UIState(QObject *parent)
+    : QObject(parent),
+      sm({"modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
+          "pandaStates", "carParams", "driverMonitoringState", "sensorEvents", "carState", "liveLocationKalman"}) {
   Params params;
   wide_camera = Hardware::TICI() ? params.getBool("EnableWideCamera") : false;
   has_prime = params.getBool("HasPrime");
@@ -236,12 +233,12 @@ void UIState::update() {
   update_state(this);
   update_status(this);
 
-  if (scene.started != started_prev || sm->frame == 1) {
+  if (scene.started != started_prev || sm.frame == 1) {
     started_prev = scene.started;
     emit offroadTransition(!scene.started);
   }
 
-  if (sm->frame % UI_FREQ == 0) {
+  if (sm.frame % UI_FREQ == 0) {
     watchdog_kick();
   }
   emit uiUpdate(*this);

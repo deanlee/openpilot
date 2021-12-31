@@ -114,12 +114,12 @@ class UIState : public QObject {
 public:
   UIState(QObject* parent = 0);
   inline bool worldObjectsVisible() const { 
-    return sm->rcv_frame("liveCalibration") > scene.started_frame;
+    return sm.rcv_frame("liveCalibration") > scene.started_frame;
   };
 
   int fb_w = 0, fb_h = 0;
 
-  std::unique_ptr<SubMaster> sm;
+  SubMaster sm;
 
   UIStatus status;
   UIScene scene = {};

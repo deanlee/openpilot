@@ -47,8 +47,8 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
 
 void OnroadWindow::updateState(const UIState &s) {
   QColor bgColor = bg_colors[s.status];
-  Alert alert = Alert::get(*(s.sm), s.scene.started_frame);
-  if (s.sm->updated("controlsState") || !alert.equal({})) {
+  Alert alert = Alert::get(s.sm, s.scene.started_frame);
+  if (s.sm.updated("controlsState") || !alert.equal({})) {
     if (alert.type == "controlsUnresponsive") {
       bgColor = bg_colors[STATUS_ALERT];
     }
@@ -171,8 +171,7 @@ OnroadHud::OnroadHud(QWidget *parent) : QWidget(parent) {
 
 void OnroadHud::updateState(const UIState &s) {
   const int SET_SPEED_NA = 255;
-  const SubMaster &sm = *(s.sm);
-  const auto cs = sm["controlsState"].getControlsState();
+  const auto cs = s.sm["controlsState"].getControlsState();
 
   float maxspeed = cs.getVCruise();
   bool cruise_set = maxspeed > 0 && (int)maxspeed != SET_SPEED_NA;
@@ -180,7 +179,7 @@ void OnroadHud::updateState(const UIState &s) {
     maxspeed *= KM_TO_MILE;
   }
   QString maxspeed_str = cruise_set ? QString::number(std::nearbyint(maxspeed)) : "N/A";
-  float cur_speed = std::max(0.0, sm["carState"].getCarState().getVEgo() * (s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH));
+  float cur_speed = std::max(0.0, s.sm["carState"].getCarState().getVEgo() * (s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH));
 
   setProperty("is_cruise_set", cruise_set);
   setProperty("speed", QString::number(std::nearbyint(cur_speed)));
@@ -190,9 +189,9 @@ void OnroadHud::updateState(const UIState &s) {
   setProperty("status", s.status);
 
   // update engageability and DM icons at 2Hz
-  if (sm.frame % (UI_FREQ / 2) == 0) {
+  if (s.sm.frame % (UI_FREQ / 2) == 0) {
     setProperty("engageable", cs.getEngageable() || cs.getEnabled());
-    setProperty("dmActive", sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
+    setProperty("dmActive", s.sm["driverMonitoringState"].getDriverMonitoringState().getIsActiveMode());
   }
 }
 
@@ -358,7 +357,7 @@ void NvgWindow::paintGL() {
     drawLaneLines(painter, s->scene);
 
     if (s->scene.longitudinal_control) {
-      auto leads = (*s->sm)["modelV2"].getModelV2().getLeadsV3();
+      auto leads = s->sm["modelV2"].getModelV2().getLeadsV3();
       if (leads[0].getProb() > .5) {
         drawLead(painter, leads[0], s->scene.lead_vertices[0]);
       }

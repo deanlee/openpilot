@@ -47,9 +47,7 @@ void Sidebar::mouseReleaseEvent(QMouseEvent *event) {
 void Sidebar::updateState(const UIState &s) {
   if (!isVisible()) return;
 
-  auto &sm = *(s.sm);
-
-  auto deviceState = sm["deviceState"].getDeviceState();
+  auto deviceState = s.sm["deviceState"].getDeviceState();
   setProperty("netType", network_type[deviceState.getNetworkType()]);
   int strength = (int)deviceState.getNetworkStrength();
   setProperty("netStrength", strength > 0 ? strength + 1 : 0);
@@ -75,7 +73,7 @@ void Sidebar::updateState(const UIState &s) {
   ItemStatus pandaStatus = {"VEHICLE\nONLINE", good_color};
   if (s.scene.pandaType == cereal::PandaState::PandaType::UNKNOWN) {
     pandaStatus = {"NO\nPANDA", danger_color};
-  } else if (s.scene.started && !sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK()) {
+  } else if (s.scene.started && !s.sm["liveLocationKalman"].getLiveLocationKalman().getGpsOK()) {
     pandaStatus = {"GPS\nSEARCHING", warning_color};
   }
   setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
