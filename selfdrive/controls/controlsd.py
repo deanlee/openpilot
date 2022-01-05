@@ -87,8 +87,8 @@ class Controls:
       can_timeout = None if os.environ.get('NO_CAN_TIMEOUT', False) else 100
       self.can_sock = messaging.sub_sock('can', timeout=can_timeout)
 
-    if TICI:
-      self.log_sock = messaging.sub_sock('androidLog')
+    #if TICI:
+    self.log_sock = messaging.sub_sock('androidLog')
 
     # wait for one pandaState and one CAN packet
     print("Waiting for CAN messages...")
@@ -197,11 +197,10 @@ class Controls:
     if self.startup_event is not None:
       self.events.add(self.startup_event)
       self.startup_event = None
-
     # Don't add any more events if not initialized
     if not self.initialized:
       self.events.add(EventName.controlsInitializing)
-      return
+      #return
 
     # Create events for battery, temperature, disk space, and memory
     if EON and (self.sm['peripheralState'].pandaType != PandaType.uno) and \
@@ -312,25 +311,22 @@ class Controls:
     if planner_fcw or model_fcw:
       self.events.add(EventName.fcw)
 
-    if TICI:
-      logs = messaging.drain_sock(self.log_sock, wait_for_one=False)
-      messages = []
-      for m in logs:
-        try:
-          messages.append(m.androidLog.message)
-        except UnicodeDecodeError:
-          pass
-
-      for err in ["ERROR_CRC", "ERROR_ECC", "ERROR_STREAM_UNDERFLOW", "APPLY FAILED"]:
-        for m in messages:
-          if err not in m:
-            continue
-
+    #if TICI:
+    logs = messaging.drain_sock(self.log_sock, wait_for_one=False)
+    errors = {"ERROR_CRC", "ERROR_ECC", "ERROR_STREAM_UNDERFLOW", "APPLY FAILED"}
+    evt_map = {"0": EventName.roadCameraError, "1": EventName.wideRoadCameraError,
+                 "2": EventName.driverCameraError}
+    for log in logs:
+      try:
+        m = log.androidLog.message
+        if m in errors:
           csid = m.split("CSID:")[-1].split(" ")[0]
           evt = {"0": EventName.roadCameraError, "1": EventName.wideRoadCameraError,
                  "2": EventName.driverCameraError}.get(csid, None)
-          if evt is not None:
-            self.events.add(evt)
+          if evt_map[csid] is not None:
+            self.events.add(evt_map[csid])
+      except UnicodeDecodeError:
+        pass
 
     # TODO: fix simulator
     if not SIMULATION:
