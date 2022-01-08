@@ -29,7 +29,7 @@ static kj::Array<capnp::word> build_boot_log() {
   for (auto& kv : pstore_map) {
     auto lentry = lpstore[i];
     lentry.setKey(kv.first);
-    lentry.setValue(capnp::Data::Reader((const kj::byte*)kv.second.data(), kv.second.size()));
+    lentry.setValue(kv.second);
     i++;
 
     for (auto &k : log_keywords) {
@@ -48,7 +48,7 @@ static kj::Array<capnp::word> build_boot_log() {
     lentry.setKey(command);
 
     const std::string result = util::check_output(command);
-    lentry.setValue(capnp::Data::Reader((const kj::byte*)result.data(), result.size()));
+    lentry.setValue(result);
 
     i++;
   }
