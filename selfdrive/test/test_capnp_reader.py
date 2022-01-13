@@ -14,6 +14,7 @@ def main():
   r, n = segment.rsplit("--", 1)
   lr = LogReader(get_url(r, n))
   e = 0
+  d = {'steeringPressed':1}
   for msg in lr:
     if (msg.which() == 'carState'):
       e+=1
@@ -24,12 +25,17 @@ def main():
       reader_wrapper = messaging.CapnpReaderWrapper(cs)
       t1 = time.time()
       for i in range(cnt):
-        a = cs.cruiseState.speed
+        a = cs.steeringPressed#cs.cruiseState.speed
+        # print(type(cs.cruiseState))
       t2 = time.time()
+      # print(cnt)
       for i in range(cnt):
-        a = reader_wrapper.cruiseState.speed
+        a = reader_wrapper.steeringPressed
       t3 = time.time()
-      print('child avg:', 'pycapnp', ((t2 - t1) * 1000), 'readerWraper:', ((t3 - t2) * 1000) )
+      for i in range(cnt):
+        a = d.get('steeringPressed',None)
+      t4 = time.time();
+      print('child avg:', 'pycapnp', ((t2 - t1) * 1000), 'readerWraper:', ((t3 - t2) * 1000), 'dict:', ((t4-t3)*1000) )
       break;
 
 
