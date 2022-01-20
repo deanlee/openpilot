@@ -186,11 +186,11 @@ OmxEncoder::OmxEncoder(const char* filename, int width, int height, int fps, int
   in_port.nPortIndex = (OMX_U32) PORT_INDEX_IN;
   OMX_CHECK(OMX_GetParameter(this->handle, OMX_IndexParamPortDefinition, (OMX_PTR) &in_port));
 
-  int wid = (this->width + 15) & ~15;
+  int wid = (this->width + 63) & ~63;
   in_port.format.video.nFrameWidth = this->width;
   in_port.format.video.nFrameHeight = this->height;//VENUS_BUFFER_SIZE
   in_port.format.video.nStride = wid;//VENUS_Y_STRIDE(COLOR_FMT_NV12, this->width);
-  in_port.format.video.nSliceHeight = this->height;
+  in_port.format.video.nSliceHeight = (this->height +15)&~15;
   in_port.nBufferSize = (wid * this->height * 3) / 2;
   // in_port.nBufferSize = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, this->width, this->height);
   in_port.format.video.xFramerate = (this->fps * 65536);
@@ -451,7 +451,7 @@ int OmxEncoder::encode_frame(const uint8_t *y_ptr, const uint8_t *u_ptr, const u
   //                  this->width, this->height);
   // assert(err == 0);
   // memcpy(in_y_ptr, y_ptr, this->width*this->height*3/2);
-  int wid = (this->width + 15) & ~15;
+  int wid = (this->width + 63) & ~63;
   uint8_t *in_u_ptr = in_y_ptr + wid * this->height;
   uint8_t *in_v_ptr = in_u_ptr + (wid/2) * (this->height/2);
   libyuv::I420Copy(y_ptr, this->width,
