@@ -186,16 +186,17 @@ OmxEncoder::OmxEncoder(const char* filename, int width, int height, int fps, int
   in_port.nPortIndex = (OMX_U32) PORT_INDEX_IN;
   OMX_CHECK(OMX_GetParameter(this->handle, OMX_IndexParamPortDefinition, (OMX_PTR) &in_port));
 
+  int wid = (this->width + 15) & ~15;
   in_port.format.video.nFrameWidth = this->width;
-  in_port.format.video.nFrameHeight = this->height;
-  in_port.format.video.nStride = VENUS_Y_STRIDE(COLOR_FMT_NV12, this->width);
+  in_port.format.video.nFrameHeight = this->height;//VENUS_BUFFER_SIZE
+  in_port.format.video.nStride = wid;//VENUS_Y_STRIDE(COLOR_FMT_NV12, this->width);
   in_port.format.video.nSliceHeight = this->height;
-  // in_port.nBufferSize = (this->width * this->height * 3) / 2;
-  in_port.nBufferSize = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, this->width, this->height);
+  in_port.nBufferSize = (wid * this->height * 3) / 2;
+  // in_port.nBufferSize = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, this->width, this->height);
   in_port.format.video.xFramerate = (this->fps * 65536);
   in_port.format.video.eCompressionFormat = OMX_VIDEO_CodingUnused;
   // in_port.format.video.eColorFormat = OMX_COLOR_FormatYUV420SemiPlanar;
-  in_port.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)QOMX_COLOR_FORMATYUV420PackedSemiPlanar32m;
+  in_port.format.video.eColorFormat = (OMX_COLOR_FORMATTYPE)OMX_COLOR_FormatYUV420Planar;//QOMX_COLOR_FORMATYUV420PackedSemiPlanar32m;
 
   OMX_CHECK(OMX_SetParameter(this->handle, OMX_IndexParamPortDefinition, (OMX_PTR) &in_port));
   OMX_CHECK(OMX_GetParameter(this->handle, OMX_IndexParamPortDefinition, (OMX_PTR) &in_port));
@@ -400,7 +401,7 @@ void OmxEncoder::handle_out_buf(OmxEncoder *e, OMX_BUFFERHEADERTYPE *out_buf) {
 
 int OmxEncoder::encode_frame(const uint8_t *y_ptr, const uint8_t *u_ptr, const uint8_t *v_ptr,
                              int in_width, int in_height, uint64_t ts) {
-  int err;
+  // int err;
   if (!this->is_open) {
     return -1;
   }
@@ -423,35 +424,44 @@ int OmxEncoder::encode_frame(const uint8_t *y_ptr, const uint8_t *u_ptr, const u
   // printf("in_buf ptr %p\n", in_buf_ptr);
 
   uint8_t *in_y_ptr = in_buf_ptr;
-  int in_y_stride = VENUS_Y_STRIDE(COLOR_FMT_NV12, this->width);
-  int in_uv_stride = VENUS_UV_STRIDE(COLOR_FMT_NV12, this->width);
+  // int in_y_stride = VENUS_Y_STRIDE(COLOR_FMT_NV12, this->width);
+  // int in_uv_stride = VENUS_UV_STRIDE(COLOR_FMT_NV12, this->width);
   // uint8_t *in_uv_ptr = in_buf_ptr + (this->width * this->height);
-  uint8_t *in_uv_ptr = in_buf_ptr + (in_y_stride * VENUS_Y_SCANLINES(COLOR_FMT_NV12, this->height));
+  // uint8_t *in_uv_ptr = in_buf_ptr + (in_y_stride * VENUS_Y_SCANLINES(COLOR_FMT_NV12, this->height));
 
-  if (this->downscale) {
-    I420Scale(y_ptr, in_width,
-              u_ptr, in_width/2,
-              v_ptr, in_width/2,
-              in_width, in_height,
-              this->y_ptr2, this->width,
-              this->u_ptr2, this->width/2,
-              this->v_ptr2, this->width/2,
-              this->width, this->height,
-              libyuv::kFilterNone);
-    y_ptr = this->y_ptr2;
-    u_ptr = this->u_ptr2;
-    v_ptr = this->v_ptr2;
-  }
-  err = libyuv::I420ToNV12(y_ptr, this->width,
+  // if (this->downscale) {
+  //   I420Scale(y_ptr, in_width,
+  //             u_ptr, in_width/2,
+  //             v_ptr, in_width/2,
+  //             in_width, in_height,
+  //             this->y_ptr2, this->width,
+  //             this->u_ptr2, this->width/2,
+  //             this->v_ptr2, this->width/2,
+  //             this->width, this->height,
+  //             libyuv::kFilterNone);
+  //   y_ptr = this->y_ptr2;
+  //   u_ptr = this->u_ptr2;
+  //   v_ptr = this->v_ptr2;
+  // }
+  // err = libyuv::I420ToNV12(y_ptr, this->width,
+  //                  u_ptr, this->width/2,
+  //                  v_ptr, this->width/2,
+  //                  in_y_ptr, in_y_stride,
+  //                  in_uv_ptr, in_uv_stride,
+  //                  this->width, this->height);
+  // assert(err == 0);
+  // memcpy(in_y_ptr, y_ptr, this->width*this->height*3/2);
+  int wid = (this->width + 15) & ~15;
+  uint8_t *in_u_ptr = in_y_ptr + wid * this->height;
+  uint8_t *in_v_ptr = in_u_ptr + (wid/2) * (this->height/2);
+  libyuv::I420Copy(y_ptr, this->width,
                    u_ptr, this->width/2,
                    v_ptr, this->width/2,
-                   in_y_ptr, in_y_stride,
-                   in_uv_ptr, in_uv_stride,
-                   this->width, this->height);
-  assert(err == 0);
+                   in_y_ptr, wid, in_u_ptr, wid / 2, in_v_ptr, wid / 2,
+                   width, height);
 
-  // in_buf->nFilledLen = (this->width*this->height) + (this->width*this->height/2);
-  in_buf->nFilledLen = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, this->width, this->height);
+  in_buf->nFilledLen = (wid*this->height*3/2);// + (this->width*this->height/2);
+  // in_buf->nFilledLen = VENUS_BUFFER_SIZE(COLOR_FMT_NV12, this->width, this->height);
   in_buf->nFlags = OMX_BUFFERFLAG_ENDOFFRAME;
   in_buf->nOffset = 0;
   in_buf->nTimeStamp = ts/1000LL;  // OMX_TICKS, in microseconds
