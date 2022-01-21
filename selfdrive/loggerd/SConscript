@@ -1,7 +1,7 @@
 Import('env', 'arch', 'cereal', 'messaging', 'common', 'visionipc', 'gpucommon')
 
 
-logger_lib = env.Library('logger', ["logger.cc"])
+logger_lib = env.Library('logger', ["logger.cc", "filewriter.cc"])
 libs = [logger_lib, common, cereal, messaging, visionipc,
         'zmq', 'capnp', 'kj', 'z',
         'avformat', 'avcodec', 'swscale', 'avutil',
@@ -29,3 +29,4 @@ env.Program('bootlog.cc', LIBS=libs)
 
 if GetOption('test'):
   env.Program('tests/test_logger', ['tests/test_runner.cc', 'tests/test_loggerd.cc', 'tests/test_logger.cc', env.Object('logger_util', '#/selfdrive/ui/replay/util.cc')] + src, LIBS=[libs] + ['curl', 'crypto', 'bz2'])
+  env.Program('tests/test_filewriter', ['tests/test_filewriter.cc'], LIBS=[libs] + ['curl', 'crypto', 'bz2'])
