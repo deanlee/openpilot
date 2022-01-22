@@ -27,8 +27,7 @@ RawLogger::RawLogger(const char* filename, int width, int height, int fps,
   // TODO: respect write arg
 
   av_register_all();
-  codec = avcodec_find_encoder(AV_CODEC_ID_FFVHUFF);
-  // codec = avcodec_find_encoder(AV_CODEC_ID_FFV1);
+  codec = avcodec_find_encoder(AV_CODEC_ID_HEVC);
   assert(codec);
 
   codec_ctx = avcodec_alloc_context3(codec);
@@ -36,12 +35,21 @@ RawLogger::RawLogger(const char* filename, int width, int height, int fps,
   codec_ctx->width = width;
   codec_ctx->height = height;
   codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
+  codec_ctx->bit_rate = bitrate;
+
+  // codec_ctx->time_base.den = 25;
+  // codec_ctx->time_base.num = 1;
+  codec_ctx->framerate.den = 1;
+  codec_ctx->framerate.num = 25;
+  codec_ctx->qmin = 10;
+  codec_ctx->qmax = 51;
+
+  codec_ctx->gop_size = 250;
+  codec_ctx->max_b_frames = 3;
 
   // codec_ctx->thread_count = 2;
 
-  // ffv1enc doesn't respect AV_PICTURE_TYPE_I. make every frame a key frame for now.
-  // codec_ctx->gop_size = 0;
-
+  // codec_ctx->gop_size = 10;
   codec_ctx->time_base = (AVRational){ 1, fps };
 
   int err = avcodec_open2(codec_ctx, codec, NULL);
@@ -76,7 +84,7 @@ void RawLogger::encoder_open(const char* path) {
   close(lock_fd);
 
   format_ctx = NULL;
-  avformat_alloc_output_context2(&format_ctx, NULL, "matroska", vid_path.c_str());
+  avformat_alloc_output_context2(&format_ctx, NULL, NULL, vid_path.c_str());
   assert(format_ctx);
 
   stream = avformat_new_stream(format_ctx, codec);
@@ -123,11 +131,16 @@ int RawLogger::encode_frame(const uint8_t *y_ptr, const uint8_t *u_ptr, const ui
   av_init_packet(&pkt);
   pkt.data = NULL;
   pkt.size = 0;
+    // AVRational in_timebase = {1, 1000000};
+  // enum AVRounding rnd = static_cast<enum AVRounding>(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX);
+  // pkt.pts = pkt.dts = av_rescale_q_rnd(ts, in_timebase, format_ctx->streams[0]->time_base, rnd);
+  // pkt.duration = av_rescale_q(50*1000, in_timebase, format_ctx->streams[0]->time_base);
 
   frame->data[0] = (uint8_t*)y_ptr;
   frame->data[1] = (uint8_t*)u_ptr;
   frame->data[2] = (uint8_t*)v_ptr;
-  frame->pts = counter;
+  frame->pts= counter*(codec_ctx->time_base.den)/((codec_ctx->time_base.num)*20);
+  // frame->pts = av_rescale_q_rnd(ts, in_timebase, format_ctx->streams[0]->time_base, rnd);
 
   int ret = counter;
 
