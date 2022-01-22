@@ -35,22 +35,15 @@ RawLogger::RawLogger(const char* filename, int width, int height, int fps,
   codec_ctx->width = width;
   codec_ctx->height = height;
   codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
-  codec_ctx->bit_rate = bitrate;
-
-  // codec_ctx->time_base.den = 25;
-  // codec_ctx->time_base.num = 1;
-  codec_ctx->framerate.den = 1;
-  codec_ctx->framerate.num = 25;
-  codec_ctx->qmin = 10;
-  codec_ctx->qmax = 51;
-
-  codec_ctx->gop_size = 250;
-  codec_ctx->max_b_frames = 3;
+  // codec_ctx->bit_rate = bitrate;
 
   // codec_ctx->thread_count = 2;
 
   // codec_ctx->gop_size = 10;
-  codec_ctx->time_base = (AVRational){ 1, fps };
+  codec_ctx->time_base = (AVRational){1, fps};
+  codec_ctx->framerate = (AVRational){fps, 1};
+  codec_ctx->gop_size = 10;
+  codec_ctx->max_b_frames = 1;
 
   int err = avcodec_open2(codec_ctx, codec, NULL);
   assert(err >= 0);
@@ -139,7 +132,7 @@ int RawLogger::encode_frame(const uint8_t *y_ptr, const uint8_t *u_ptr, const ui
   frame->data[0] = (uint8_t*)y_ptr;
   frame->data[1] = (uint8_t*)u_ptr;
   frame->data[2] = (uint8_t*)v_ptr;
-  frame->pts= counter*(codec_ctx->time_base.den)/((codec_ctx->time_base.num)*20);
+  frame->pts= counter;//*(codec_ctx->time_base.den)/((codec_ctx->time_base.num)*20);
   // frame->pts = av_rescale_q_rnd(ts, in_timebase, format_ctx->streams[0]->time_base, rnd);
 
   int ret = counter;
@@ -150,8 +143,8 @@ int RawLogger::encode_frame(const uint8_t *y_ptr, const uint8_t *u_ptr, const ui
     LOGE("encoding error\n");
     ret = -1;
   } else if (got_output) {
-    av_packet_rescale_ts(&pkt, codec_ctx->time_base, stream->time_base);
-    pkt.stream_index = 0;
+    // av_packet_rescale_ts(&pkt, codec_ctx->time_base, stream->time_base);
+    // pkt.stream_index = 0;
 
     err = av_interleaved_write_frame(format_ctx, &pkt);
     if (err < 0) {
