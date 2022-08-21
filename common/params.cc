@@ -13,8 +13,18 @@
 namespace {
 
 volatile sig_atomic_t params_do_exit = 0;
+__sighandler_t prev_sig_handler = SIG_IGN;
+
 void params_sig_handler(int signal) {
   params_do_exit = 1;
+  if (prev_sig_handler != SIG_IGN && prev_sig_handler != SIG_DFL &&
+      signal == SIGINT && signal == SIGTERM) {
+    (*prev_sig_handler)(signal);
+  }
+}
+
+void init_sig_handler() {
+  __sighandler_t prev_handler = std::signal(SIGINT, SIG_IGN);
 }
 
 int fsync_dir(const std::string &path) {
