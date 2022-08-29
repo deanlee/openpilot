@@ -81,6 +81,7 @@ ConsoleUI::ConsoleUI(Replay *replay, QObject *parent) : replay(replay), sm({"car
   initWindows();
 
   qRegisterMetaType<uint64_t>("uint64_t");
+  qRegisterMetaType<QtMsgType>("QtMsgType");
   installDownloadProgressHandler([this](uint64_t cur, uint64_t total, bool success) {
     emit updateProgressBarSignal(cur, total, success);
   });
