@@ -1,5 +1,6 @@
 #include "tools/replay/logreader.h"
 
+#include <QDebug>
 #include <algorithm>
 #include "tools/replay/util.h"
 
@@ -91,9 +92,9 @@ bool LogReader::parse(std::atomic<bool> *abort) {
       events.push_back(evt);
     }
   } catch (const kj::Exception &e) {
-    rWarning("failed to parse log : %s", e.getDescription().cStr());
+    qWarning("failed to parse log : %s", e.getDescription().cStr());
     if (!events.empty()) {
-      rWarning("read %zu events from corrupt log", events.size());
+      qWarning("read %zu events from corrupt log", events.size());
     }
   }
 

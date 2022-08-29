@@ -1,3 +1,5 @@
+#include <QDebug>
+
 #include "tools/replay/framereader.h"
 #include "tools/replay/util.h"
 
@@ -38,7 +40,7 @@ enum AVPixelFormat get_hw_format(AVCodecContext *ctx, const enum AVPixelFormat *
   for (const enum AVPixelFormat *p = pix_fmts; *p != -1; p++) {
     if (*p == *hw_pix_fmt) return *p;
   }
-  rWarning("Please run replay with the --no-hw-decoder flag!");
+  qWarning() << "Please run replay with the --no-hw-decoder flag!";
   // fallback to YUV420p
   *hw_pix_fmt = AV_PIX_FMT_NONE;
   return AV_PIX_FMT_YUV420P;
@@ -92,13 +94,13 @@ bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, s
   if (ret != 0) {
     char err_str[1024] = {0};
     av_strerror(ret, err_str, std::size(err_str));
-    rError("Error loading video - %s", err_str);
+    qCritical("Error loading video - %s", err_str);
     return false;
   }
 
   ret = avformat_find_stream_info(input_ctx, nullptr);
   if (ret < 0) {
-    rError("cannot find a video stream in the input file");
+    qCritical("cannot find a video stream in the input file");
     return false;
   }
 
@@ -116,7 +118,7 @@ bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, s
 
   if (has_hw_decoder && !no_hw_decoder) {
     if (!initHardwareDecoder(HW_DEVICE_TYPE)) {
-      rWarning("No device with hardware decoder found. fallback to CPU decoding.");
+      qWarning() << "No device with hardware decoder found. fallback to CPU decoding.";
     }
   }
 
@@ -144,7 +146,7 @@ bool FrameReader::initHardwareDecoder(AVHWDeviceType hw_device_type) {
   for (int i = 0;; i++) {
     const AVCodecHWConfig *config = avcodec_get_hw_config(decoder_ctx->codec, i);
     if (!config) {
-      rWarning("decoder %s does not support hw device type %s.", decoder_ctx->codec->name,
+      qWarning("decoder %s does not support hw device type %s.", decoder_ctx->codec->name,
                av_hwdevice_get_type_name(hw_device_type));
       return false;
     }
@@ -158,7 +160,7 @@ bool FrameReader::initHardwareDecoder(AVHWDeviceType hw_device_type) {
   if (ret < 0) {
     hw_pix_fmt = AV_PIX_FMT_NONE;
     has_hw_decoder = false;
-    rWarning("Failed to create specified HW device %d.", ret);
+    qWarning("Failed to create specified HW device %d.", ret);
     return false;
   }
 
@@ -201,21 +203,21 @@ bool FrameReader::decode(int idx, uint8_t *yuv) {
 AVFrame *FrameReader::decodeFrame(AVPacket *pkt) {
   int ret = avcodec_send_packet(decoder_ctx, pkt);
   if (ret < 0) {
-    rError("Error sending a packet for decoding: %d", ret);
+    qCritical("Error sending a packet for decoding: %d", ret);
     return nullptr;
   }
 
   av_frame_.reset(av_frame_alloc());
   ret = avcodec_receive_frame(decoder_ctx, av_frame_.get());
   if (ret != 0) {
-    rError("avcodec_receive_frame error: %d", ret);
+    qCritical("avcodec_receive_frame error: %d", ret);
     return nullptr;
   }
 
   if (av_frame_->format == hw_pix_fmt) {
     hw_frame.reset(av_frame_alloc());
     if ((ret = av_hwframe_transfer_data(hw_frame.get(), av_frame_.get(), 0)) < 0) {
-      rError("error transferring the data from GPU to CPU");
+      qCritical("error transferring the data from GPU to CPU");
       return nullptr;
     }
     return hw_frame.get();

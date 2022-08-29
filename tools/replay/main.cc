@@ -1,3 +1,4 @@
+#include <functional>
 #include <QApplication>
 #include <QCommandLineParser>
 
@@ -5,6 +6,27 @@
 #include "tools/replay/replay.h"
 
 const QString DEMO_ROUTE = "4cf7a6ad03080c90|2021-09-29--13-46-36";
+
+
+// void replayMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+//   if (message_handler) {
+//     message_handler(type, msg_buf);
+//   } else {
+//     if (type == ReplyMsgType::Debug) {
+//       std::cout << "\033[38;5;248m" << msg_buf << "\033[00m" << std::endl;
+//     } else if (type == ReplyMsgType::Warning) {
+//       std::cout << "\033[38;5;227m" << msg_buf << "\033[00m" << std::endl;
+//     } else if (type == ReplyMsgType::Critical) {
+//       std::cout << "\033[38;5;196m" << msg_buf << "\033[00m" << std::endl;
+//     } else {
+//       std::cout << msg_buf << std::endl;
+//     }
+//   }
+
+//   free(msg_buf);
+// }
+
+std::unique_ptr<ConsoleUI> console_ui;
 
 int main(int argc, char *argv[]) {
   QCoreApplication app(argc, argv);
@@ -53,7 +75,10 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  ConsoleUI console_ui(replay);
+  console_ui.reset(new ConsoleUI(replay));
+  qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &ctx, const QString &msg) {
+    emit console_ui->logMessageSignal(type, msg);
+  });
   replay->start(parser.value("start").toInt());
   return app.exec();
 }

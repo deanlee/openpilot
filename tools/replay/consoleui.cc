@@ -81,10 +81,6 @@ ConsoleUI::ConsoleUI(Replay *replay, QObject *parent) : replay(replay), sm({"car
   initWindows();
 
   qRegisterMetaType<uint64_t>("uint64_t");
-  qRegisterMetaType<ReplyMsgType>("ReplyMsgType");
-  installMessageHandler([this](ReplyMsgType type, const std::string msg) {
-    emit logMessageSignal(type, QString::fromStdString(msg));
-  });
   installDownloadProgressHandler([this](uint64_t cur, uint64_t total, bool success) {
     emit updateProgressBarSignal(cur, total, success);
   });
@@ -147,7 +143,7 @@ void ConsoleUI::timerEvent(QTimerEvent *ev) {
     clear();
     refresh();
     initWindows();
-    rWarning("resize term %dx%d", max_height, max_width);
+    qWarning("resize term %dx%d", max_height, max_width);
   }
   updateTimeline();
 }
@@ -216,14 +212,14 @@ void ConsoleUI::displayTimelineDesc() {
   }
 }
 
-void ConsoleUI::logMessage(ReplyMsgType type, const QString &msg) {
+void ConsoleUI::logMessage(QtMsgType type, const QString &msg) {
   if (auto win = w[Win::Log]) {
     Color color = Color::Default;
-    if (type == ReplyMsgType::Debug) {
+    if (type == QtMsgType::QtDebugMsg) {
       color = Color::Debug;
-    } else if (type == ReplyMsgType::Warning) {
+    } else if (QtMsgType::QtWarningMsg) {
       color = Color::Yellow;
-    } else if (type == ReplyMsgType::Critical) {
+    } else if (type == QtMsgType::QtCriticalMsg || type == QtMsgType::QtFatalMsg) {
       color = Color::Red;
     }
     add_str(win, qPrintable(msg + "\n"), color);
@@ -308,7 +304,7 @@ void ConsoleUI::handleKey(char c) {
     nodelay(stdscr, false);
 
     // Wait for user input
-    rWarning("Waiting for input...");
+    qWarning() << "Waiting for input...";
     int y = getmaxy(stdscr) - 9;
     move(y, BORDER_SIZE);
     add_str(stdscr, "Enter seek request: ", Color::BrightWhite, true);
@@ -333,10 +329,10 @@ void ConsoleUI::handleKey(char c) {
   } else if (c == 'x') {
     if (replay->hasFlag(REPLAY_FLAG_FULL_SPEED)) {
       replay->removeFlag(REPLAY_FLAG_FULL_SPEED);
-      rWarning("replay at normal speed");
+      qWarning() << "replay at normal speed";
     } else {
       replay->addFlag(REPLAY_FLAG_FULL_SPEED);
-      rWarning("replay at full speed");
+      qWarning() << "replay at full speed";
     }
   } else if (c == 'e') {
     replay->seekToFlag(FindFlag::nextEngagement);

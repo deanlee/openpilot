@@ -1,3 +1,5 @@
+#include <QDebug>
+
 #include "tools/replay/camera.h"
 #include "tools/replay/util.h"
 
@@ -24,7 +26,7 @@ void CameraServer::startVipcServer() {
   vipc_server_.reset(new VisionIpcServer("camerad"));
   for (auto &cam : cameras_) {
     if (cam.width > 0 && cam.height > 0) {
-      rInfo("camera[%d] frame size %dx%d", cam.type, cam.width, cam.height);
+      qInfo() << QString("camera[%1] frame size %2x%3").arg(cam.type).arg(cam.width).arg(cam.height);
       vipc_server_->create_buffers(cam.stream_type, YUV_BUFFER_COUNT, false, cam.width, cam.height);
       if (!cam.thread.joinable()) {
         cam.thread = std::thread(&CameraServer::cameraThread, this, std::ref(cam));
@@ -57,7 +59,7 @@ void CameraServer::cameraThread(Camera &cam) {
       };
       vipc_server_->send(yuv, &extra, false);
     } else {
-      rError("camera[%d] failed to get frame:", cam.type, eidx.getSegmentId());
+      qCritical("camera[%d] failed to get frame: %d", cam.type, eidx.getSegmentId());
     }
 
     cam.cached_id = id + 1;

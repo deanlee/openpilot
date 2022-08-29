@@ -1,5 +1,6 @@
 #include "tools/replay/util.h"
 
+#include <QDebug>
 #include <bzlib.h>
 #include <curl/curl.h>
 #include <openssl/sha.h>
@@ -15,40 +16,8 @@
 #include "common/timing.h"
 #include "common/util.h"
 
-ReplayMessageHandler message_handler = nullptr;
 DownloadProgressHandler download_progress_handler = nullptr;
-
-void installMessageHandler(ReplayMessageHandler handler) { message_handler = handler; }
 void installDownloadProgressHandler(DownloadProgressHandler handler) { download_progress_handler = handler; }
-
-void logMessage(ReplyMsgType type, const char *fmt, ...) {
-  static std::mutex lock;
-  std::lock_guard lk(lock);
-
-  char *msg_buf = nullptr;
-  va_list args;
-  va_start(args, fmt);
-  int ret = vasprintf(&msg_buf, fmt, args);
-  va_end(args);
-  if (ret <= 0 || !msg_buf) return;
-
-  if (message_handler) {
-    message_handler(type, msg_buf);
-  } else {
-    if (type == ReplyMsgType::Debug) {
-      std::cout << "\033[38;5;248m" << msg_buf << "\033[00m" << std::endl;
-    } else if (type == ReplyMsgType::Warning) {
-      std::cout << "\033[38;5;227m" << msg_buf << "\033[00m" << std::endl;
-    } else if (type == ReplyMsgType::Critical) {
-      std::cout << "\033[38;5;196m" << msg_buf << "\033[00m" << std::endl;
-    } else {
-      std::cout << msg_buf << std::endl;
-    }
-  }
-
-  free(msg_buf);
-}
-
 namespace {
 
 struct CURLGlobalInitializer {
@@ -214,10 +183,10 @@ bool httpDownload(const std::string &url, T &buf, size_t chunk_size, size_t cont
         if (res_status == 206) {
           complete++;
         } else {
-          rWarning("Download failed: http error code: %d", res_status);
+          qWarning("Download failed: http error code: %ld", res_status);
         }
       } else {
-        rWarning("Download failed: connection failure: %d",  msg->data.result);
+        qWarning("Download failed: connection failure: %d",  msg->data.result);
       }
     }
   }
@@ -275,7 +244,7 @@ std::string decompressBZ2(const std::byte *in, size_t in_size, std::atomic<bool>
     if (bzerror == BZ_OK && prev_write_pos == strm.next_out) {
       // content is corrupt
       bzerror = BZ_STREAM_END;
-      rWarning("decompressBZ2 error : content is corrupt");
+      qWarning() << "decompressBZ2 error : content is corrupt";
       break;
     }
 

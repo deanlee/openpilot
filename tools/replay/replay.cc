@@ -40,7 +40,7 @@ Replay::~Replay() {
 void Replay::stop() {
   if (!stream_thread_ && segments_.empty()) return;
 
-  rInfo("shutdown: in progress...");
+  qInfo() << "shutdown: in progress...";
   if (stream_thread_ != nullptr) {
     exit_ = updating_events_ = true;
     stream_cv_.notify_one();
@@ -51,7 +51,7 @@ void Replay::stop() {
   segments_.clear();
   camera_server_.reset(nullptr);
   timeline_future.waitForFinished();
-  rInfo("shutdown: done");
+  qInfo() << "shutdown: done";
 }
 
 bool Replay::load() {
@@ -72,7 +72,7 @@ bool Replay::load() {
     qCritical() << "no valid segments in route" << route_->name();
     return false;
   }
-  rInfo("load route %s with %zu valid segments", qPrintable(route_->name()), segments_.size());
+  qInfo() << QString("load route %1 with %2 valid segments").arg(route_->name()).arg(segments_.size());
   return true;
 }
 
@@ -97,11 +97,11 @@ void Replay::seekTo(int seconds, bool relative) {
     seconds = std::max(0, seconds);
     int seg = seconds / 60;
     if (segments_.find(seg) == segments_.end()) {
-      rWarning("can't seek to %d s segment %d is invalid", seconds, seg);
+      qWarning() << "can't seek to" << seconds << "s segment" << seg << "is invalid";
       return true;
     }
 
-    rInfo("seeking to %d s, segment %d", seconds, seg);
+    qInfo() << "seeking to" << seconds << "s, segment" << seg;
     current_segment_ = seg;
     cur_mono_time_ = route_start_ts_ + seconds * 1e9;
     return isSegmentMerged(seg);
@@ -177,7 +177,7 @@ std::optional<uint64_t> Replay::find(FindFlag flag) {
 
 void Replay::pause(bool pause) {
   updateEvents([=]() {
-    rWarning("%s at %d s", pause ? "paused..." : "resuming", currentSeconds());
+    qWarning() << (pause ? "paused..." : "resuming") << "at" <<  currentSeconds();
     paused_ = pause;
     return true;
   });
@@ -192,7 +192,7 @@ void Replay::setCurrentSegment(int n) {
 void Replay::segmentLoadFinished(bool success) {
   if (!success) {
     Segment *seg = qobject_cast<Segment *>(sender());
-    rWarning("failed to load segment %d, removing it from current replay list", seg->seg_num);
+    qWarning() << "failed to load segment" << seg->seg_num << ", removing it from current replay list";
     segments_.erase(seg->seg_num);
   }
   queueSegment();
@@ -211,7 +211,7 @@ void Replay::queueSegment() {
     auto &[n, seg] = *it;
     if ((seg && !seg->isLoaded()) || !seg) {
       if (!seg) {
-        rDebug("loading segment %d...", n);
+        qDebug() << "loading segment" << n << "...";
         seg = std::make_unique<Segment>(n, route_->at(n), flags_);
         QObject::connect(seg.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
       }
@@ -248,12 +248,7 @@ void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::
   }
 
   if (segments_need_merge != segments_merged_) {
-    std::string s;
-    for (int i = 0; i < segments_need_merge.size(); ++i) {
-      s += std::to_string(segments_need_merge[i]);
-      if (i != segments_need_merge.size() - 1) s += ", ";
-    }
-    rDebug("merge segments %s", s.c_str());
+    qDebug() << "merge segments" << segments_need_merge;
     new_events_->clear();
     new_events_->reserve(new_events_size);
     for (int n : segments_need_merge) {
@@ -288,7 +283,7 @@ void Replay::startStream(const Segment *cur_segment) {
     auto bytes = words.asBytes();
     Params().put("CarParams", (const char *)bytes.begin(), bytes.size());
   } else {
-    rWarning("failed to read CarParams from current segment");
+    qWarning() << "failed to read CarParams from current segment";
   }
 
   // start camera server
@@ -316,7 +311,7 @@ void Replay::publishMessage(const Event *e) {
     auto bytes = e->bytes();
     int ret = pm->send(sockets_[e->which], (capnp::byte *)bytes.begin(), bytes.size());
     if (ret == -1) {
-      rWarning("stop publishing %s due to multiple publishers error", sockets_[e->which]);
+      qWarning() << "stop publishing" << sockets_[e->which] << "due to multiple publishers error";
       sockets_[e->which] = nullptr;
     }
   } else {
@@ -353,7 +348,7 @@ void Replay::stream() {
     Event cur_event(cur_which, cur_mono_time_);
     auto eit = std::upper_bound(events_->begin(), events_->end(), &cur_event, Event::lessThan());
     if (eit == events_->end()) {
-      rInfo("waiting for events...");
+      qInfo() << "waiting for events...";
       continue;
     }
 
@@ -408,7 +403,7 @@ void Replay::stream() {
     if (eit == events_->end() && !hasFlag(REPLAY_FLAG_NO_LOOP)) {
       int last_segment = segments_.rbegin()->first;
       if (current_segment_ >= last_segment && isSegmentMerged(last_segment)) {
-        rInfo("reaches the end of route, restart from beginning");
+        qInfo() << "reaches the end of route, restart from beginning";
         QMetaObject::invokeMethod(this, std::bind(&Replay::seekTo, this, 0, false), Qt::QueuedConnection);
       }
     }
