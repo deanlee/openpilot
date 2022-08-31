@@ -51,8 +51,7 @@ TEST_CASE("Parser::cpuTimes") {
         "cpu  0 0 0 0 0 0 0 0 0 0\n"
         "cpu0 1 2 3 4 5 6 7 8 9 10\n"
         "cpu1 1 2 3 4 5 6 7 8 9 10\n";
-    std::istringstream stream(stat);
-    auto stats = Parser::cpuTimes(stream);
+    auto stats = Parser::cpuTimes(stat);
     REQUIRE(stats.size() == 2);
     for (int i = 0; i < stats.size(); ++i) {
       REQUIRE(stats[i].id == i);
@@ -66,8 +65,7 @@ TEST_CASE("Parser::cpuTimes") {
     }
   }
   SECTION("all cpus") {
-    std::istringstream stream(util::read_file("/proc/stat"));
-    auto stats = Parser::cpuTimes(stream);
+    auto stats = Parser::cpuTimes(util::read_file("/proc/stat"));
     REQUIRE(stats.size() == sysconf(_SC_NPROCESSORS_ONLN));
     for (int i = 0; i < stats.size(); ++i) {
       REQUIRE(stats[i].id == i);
@@ -77,15 +75,13 @@ TEST_CASE("Parser::cpuTimes") {
 
 TEST_CASE("Parser::memInfo") {
   SECTION("from string") {
-    std::istringstream stream("MemTotal:    1024 kb\nMemFree:    2048 kb\n");
-    auto meminfo = Parser::memInfo(stream);
+    auto meminfo = Parser::memInfo("MemTotal:    1024 kb\nMemFree:    2048 kb\n");
     REQUIRE(meminfo["MemTotal:"] == 1024 * 1024);
     REQUIRE(meminfo["MemFree:"] == 2048 * 1024);
   }
   SECTION("from /proc/meminfo") {
     std::string require_keys[] = {"MemTotal:", "MemFree:", "MemAvailable:", "Buffers:", "Cached:", "Active:", "Inactive:", "Shmem:"};
-    std::istringstream stream(util::read_file("/proc/meminfo"));
-    auto meminfo = Parser::memInfo(stream);
+    auto meminfo = Parser::memInfo(util::read_file("/proc/meminfo"));
     for (auto &key : require_keys) {
       REQUIRE(meminfo.find(key) != meminfo.end());
       REQUIRE(meminfo[key] > 0);
@@ -94,14 +90,13 @@ TEST_CASE("Parser::memInfo") {
 }
 
 void test_cmdline(std::string cmdline, const std::vector<std::string> requires) {
-  std::stringstream ss;
-  ss.write(&cmdline[0], cmdline.size());
-  auto cmds = Parser::cmdline(ss);
+  auto cmds = Parser::split(cmdline, '\0');
   REQUIRE(cmds.size() == requires.size());
   for (int i = 0; i < requires.size(); ++i) {
     REQUIRE(cmds[i] == requires[i]);
   }
 }
+
 TEST_CASE("Parser::cmdline") {
   test_cmdline(std::string("a\0b\0c\0", 7), {"a", "b", "c"});
   test_cmdline(std::string("a\0\0c\0", 6), {"a", "c"});

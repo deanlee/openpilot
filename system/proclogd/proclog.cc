@@ -11,18 +11,27 @@
 #include "common/util.h"
 
 namespace Parser {
+std::vector<std::string> split(const std::string &str, char delim) {
+  std::vector<std::string> tokens;
+  size_t start = 0, end = 0;
+  while ((start = str.find_first_not_of(delim, end)) != std::string::npos) {
+    end = str.find(delim, start);
+    if (std::string token = str.substr(start, end - start); !token.empty()) {
+      tokens.push_back(token);
+    }
+  }
+  return tokens;
+}
 
 // parse /proc/stat
-std::vector<CPUTime> cpuTimes(std::istream &stream) {
+std::vector<CPUTime> cpuTimes(const std::string &s) {
   std::vector<CPUTime> cpu_times;
-  std::string line;
-  // skip the first line for cpu total
-  std::getline(stream, line);
-  while (std::getline(stream, line)) {
-    if (line.compare(0, 3, "cpu") != 0) break;
+  auto v = split(s, '\n');
+  for (int i = 1; i < v.size(); ++i) {
+    if (v[i].compare(0, 3, "cpu") != 0) break;
 
     CPUTime t = {};
-    std::istringstream iss(line);
+    std::istringstream iss(v[i]);
     if (iss.ignore(3) >> t.id >> t.utime >> t.ntime >> t.stime >> t.itime >> t.iowtime >> t.irqtime >> t.sirqtime)
       cpu_times.push_back(t);
   }
@@ -30,13 +39,12 @@ std::vector<CPUTime> cpuTimes(std::istream &stream) {
 }
 
 // parse /proc/meminfo
-std::unordered_map<std::string, uint64_t> memInfo(std::istream &stream) {
+std::unordered_map<std::string, uint64_t> memInfo(const std::string &s) {
   std::unordered_map<std::string, uint64_t> mem_info;
-  std::string line, key;
-  while (std::getline(stream, line)) {
+  std::string key;
+  for (auto token : split(s, '\n')) {
     uint64_t val = 0;
-    std::istringstream iss(line);
-    if (iss >> key >> val) {
+    if (std::istringstream(token) >> key >> val) {
       mem_info[key] = val * 1024;
     }
   }
@@ -74,9 +82,7 @@ std::optional<ProcStat> procStat(std::string stat) {
   std::string name = stat.substr(open_paren + 1, close_paren - open_paren - 1);
   // repace space in name with _
   std::replace(&stat[open_paren], &stat[close_paren], ' ', '_');
-  std::istringstream iss(stat);
-  std::vector<std::string> v{std::istream_iterator<std::string>(iss),
-                             std::istream_iterator<std::string>()};
+  std::vector<std::string> v = split(stat, ' ');
   try {
     if (v.size() != StatPos::MAX_FIELD) {
       throw std::invalid_argument("stat");
@@ -126,18 +132,6 @@ std::vector<int> pids() {
   return ids;
 }
 
-// null-delimited cmdline arguments to vector
-std::vector<std::string> cmdline(std::istream &stream) {
-  std::vector<std::string> ret;
-  std::string line;
-  while (std::getline(stream, line, '\0')) {
-    if (!line.empty()) {
-      ret.push_back(line);
-    }
-  }
-  return ret;
-}
-
 const ProcCache &getProcExtraInfo(int pid, const std::string &name) {
   static std::unordered_map<pid_t, ProcCache> proc_cache;
   ProcCache &cache = proc_cache[pid];
@@ -146,8 +140,7 @@ const ProcCache &getProcExtraInfo(int pid, const std::string &name) {
     cache.name = name;
     std::string proc_path = "/proc/" + std::to_string(pid);
     cache.exe = util::readlink(proc_path + "/exe");
-    std::ifstream stream(proc_path + "/cmdline");
-    cache.cmdline = cmdline(stream);
+    cache.cmdline = split(util::read_file(proc_path + "/cmdline"), '\0');
   }
   return cache;
 }
@@ -158,8 +151,7 @@ const double jiffy = sysconf(_SC_CLK_TCK);
 const size_t page_size = sysconf(_SC_PAGE_SIZE);
 
 void buildCPUTimes(cereal::ProcLog::Builder &builder) {
-  std::ifstream stream("/proc/stat");
-  std::vector<CPUTime> stats = Parser::cpuTimes(stream);
+  std::vector<CPUTime> stats = Parser::cpuTimes(util::read_file("/proc/stat"));
 
   auto log_cpu_times = builder.initCpuTimes(stats.size());
   for (int i = 0; i < stats.size(); ++i) {
@@ -177,8 +169,7 @@ void buildCPUTimes(cereal::ProcLog::Builder &builder) {
 }
 
 void buildMemInfo(cereal::ProcLog::Builder &builder) {
-  std::ifstream stream("/proc/meminfo");
-  auto mem_info = Parser::memInfo(stream);
+  auto mem_info = Parser::memInfo(util::read_file("/proc/meminfo"));
 
   auto mem = builder.initMem();
   mem.setTotal(mem_info["MemTotal:"]);

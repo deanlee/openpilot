@@ -31,10 +31,10 @@ namespace Parser {
 std::vector<int> pids();
 std::optional<ProcStat> procStat(std::string stat);
 std::vector<std::string> cmdline(std::istream &stream);
-std::vector<CPUTime> cpuTimes(std::istream &stream);
-std::unordered_map<std::string, uint64_t> memInfo(std::istream &stream);
+std::vector<CPUTime> cpuTimes(const std::string &s);
+std::unordered_map<std::string, uint64_t> memInfo(const std::string &s);
 const ProcCache &getProcExtraInfo(int pid, const std::string &name);
-
+std::vector<std::string> split(const std::string &str, char delim);
 };  // namespace Parser
 
 void buildProcLogMessage(MessageBuilder &msg);
