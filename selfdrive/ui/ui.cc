@@ -121,19 +121,9 @@ static void update_state(UIState *s) {
 
   if (sm.updated("liveCalibration")) {
     auto rpy_list = sm["liveCalibration"].getLiveCalibration().getRpyCalib();
-    Eigen::Vector3d rpy;
-    rpy << rpy_list[0], rpy_list[1], rpy_list[2];
-    Eigen::Matrix3d device_from_calib = euler2rot(rpy);
-    Eigen::Matrix3d view_from_device;
-    view_from_device << 0,1,0,
-                        0,0,1,
-                        1,0,0;
-    Eigen::Matrix3d view_from_calib = view_from_device * device_from_calib;
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        scene.view_from_calib.v[i*3 + j] = view_from_calib(i,j);
-      }
-    }
+    Eigen::Matrix3d device_from_calib = euler2rot({rpy_list[0], rpy_list[1], rpy_list[2]});
+    Eigen::Matrix3d view_from_device << 0,1,0, 0,0,1, 1,0,0;
+    Eigen::Map<Eigen::Matrix3f>(scene.view_from_calib.v) = (view_from_device * device_from_calib).cast<float>();
     scene.calibration_valid = sm["liveCalibration"].getLiveCalibration().getCalStatus() == 1;
   }
   if (s->worldObjectsVisible()) {
