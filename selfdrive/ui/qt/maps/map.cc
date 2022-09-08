@@ -5,6 +5,7 @@
 
 #include <QDebug>
 #include <QFileInfo>
+#include <QPainter>
 #include <QPainterPath>
 
 #include "common/swaglog.h"
@@ -237,6 +238,24 @@ void MapWindow::updateState(const UIState &s) {
 
     route_rcv_frame = sm.rcv_frame("navRoute");
   }
+
+     // TODO: dlete before commit
+    MessageBuilder msg;
+    auto instruction = msg.initEvent().initNavInstruction();
+    instruction.setManeuverPrimaryText("Primary");
+    instruction.setManeuverSecondaryText("Second");
+    instruction.setManeuverType("rotary_straight");
+    auto lanes = instruction.initLanes(4);
+    lanes[0].initDirections(1).set(0, cereal::NavInstruction::Direction::STRAIGHT);
+    lanes[1].initDirections(1).set(0, cereal::NavInstruction::Direction::STRAIGHT);
+    lanes[2].initDirections(1).set(0, cereal::NavInstruction::Direction::STRAIGHT);
+    lanes[3].initDirections(1).set(0, cereal::NavInstruction::Direction::RIGHT);
+
+    // instruction.setManeuverModifier("left");
+    map_instructions->updateInstructions(instruction);
+    map_instructions->updateDistance(1000);
+    map_eta->updateETA(150, 2, 200);
+
 }
 
 void MapWindow::resizeGL(int w, int h) {
@@ -266,6 +285,7 @@ void MapWindow::initializeGL() {
 
 void MapWindow::paintGL() {
   if (!isVisible() || m_map.isNull()) return;
+ 
   m_map->render();
 }
 
@@ -411,9 +431,30 @@ MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
   setPalette(pal);
 }
 
+void MapInstructions::paintEvent(QPaintEvent* event) {
+  QPainter p(this);
+  // configFont(p, "Inter", 66, "Regular");
+  // configFont(p, "Inter", 74, "SemiBold");
+  p.setPen(Qt::red);
+  configFont(p, "Inter", 88, "Bold");
+  if (!error_str.isEmpty()) {
+    p.drawText(rect(), Qt::AlignCenter, error_str);
+    return;
+  }
+  if (!primary_str.isEmpty()) {
+    configFont(p, "Inter", 88, "Bold");
+    // p.drawText(rect(), Qt::AlignCenter, error_str);
+  }
+  if (!secondary_str.isEmpty()) {
+    configFont(p, "Inter", 88, "Bold");
+    // p.drawText(rect(), Qt::AlignCenter, error_str);
+  }
+  
+}
+
 void MapInstructions::updateDistance(float d) {
   d = std::max(d, 0.0f);
-  QString distance_str;
+  // QString distance_str;
 
   if (uiState()->scene.is_metric) {
     if (d > 500) {
@@ -451,10 +492,12 @@ void MapInstructions::showError(QString error_text) {
   this->error = true;
   lane_widget->setVisible(false);
 
+  error_str = error_text;
   setVisible(true);
 }
 
 void MapInstructions::noError() {
+  error_str = "";
   error = false;
 }
 
@@ -465,8 +508,8 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
 
 
   // Show instruction text
-  QString primary_str = QString::fromStdString(instruction.getManeuverPrimaryText());
-  QString secondary_str = QString::fromStdString(instruction.getManeuverSecondaryText());
+  primary_str = QString::fromStdString(instruction.getManeuverPrimaryText());
+  secondary_str = QString::fromStdString(instruction.getManeuverSecondaryText());
 
   primary->setText(primary_str);
   secondary->setVisible(secondary_str.length() > 0);
