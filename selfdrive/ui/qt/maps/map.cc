@@ -3,19 +3,12 @@
 #include <eigen3/Eigen/Dense>
 #include <cmath>
 
-#include <QAbstractTextDocumentLayout>
 #include <QDebug>
-#include <QFileInfo>
 #include <QPainter>
-#include <QPainterPath>
 
-#include "common/swaglog.h"
 #include "common/transformations/coordinates.hpp"
 #include "selfdrive/ui/qt/maps/map_helpers.h"
-#include "selfdrive/ui/qt/request_repeater.h"
 #include "selfdrive/ui/qt/util.h"
-#include "selfdrive/ui/ui.h"
-
 
 const int PAN_TIMEOUT = 100;
 const float MANEUVER_TRANSITION_THRESHOLD = 10;
@@ -243,15 +236,16 @@ void MapWindow::updateState(const UIState &s) {
     lanes[2].initDirections(1).set(0, cereal::NavInstruction::Direction::STRAIGHT);
     lanes[3].initDirections(1).set(0, cereal::NavInstruction::Direction::RIGHT);
 
-    // instruction.setManeuverModifier("left");
     map_instructions->updateInstructions(instruction);
     map_instructions->updateDistance(1000);
     map_instructions->updateETA(150, 2, 200);
+    map_instructions->update();
 }
 
 void MapWindow::resizeGL(int w, int h) {
   m_map->resize(size() / MAP_SCALE);
   map_instructions->setFixedSize({w, h});
+  map_instructions->eta_doc.setTextWidth(w);
 }
 
 void MapWindow::initializeGL() {
@@ -372,76 +366,78 @@ void MapWindow::offroadTransition(bool offroad) {
 
 MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
   eta_doc.setUndoRedoEnabled(false);
+  eta_doc.setUseDesignMetrics(true);
+  eta_doc.setDefaultTextOption(QTextOption(Qt::AlignHCenter));
   is_rhd = Params().getBool("IsRhdDetected");
-  // QPalette pal = palette();
-  // pal.setColor(QPalette::Background, QColor(0, 0, 0, 150));
-  // setAutoFillBackground(true);
-  // setPalette(pal);
 }
 
-void MapInstructions::paintEvent(QPaintEvent* event) {
-  // int left_margin = 11;
-  // int top_margin = 50;
-  // // int bottom_margin = 11;
-  // // int right_margin = 11;
+void MapInstructions::paintEvent(QPaintEvent *event) {
+  const int left_margin = 11;
+  const int top_margin = 50;
   QPainter p(this);
-  // p.setPen(Qt::red);
-  // configFont(p, "Inter", 90, "Regular");
-  // if (!error_str.isEmpty()) {
-  //   p.drawText(rect(), Qt::AlignCenter, error_str);
-  //   return;
-  // }
 
-  // int icon_width = 0;
-  // if (!icon.isNull()) {
-  //   p.drawPixmap(left_margin, top_margin, icon);
-  //   icon_width += icon.width();
-  // }
+  p.setPen(Qt::white);
+  if (!error_str.isEmpty()) {
+    QRect rc(0, 0, width(), 200);
+    p.fillRect(rc, QColor(0, 0, 0, 150));
+    configFont(p, "Inter", 90, "Regular");
+    p.drawText(rc, Qt::AlignCenter, error_str);
+    return;
+  }
+  
+  int header_height = 0;
+  if (!icon.isNull()) header_height += icon.height();
+  else {
+    if (!distance_str.isEmpty()) header_height += 100;
+    if (!primary_str.isEmpty()) header_height += 70;
+  }
+  if (!secondary_str.isEmpty()) header_height += 60;
+  if (!lanes.empty()) header_height += 140;
 
-  // int v_pos = top_margin;
-  // if (!distance_str.isEmpty()) {
-  //   configFont(p, "Inter", 90, "Regular");
-  //   // QRect rc = getTextRect(p, Qt::AlignTop | Qt::AlignLeft, distance_str);
-  //   // qWarning() << rc;
-  //   v_pos += 90;
-  //   p.drawText(left_margin + icon_width, v_pos, distance_str);
-  // }
+  if (header_height == 0) return;
 
-  //  if (!primary_str.isEmpty()) {
-  //   configFont(p, "Inter", 60, "Regular");
-  //   v_pos += 80;
-  //   p.drawText(left_margin + icon_width, v_pos, primary_str);
-  // }
-  // if (!secondary_str.isEmpty()) {
-  //   configFont(p, "Inter", 50, "Regular");
-  //   v_pos += 80;
-  //   p.drawText(left_margin + icon_width, v_pos, secondary_str);
-  // }
+  p.fillRect(QRect{0, 0, width(), header_height + top_margin}, QColor(0, 0, 0, 150));
+  int icon_width = 0;
+  if (!icon.isNull()) {
+    p.drawPixmap(left_margin, top_margin, icon);
+    icon_width += icon.width();
+  }
 
-  // // v_pos += 50;
-  // int x = left_margin + icon_width;
-  // for (const QString &fn : lanes) {
-  //   QPixmap pm = loadPixmap(fn, {125, 125}, Qt::IgnoreAspectRatio);
-  //   p.drawPixmap(x, v_pos, pm);
-  //   x+= 125;
-  // }
+  int v_pos = top_margin;
+  if (!distance_str.isEmpty()) {
+    configFont(p, "Inter", 90, "Regular");
+    v_pos += 90;
+    p.drawText(left_margin + icon_width, v_pos, distance_str);
+  }
 
-  // p.translate(left_margin, rect().height() - 300);
-  // qWarning() << eta.toHtml();
-  // eta.drawContents(&p);
-  p.translate(100, 100);
-  //  td.setHtml("dddddddddddddddddddddddddddddddd");
-   eta_doc.setTextWidth(width());
-    eta_doc.drawContents(&p);
-  // QAbstractTextDocumentLayout::PaintContext ctx;
-  // ctx.clip = QRectF(0, 0, 400, 100);
-  // eta.documentLayout()->draw(&p, ctx);
-  // p.restore();
+  if (!primary_str.isEmpty()) {
+    configFont(p, "Inter", 60, "Regular");
+    v_pos += 80;
+    p.drawText(left_margin + icon_width, v_pos, primary_str);
+  }
+  if (!secondary_str.isEmpty()) {
+    configFont(p, "Inter", 50, "Regular");
+    v_pos += 80;
+    p.drawText(left_margin + icon_width, v_pos, secondary_str);
+  }
+
+  int x = left_margin + icon_width;
+  for (const QString &fn : lanes) {
+    QPixmap pm = loadPixmap(fn, {125, 125}, Qt::IgnoreAspectRatio);
+    p.drawPixmap(x, v_pos, pm);
+    x += 125;
+  }
+
+  p.translate(0, height()-100);
+  p.setPen(Qt::NoPen);
+  p.setBrush(QColor(0, 0, 0, 150));
+  qreal txt_width = eta_doc.idealWidth();
+  p.drawRoundedRect((width() - txt_width) / 2 - 20, 0, txt_width + 40, 90, 16, 16);
+  eta_doc.drawContents(&p);
 }
 
 void MapInstructions::updateDistance(float d) {
   d = std::max(d, 0.0f);
-  // QString distance_str;
 
   if (uiState()->scene.is_metric) {
     if (d > 500) {
@@ -588,7 +584,6 @@ void MapInstructions::updateETA(float s, float s_typical, float d) {
   QString distance;
   distance.setNum(num, 'f', num < 100 ? 1 : 0);
   distance += distance_unit;
-  // distance->setText(distance_str);
 
   eta_doc.setHtml(QString("<font style=\"font-family:Inner;font-size:70px;color:white;\"><b>%1</b>%2 <font color=\"%3\"><b>%4%5</b></font>  %6</font>")
   .arg(eta).arg(eta_unit).arg(color).arg(time).arg(time_unit).arg(distance));

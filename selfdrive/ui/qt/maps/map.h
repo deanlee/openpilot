@@ -15,11 +15,9 @@
 #include <QVBoxLayout>
 #include <QWheelEvent>
 #include <QTextDocument>
-#include <QtGlobal>
 
 #include "cereal/messaging/messaging.h"
 #include "common/params.h"
-#include "common/util.h"
 #include "selfdrive/ui/ui.h"
 
 class MapInstructions : public QWidget {
@@ -29,13 +27,8 @@ private:
   void paintEvent(QPaintEvent* event) override;
   bool error = false;
   bool is_rhd = false;
-  QString error_str;
-  QString primary_str;
-  QString secondary_str;
-  QString distance_str;
-  QString icon_fn_str;
+  QString error_str, primary_str, secondary_str, distance_str, icon_fn_str;
   QPixmap icon;
-  
   std::vector<QString> lanes;
   Params params;
 
@@ -109,4 +102,3 @@ signals:
   void instructionsChanged(cereal::NavInstruction::Reader instruction);
   void ETAChanged(float seconds, float seconds_typical, float distance);
 };
-
