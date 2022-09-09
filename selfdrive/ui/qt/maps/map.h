@@ -27,12 +27,6 @@ class MapInstructions : public QWidget {
 
 private:
   void paintEvent(QPaintEvent* event) override;
-  QLabel *distance;
-  QLabel *primary;
-  QLabel *secondary;
-  QLabel *icon_01;
-  QWidget *lane_widget;
-  QHBoxLayout *lane_layout;
   bool error = false;
   bool is_rhd = false;
   QString error_str;
@@ -40,6 +34,7 @@ private:
   QString secondary_str;
   QString distance_str;
   QString icon_fn_str;
+  QPixmap icon;
   std::vector<QString> lanes;
   // QString 
 
@@ -47,7 +42,6 @@ public:
   MapInstructions(QWidget * parent=nullptr);
   void showError(QString error);
   void noError();
-  void hideIfNoError();
 
 public slots:
   void updateDistance(float d);

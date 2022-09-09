@@ -36,8 +36,8 @@ MapWindow::MapWindow(const QMapboxGLSettings &settings) : m_settings(settings), 
   map_instructions = new MapInstructions(this);
   QObject::connect(this, &MapWindow::instructionsChanged, map_instructions, &MapInstructions::updateInstructions);
   QObject::connect(this, &MapWindow::distanceChanged, map_instructions, &MapInstructions::updateDistance);
-  map_instructions->setFixedWidth(width());
-  map_instructions->setVisible(false);
+  // map_instructions->setFixedWidth(width());
+  // map_instructions->setVisible(false);
 
   map_eta = new MapETA(this);
   QObject::connect(this, &MapWindow::ETAChanged, map_eta, &MapETA::updateETA);
@@ -260,6 +260,7 @@ void MapWindow::updateState(const UIState &s) {
 
 void MapWindow::resizeGL(int w, int h) {
   m_map->resize(size() / MAP_SCALE);
+  // map_instructions->setFixedSize({w, h});
   map_instructions->setFixedWidth(width());
 }
 
@@ -295,7 +296,7 @@ void MapWindow::clearRoute() {
     m_map->setPitch(MIN_PITCH);
   }
 
-  map_instructions->hideIfNoError();
+  // map_instructions->hideIfNoError();
   map_eta->setVisible(false);
   allow_open = true;
 }
@@ -382,49 +383,6 @@ void MapWindow::offroadTransition(bool offroad) {
 
 MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
   is_rhd = Params().getBool("IsRhdDetected");
-  QHBoxLayout *main_layout = new QHBoxLayout(this);
-  main_layout->setContentsMargins(11, 50, 11, 11);
-  {
-    QVBoxLayout *layout = new QVBoxLayout;
-    icon_01 = new QLabel;
-    layout->addWidget(icon_01);
-    layout->addStretch();
-    main_layout->addLayout(layout);
-  }
-
-  {
-    QVBoxLayout *layout = new QVBoxLayout;
-
-    distance = new QLabel;
-    distance->setStyleSheet(R"(font-size: 90px;)");
-    layout->addWidget(distance);
-
-    primary = new QLabel;
-    primary->setStyleSheet(R"(font-size: 60px;)");
-    primary->setWordWrap(true);
-    layout->addWidget(primary);
-
-    secondary = new QLabel;
-    secondary->setStyleSheet(R"(font-size: 50px;)");
-    secondary->setWordWrap(true);
-    layout->addWidget(secondary);
-
-    lane_widget = new QWidget;
-    lane_widget->setFixedHeight(125);
-
-    lane_layout = new QHBoxLayout(lane_widget);
-    layout->addWidget(lane_widget);
-
-    main_layout->addLayout(layout);
-  }
-
-  setStyleSheet(R"(
-    * {
-      color: white;
-      font-family: "Inter";
-    }
-  )");
-
   QPalette pal = palette();
   pal.setColor(QPalette::Background, QColor(0, 0, 0, 150));
   setAutoFillBackground(true);
@@ -432,22 +390,54 @@ MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
 }
 
 void MapInstructions::paintEvent(QPaintEvent* event) {
+  // main_layout->setContentsMargins(11, 50, 11, 11);
+  int left_margin = 11;
+  int top_margin = 50;
+  // int bottom_margin = 11;
+  // int right_margin = 11;
   QPainter p(this);
   // configFont(p, "Inter", 66, "Regular");
   // configFont(p, "Inter", 74, "SemiBold");
+
   p.setPen(Qt::red);
-  configFont(p, "Inter", 88, "Bold");
+  configFont(p, "Inter", 90, "Regular");
   if (!error_str.isEmpty()) {
     p.drawText(rect(), Qt::AlignCenter, error_str);
     return;
   }
-  if (!primary_str.isEmpty()) {
-    configFont(p, "Inter", 88, "Bold");
-    // p.drawText(rect(), Qt::AlignCenter, error_str);
+
+  int icon_width = 0;
+  if (!icon.isNull()) {
+    p.drawPixmap(left_margin, top_margin, icon);
+    icon_width += icon.width();
+  }
+
+  int v_pos = top_margin;
+  if (!distance_str.isEmpty()) {
+    configFont(p, "Inter", 90, "Regular");
+    // QRect rc = getTextRect(p, Qt::AlignTop | Qt::AlignLeft, distance_str);
+    // qWarning() << rc;
+    v_pos += 90;
+    p.drawText(left_margin + icon_width, v_pos, distance_str);
+  }
+
+   if (!primary_str.isEmpty()) {
+    configFont(p, "Inter", 60, "Regular");
+    v_pos += 80;
+    p.drawText(left_margin + icon_width, v_pos, primary_str);
   }
   if (!secondary_str.isEmpty()) {
-    configFont(p, "Inter", 88, "Bold");
-    // p.drawText(rect(), Qt::AlignCenter, error_str);
+    configFont(p, "Inter", 50, "Regular");
+    v_pos += 80;
+    p.drawText(left_margin + icon_width, v_pos, secondary_str);
+  }
+
+  // v_pos += 50;
+  int x = left_margin + icon_width;
+  for (const QString &fn : lanes) {
+    QPixmap pm = loadPixmap(fn, {125, 125}, Qt::IgnoreAspectRatio);
+    p.drawPixmap(x, v_pos, pm);
+    x+= 125;
   }
   
 }
@@ -476,24 +466,11 @@ void MapInstructions::updateDistance(float d) {
       distance_str += tr(" ft");
     }
   }
-
-  distance->setAlignment(Qt::AlignLeft);
-  distance->setText(distance_str);
 }
 
 void MapInstructions::showError(QString error_text) {
-  primary->setText("");
-  distance->setText(error_text);
-  distance->setAlignment(Qt::AlignCenter);
-
-  secondary->setVisible(false);
-  icon_01->setVisible(false);
-
-  this->error = true;
-  lane_widget->setVisible(false);
-
-  error_str = error_text;
-  setVisible(true);
+   this->error = true;
+   error_str = error_text;
 }
 
 void MapInstructions::noError() {
@@ -502,18 +479,9 @@ void MapInstructions::noError() {
 }
 
 void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruction) {
-  // Word wrap widgets need fixed width
-  primary->setFixedWidth(width() - 250);
-  secondary->setFixedWidth(width() - 250);
-
-
   // Show instruction text
   primary_str = QString::fromStdString(instruction.getManeuverPrimaryText());
   secondary_str = QString::fromStdString(instruction.getManeuverSecondaryText());
-
-  primary->setText(primary_str);
-  secondary->setVisible(secondary_str.length() > 0);
-  secondary->setText(secondary_str);
 
   // Show arrow with direction
   QString type = QString::fromStdString(instruction.getManeuverType());
@@ -539,14 +507,12 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
     if (is_rhd) {
       pix = pix.transformed(QTransform().scale(-1, 1));
     }
-    icon_01->setPixmap(pix.scaledToWidth(200, Qt::SmoothTransformation));
-    icon_01->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
-    icon_01->setVisible(true);
+    icon = pix;
   }
 
   // Show lanes
+  lanes.clear();
   bool has_lanes = false;
-  clearLayout(lane_layout);
   for (auto const &lane: instruction.getLanes()) {
     has_lanes = true;
     bool active = lane.getActive();
@@ -572,24 +538,10 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
     if (!active) {
       fn += "_inactive";
     }
-
-    auto icon = new QLabel;
-    icon->setPixmap(loadPixmap(fn + ICON_SUFFIX, {125, 125}, Qt::IgnoreAspectRatio));
-    icon->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
-    lane_layout->addWidget(icon);
-  }
-  lane_widget->setVisible(has_lanes);
-
-  show();
-  resize(sizeHint());
-}
-
-
-void MapInstructions::hideIfNoError() {
-  if (!error) {
-    hide();
+    lanes.push_back(fn + ICON_SUFFIX);
   }
 }
+
 
 MapETA::MapETA(QWidget * parent) : QWidget(parent) {
   QHBoxLayout *main_layout = new QHBoxLayout(this);
