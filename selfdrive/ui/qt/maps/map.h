@@ -5,7 +5,6 @@
 #include <QGeoCoordinate>
 #include <QGestureEvent>
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QMap>
 #include <QMapboxGL>
 #include <QMouseEvent>
@@ -15,6 +14,7 @@
 #include <QString>
 #include <QVBoxLayout>
 #include <QWheelEvent>
+#include <QTextDocument>
 #include <QtGlobal>
 
 #include "cereal/messaging/messaging.h"
@@ -35,10 +35,12 @@ private:
   QString distance_str;
   QString icon_fn_str;
   QPixmap icon;
+  
   std::vector<QString> lanes;
-  // QString 
+  Params params;
 
 public:
+  QTextDocument eta_doc;
   MapInstructions(QWidget * parent=nullptr);
   void showError(QString error);
   void noError();
@@ -46,24 +48,6 @@ public:
 public slots:
   void updateDistance(float d);
   void updateInstructions(cereal::NavInstruction::Reader instruction);
-};
-
-class MapETA : public QWidget {
-  Q_OBJECT
-
-private:
-  QLabel *eta;
-  QLabel *eta_unit;
-  QLabel *time;
-  QLabel *time_unit;
-  QLabel *distance;
-  QLabel *distance_unit;
-  Params params;
-
-public:
-  MapETA(QWidget * parent=nullptr);
-
-public slots:
   void updateETA(float seconds, float seconds_typical, float distance);
 };
 
@@ -110,7 +94,6 @@ private:
   bool locationd_valid = false;
 
   MapInstructions* map_instructions;
-  MapETA* map_eta;
 
   void clearRoute();
   uint64_t route_rcv_frame = 0;

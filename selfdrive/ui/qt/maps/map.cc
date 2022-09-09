@@ -3,6 +3,7 @@
 #include <eigen3/Eigen/Dense>
 #include <cmath>
 
+#include <QAbstractTextDocumentLayout>
 #include <QDebug>
 #include <QFileInfo>
 #include <QPainter>
@@ -36,16 +37,7 @@ MapWindow::MapWindow(const QMapboxGLSettings &settings) : m_settings(settings), 
   map_instructions = new MapInstructions(this);
   QObject::connect(this, &MapWindow::instructionsChanged, map_instructions, &MapInstructions::updateInstructions);
   QObject::connect(this, &MapWindow::distanceChanged, map_instructions, &MapInstructions::updateDistance);
-  // map_instructions->setFixedWidth(width());
-  // map_instructions->setVisible(false);
-
-  map_eta = new MapETA(this);
-  QObject::connect(this, &MapWindow::ETAChanged, map_eta, &MapETA::updateETA);
-
-  const int h = 120;
-  map_eta->setFixedHeight(h);
-  map_eta->move(25, 1080 - h - bdr_s*2);
-  map_eta->setVisible(false);
+  QObject::connect(this, &MapWindow::ETAChanged, map_instructions, &MapInstructions::updateETA);
 
   auto last_gps_position = coordinate_from_param("LastGPSPosition");
   if (last_gps_position) {
@@ -254,14 +246,12 @@ void MapWindow::updateState(const UIState &s) {
     // instruction.setManeuverModifier("left");
     map_instructions->updateInstructions(instruction);
     map_instructions->updateDistance(1000);
-    map_eta->updateETA(150, 2, 200);
-
+    map_instructions->updateETA(150, 2, 200);
 }
 
 void MapWindow::resizeGL(int w, int h) {
   m_map->resize(size() / MAP_SCALE);
-  // map_instructions->setFixedSize({w, h});
-  map_instructions->setFixedWidth(width());
+  map_instructions->setFixedSize({w, h});
 }
 
 void MapWindow::initializeGL() {
@@ -296,8 +286,7 @@ void MapWindow::clearRoute() {
     m_map->setPitch(MIN_PITCH);
   }
 
-  // map_instructions->hideIfNoError();
-  map_eta->setVisible(false);
+  map_instructions->eta_doc.setHtml("");
   allow_open = true;
 }
 
@@ -382,64 +371,72 @@ void MapWindow::offroadTransition(bool offroad) {
 }
 
 MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
+  eta_doc.setUndoRedoEnabled(false);
   is_rhd = Params().getBool("IsRhdDetected");
-  QPalette pal = palette();
-  pal.setColor(QPalette::Background, QColor(0, 0, 0, 150));
-  setAutoFillBackground(true);
-  setPalette(pal);
+  // QPalette pal = palette();
+  // pal.setColor(QPalette::Background, QColor(0, 0, 0, 150));
+  // setAutoFillBackground(true);
+  // setPalette(pal);
 }
 
 void MapInstructions::paintEvent(QPaintEvent* event) {
-  // main_layout->setContentsMargins(11, 50, 11, 11);
-  int left_margin = 11;
-  int top_margin = 50;
-  // int bottom_margin = 11;
-  // int right_margin = 11;
+  // int left_margin = 11;
+  // int top_margin = 50;
+  // // int bottom_margin = 11;
+  // // int right_margin = 11;
   QPainter p(this);
-  // configFont(p, "Inter", 66, "Regular");
-  // configFont(p, "Inter", 74, "SemiBold");
+  // p.setPen(Qt::red);
+  // configFont(p, "Inter", 90, "Regular");
+  // if (!error_str.isEmpty()) {
+  //   p.drawText(rect(), Qt::AlignCenter, error_str);
+  //   return;
+  // }
 
-  p.setPen(Qt::red);
-  configFont(p, "Inter", 90, "Regular");
-  if (!error_str.isEmpty()) {
-    p.drawText(rect(), Qt::AlignCenter, error_str);
-    return;
-  }
+  // int icon_width = 0;
+  // if (!icon.isNull()) {
+  //   p.drawPixmap(left_margin, top_margin, icon);
+  //   icon_width += icon.width();
+  // }
 
-  int icon_width = 0;
-  if (!icon.isNull()) {
-    p.drawPixmap(left_margin, top_margin, icon);
-    icon_width += icon.width();
-  }
+  // int v_pos = top_margin;
+  // if (!distance_str.isEmpty()) {
+  //   configFont(p, "Inter", 90, "Regular");
+  //   // QRect rc = getTextRect(p, Qt::AlignTop | Qt::AlignLeft, distance_str);
+  //   // qWarning() << rc;
+  //   v_pos += 90;
+  //   p.drawText(left_margin + icon_width, v_pos, distance_str);
+  // }
 
-  int v_pos = top_margin;
-  if (!distance_str.isEmpty()) {
-    configFont(p, "Inter", 90, "Regular");
-    // QRect rc = getTextRect(p, Qt::AlignTop | Qt::AlignLeft, distance_str);
-    // qWarning() << rc;
-    v_pos += 90;
-    p.drawText(left_margin + icon_width, v_pos, distance_str);
-  }
+  //  if (!primary_str.isEmpty()) {
+  //   configFont(p, "Inter", 60, "Regular");
+  //   v_pos += 80;
+  //   p.drawText(left_margin + icon_width, v_pos, primary_str);
+  // }
+  // if (!secondary_str.isEmpty()) {
+  //   configFont(p, "Inter", 50, "Regular");
+  //   v_pos += 80;
+  //   p.drawText(left_margin + icon_width, v_pos, secondary_str);
+  // }
 
-   if (!primary_str.isEmpty()) {
-    configFont(p, "Inter", 60, "Regular");
-    v_pos += 80;
-    p.drawText(left_margin + icon_width, v_pos, primary_str);
-  }
-  if (!secondary_str.isEmpty()) {
-    configFont(p, "Inter", 50, "Regular");
-    v_pos += 80;
-    p.drawText(left_margin + icon_width, v_pos, secondary_str);
-  }
+  // // v_pos += 50;
+  // int x = left_margin + icon_width;
+  // for (const QString &fn : lanes) {
+  //   QPixmap pm = loadPixmap(fn, {125, 125}, Qt::IgnoreAspectRatio);
+  //   p.drawPixmap(x, v_pos, pm);
+  //   x+= 125;
+  // }
 
-  // v_pos += 50;
-  int x = left_margin + icon_width;
-  for (const QString &fn : lanes) {
-    QPixmap pm = loadPixmap(fn, {125, 125}, Qt::IgnoreAspectRatio);
-    p.drawPixmap(x, v_pos, pm);
-    x+= 125;
-  }
-  
+  // p.translate(left_margin, rect().height() - 300);
+  // qWarning() << eta.toHtml();
+  // eta.drawContents(&p);
+  p.translate(100, 100);
+  //  td.setHtml("dddddddddddddddddddddddddddddddd");
+   eta_doc.setTextWidth(width());
+    eta_doc.drawContents(&p);
+  // QAbstractTextDocumentLayout::PaintContext ctx;
+  // ctx.clip = QRectF(0, 0, 400, 100);
+  // eta.documentLayout()->draw(&p, ctx);
+  // p.restore();
 }
 
 void MapInstructions::updateDistance(float d) {
@@ -542,92 +539,31 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
   }
 }
 
-
-MapETA::MapETA(QWidget * parent) : QWidget(parent) {
-  QHBoxLayout *main_layout = new QHBoxLayout(this);
-  main_layout->setContentsMargins(40, 25, 40, 25);
-
-  {
-    QHBoxLayout *layout = new QHBoxLayout;
-    eta = new QLabel;
-    eta->setAlignment(Qt::AlignCenter);
-    eta->setStyleSheet("font-weight:600");
-
-    eta_unit = new QLabel;
-    eta_unit->setAlignment(Qt::AlignCenter);
-
-    layout->addWidget(eta);
-    layout->addWidget(eta_unit);
-    main_layout->addLayout(layout);
-  }
-  main_layout->addSpacing(40);
-  {
-    QHBoxLayout *layout = new QHBoxLayout;
-    time = new QLabel;
-    time->setAlignment(Qt::AlignCenter);
-
-    time_unit = new QLabel;
-    time_unit->setAlignment(Qt::AlignCenter);
-
-    layout->addWidget(time);
-    layout->addWidget(time_unit);
-    main_layout->addLayout(layout);
-  }
-  main_layout->addSpacing(40);
-  {
-    QHBoxLayout *layout = new QHBoxLayout;
-    distance = new QLabel;
-    distance->setAlignment(Qt::AlignCenter);
-    distance->setStyleSheet("font-weight:600");
-
-    distance_unit = new QLabel;
-    distance_unit->setAlignment(Qt::AlignCenter);
-
-    layout->addWidget(distance);
-    layout->addWidget(distance_unit);
-    main_layout->addLayout(layout);
-  }
-
-  setStyleSheet(R"(
-    * {
-      color: white;
-      font-family: "Inter";
-      font-size: 70px;
-    }
-  )");
-
-  QPalette pal = palette();
-  pal.setColor(QPalette::Background, QColor(0, 0, 0, 150));
-  setAutoFillBackground(true);
-  setPalette(pal);
-}
-
-
-void MapETA::updateETA(float s, float s_typical, float d) {
+void MapInstructions::updateETA(float s, float s_typical, float d) {
   if (d < MANEUVER_TRANSITION_THRESHOLD) {
-    hide();
+    eta_doc.setHtml("");
     return;
   }
 
-  // ETA
+  QString eta, eta_unit, time, time_unit, distance_unit;
   auto eta_time = QDateTime::currentDateTime().addSecs(s).time();
   if (params.getBool("NavSettingTime24h")) {
-    eta->setText(eta_time.toString("HH:mm"));
-    eta_unit->setText(tr("eta"));
+    eta = eta_time.toString("HH:mm");
+    eta_unit = tr("eta");
   } else {
     auto t = eta_time.toString("h:mm a").split(' ');
-    eta->setText(t[0]);
-    eta_unit->setText(t[1]);
+    eta = t[0];
+    eta_unit = t[1];
   }
 
   // Remaining time
   if (s < 3600) {
-    time->setText(QString::number(int(s / 60)));
-    time_unit->setText(tr("min"));
+    time = QString::number(int(s / 60));
+    time_unit = tr("min");
   } else {
     int hours = int(s) / 3600;
-    time->setText(QString::number(hours) + ":" + QString::number(int((s - hours * 3600) / 60)).rightJustified(2, '0'));
-    time_unit->setText(tr("hr"));
+    time = QString::number(hours) + ":" + QString::number(int((s - hours * 3600) / 60)).rightJustified(2, '0');
+    time_unit = tr("hr");
   }
 
   QString color;
@@ -639,44 +575,21 @@ void MapETA::updateETA(float s, float s_typical, float d) {
     color = "#25DA6E";
   }
 
-  time->setStyleSheet(QString(R"(color: %1; font-weight:600;)").arg(color));
-  time_unit->setStyleSheet(QString(R"(color: %1;)").arg(color));
-
   // Distance
-  QString distance_str;
   float num = 0;
   if (uiState()->scene.is_metric) {
     num = d / 1000.0;
-    distance_unit->setText(tr("km"));
+    distance_unit = tr("km");
   } else {
     num = d * METER_TO_MILE;
-    distance_unit->setText(tr("mi"));
+    distance_unit = tr("mi");
   }
 
-  distance_str.setNum(num, 'f', num < 100 ? 1 : 0);
-  distance->setText(distance_str);
+  QString distance;
+  distance.setNum(num, 'f', num < 100 ? 1 : 0);
+  distance += distance_unit;
+  // distance->setText(distance_str);
 
-  show();
-  adjustSize();
-  repaint();
-  adjustSize();
-
-  // Rounded corners
-  const int radius = 25;
-  const auto r = rect();
-
-  // Top corners rounded
-  QPainterPath path;
-  path.setFillRule(Qt::WindingFill);
-  path.addRoundedRect(r, radius, radius);
-
-  // Bottom corners not rounded
-  path.addRect(r.marginsRemoved(QMargins(0, radius, 0, 0)));
-
-  // Set clipping mask
-  QRegion mask = QRegion(path.simplified().toFillPolygon().toPolygon());
-  setMask(mask);
-
-  // Center
-  move(static_cast<QWidget*>(parent())->width() / 2 - width() / 2, 1080 - height() - bdr_s*2);
+  eta_doc.setHtml(QString("<font style=\"font-family:Inner;font-size:70px;color:white;\"><b>%1</b>%2 <font color=\"%3\"><b>%4%5</b></font>  %6</font>")
+  .arg(eta).arg(eta_unit).arg(color).arg(time).arg(time_unit).arg(distance));
 }
