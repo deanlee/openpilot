@@ -10,6 +10,8 @@
 std::optional<int32_t> device_acquire(int fd, int32_t session_handle, void *data, uint32_t num_resources=1);
 int device_config(int fd, int32_t session_handle, int32_t dev_handle, uint64_t packet_handle);
 int device_control(int fd, int op_code, int session_handle, int dev_handle);
+int32_t link_devices(int fd, int32_t session_handle, int32_t handle1, int32_t handle2);
+void unlink_devices(int fd, int32_t session_handle, int32_t link_handle);
 int do_cam_control(int fd, int op_code, void *handle, int size);
 void *alloc_w_mmu_hdl(int video0_fd, int len, uint32_t *handle, int align = 8, int flags = CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
                       int mmu_hdl = 0, int mmu_hdl2 = 0);

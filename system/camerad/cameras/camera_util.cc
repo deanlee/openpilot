@@ -54,6 +54,45 @@ int device_control(int fd, int op_code, int session_handle, int dev_handle) {
   return do_cam_control(fd, op_code, &cmd, sizeof(cmd));
 }
 
+int32_t link_devices(int fd, int32_t session_handle, int32_t handle1, int32_t handle2) {
+  LOG("-- Link devices");
+  struct cam_req_mgr_link_info info = {};
+  info.session_hdl = session_handle;
+  info.num_devices = 2;
+  info.dev_hdls[0] = handle1;
+  info.dev_hdls[1] = handle2;
+  int ret = do_cam_control(fd, CAM_REQ_MGR_LINK, &info, sizeof(info));
+  int32_t link_handle = info.link_hdl;
+
+  LOGD("link: %d session: 0x%X isp: 0x%X sensors: 0x%X link: 0x%X", ret, session_handle, handle1, handle2, link_handle);
+  struct cam_req_mgr_link_control control = {};
+  control.ops = CAM_REQ_MGR_LINK_ACTIVATE;
+  control.session_hdl = session_handle;
+  control.num_links = 1;
+  control.link_hdls[0] = link_handle;
+  ret = do_cam_control(fd, CAM_REQ_MGR_LINK_CONTROL, &control, sizeof(control));
+  LOGD("link control: %d", ret);
+  return link_handle;
+}
+
+void unlink_devices(int fd, int32_t session_handle, int32_t link_handle) {
+  LOG("-- Stop link control");
+  struct cam_req_mgr_link_control control = {};
+  control.ops = CAM_REQ_MGR_LINK_DEACTIVATE;
+  control.session_hdl = session_handle;
+  control.num_links = 1;
+  control.link_hdls[0] = link_handle;
+  int ret = do_cam_control(fd, CAM_REQ_MGR_LINK_CONTROL, &control, sizeof(control));
+  LOGD("link control stop: %d", ret);
+
+  LOG("-- Unlink");
+  struct cam_req_mgr_unlink_info info = {};
+  info.session_hdl = session_handle;
+  info.link_hdl = link_handle;
+  ret = do_cam_control(fd, CAM_REQ_MGR_UNLINK, &info, sizeof(info));
+  LOGD("unlink: %d", ret);
+}
+
 void *alloc_w_mmu_hdl(int video0_fd, int len, uint32_t *handle, int align, int flags, int mmu_hdl, int mmu_hdl2) {
   struct cam_mem_mgr_alloc_cmd mem_mgr_alloc_cmd = {0};
   mem_mgr_alloc_cmd.len = len;

@@ -751,23 +751,7 @@ void CameraState::camera_open(MultiCameraState *multi_cam_state_, int camera_num
   }
 
   // link devices
-  LOG("-- Link devices");
-  struct cam_req_mgr_link_info req_mgr_link_info = {0};
-  req_mgr_link_info.session_hdl = session_handle;
-  req_mgr_link_info.num_devices = 2;
-  req_mgr_link_info.dev_hdls[0] = isp_dev_handle;
-  req_mgr_link_info.dev_hdls[1] = sensor_dev_handle;
-  ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_LINK, &req_mgr_link_info, sizeof(req_mgr_link_info));
-  link_handle = req_mgr_link_info.link_hdl;
-  LOGD("link: %d session: 0x%X isp: 0x%X sensors: 0x%X link: 0x%X", ret, session_handle, isp_dev_handle, sensor_dev_handle, link_handle);
-
-  struct cam_req_mgr_link_control req_mgr_link_control = {0};
-  req_mgr_link_control.ops = CAM_REQ_MGR_LINK_ACTIVATE;
-  req_mgr_link_control.session_hdl = session_handle;
-  req_mgr_link_control.num_links = 1;
-  req_mgr_link_control.link_hdls[0] = link_handle;
-  ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
-  LOGD("link control: %d", ret);
+  link_handle = link_devices(multi_cam_state->video0_fd, session_handle, isp_dev_handle, sensor_dev_handle);
 
   ret = device_control(csiphy_fd, CAM_START_DEV, session_handle, csiphy_dev_handle);
   LOGD("start csiphy: %d", ret);
@@ -849,23 +833,9 @@ void CameraState::camera_close() {
     LOGD("stop isp: %d", ret);
     ret = device_control(csiphy_fd, CAM_STOP_DEV, session_handle, csiphy_dev_handle);
     LOGD("stop csiphy: %d", ret);
-    // link control stop
-    LOG("-- Stop link control");
-    static struct cam_req_mgr_link_control req_mgr_link_control = {0};
-    req_mgr_link_control.ops = CAM_REQ_MGR_LINK_DEACTIVATE;
-    req_mgr_link_control.session_hdl = session_handle;
-    req_mgr_link_control.num_links = 1;
-    req_mgr_link_control.link_hdls[0] = link_handle;
-    ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
-    LOGD("link control stop: %d", ret);
 
-    // unlink
-    LOG("-- Unlink");
-    static struct cam_req_mgr_unlink_info req_mgr_unlink_info = {0};
-    req_mgr_unlink_info.session_hdl = session_handle;
-    req_mgr_unlink_info.link_hdl = link_handle;
-    ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_UNLINK, &req_mgr_unlink_info, sizeof(req_mgr_unlink_info));
-    LOGD("unlink: %d", ret);
+    // link control stop
+    unlink_devices(multi_cam_state->video0_fd, session_handle, link_handle);
 
     // release devices
     LOGD("-- Release devices");
