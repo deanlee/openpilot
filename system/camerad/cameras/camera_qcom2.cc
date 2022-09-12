@@ -1299,6 +1299,5 @@ MultiCameraState::~MultiCameraState() {
   driver_cam.camera_close();
   road_cam.camera_close();
   wide_road_cam.camera_close();
-
   delete pm;
 }
