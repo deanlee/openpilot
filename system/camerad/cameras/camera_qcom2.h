@@ -99,7 +99,12 @@ private:
   std::map<uint16_t, std::pair<int, int>> ar0231_build_register_lut(uint8_t *data);
 };
 
-typedef struct MultiCameraState {
+class MultiCameraState {
+public:
+  MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+  ~MultiCameraState();
+  void run();
+
   unique_fd video0_fd;
   unique_fd cam_sync_fd;
   unique_fd isp_fd;
@@ -111,4 +116,4 @@ typedef struct MultiCameraState {
   CameraState driver_cam;
 
   PubMaster *pm;
-} MultiCameraState;
+};
