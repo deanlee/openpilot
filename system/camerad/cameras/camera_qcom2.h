@@ -57,6 +57,7 @@ public:
   void set_camera_exposure(float grey_frac);
 
   void sensors_start();
+  const std::pair<float, float> get_desired_value(const float grey_frac) const;
 
   void camera_open(MultiCameraState *multi_cam_state, int camera_num, bool enabled);
   void camera_set_parameters();

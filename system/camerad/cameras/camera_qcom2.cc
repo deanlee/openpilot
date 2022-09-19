@@ -1032,8 +1032,8 @@ void CameraState::handle_camera_event(void *evdat) {
   }
 }
 
-void CameraState::set_camera_exposure(float grey_frac) {
-  if (!enabled) return;
+// split to two functions?
+const std::pair<float, float> CameraState::get_desired_value(const float grey_frac) const {
   const float dt = 0.05;
 
   const float ts_grey = 10.0;
@@ -1050,12 +1050,19 @@ void CameraState::set_camera_exposure(float grey_frac) {
   const float cur_ev_ = cur_ev[buf.cur_frame_data.frame_id % 3];
 
   // Scale target grey between 0.1 and 0.4 depending on lighting conditions
-  float new_target_grey = std::clamp(0.4 - 0.3 * log2(1.0 + target_grey_factor*cur_ev_) / log2(6000.0), 0.1, 0.4);
-  float target_grey = (1.0 - k_grey) * target_grey_fraction + k_grey * new_target_grey;
+  const float new_target_grey = std::clamp(0.4 - 0.3 * log2(1.0 + target_grey_factor*cur_ev_) / log2(6000.0), 0.1, 0.4);
+  const float target_grey = (1.0 - k_grey) * target_grey_fraction + k_grey * new_target_grey;
 
   float desired_ev = std::clamp(cur_ev_ * target_grey / grey_frac, min_ev, max_ev);
   float k = (1.0 - k_ev) / 3.0;
   desired_ev = (k * cur_ev[0]) + (k * cur_ev[1]) + (k * cur_ev[2]) + (k_ev * desired_ev);
+  return {desired_ev, target_grey};
+}
+
+void CameraState::set_camera_exposure(float grey_frac) {
+  if (!enabled) return;
+
+  const auto [desired_ev, target_grey] = get_desired_value(grey_frac);
 
   float best_ev_score = 1e6;
   int new_g = 0;
