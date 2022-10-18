@@ -64,6 +64,17 @@ MessagesWidget::MessagesWidget(QWidget *parent) : QWidget(parent) {
   // signals/slots
   QObject::connect(filter, &QLineEdit::textChanged, proxy_model, &QSortFilterProxyModel::setFilterFixedString);
   QObject::connect(can, &CANMessages::updated, model, &MessageListModel::updateState);
+  QObject::connect(can, &CANMessages::updated, [=]() {
+    if (!settings.selected_msg_id.isEmpty() && !table_widget->selectionModel()->currentIndex().isValid()) {
+      for (int i = 0; i < model->rowCount(); ++i) {
+        qWarning() << settings.selected_msg_id << model->data(model->index(i, 0), Qt::UserRole).toString();
+        if (model->data(model->index(i, 0), Qt::UserRole).toString() == settings.selected_msg_id) {
+          table_widget->selectionModel()->setCurrentIndex(model->index(i, 0), QItemSelectionModel::Current);
+          break;
+        }
+      }
+    }
+  });
   QObject::connect(combo, SIGNAL(activated(const QString &)), SLOT(dbcSelectionChanged(const QString &)));
   QObject::connect(save_btn, &QPushButton::clicked, [=]() {
     // TODO: save DBC to file
@@ -82,6 +93,11 @@ void MessagesWidget::dbcSelectionChanged(const QString &dbc_file) {
   dbc()->open(dbc_file);
   // TODO: reset model?
   table_widget->sortByColumn(0, Qt::AscendingOrder);
+}
+
+QString MessagesWidget::selectedMessageId() const {
+  auto index = table_widget->selectionModel()->currentIndex();
+  return index.isValid() ? index.data(Qt::UserRole).toString() : "";
 }
 
 // MessageListModel

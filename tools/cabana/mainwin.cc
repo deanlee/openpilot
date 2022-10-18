@@ -45,6 +45,23 @@ MainWindow::MainWindow() : QWidget() {
   QObject::connect(detail_widget, &DetailWidget::showChart, charts_widget, &ChartsWidget::addChart);
   QObject::connect(charts_widget, &ChartsWidget::dock, this, &MainWindow::dockCharts);
   QObject::connect(settings_btn, &QPushButton::clicked, this, &MainWindow::setOption);
+
+  QTimer::singleShot(0, [=]() {
+    for (const auto &chart_id : settings.charts) {
+      auto l = chart_id.split(":");
+      if (l.size() == 3) {
+        auto id = l[0] + ":" + l[1];
+        auto msg = dbc()->msg(id);
+        if (msg) {
+          for (auto &s : msg->sigs) {
+            if (l[2] == s.name.c_str()) {
+              charts_widget->addChart(l[0] + ":" + l[1], &s);
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 void MainWindow::dockCharts(bool dock) {
@@ -68,6 +85,11 @@ void MainWindow::dockCharts(bool dock) {
 void MainWindow::closeEvent(QCloseEvent *event) {
   if (floating_window)
     floating_window->deleteLater();
+
+  // save session
+  settings.selected_msg_id = messages_widget->selectedMessageId();
+  settings.charts = charts_widget->chartIDS();
+  qWarning() << "here";
   QWidget::closeEvent(event);
 }
 
@@ -123,5 +145,6 @@ void SettingsDlg::save() {
   settings.cached_segment_limit = cached_segment->value();
   settings.chart_height = chart_height->value();
   settings.save();
+  emit settings.changed();
   accept();
 }

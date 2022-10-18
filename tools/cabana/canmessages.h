@@ -13,6 +13,7 @@ class Settings : public QObject {
 
 public:
   Settings();
+  ~Settings();
   void save();
   void load();
 
@@ -20,6 +21,8 @@ public:
   int can_msg_log_size = 100;
   int cached_segment_limit = 3;
   int chart_height = 200;
+  QString selected_msg_id;
+  QStringList charts;
 
 signals:
   void changed();

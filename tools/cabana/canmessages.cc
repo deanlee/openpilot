@@ -136,13 +136,18 @@ Settings::Settings() {
   load();
 }
 
+Settings::~Settings() {
+  save();
+}
+
 void Settings::save() {
   QSettings s("settings", QSettings::IniFormat);
   s.setValue("fps", fps);
   s.setValue("log_size", can_msg_log_size);
   s.setValue("cached_segment", cached_segment_limit);
   s.setValue("chart_height", chart_height);
-  emit changed();
+  s.setValue("selected_msg_id", selected_msg_id);
+  s.setValue("charts", charts);
 }
 
 void Settings::load() {
@@ -151,4 +156,6 @@ void Settings::load() {
   can_msg_log_size = s.value("log_size", 100).toInt();
   cached_segment_limit = s.value("cached_segment", 3).toInt();
   chart_height = s.value("chart_height", 200).toInt();
+  selected_msg_id = s.value("selected_msg_id").toString();
+  charts = s.value("charts").toStringList();
 }
