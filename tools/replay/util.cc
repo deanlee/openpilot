@@ -61,18 +61,11 @@ static CURLGlobalInitializer curl_initializer;
 
 struct MultiPartWriter {
   char *buf;
-  size_t *total_written;
-  size_t offset;
-  size_t end;
 
   size_t write(char *data, size_t size, size_t count) {
     size_t bytes = size * count;
-    if ((offset + bytes) > end) return 0;
-
-    memcpy(buf + offset, data, bytes);
-
-    offset += bytes;
-    *total_written += bytes;
+    memcpy(buf, data, bytes);
+    buf += bytes;
     return bytes;
   }
 };
@@ -83,6 +76,12 @@ size_t write_cb(char *data, size_t size, size_t count, void *userp) {
 }
 
 size_t dumy_write_cb(char *data, size_t size, size_t count, void *userp) { return size * count; }
+
+static size_t progress_callback(void *clientp, double dltotal, double dlnow, double ultotal, double ulnow) {
+  size_t *memory = (size_t *)clientp;
+  *memory += dlnow;
+  return 0; /* all is good */
+}
 
 struct DownloadStats {
   void add(const std::string &url, uint64_t total_bytes) {
@@ -172,16 +171,18 @@ bool httpDownload(const std::string &url, void *buf, size_t chunk_size, size_t c
   const int part_size = content_length / parts;
   for (int i = 0; i < parts; ++i) {
     CURL *eh = curl_easy_init();
+    size_t offset = (i * part_size);
+    size_t end = parts - 1 ? content_length : (i + 1) * part_size;
     writers[eh] = {
         .buf = (char*)buf,
-        .total_written = &written,
-        .offset = (size_t)(i * part_size),
-        .end = i == parts - 1 ? content_length : (i + 1) * part_size,
     };
     curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(eh, CURLOPT_WRITEDATA, (void *)(&writers[eh]));
+    curl_easy_setopt(eh, CURLOPT_PROGRESSFUNCTION, progress_callback);
+    curl_easy_setopt(eh, CURLOPT_PROGRESSDATA, &written);
+
     curl_easy_setopt(eh, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(eh, CURLOPT_RANGE, util::string_format("%d-%d", writers[eh].offset, writers[eh].end - 1).c_str());
+    curl_easy_setopt(eh, CURLOPT_RANGE, util::string_format("%d-%d", offset, end - 1).c_str());
     curl_easy_setopt(eh, CURLOPT_HTTPGET, 1);
     curl_easy_setopt(eh, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(eh, CURLOPT_FOLLOWLOCATION, 1);
@@ -248,7 +249,7 @@ bool httpDownload(const std::string &url, const std::string &file, size_t chunk_
 }
 
 std::string decompressBZ2(const std::string &in, std::atomic<bool> *abort) {
-  return decompressBZ2((std::byte *)in.data(), in.size(), abort);f
+  return decompressBZ2((std::byte *)in.data(), in.size(), abort);
 }
 
 std::string decompressBZ2(const std::byte *in, size_t in_size, std::atomic<bool> *abort) {
