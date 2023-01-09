@@ -61,8 +61,11 @@ static CURLGlobalInitializer curl_initializer;
 
 struct MultiPartWriter {
   char *buf;
+  std::atomic<bool> *abort;
 
   size_t write(char *data, size_t size, size_t count) {
+    if (*abort) return CURLE_WRITE_ERROR;
+
     size_t bytes = size * count;
     memcpy(buf, data, bytes);
     buf += bytes;
@@ -173,9 +176,7 @@ bool httpDownload(const std::string &url, void *buf, size_t chunk_size, size_t c
     CURL *eh = curl_easy_init();
     size_t offset = (i * part_size);
     size_t end = parts - 1 ? content_length : (i + 1) * part_size;
-    writers[eh] = {
-        .buf = (char*)buf,
-    };
+    writers[eh] = { .buf = (char*)buf + offset, .abort = abort };
     curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(eh, CURLOPT_WRITEDATA, (void *)(&writers[eh]));
     curl_easy_setopt(eh, CURLOPT_PROGRESSFUNCTION, progress_callback);
@@ -191,7 +192,7 @@ bool httpDownload(const std::string &url, void *buf, size_t chunk_size, size_t c
   }
 
   int still_running = 1;
-  while (still_running > 0 && !(abort && *abort)) {
+  while (still_running > 0) {
     curl_multi_wait(cm, nullptr, 0, 1000, nullptr);
     curl_multi_perform(cm, &still_running);
     download_stats.update(url, written);
@@ -200,7 +201,7 @@ bool httpDownload(const std::string &url, void *buf, size_t chunk_size, size_t c
   CURLMsg *msg;
   int msgs_left = -1;
   int complete = 0;
-  while ((msg = curl_multi_info_read(cm, &msgs_left)) && !(abort && *abort)) {
+  while ((msg = curl_multi_info_read(cm, &msgs_left))) {
     if (msg->msg == CURLMSG_DONE) {
       if (msg->data.result == CURLE_OK) {
         long res_status = 0;
@@ -213,6 +214,8 @@ bool httpDownload(const std::string &url, void *buf, size_t chunk_size, size_t c
       } else {
         rWarning("Download failed: connection failure: %d",  msg->data.result);
       }
+      curl_multi_remove_handle(cm, msg->easy_handle);
+      curl_easy_cleanup(msg->easy_handle);
     }
   }
 
@@ -220,12 +223,7 @@ bool httpDownload(const std::string &url, void *buf, size_t chunk_size, size_t c
   download_stats.update(url, written, success);
   download_stats.remove(url);
 
-  for (const auto &[e, w] : writers) {
-    curl_multi_remove_handle(cm, e);
-    curl_easy_cleanup(e);
-  }
   curl_multi_cleanup(cm);
-
   return success;
 }
 
