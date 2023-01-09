@@ -64,7 +64,7 @@ struct MultiPartWriter {
   std::atomic<bool> *abort;
 
   size_t write(char *data, size_t size, size_t count) {
-    if (*abort) return CURLE_WRITE_ERROR;
+    if (abort && *abort) return CURLE_WRITE_ERROR;
 
     size_t bytes = size * count;
     memcpy(buf, data, bytes);
@@ -164,14 +164,13 @@ bool httpDownload(const std::string &url, void *buf, size_t chunk_size, size_t c
 
   int parts = 1;
   if (chunk_size > 0 && content_length > 10 * 1024 * 1024) {
-    parts = std::nearbyint(content_length / (float)chunk_size);
-    parts = std::clamp(parts, 1, 5);
+    parts = std::clamp<float>(std::nearbyint(content_length / (float)chunk_size), 1, 5);
   }
+  const int part_size = content_length / parts;
 
   CURLM *cm = curl_multi_init();
   size_t written = 0;
   std::map<CURL *, MultiPartWriter> writers;
-  const int part_size = content_length / parts;
   for (int i = 0; i < parts; ++i) {
     CURL *eh = curl_easy_init();
     size_t offset = (i * part_size);
@@ -181,13 +180,11 @@ bool httpDownload(const std::string &url, void *buf, size_t chunk_size, size_t c
     curl_easy_setopt(eh, CURLOPT_WRITEDATA, (void *)(&writers[eh]));
     curl_easy_setopt(eh, CURLOPT_PROGRESSFUNCTION, progress_callback);
     curl_easy_setopt(eh, CURLOPT_PROGRESSDATA, &written);
-
     curl_easy_setopt(eh, CURLOPT_URL, url.c_str());
     curl_easy_setopt(eh, CURLOPT_RANGE, util::string_format("%d-%d", offset, end - 1).c_str());
     curl_easy_setopt(eh, CURLOPT_HTTPGET, 1);
     curl_easy_setopt(eh, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(eh, CURLOPT_FOLLOWLOCATION, 1);
-
     curl_multi_add_handle(cm, eh);
   }
 
