@@ -21,7 +21,7 @@ public:
   ~FrameReader();
   bool load(const std::string &url, bool no_hw_decoder = false, std::atomic<bool> *abort = nullptr, bool local_cache = false,
             int chunk_size = -1, int retries = 0);
-  bool load(const std::byte *data, size_t size, bool no_hw_decoder = false, std::atomic<bool> *abort = nullptr);
+  bool load(const std::byte *data, int size, bool no_hw_decoder = false, std::atomic<bool> *abort = nullptr);
   bool get(int idx, uint8_t *yuv);
   int getYUVSize() const { return width * height * 3 / 2; }
   size_t getFrameCount() const { return packets.size(); }
@@ -35,14 +35,14 @@ private:
   bool decode(int idx, uint8_t *yuv);
   AVFrame * decodeFrame(AVPacket *pkt);
   bool copyBuffers(AVFrame *f, uint8_t *yuv);
-
+  std::string data1 ;
   std::vector<AVPacket*> packets;
   std::unique_ptr<AVFrame, AVFrameDeleter>av_frame_, hw_frame;
-  AVFormatContext *input_ctx = nullptr;
+  // AVFormatContext *input_ctx = nullptr;
   AVCodecContext *decoder_ctx = nullptr;
   int key_frames_count_ = 0;
   bool valid_ = false;
-  AVIOContext *avio_ctx_ = nullptr;
+  // AVIOContext *avio_ctx_ = nullptr;
 
   AVPixelFormat hw_pix_fmt = AV_PIX_FMT_NONE;
   AVBufferRef *hw_device_ctx = nullptr;

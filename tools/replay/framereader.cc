@@ -39,64 +39,57 @@ FrameReader::~FrameReader() {
   }
 
   if (decoder_ctx) avcodec_free_context(&decoder_ctx);
-  if (input_ctx) avformat_close_input(&input_ctx);
   if (hw_device_ctx) av_buffer_unref(&hw_device_ctx);
 
-  if (avio_ctx_) {
-    av_freep(&avio_ctx_->buffer);
-    avio_context_free(&avio_ctx_);
-  }
 }
 
 bool FrameReader::load(const std::string &url, bool no_hw_decoder, std::atomic<bool> *abort, bool local_cache, int chunk_size, int retries) {
   FileReader f(local_cache, chunk_size, retries);
-  std::string data = f.read(url, abort);
-  if (data.empty()) return false;
+  data1 = f.read(url, abort);
+  if (data1.empty()) return false;
 
-  return load((std::byte *)data.data(), data.size(), no_hw_decoder, abort);
+  return load((std::byte *)data1.data(), data1.size(), no_hw_decoder, abort);
 }
 
-bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, std::atomic<bool> *abort) {
-  ret = avformat_find_stream_info(input_ctx, nullptr);
-  if (ret < 0) {
-    rError("cannot find a video stream in the input file");
-    return false;
-  }
-
-  // AVStream *video = input_ctx->streams[0];
-  const AVCodec *decoder = avcodec_find_decoder(AV_CODEC_ID_MPEG1VIDEO);
+bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std::atomic<bool> *abort) {
+  const AVCodec *decoder = avcodec_find_decoder(AV_CODEC_ID_HEVC);
   if (!decoder) return false;
 
   decoder_ctx = avcodec_alloc_context3(decoder);
-  ret = avcodec_parameters_to_context(decoder_ctx, video->codecpar);
-  if (ret != 0) return false;
 
-  width = (decoder_ctx->width + 3) & ~3;
-  height = decoder_ctx->height;
+  width = 1928;//(decoder_ctx->width + 3) & ~3;
+  height = 1208;//decoder_ctx->height;
   visionbuf_compute_aligned_width_and_height(width, height, &aligned_width, &aligned_height);
 
-  if (has_hw_decoder && !no_hw_decoder) {
-    if (!initHardwareDecoder(HW_DEVICE_TYPE)) {
-      rWarning("No device with hardware decoder found. fallback to CPU decoding.");
-    }
-  }
-
-  ret = avcodec_open2(decoder_ctx, decoder, nullptr);
+  // if (has_hw_decoder && !no_hw_decoder) {
+  //   if (!initHardwareDecoder(HW_DEVICE_TYPE)) {
+  //     rWarning("No device with hardware decoder found. fallback to CPU decoding.");
+  //   }
+  // }
+  
+  int ret = avcodec_open2(decoder_ctx, decoder, nullptr);
   if (ret < 0) return false;
 
+  valid_ = true;
+  auto parser = av_parser_init(decoder->id);
   packets.reserve(60 * 20);  // 20fps, one minute
-  while (!(abort && *abort)) {
+  while (size > 0 && !(abort && *abort)) {
     AVPacket *pkt = av_packet_alloc();
-    ret = av_read_frame(input_ctx, pkt);
+    ret = av_parser_parse2(parser, decoder_ctx, &pkt->data, &pkt->size,
+                           (const uint8_t*) data, size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
     if (ret < 0) {
-      av_packet_free(&pkt);
-      valid_ = (ret == AVERROR_EOF);
+      valid_ = false;;
       break;
     }
+    data += ret;
+    size -= ret;
     packets.push_back(pkt);
+    // printf("%d\n", size);
     // some stream seems to contain no keyframes
     key_frames_count_ += pkt->flags & AV_PKT_FLAG_KEY;
   }
+  printf("size is %zu %d\n", packets.size(), valid_);
+  // av_parser_close(parser);
   valid_ = valid_ && !packets.empty();
   return valid_;
 }
@@ -138,6 +131,7 @@ bool FrameReader::get(int idx, uint8_t *yuv) {
 }
 
 bool FrameReader::decode(int idx, uint8_t *yuv) {
+  printf("decode %d\n", key_frames_count_);
   int from_idx = idx;
   if (idx != prev_idx + 1 && key_frames_count_ > 1) {
     // seeking to the nearest key frame
@@ -160,18 +154,20 @@ bool FrameReader::decode(int idx, uint8_t *yuv) {
 }
 
 AVFrame *FrameReader::decodeFrame(AVPacket *pkt) {
+  printf("here1\n");
   int ret = avcodec_send_packet(decoder_ctx, pkt);
   if (ret < 0) {
     rError("Error sending a packet for decoding: %d", ret);
     return nullptr;
   }
-
+printf("here2\n");
   av_frame_.reset(av_frame_alloc());
   ret = avcodec_receive_frame(decoder_ctx, av_frame_.get());
   if (ret != 0) {
     rError("avcodec_receive_frame error: %d", ret);
     return nullptr;
   }
+  printf("here3\n");
 
   if (av_frame_->format == hw_pix_fmt) {
     hw_frame.reset(av_frame_alloc());
