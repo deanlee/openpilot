@@ -16,23 +16,6 @@
 
 namespace {
 
-struct buffer_data {
-  const uint8_t *data;
-  int64_t offset;
-  size_t size;
-};
-
-int readPacket(void *opaque, uint8_t *buf, int buf_size) {
-  struct buffer_data *bd = (struct buffer_data *)opaque;
-  assert(bd->offset <= bd->size);
-  buf_size = std::min((size_t)buf_size, (size_t)(bd->size - bd->offset));
-  if (!buf_size) return AVERROR_EOF;
-
-  memcpy(buf, bd->data + bd->offset, buf_size);
-  bd->offset += buf_size;
-  return buf_size;
-}
-
 enum AVPixelFormat get_hw_format(AVCodecContext *ctx, const enum AVPixelFormat *pix_fmts) {
   enum AVPixelFormat *hw_pix_fmt = reinterpret_cast<enum AVPixelFormat *>(ctx->opaque);
   for (const enum AVPixelFormat *p = pix_fmts; *p != -1; p++) {
@@ -74,36 +57,14 @@ bool FrameReader::load(const std::string &url, bool no_hw_decoder, std::atomic<b
 }
 
 bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, std::atomic<bool> *abort) {
-  input_ctx = avformat_alloc_context();
-  if (!input_ctx) return false;
-
-  struct buffer_data bd = {
-    .data = (const uint8_t*)data,
-    .offset = 0,
-    .size = size,
-  };
-  const int avio_ctx_buffer_size = 64 * 1024;
-  unsigned char *avio_ctx_buffer = (unsigned char *)av_malloc(avio_ctx_buffer_size);
-  avio_ctx_ = avio_alloc_context(avio_ctx_buffer, avio_ctx_buffer_size, 0, &bd, readPacket, nullptr, nullptr);
-  input_ctx->pb = avio_ctx_;
-
-  input_ctx->probesize = 10 * 1024 * 1024;  // 10MB
-  int ret = avformat_open_input(&input_ctx, nullptr, nullptr, nullptr);
-  if (ret != 0) {
-    char err_str[1024] = {0};
-    av_strerror(ret, err_str, std::size(err_str));
-    rError("Error loading video - %s", err_str);
-    return false;
-  }
-
   ret = avformat_find_stream_info(input_ctx, nullptr);
   if (ret < 0) {
     rError("cannot find a video stream in the input file");
     return false;
   }
 
-  AVStream *video = input_ctx->streams[0];
-  const AVCodec *decoder = avcodec_find_decoder(video->codecpar->codec_id);
+  // AVStream *video = input_ctx->streams[0];
+  const AVCodec *decoder = avcodec_find_decoder(AV_CODEC_ID_MPEG1VIDEO);
   if (!decoder) return false;
 
   decoder_ctx = avcodec_alloc_context3(decoder);
