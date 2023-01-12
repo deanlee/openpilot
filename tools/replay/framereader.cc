@@ -50,7 +50,7 @@ bool FrameReader::load(const std::string &url, bool no_hw_decoder, std::atomic<b
 
   return load((std::byte *)data1.data(), data1.size(), no_hw_decoder, abort);
 }
-
+#include "common/timing.h"
 bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std::atomic<bool> *abort) {
   const AVCodec *decoder = avcodec_find_decoder(AV_CODEC_ID_HEVC);
   if (!decoder) return false;
@@ -70,6 +70,7 @@ bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std:
   int ret = avcodec_open2(decoder_ctx, decoder, nullptr);
   if (ret < 0) return false;
 
+  double t1 = millis_since_boot();
   valid_ = true;
   auto parser = av_parser_init(decoder->id);
   packets.reserve(60 * 20);  // 20fps, one minute
@@ -91,7 +92,7 @@ bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std:
     }
     key_frames_count_ += pkt->flags & AV_PKT_FLAG_KEY;
   }
-  printf("size is %zu %d\n", packets.size(), key_frames_count_);
+  printf("size is %zu %d %f\n", packets.size(), key_frames_count_, millis_since_boot() - t1);
   // av_parser_close(parser);
   valid_ = valid_ && !packets.empty();
   return valid_;
