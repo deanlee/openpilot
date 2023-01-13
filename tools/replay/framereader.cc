@@ -77,7 +77,7 @@ bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std:
   while (size > 0 && !(abort && *abort)) {
     AVPacket *pkt = av_packet_alloc();
     ret = av_parser_parse2(parser, decoder_ctx, &pkt->data, &pkt->size,
-                           (const uint8_t*) data, size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, -1);
+                           (const uint8_t*) data, size, AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
     if (ret < 0) {
       valid_ = false;;
       break;
@@ -87,9 +87,13 @@ bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std:
     packets.push_back(pkt);
     // printf("%d\n", size);
     // some stream seems to contain no keyframes
-    if (parser->key_frame == 1) {
+    pkt->pts = parser->pts;
+    pkt->dts = parser->dts;
+    pkt->pos = parser->pos;
+    if (parser->key_frame == 1 || (parser->key_frame == -1 && parser->pict_type == AV_PICTURE_TYPE_I)) {
       pkt->flags = AV_PKT_FLAG_KEY;
     }
+    pkt->duration = 96000;
     key_frames_count_ += pkt->flags & AV_PKT_FLAG_KEY;
   }
   printf("size is %zu %d %f\n", packets.size(), key_frames_count_, millis_since_boot() - t1);
