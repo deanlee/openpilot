@@ -39,13 +39,11 @@ FrameReader::~FrameReader() {
   }
 
   if (decoder_ctx) avcodec_free_context(&decoder_ctx);
-  if (input_ctx) avformat_close_input(&input_ctx);
-  if (hw_device_ctx) av_buffer_unref(&hw_device_ctx);
-
-  if (avio_ctx_) {
-    av_freep(&avio_ctx_->buffer);
-    avio_context_free(&avio_ctx_);
+  if (input_ctx) {
+    avio_context_free(&input_ctx->pb);
+    avformat_close_input(&input_ctx);
   }
+  if (hw_device_ctx) av_buffer_unref(&hw_device_ctx);
 }
 
 bool FrameReader::load(const std::string &url, bool no_hw_decoder, std::atomic<bool> *abort, bool local_cache, int chunk_size, int retries) {
@@ -59,8 +57,7 @@ bool FrameReader::load(const std::string &url, bool no_hw_decoder, std::atomic<b
 bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, std::atomic<bool> *abort) {
   input_ctx = avformat_alloc_context();
   if (!input_ctx) return false;
-  avio_ctx_ = avio_alloc_context((unsigned char*)data, size, 0, nullptr, nullptr, nullptr, nullptr);
-  input_ctx->pb = avio_ctx_;
+  input_ctx->pb = avio_alloc_context((unsigned char*)data, size, 0, nullptr, nullptr, nullptr, nullptr);
   input_ctx->probesize = 10 * 1024 * 1024;  // 10MB
   int ret = avformat_open_input(&input_ctx, nullptr, nullptr, nullptr);
   if (ret != 0) {
