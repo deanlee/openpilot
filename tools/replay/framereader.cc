@@ -16,23 +16,6 @@
 
 namespace {
 
-struct buffer_data {
-  const uint8_t *data;
-  int64_t offset;
-  size_t size;
-};
-
-int readPacket(void *opaque, uint8_t *buf, int buf_size) {
-  struct buffer_data *bd = (struct buffer_data *)opaque;
-  assert(bd->offset <= bd->size);
-  buf_size = std::min((size_t)buf_size, (size_t)(bd->size - bd->offset));
-  if (!buf_size) return AVERROR_EOF;
-
-  memcpy(buf, bd->data + bd->offset, buf_size);
-  bd->offset += buf_size;
-  return buf_size;
-}
-
 enum AVPixelFormat get_hw_format(AVCodecContext *ctx, const enum AVPixelFormat *pix_fmts) {
   enum AVPixelFormat *hw_pix_fmt = reinterpret_cast<enum AVPixelFormat *>(ctx->opaque);
   for (const enum AVPixelFormat *p = pix_fmts; *p != -1; p++) {
@@ -67,26 +50,17 @@ FrameReader::~FrameReader() {
 
 bool FrameReader::load(const std::string &url, bool no_hw_decoder, std::atomic<bool> *abort, bool local_cache, int chunk_size, int retries) {
   FileReader f(local_cache, chunk_size, retries);
-  std::string data = f.read(url, abort);
-  if (data.empty()) return false;
+  data_ = f.read(url, abort);
+  if (data_.empty()) return false;
 
-  return load((std::byte *)data.data(), data.size(), no_hw_decoder, abort);
+  return load((std::byte *)data_.data(), data_.size(), no_hw_decoder, abort);
 }
 
 bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, std::atomic<bool> *abort) {
   input_ctx = avformat_alloc_context();
   if (!input_ctx) return false;
-
-  struct buffer_data bd = {
-    .data = (const uint8_t*)data,
-    .offset = 0,
-    .size = size,
-  };
-  const int avio_ctx_buffer_size = 64 * 1024;
-  unsigned char *avio_ctx_buffer = (unsigned char *)av_malloc(avio_ctx_buffer_size);
-  avio_ctx_ = avio_alloc_context(avio_ctx_buffer, avio_ctx_buffer_size, 0, &bd, readPacket, nullptr, nullptr);
+  avio_ctx_ = avio_alloc_context((unsigned char*)data, size, 0, nullptr, nullptr, nullptr, nullptr);
   input_ctx->pb = avio_ctx_;
-
   input_ctx->probesize = 10 * 1024 * 1024;  // 10MB
   int ret = avformat_open_input(&input_ctx, nullptr, nullptr, nullptr);
   if (ret != 0) {

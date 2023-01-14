@@ -43,6 +43,7 @@ private:
   int key_frames_count_ = 0;
   bool valid_ = false;
   AVIOContext *avio_ctx_ = nullptr;
+  std::string data_;
 
   AVPixelFormat hw_pix_fmt = AV_PIX_FMT_NONE;
   AVBufferRef *hw_device_ctx = nullptr;
