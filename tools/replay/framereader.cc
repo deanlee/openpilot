@@ -74,6 +74,7 @@ bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std:
   valid_ = true;
   auto parser = av_parser_init(decoder->id);
   packets.reserve(60 * 20);  // 20fps, one minute
+  int i = 0;
   while (size > 0 && !(abort && *abort)) {
     AVPacket *pkt = av_packet_alloc();
     ret = av_parser_parse2(parser, decoder_ctx, &pkt->data, &pkt->size,
@@ -84,16 +85,20 @@ bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std:
     }
     data += ret;
     size -= ret;
+    if (!pkt->data || !pkt->size) break;
     packets.push_back(pkt);
     // printf("%d\n", size);
     // some stream seems to contain no keyframes
     pkt->pts = parser->pts;
     pkt->dts = parser->dts;
-    pkt->pos = parser->pos;
+    pkt->pos = -1;
+    ++i;
     if (parser->key_frame == 1 || (parser->key_frame == -1 && parser->pict_type == AV_PICTURE_TYPE_I)) {
+      // printf("key frame %d %d\n", parser->key_frame, i);
       pkt->flags = AV_PKT_FLAG_KEY;
     }
     pkt->duration = 96000;
+    assert(pkt->data && pkt->size);
     key_frames_count_ += pkt->flags & AV_PKT_FLAG_KEY;
   }
   printf("size is %zu %d %f\n", packets.size(), key_frames_count_, millis_since_boot() - t1);
@@ -139,7 +144,7 @@ bool FrameReader::get(int idx, uint8_t *yuv) {
 }
 
 bool FrameReader::decode(int idx, uint8_t *yuv) {
-  printf("decode %d\n", key_frames_count_);
+  // printf("decode %d\n", key_frames_count_);
   int from_idx = idx;
   if (idx != prev_idx + 1 && key_frames_count_ > 1) {
     // seeking to the nearest key frame
@@ -150,11 +155,12 @@ bool FrameReader::decode(int idx, uint8_t *yuv) {
       }
     }
   }
-  prev_idx = idx;
-
+  printf("prev %d idx %d  from_idx %d\n", prev_idx, idx, from_idx);
   for (int i = from_idx; i <= idx; ++i) {
     AVFrame *f = decodeFrame(packets[i]);
+    if (!f) break;
     if (f && i == idx) {
+      prev_idx = idx;
       return copyBuffers(f, yuv);
     }
   }
@@ -162,20 +168,18 @@ bool FrameReader::decode(int idx, uint8_t *yuv) {
 }
 
 AVFrame *FrameReader::decodeFrame(AVPacket *pkt) {
-  printf("here1\n");
   int ret = avcodec_send_packet(decoder_ctx, pkt);
   if (ret < 0) {
+    // return AVERROR_INVALIDDATA
     rError("Error sending a packet for decoding: %d", ret);
     return nullptr;
   }
-printf("here2\n");
   av_frame_.reset(av_frame_alloc());
   ret = avcodec_receive_frame(decoder_ctx, av_frame_.get());
   if (ret != 0) {
     rError("avcodec_receive_frame error: %d", ret);
     return nullptr;
   }
-  printf("here3\n");
 
   if (av_frame_->format == hw_pix_fmt) {
     hw_frame.reset(av_frame_alloc());
