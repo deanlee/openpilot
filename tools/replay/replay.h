@@ -70,7 +70,7 @@ public:
   inline int totalSeconds() const { return segments_.size() * 60; }
   inline void setSpeed(float speed) { speed_ = speed; }
   inline float getSpeed() const { return speed_; }
-  inline const std::vector<Event *> *events() const { return events_.get(); }
+  inline const std::vector<const Event *> *events() const { return events_.get(); }
   inline const std::string &carFingerprint() const { return car_fingerprint_; }
   inline const std::vector<std::tuple<int, int, TimelineType>> getTimeline() {
     std::lock_guard lk(timeline_lock);
@@ -115,8 +115,8 @@ protected:
   bool events_updated_ = false;
   uint64_t route_start_ts_ = 0;
   std::atomic<uint64_t> cur_mono_time_ = 0;
-  std::unique_ptr<std::vector<Event *>> events_;
-  std::unique_ptr<std::vector<Event *>> new_events_;
+  std::unique_ptr<std::vector<const Event *>> events_;
+  std::unique_ptr<std::vector<const Event *>> new_events_;
   std::vector<int> segments_merged_;
 
   // messaging
