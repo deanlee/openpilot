@@ -68,6 +68,8 @@ bool FrameReader::load(const std::byte *data, int size, bool no_hw_decoder, std:
   // }
   
   int ret = avcodec_open2(decoder_ctx, decoder, nullptr);
+  // need avcodec_parameters_to_context;
+  
   if (ret < 0) return false;
 
   double t1 = millis_since_boot();
