@@ -286,6 +286,15 @@ ChartView::ChartView(QWidget *parent) : QChartView(nullptr, parent) {
   chart->layout()->setContentsMargins(0, 0, 0, 0);
   chart->setMargins({20, 11, 11, 11});
 
+  QToolButton *logs_btn = new QToolButton();
+  logs_btn->setIcon(bootstrapPixmap("x"));
+  logs_btn->setAutoRaise(true);
+  logs_btn->setToolTip(tr("View Logs"));
+  logs_btn_proxy = new QGraphicsProxyWidget(chart);
+  logs_btn_proxy->setWidget(logs_btn);
+  logs_btn_proxy->setZValue(chart->zValue() + 11);
+
+
   QToolButton *remove_btn = new QToolButton();
   remove_btn->setIcon(bootstrapPixmap("x"));
   remove_btn->setAutoRaise(true);
@@ -311,6 +320,7 @@ ChartView::ChartView(QWidget *parent) : QChartView(nullptr, parent) {
   QObject::connect(dbc(), &DBCManager::signalUpdated, this, &ChartView::signalUpdated);
   QObject::connect(dbc(), &DBCManager::msgRemoved, this, &ChartView::msgRemoved);
   QObject::connect(dbc(), &DBCManager::msgUpdated, this, &ChartView::msgUpdated);
+  QObject::connect(logs_btn, &QToolButton::clicked, [this]() { emit openLog(); });
   QObject::connect(remove_btn, &QToolButton::clicked, this, &ChartView::remove);
   QObject::connect(manage_btn, &QToolButton::clicked, this, &ChartView::manageSeries);
 }
@@ -435,7 +445,10 @@ void ChartView::resizeEvent(QResizeEvent *event) {
   QChartView::resizeEvent(event);
   int x = event->size().width() - close_btn_proxy->size().width() - 11;
   close_btn_proxy->setPos(x, 8);
-  manage_btn_proxy->setPos(x - manage_btn_proxy->size().width() - 5, 8);
+  x -= manage_btn_proxy->size().width() + 3;
+  manage_btn_proxy->setPos(x, 8);
+  close_btn_proxy->setPos(x - close_btn_proxy->size().width() - 3, 8);
+  close_btn_proxy->setPos(x, 8);
 }
 
 void ChartView::updateTitle() {
