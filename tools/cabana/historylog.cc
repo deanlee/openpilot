@@ -34,7 +34,9 @@ void HistoryLogModel::setMessage(const QString &message_id) {
   msg_id = message_id;
   sigs.clear();
   if (auto dbc_msg = dbc()->msg(msg_id)) {
-    sigs = dbc_msg->getSignals();
+    for (auto &s : dbc_msg->getSignals()) {
+      sigs.emplace_back({.msg_id = message_id, .sig = s});
+    }
   }
   display_type = !sigs.empty() ? HistoryLogModel::Signals : HistoryLogModel::Hex;
   filter_cmp = nullptr;
@@ -56,7 +58,7 @@ QVariant HistoryLogModel::headerData(int section, Qt::Orientation orientation, i
       if (section == 0) {
         return "Time";
       }
-      return display_signals ? QString::fromStdString(sigs[section - 1]->name).replace('_', ' ') : "Data";
+      return display_signals ? QString::fromStdString(sigs[section - 1]->sig->name).replace('_', ' ') : "Data";
     } else if (role == Qt::BackgroundRole && section > 0 && display_signals) {
       return QBrush(QColor(getColor(section - 1)));
     } else if (role == Qt::ForegroundRole && section > 0 && display_signals) {
@@ -109,10 +111,9 @@ void HistoryLogModel::fetchMore(const QModelIndex &parent) {
 }
 
 template <class InputIt>
-std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(InputIt first, InputIt last, uint64_t min_time) {
+void HistoryLogModel::fetchData(InputIt first, InputIt last, uint64_t min_time) {
   std::deque<HistoryLogModel::Message> msgs;
   const auto [src, address] = DBCManager::parseId(msg_id);
-  QVector<double> values(sigs.size());
   for (auto it = first; it != last && (*it)->mono_time > min_time; ++it) {
     if ((*it)->which == cereal::Event::Which::CAN) {
       for (const auto &c : (*it)->event.getCan()) {

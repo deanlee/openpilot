@@ -47,13 +47,11 @@ public:
   struct SignalItem {
     const QString msg_id;
     const Signal *sig;
-    uint64_t mono_time = 0;
-    QVector<QPointF> values;
-    QString data;
+    std::deque<QPointF> values;
   };
 
   template <class InputIt>
-  std::deque<HistoryLogModel::Message> fetchData(InputIt first, InputIt last, uint64_t min_time);
+  void fetchData(InputIt first, InputIt last, uint64_t min_time);
   std::deque<Message> fetchData(uint64_t from_time, uint64_t min_time = 0);
 
   QString msg_id;
@@ -63,8 +61,8 @@ public:
   double filter_value = 0;
   uint64_t last_fetch_time = 0;
   std::function<bool(double, double)> filter_cmp = nullptr;
-  std::deque<Message> messages;
-  std::vector<const Signal*> sigs;
+  std::deque<QByteArray> hex_messages;
+  std::vector<SigItems> sigs;
   bool dynamic_mode = false;
   DisplayType display_type = HistoryLogModel::Signals;
 };
