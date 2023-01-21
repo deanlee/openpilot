@@ -14,7 +14,7 @@
 #include <QtConcurrent>
 
 #include "selfdrive/ui/qt/util.h"
-
+#include "tools/cabana/historylog.h"
 // ChartsWidget
 
 ChartsWidget::ChartsWidget(QWidget *parent) : QWidget(parent) {
@@ -287,7 +287,7 @@ ChartView::ChartView(QWidget *parent) : QChartView(nullptr, parent) {
   chart->setMargins({20, 11, 11, 11});
 
   QToolButton *logs_btn = new QToolButton();
-  logs_btn->setIcon(bootstrapPixmap("x"));
+  logs_btn->setIcon(bootstrapPixmap("pencil"));
   logs_btn->setAutoRaise(true);
   logs_btn->setToolTip(tr("View Logs"));
   logs_btn_proxy = new QGraphicsProxyWidget(chart);
@@ -320,7 +320,7 @@ ChartView::ChartView(QWidget *parent) : QChartView(nullptr, parent) {
   QObject::connect(dbc(), &DBCManager::signalUpdated, this, &ChartView::signalUpdated);
   QObject::connect(dbc(), &DBCManager::msgRemoved, this, &ChartView::msgRemoved);
   QObject::connect(dbc(), &DBCManager::msgUpdated, this, &ChartView::msgUpdated);
-  QObject::connect(logs_btn, &QToolButton::clicked, [this]() { emit openLog(); });
+  QObject::connect(logs_btn, &QToolButton::clicked, this, &ChartView::openLog);
   QObject::connect(remove_btn, &QToolButton::clicked, this, &ChartView::remove);
   QObject::connect(manage_btn, &QToolButton::clicked, this, &ChartView::manageSeries);
 }
@@ -336,6 +336,17 @@ void ChartView::setPlotAreaLeftPosition(int pos) {
     const float left_margin = chart()->margins().left() + pos - chart()->plotArea().left();
     chart()->setMargins(QMargins(left_margin, 11, 11, 11));
   }
+}
+
+void ChartView::openLog() {
+  LogsDlg dlg(this);
+  dlg.exec();
+}
+
+LogsDlg::LogsDlg(QWidget *parent) : QDialog(parent, Qt::WindowFlags() | Qt::Window) {
+  QVBoxLayout *main_layout = new QVBoxLayout(this);
+  HistoryLog *log = new HistoryLog(this);
+  main_layout->addWidget(log);
 }
 
 void ChartView::addSeries(const QString &msg_id, const Signal *sig) {
@@ -445,10 +456,13 @@ void ChartView::resizeEvent(QResizeEvent *event) {
   QChartView::resizeEvent(event);
   int x = event->size().width() - close_btn_proxy->size().width() - 11;
   close_btn_proxy->setPos(x, 8);
+  x -= logs_btn_proxy->size().width() + 3;
+  logs_btn_proxy->setPos(x, 8);
   x -= manage_btn_proxy->size().width() + 3;
   manage_btn_proxy->setPos(x, 8);
-  close_btn_proxy->setPos(x - close_btn_proxy->size().width() - 3, 8);
-  close_btn_proxy->setPos(x, 8);
+  // qDebug() << x - logs_btn_proxy->size().width() - 3;
+  // logs_btn_proxy->setPos(x - logs_btn_proxy->size().width() - 3, 8);
+  // logs_btn_proxy->setPos(x, 8);
 }
 
 void ChartView::updateTitle() {
@@ -561,7 +575,8 @@ void ChartView::leaveEvent(QEvent *event) {
 
 void ChartView::mousePressEvent(QMouseEvent *event) {
   if (event->button() == Qt::LeftButton && !chart()->plotArea().contains(event->pos()) &&
-      !manage_btn_proxy->widget()->underMouse() && !close_btn_proxy->widget()->underMouse()) {
+      !manage_btn_proxy->widget()->underMouse() && !close_btn_proxy->widget()->underMouse()
+      && !logs_btn_proxy->widget()->underMouse()) {
     QMimeData *mimeData = new QMimeData;
     mimeData->setData(mime_type, QByteArray::number((qulonglong)this));
     QDrag *drag = new QDrag(this);

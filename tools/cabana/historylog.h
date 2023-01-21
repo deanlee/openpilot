@@ -27,6 +27,7 @@ public:
   };
 
   HistoryLogModel(QObject *parent) : QAbstractTableModel(parent) {}
+  void addSignal(const QString &msg_id, const Signal *sig);
   void setMessage(const QString &message_id);
   void updateState();
   void setFilter(int sig_idx, const QString &value, std::function<bool(double, double)> cmp);
@@ -78,6 +79,7 @@ class LogsWidget : public QWidget {
 public:
   LogsWidget(QWidget *parent);
   void setMessage(const QString &message_id);
+  void addSignal(const QString &msg_id, const Signal *sig);
   void updateState();
 
 signals:

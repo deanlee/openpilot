@@ -292,3 +292,18 @@ void LogsWidget::doubleClicked(const QModelIndex &index) {
     can->seekTo(model->messages[index.row()].mono_time / (double)1e9 - can->routeStartTime());
   }
 }
+
+
+void LogsWidget::addSignal(const QString &msg_id, const Signal *sig) {
+
+}
+
+void HistoryLogModel::addSignal(const QString &msg_id, const Signal *sig) {
+  sigs.clear();
+  if (auto dbc_msg = dbc()->msg(msg_id)) {
+    sigs = dbc_msg->getSignals();
+  }
+  display_type = !sigs.empty() ? HistoryLogModel::Signals : HistoryLogModel::Hex;
+  filter_cmp = nullptr;
+  refresh();
+}

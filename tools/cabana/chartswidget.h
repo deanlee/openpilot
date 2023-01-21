@@ -70,6 +70,7 @@ private:
   void applyNiceNumbers(qreal min, qreal max);
   qreal niceNumber(qreal x, bool ceiling);
   void addSeries(const QList<QStringList> &series_list);
+  void openLog();
 
   QValueAxis *axis_x;
   QValueAxis *axis_y;
@@ -151,4 +152,11 @@ private:
   QComboBox *msgs_combo;
   QListWidget *sig_list;
   QListWidget *chart_series;
+};
+
+class LogsDlg : public QDialog {
+  Q_OBJECT
+
+public:
+  LogsDlg(QWidget *parent);
 };
