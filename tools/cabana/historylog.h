@@ -44,9 +44,11 @@ public:
   void segmentsMerged();
   void refresh();
 
-  struct Message {
+  struct SignalItem {
+    const QString msg_id;
+    const Signal *sig;
     uint64_t mono_time = 0;
-    QVector<double> sig_values;
+    QVector<QPointF> values;
     QString data;
   };
 

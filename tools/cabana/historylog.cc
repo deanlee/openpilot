@@ -298,7 +298,7 @@ void LogsWidget::addSignal(const QString &msg_id, const Signal *sig) {
 
 }
 
-void HistoryLogModel::addSignal(const QString &msg_id, const Signal *sig) {
+void HistoryLogModel::addSignal(const QString &mid, const Signal *sig) {
   sigs.clear();
   if (auto dbc_msg = dbc()->msg(msg_id)) {
     sigs = dbc_msg->getSignals();
