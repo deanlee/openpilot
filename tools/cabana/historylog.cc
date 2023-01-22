@@ -100,14 +100,15 @@ void HistoryLogModel::updateState() {
 }
 
 void HistoryLogModel::fetchMore(const QModelIndex &parent) {
-  if (!messages.empty()) {
-    auto new_msgs = fetchData(messages.back().mono_time);
-    if ((has_more_data = !new_msgs.empty())) {
-      beginInsertRows({}, messages.size(), messages.size() + new_msgs.size() - 1);
-      messages.insert(messages.end(), std::move_iterator(new_msgs.begin()), std::move_iterator(new_msgs.end()));
-      endInsertRows();
-    }
-  }
+  has_more_data = false;
+  // if (!messages.empty()) {
+  //   auto new_msgs = fetchData(messages.back().mono_time);
+  //   if ((has_more_data = !new_msgs.empty())) {
+  //     beginInsertRows({}, messages.size(), messages.size() + new_msgs.size() - 1);
+  //     messages.insert(messages.end(), std::move_iterator(new_msgs.begin()), std::move_iterator(new_msgs.end()));
+  //     endInsertRows();
+  //   }
+  // }
 }
 
 template <class InputIt>
