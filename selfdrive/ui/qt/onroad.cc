@@ -738,7 +738,11 @@ OnroadView::OnroadView(QWidget *parent) : QGraphicsView(parent) {
 
 void OnroadView::resizeEvent(QResizeEvent *event) {
   // top_rect->setRect(this->geometry());
+  setSceneRect({0, 0, event->size().width(), event->size().height()});
+  // qWarning() << this->geometry() << ;
   QGraphicsView::resizeEvent(event);
+  // qWarning() << scene()->sceneRect();
+  // fitInView(scene()->sceneRect());
 }
 
 void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
