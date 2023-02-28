@@ -728,8 +728,8 @@ void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
 OnroadView::OnroadView(QWidget *parent) : QGraphicsView(parent) {
   cam_widget = new CameraWidget("camerad", VISION_STREAM_ROAD, true, this);
   QGraphicsScene *scene = new QGraphicsScene();
-  top_rect = new QGraphicsRectItem();
-  scene->addItem(top_rect);
+  // top_rect = new QGraphicsRectItem();
+  // scene->addItem(top_rect);
   setScene(scene);
   setViewport(cam_widget);
   setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
@@ -737,7 +737,7 @@ OnroadView::OnroadView(QWidget *parent) : QGraphicsView(parent) {
 }
 
 void OnroadView::resizeEvent(QResizeEvent *event) {
-  top_rect->setRect(this->geometry());
+  // top_rect->setRect(this->geometry());
   QGraphicsView::resizeEvent(event);
 }
 
@@ -766,6 +766,7 @@ void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
     cam_widget->updateCalibration(DEFAULT_CALIBRATION);
   }
   // cam_widget->setFrameId(model.getFrameId());
+  qWarning() << rect;
   painter->translate(rect.topLeft());
   painter->beginNativePainting();
   cam_widget->paintGL();
