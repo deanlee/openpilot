@@ -169,6 +169,7 @@ void CameraWidget::showEvent(QShowEvent *event) {
     connect(vipc_thread, &QThread::started, [=]() { vipcThread(); });
     connect(vipc_thread, &QThread::finished, vipc_thread, &QObject::deleteLater);
     vipc_thread->start();
+    qWarning() << "CameraWidget::showEvent";
   }
 }
 
@@ -235,6 +236,7 @@ void CameraWidget::updateCalibration(const mat3 &calib) {
 }
 
 void CameraWidget::paintGL() {
+  qWarning() << "paintGL";
   glClearColor(bg.redF(), bg.greenF(), bg.blueF(), bg.alphaF());
   glClear(GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 

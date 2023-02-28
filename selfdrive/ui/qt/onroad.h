@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QGraphicsView>
 #include <QPushButton>
 #include <QStackedLayout>
 #include <QWidget>
@@ -127,4 +128,23 @@ private:
 private slots:
   void offroadTransition(bool offroad);
   void updateState(const UIState &s);
+};
+
+
+// class ViewPort : public CameraWidget {
+
+// }
+
+class OnroadView : public QGraphicsView {
+  Q_OBJECT
+public:
+  OnroadView(QWidget *parent);
+  bool isMapVisible() const { return false;}
+  void drawBackground(QPainter *painter, const QRectF &rect) override;
+
+private slots:
+  void updateState(const UIState &s);
+
+private:
+  CameraWidget * cam_widget;
 };

@@ -723,3 +723,28 @@ void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
   ui_update_params(uiState());
   prev_draw_t = millis_since_boot();
 }
+
+
+OnroadView::OnroadView(QWidget *parent) : QGraphicsView(parent) {
+  cam_widget = new CameraWidget("camerad", VISION_STREAM_ROAD, true, this);
+  QGraphicsScene *scene = new QGraphicsScene();
+  setScene(scene);
+  setViewport(cam_widget);
+  setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+  QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadView::updateState);
+}
+
+void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
+  qWarning() << "here";
+  // cam_widget->paing();
+  cam_widget->paintGL();
+  QGraphicsView::drawBackground(painter, rect);
+}
+
+void OnroadView::updateState(const UIState &s) {
+  //  update();
+  // qWarning() << "updatestate ********";
+  // update();
+  // viewport()->update();
+  // scene()->invalidate({});
+}

@@ -36,14 +36,14 @@ public:
   void setStreamType(VisionStreamType type) { requested_stream_type = type; }
   VisionStreamType getStreamType() { return active_stream_type; }
   void stopVipcThread();
-
+  void paintGL() override;
 signals:
   void clicked();
   void vipcThreadConnected(VisionIpcClient *);
   void vipcThreadFrameReceived();
 
 protected:
-  void paintGL() override;
+  
   void initializeGL() override;
   void resizeGL(int w, int h) override { updateFrameMat(); }
   void showEvent(QShowEvent *event) override;
