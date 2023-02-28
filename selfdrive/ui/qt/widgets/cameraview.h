@@ -37,6 +37,7 @@ public:
   VisionStreamType getStreamType() { return active_stream_type; }
   void stopVipcThread();
   void paintGL() override;
+  void updateCalibration(const mat3 &calib);
 signals:
   void clicked();
   void vipcThreadConnected(VisionIpcClient *);
@@ -49,7 +50,7 @@ protected:
   void showEvent(QShowEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override { emit clicked(); }
   virtual void updateFrameMat();
-  void updateCalibration(const mat3 &calib);
+  
   void vipcThread();
   void clearFrames();
 

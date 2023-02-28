@@ -135,16 +135,21 @@ private slots:
 
 // }
 
+#include <QGraphicsRectItem>
 class OnroadView : public QGraphicsView {
   Q_OBJECT
 public:
   OnroadView(QWidget *parent);
   bool isMapVisible() const { return false;}
   void drawBackground(QPainter *painter, const QRectF &rect) override;
+  void updateFrameMat();
 
 private slots:
   void updateState(const UIState &s);
 
 private:
+  void drawLaneLines(QPainter &painter, const UIState *s);
+  void resizeEvent(QResizeEvent *event) override;
   CameraWidget * cam_widget;
+  QGraphicsRectItem *top_rect;
 };

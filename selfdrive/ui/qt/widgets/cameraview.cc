@@ -229,6 +229,21 @@ void CameraWidget::updateFrameMat() {
     float frame_aspect_ratio = (float)stream_width  / stream_height;
     frame_mat = get_fit_view_transform(widget_aspect_ratio, frame_aspect_ratio);
   }
+
+  UIState *s = uiState();
+
+  s->fb_w = w;
+  s->fb_h = h;
+
+  // Apply transformation such that video pixel coordinates match video
+  // 1) Put (0, 0) in the middle of the video
+  // 2) Apply same scaling as video
+  // 3) Put (0, 0) in top left corner of video
+  // assert(0);
+  s->car_space_transform.reset();
+  s->car_space_transform.translate(w / 2 - x_offset, h / 2 - y_offset)
+      .scale(zoom, zoom)
+      .translate(-intrinsic_matrix.v[2], -intrinsic_matrix.v[5]);
 }
 
 void CameraWidget::updateCalibration(const mat3 &calib) {
@@ -236,7 +251,6 @@ void CameraWidget::updateCalibration(const mat3 &calib) {
 }
 
 void CameraWidget::paintGL() {
-  qWarning() << "paintGL";
   glClearColor(bg.redF(), bg.greenF(), bg.blueF(), bg.alphaF());
   glClear(GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 

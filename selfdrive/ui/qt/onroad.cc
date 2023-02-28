@@ -728,17 +728,78 @@ void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
 OnroadView::OnroadView(QWidget *parent) : QGraphicsView(parent) {
   cam_widget = new CameraWidget("camerad", VISION_STREAM_ROAD, true, this);
   QGraphicsScene *scene = new QGraphicsScene();
+  top_rect = new QGraphicsRectItem();
+  scene->addItem(top_rect);
   setScene(scene);
   setViewport(cam_widget);
   setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadView::updateState);
 }
 
+void OnroadView::resizeEvent(QResizeEvent *event) {
+  top_rect->setRect(this->geometry());
+  QGraphicsView::resizeEvent(event);
+}
+
 void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
-  qWarning() << "here";
-  // cam_widget->paing();
+  // qWarning() << "here";
+  auto s = uiState();
+  auto &sm = *(s->sm);
+  // float v_ego = sm["carState"].getCarState().getVEgo();
+  // if ((v_ego < 10) || s->wide_cam_only) {
+  //   wide_cam_requested = true;
+  // } else if (v_ego > 15) {
+  //   wide_cam_requested = false;
+  // }
+  // wide_cam_requested = wide_cam_requested && sm["controlsState"].getControlsState().getExperimentalMode();
+  // // TODO: also detect when ecam vision stream isn't available
+  // // for replay of old routes, never go to widecam
+  // wide_cam_requested = wide_cam_requested && s->scene.calibration_wide_valid;
+  // cam_widget->setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
+
+  // s->scene.wide_cam = cam_widget->getStreamType() == VISION_STREAM_WIDE_ROAD;
+  s->scene.wide_cam = false;
+  if (s->scene.calibration_valid) {
+    auto calib = s->scene.view_from_calib;
+    cam_widget->updateCalibration(calib);
+  } else {
+    cam_widget->updateCalibration(DEFAULT_CALIBRATION);
+  }
+  // cam_widget->setFrameId(model.getFrameId());
+  painter->translate(rect.topLeft());
+  painter->beginNativePainting();
   cam_widget->paintGL();
-  QGraphicsView::drawBackground(painter, rect);
+  painter->endNativePainting();
+  // qWarning() <<rect;
+  
+  // painter->fillRect(QRect{0, 0, 100, 100}, Qt::red);
+  // updateFrameMat();
+
+  if (s->worldObjectsVisible()) {
+    if (sm.rcv_frame("modelV2") > s->scene.started_frame) {
+      // qWarning() << "update Model";
+      update_model(s, sm["modelV2"].getModelV2(), sm["uiPlan"].getUiPlan());
+      if (sm.rcv_frame("radarState") > s->scene.started_frame) {
+        // update_leads(s, radar_state, sm["modelV2"].getModelV2().getPosition());
+      }
+    }
+
+    drawLaneLines(*painter, s);
+    // qWarning() << (cam_widget->rect());
+    // painter->fillRect(cam_widget->rect(), Qt::red);
+
+    // if (s->scene.longitudinal_control) {
+    //   auto lead_one = radar_state.getLeadOne();
+    //   auto lead_two = radar_state.getLeadTwo();
+    //   if (lead_one.getStatus()) {
+    //     drawLead(painter, lead_one, s->scene.lead_vertices[0]);
+    //   }
+    //   if (lead_two.getStatus() && (std::abs(lead_one.getDRel() - lead_two.getDRel()) > 3.0)) {
+    //     drawLead(painter, lead_two, s->scene.lead_vertices[1]);
+    //   }
+    // }
+  }
+  // QGraphicsView::drawBackground(painter, rect);
 }
 
 void OnroadView::updateState(const UIState &s) {
@@ -747,4 +808,70 @@ void OnroadView::updateState(const UIState &s) {
   // update();
   // viewport()->update();
   // scene()->invalidate({});
+}
+
+void OnroadView::drawLaneLines(QPainter &painter, const UIState *s) {
+  painter.save();
+
+  const UIScene &scene = s->scene;
+  SubMaster &sm = *(s->sm);
+
+  // lanelines
+  for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
+    painter.setBrush(QColor::fromRgbF(1.0, 1.0, 1.0, std::clamp<float>(scene.lane_line_probs[i], 0.0, 0.7)));
+    painter.drawPolygon(scene.lane_line_vertices[i]);
+  }
+
+  // road edges
+  for (int i = 0; i < std::size(scene.road_edge_vertices); ++i) {
+    painter.setBrush(QColor::fromRgbF(1.0, 0, 0, std::clamp<float>(1.0 - scene.road_edge_stds[i], 0.0, 1.0)));
+    painter.drawPolygon(scene.road_edge_vertices[i]);
+  }
+
+  // paint path
+  QLinearGradient bg(0, height(), 0, height() / 4);
+  float start_hue, end_hue;
+  if (sm["controlsState"].getControlsState().getExperimentalMode()) {
+    const auto &acceleration = sm["modelV2"].getModelV2().getAcceleration();
+    float acceleration_future = 0;
+    if (acceleration.getZ().size() > 16) {
+      acceleration_future = acceleration.getX()[16];  // 2.5 seconds
+    }
+    start_hue = 60;
+    // speed up: 120, slow down: 0
+    end_hue = fmax(fmin(start_hue + acceleration_future * 45, 148), 0);
+
+    // FIXME: painter.drawPolygon can be slow if hue is not rounded
+    end_hue = int(end_hue * 100 + 0.5) / 100;
+
+    bg.setColorAt(0.0, QColor::fromHslF(start_hue / 360., 0.97, 0.56, 0.4));
+    bg.setColorAt(0.5, QColor::fromHslF(end_hue / 360., 1.0, 0.68, 0.35));
+    bg.setColorAt(1.0, QColor::fromHslF(end_hue / 360., 1.0, 0.68, 0.0));
+  } else {
+    bg.setColorAt(0.0, QColor::fromHslF(148 / 360., 0.94, 0.51, 0.4));
+    bg.setColorAt(0.5, QColor::fromHslF(112 / 360., 1.0, 0.68, 0.35));
+    bg.setColorAt(1.0, QColor::fromHslF(112 / 360., 1.0, 0.68, 0.0));
+  }
+
+  painter.setBrush(bg);
+  painter.drawPolygon(scene.track_vertices);
+
+  painter.restore();
+}
+
+void OnroadView::updateFrameMat() {
+  // UIState *s = uiState();
+  // int w = width(), h = height();
+
+  // s->fb_w = w;
+  // s->fb_h = h;
+
+  // // Apply transformation such that video pixel coordinates match video
+  // // 1) Put (0, 0) in the middle of the video
+  // // 2) Apply same scaling as video
+  // // 3) Put (0, 0) in top left corner of video
+  // s->car_space_transform.reset();
+  // s->car_space_transform.translate(w / 2 - x_offset, h / 2 - y_offset)
+  //     .scale(zoom, zoom)
+  //     .translate(-intrinsic_matrix.v[2], -intrinsic_matrix.v[5]);
 }
