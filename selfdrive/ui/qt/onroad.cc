@@ -395,7 +395,6 @@ OnroadView::OnroadView(VisionStreamType type, QWidget *parent) : QGraphicsView(p
   setScene(onroad_scene);
   setViewport(cam_widget);
   setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
-  // QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadView::updateState);
   // QObject::connect(uiState(), &UIState::offroadTransition, this, &OnroadGraphicsView::offroadTransition);
 }
 
@@ -424,7 +423,6 @@ void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
   const cereal::RadarState::Reader &radar_state = sm["radarState"].getRadarState();
   if (s->worldObjectsVisible()) {
     if (sm.rcv_frame("modelV2") > s->scene.started_frame) {
-      // qWarning() << "update Model";
       update_model(s, sm["modelV2"].getModelV2(), sm["uiPlan"].getUiPlan());
       if (sm.rcv_frame("radarState") > s->scene.started_frame) {
         update_leads(s, radar_state, sm["modelV2"].getModelV2().getPosition());
