@@ -19,7 +19,7 @@ const int img_size = (btn_size / 4) * 3;
 class MaxSpeedItem : public QGraphicsItem {
 public:
   MaxSpeedItem(QGraphicsItem *parent = nullptr) : QGraphicsItem(parent) {}
-  void update(bool cruise_set, const QString &speed);
+  void updateState(const UIState &s);
   QRectF boundingRect() const override { return {0, 0, 184 + 10, 202 + 10}; }
 
 protected:
@@ -31,21 +31,19 @@ protected:
 class CurrentSpeedItem : public QGraphicsItem {
 public:
   CurrentSpeedItem(QGraphicsItem *parent = nullptr) : QGraphicsItem(parent) {}
-  void update(const QString &speed, const QString &unit);
+  void updateState(const UIState &s);
   QRectF boundingRect() const override { return {0, 0, 300, 300}; }
 
 protected:
   void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
   QString speed;
   QString speedUnit;
+  bool v_ego_cluster_seen = false;
 };
 
 class IconItem : public QGraphicsItem {
 public:
-  IconItem(const QString &fn, QGraphicsItem *parent = 0) : QGraphicsItem(parent) {
-    // pixmap = loadPixmap(fn, {img_size, img_size});
-    setVisible(false);
-  }
+  IconItem(QPixmap pm, QGraphicsItem *parent = 0);
   QRectF boundingRect() const override { return {0, 0, (qreal)radius, (qreal)radius}; }
   void update(const QColor color, float opacity);
 
@@ -89,20 +87,17 @@ private:
 
 class OnroadScene : public QGraphicsScene {
 public:
-  explicit OnroadScene(QObject *parent = nullptr);
+  explicit OnroadScene(QObject *parent);
   void updateState(const UIState &s);
   void setGeometry(const QRectF &rect);
-  // inline void updateAlert(const Alert &alert, const QColor &color) {
-  //   alerts->update(alert, color);
-  // }
 
 private:
   QGraphicsRectItem *header;
   OnroadAlerts *alerts;
-  // bool v_ego_cluster_seen = false;
   MaxSpeedItem *max_speed;
   CurrentSpeedItem *current_speed;
-  // IconItem *dm, *wheel;
+  IconItem *dm, *wheel;
+  // float dm_fade_state = 0;
 };
 
 
@@ -118,8 +113,13 @@ public:
 //   void updateState(const UIState &s);
 
 private:
-  void drawLaneLines(QPainter &painter, const UIState *s);
   void resizeEvent(QResizeEvent *event) override;
+  void drawLaneLines(QPainter &painter, const UIState *s);
+  void drawLead(QPainter &painter, const cereal::RadarState::LeadData::Reader &lead_data, const QPointF &vd);
+  inline QColor redColor(int alpha = 255) { return QColor(201, 34, 49, alpha); }
+  inline QColor whiteColor(int alpha = 255) { return QColor(255, 255, 255, alpha); }
+  inline QColor blackColor(int alpha = 255) { return QColor(0, 0, 0, alpha); }
+
   CameraWidget * cam_widget;
   OnroadScene *onroad_scene;
 };
@@ -176,8 +176,8 @@ protected:
   void initializeGL() override;
   void showEvent(QShowEvent *event) override;
   void updateFrameMat() override;
-  void drawLaneLines(QPainter &painter, const UIState *s);
-  void drawLead(QPainter &painter, const cereal::RadarState::LeadData::Reader &lead_data, const QPointF &vd);
+  // void drawLaneLines(QPainter &painter, const UIState *s);
+  // void drawLead(QPainter &painter, const cereal::RadarState::LeadData::Reader &lead_data, const QPointF &vd);
   void drawHud(QPainter &p);
   void drawDriverState(QPainter &painter, const UIState *s);
   inline QColor redColor(int alpha = 255) { return QColor(201, 34, 49, alpha); }

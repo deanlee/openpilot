@@ -102,6 +102,17 @@
     </message>
 </context>
 <context>
+    <name>CurrentSpeedItem</name>
+    <message>
+        <source>km/h</source>
+        <translation type="obsolete">km/h</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="obsolete">mph</translation>
+    </message>
+</context>
+<context>
     <name>DeclinePage</name>
     <message>
         <source>You must accept the Terms and Conditions in order to use openpilot.</source>
@@ -584,6 +595,14 @@ location set</source>
         <translation>
             <numerusform>%n 日前</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>km/h</source>
+        <translation type="unfinished">km/h</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="unfinished">mph</translation>
     </message>
 </context>
 <context>
