@@ -42,6 +42,20 @@ protected:
   bool v_ego_cluster_seen = false;
 };
 
+
+class SpeedLimitItem : public QGraphicsItem {
+public:
+  SpeedLimitItem(QGraphicsItem *parent = nullptr) : QGraphicsItem(parent) {}
+  void updateState(const UIState &s);
+  QRectF boundingRect() const override { return {0, 0, 300, 300}; }
+
+protected:
+  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
+  QString speed;
+  QString speedUnit;
+  bool v_ego_cluster_seen = false;
+};
+
 class DriverStateItem : public QGraphicsItem {
 public:
   DriverStateItem(QGraphicsItem *parent = 0) : QGraphicsItem(parent) {}
@@ -94,6 +108,7 @@ private:
   CurrentSpeedItem *current_speed;
   DriverStateItem *driver_state;
   ExperimentalButton *experimental_btn;
+  SpeedLimitItem *speed_limit;
 };
 
 class OnroadView : public QGraphicsView {
