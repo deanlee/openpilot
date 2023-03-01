@@ -169,7 +169,6 @@ void CameraWidget::showEvent(QShowEvent *event) {
     connect(vipc_thread, &QThread::started, [=]() { vipcThread(); });
     connect(vipc_thread, &QThread::finished, vipc_thread, &QObject::deleteLater);
     vipc_thread->start();
-    qWarning() << "CameraWidget::showEvent";
   }
 }
 

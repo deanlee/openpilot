@@ -1,6 +1,9 @@
 #pragma once
 
+#include <QGraphicsRectItem>
+#include <QGraphicsScene>
 #include <QGraphicsView>
+
 #include <QPushButton>
 #include <QStackedLayout>
 #include <QWidget>
@@ -13,19 +16,57 @@
 const int btn_size = 192;
 const int img_size = (btn_size / 4) * 3;
 
-
-// ***** onroad widgets *****
-class OnroadAlerts : public QWidget {
-  Q_OBJECT
-
+class MaxSpeedItem : public QGraphicsItem {
 public:
-  OnroadAlerts(QWidget *parent = 0) : QWidget(parent) {};
-  void updateAlert(const Alert &a, const QColor &color);
+  MaxSpeedItem(QGraphicsItem *parent = nullptr) : QGraphicsItem(parent) {}
+  void update(bool cruise_set, const QString &speed);
+  QRectF boundingRect() const override { return {0, 0, 184 + 10, 202 + 10}; }
 
 protected:
-  void paintEvent(QPaintEvent*) override;
+  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
+  QString maxSpeed;
+  bool is_cruise_set = false;
+};
 
-private:
+class CurrentSpeedItem : public QGraphicsItem {
+public:
+  CurrentSpeedItem(QGraphicsItem *parent = nullptr) : QGraphicsItem(parent) {}
+  void update(const QString &speed, const QString &unit);
+  QRectF boundingRect() const override { return {0, 0, 300, 300}; }
+
+protected:
+  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
+  QString speed;
+  QString speedUnit;
+};
+
+class IconItem : public QGraphicsItem {
+public:
+  IconItem(const QString &fn, QGraphicsItem *parent = 0) : QGraphicsItem(parent) {
+    // pixmap = loadPixmap(fn, {img_size, img_size});
+    setVisible(false);
+  }
+  QRectF boundingRect() const override { return {0, 0, (qreal)radius, (qreal)radius}; }
+  void update(const QColor color, float opacity);
+
+  const int radius = 192;
+  const int img_size = (radius / 2) * 1.5;
+
+protected:
+  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = nullptr) override;
+  QPixmap pixmap;
+  QColor bg;
+  bool opacity = 1.0;
+};
+
+// ***** onroad widgets *****
+class OnroadAlerts : public QGraphicsRectItem {
+public:
+  OnroadAlerts(QGraphicsItem *parent = 0) : QGraphicsRectItem(parent) {}
+  void update(const Alert &a, const QColor &color);
+
+protected:
+  void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = nullptr) override;
   QColor bg;
   Alert alert = {};
 };
@@ -44,6 +85,45 @@ private:
   QPixmap engage_img;
   QPixmap experimental_img;
 };
+
+
+class OnroadScene : public QGraphicsScene {
+public:
+  explicit OnroadScene(QObject *parent = nullptr);
+  void updateState(const UIState &s);
+  void setGeometry(const QRectF &rect);
+  // inline void updateAlert(const Alert &alert, const QColor &color) {
+  //   alerts->update(alert, color);
+  // }
+
+private:
+  QGraphicsRectItem *header;
+  OnroadAlerts *alerts;
+  // bool v_ego_cluster_seen = false;
+  MaxSpeedItem *max_speed;
+  CurrentSpeedItem *current_speed;
+  // IconItem *dm, *wheel;
+};
+
+
+class OnroadView : public QGraphicsView {
+  Q_OBJECT
+public:
+  OnroadView(VisionStreamType type, QWidget *parent);
+  bool isMapVisible() const { return false;}
+  void drawBackground(QPainter *painter, const QRectF &rect) override;
+  void updateFrameMat();
+
+// public slots:
+//   void updateState(const UIState &s);
+
+private:
+  void drawLaneLines(QPainter &painter, const UIState *s);
+  void resizeEvent(QResizeEvent *event) override;
+  CameraWidget * cam_widget;
+  OnroadScene *onroad_scene;
+};
+
 
 // container window for the NVG UI
 class AnnotatedCameraWidget : public CameraWidget {
@@ -119,8 +199,7 @@ public:
 private:
   void paintEvent(QPaintEvent *event);
   void mousePressEvent(QMouseEvent* e) override;
-  OnroadAlerts *alerts;
-  AnnotatedCameraWidget *nvg;
+  OnroadView *nvg;
   QColor bg = bg_colors[STATUS_DISENGAGED];
   QWidget *map = nullptr;
   QHBoxLayout* split;
@@ -128,50 +207,4 @@ private:
 private slots:
   void offroadTransition(bool offroad);
   void updateState(const UIState &s);
-};
-
-
-// class ViewPort : public CameraWidget {
-
-// }
-
-#include <QGraphicsRectItem>
-
-#include <QGraphicsRectItem>
-#include <QGraphicsScene>
-
-class OnroadScene : public QGraphicsScene {
-public:
-  explicit OnroadScene(QObject *parent = nullptr);
-  void updateState(const UIState &s);
-  void setGeometry(const QRectF &rect);
-  // inline void updateAlert(const Alert &alert, const QColor &color) {
-  //   alerts->update(alert, color);
-  // }
-
-private:
-  QGraphicsRectItem *header;
-  // OnroadAlerts *alerts;
-  // MaxSpeedItem *max_speed;
-  // CurrentSpeedItem *current_speed;
-  // IconItem *dm, *wheel;
-};
-
-
-class OnroadView : public QGraphicsView {
-  Q_OBJECT
-public:
-  OnroadView(QWidget *parent);
-  bool isMapVisible() const { return false;}
-  void drawBackground(QPainter *painter, const QRectF &rect) override;
-  void updateFrameMat();
-
-private slots:
-  void updateState(const UIState &s);
-
-private:
-  void drawLaneLines(QPainter &painter, const UIState *s);
-  void resizeEvent(QResizeEvent *event) override;
-  CameraWidget * cam_widget;
-  OnroadScene *onroad_scene;
 };
