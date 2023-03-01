@@ -79,15 +79,15 @@
     </message>
     <message>
         <source>MAX</source>
-        <translation>最高</translation>
+        <translation type="vanished">最高</translation>
     </message>
     <message>
         <source>SPEED</source>
-        <translation>速度</translation>
+        <translation type="vanished">速度</translation>
     </message>
     <message>
         <source>LIMIT</source>
-        <translation>速限</translation>
+        <translation type="vanished">速限</translation>
     </message>
 </context>
 <context>

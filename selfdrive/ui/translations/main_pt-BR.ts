@@ -79,15 +79,15 @@
     </message>
     <message>
         <source>MAX</source>
-        <translation>LIMITE</translation>
+        <translation type="vanished">LIMITE</translation>
     </message>
     <message>
         <source>SPEED</source>
-        <translation>MAX</translation>
+        <translation type="vanished">MAX</translation>
     </message>
     <message>
         <source>LIMIT</source>
-        <translation>VELO</translation>
+        <translation type="vanished">VELO</translation>
     </message>
 </context>
 <context>
