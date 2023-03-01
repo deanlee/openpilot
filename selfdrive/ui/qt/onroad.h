@@ -136,6 +136,28 @@ private slots:
 // }
 
 #include <QGraphicsRectItem>
+
+#include <QGraphicsRectItem>
+#include <QGraphicsScene>
+
+class OnroadScene : public QGraphicsScene {
+public:
+  explicit OnroadScene(QObject *parent = nullptr);
+  void updateState(const UIState &s);
+  void setGeometry(const QRectF &rect);
+  // inline void updateAlert(const Alert &alert, const QColor &color) {
+  //   alerts->update(alert, color);
+  // }
+
+private:
+  QGraphicsRectItem *header;
+  // OnroadAlerts *alerts;
+  // MaxSpeedItem *max_speed;
+  // CurrentSpeedItem *current_speed;
+  // IconItem *dm, *wheel;
+};
+
+
 class OnroadView : public QGraphicsView {
   Q_OBJECT
 public:
@@ -151,5 +173,5 @@ private:
   void drawLaneLines(QPainter &painter, const UIState *s);
   void resizeEvent(QResizeEvent *event) override;
   CameraWidget * cam_widget;
-  QGraphicsRectItem *top_rect;
+  OnroadScene *onroad_scene;
 };
