@@ -74,8 +74,8 @@ void OnroadWindow::updateState(const UIState &s) {
 
   if (bg != bgColor) {
     // repaint border
-    bg = bgColor;
-    update();
+    // bg = bgColor;
+    // update();
   }
 }
 
@@ -208,7 +208,7 @@ void ExperimentalButton::updateState(const UIState &s) {
   // const auto cp = sm["carParams"].getCarParams();
   // const bool experimental_mode_available = cp.getExperimentalLongitudinalAvailable() ? params.getBool("ExperimentalLongitudinalEnabled") : cp.getOpenpilotLongitudinalControl();
   // setEnabled(params.getBool("ExperimentalModeConfirmed") && experimental_mode_available);
-  QGraphicsItem::update();
+  // QGraphicsItem::update();
 }
 
 void ExperimentalButton::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
@@ -422,9 +422,9 @@ void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
   }
   // qWarning()<<painter->device()->paintEngine()->type() << "here";
   // cam_widget->setFrameId(model.getFrameId());
-  painter->beginNativePainting();
+  // painter->beginNativePainting();
   cam_widget->paintGL();
-  painter->endNativePainting();
+  // painter->endNativePainting();
 
   const cereal::RadarState::Reader &radar_state = sm["radarState"].getRadarState();
   if (s->worldObjectsVisible()) {
@@ -469,7 +469,7 @@ OnroadScene::OnroadScene(QObject *parent) : QGraphicsScene(parent) {
 
   for (auto item : items()) {
     item->setFlag(QGraphicsItem::ItemIgnoresTransformations);
-    item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+    // item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
   }
   QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadScene::updateState);
 }
