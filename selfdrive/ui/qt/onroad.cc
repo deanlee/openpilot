@@ -230,7 +230,7 @@ void ExperimentalButton::paint(QPainter *painter, const QStyleOptionGraphicsItem
 void OnroadScene::updateState(const UIState &s) {
   max_speed->updateState(s);
   current_speed->updateState(s);
-  driver_state->updateState(s);
+  // driver_state->updateState(s);
   experimental_btn->updateState(s);
   speed_limit->updateState(s);
 }
@@ -391,11 +391,15 @@ OnroadView::OnroadView(VisionStreamType type, QWidget *parent) : QGraphicsView(p
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setFrameStyle(0);
+  
+  
   cam_widget = new CameraWidget("camerad", type, true, this);
-  onroad_scene = new OnroadScene(this);
-  setScene(onroad_scene);
   setViewport(cam_widget);
   setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+  
+  onroad_scene = new OnroadScene(this);
+  setScene(onroad_scene);
+
   // QObject::connect(uiState(), &UIState::offroadTransition, this, &OnroadGraphicsView::offroadTransition);
 }
 
@@ -405,7 +409,7 @@ void OnroadView::resizeEvent(QResizeEvent *event) {
   // camera_view->updateFrameMat(event->size().width(), event->size().height());
   QGraphicsView::resizeEvent(event);
 }
-
+#include <QPaintEngine>
 void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
   auto s = uiState();
   auto &sm = *(s->sm);
@@ -416,6 +420,7 @@ void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
   } else {
     cam_widget->updateCalibration(DEFAULT_CALIBRATION);
   }
+  // qWarning()<<painter->device()->paintEngine()->type() << "here";
   // cam_widget->setFrameId(model.getFrameId());
   painter->beginNativePainting();
   cam_widget->paintGL();
@@ -591,9 +596,12 @@ void MaxSpeedItem::updateState(const UIState &s) {
     QGraphicsItem::update();
   }
 }
-
+#include <QPaintEngine>
 void MaxSpeedItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
+  static int i = 0;
+  qWarning()<<painter->device()->paintEngine()->type() << ++i;
   auto &p = *painter;
+  // assert(p.device()->paintEngine()->type() == QPaintEngine::OpenGL2);
   const QRect rc = boundingRect().toRect();
   p.setRenderHint(QPainter::Antialiasing);
   p.setPen(QPen(QColor(0xff, 0xff, 0xff, 100), 10));
