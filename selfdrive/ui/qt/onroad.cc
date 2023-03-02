@@ -232,6 +232,7 @@ void OnroadScene::updateState(const UIState &s) {
   current_speed->updateState(s);
   driver_state->updateState(s);
   experimental_btn->updateState(s);
+  speed_limit->updateState(s);
 }
 
 void DriverStateItem::drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity) {
@@ -459,7 +460,7 @@ OnroadScene::OnroadScene(QObject *parent) : QGraphicsScene(parent) {
   addItem(experimental_btn = new ExperimentalButton);
   addItem(driver_state = new DriverStateItem);
   addItem(alerts = new OnroadAlerts);
-  addItem(speed_limit =new SpeedLimitItem);
+  addItem(speed_limit = new SpeedLimitItem);
 
   for (auto item : items()) {
     item->setFlag(QGraphicsItem::ItemIgnoresTransformations);
@@ -475,6 +476,7 @@ void OnroadScene::setGeometry(const QRectF &rect) {
   current_speed->setPos((rect.width() / 2 - current_speed->boundingRect().width() / 2), rect.top());
   experimental_btn->setPos(rect.right() - experimental_btn->boundingRect().width() - bdr_s * 2.0, bdr_s * 1.5);
   driver_state->setPos(bdr_s * 2, rect.bottom() - footer_h / 2 - driver_state->boundingRect().width() / 2);
+  speed_limit->setPos(bdr_s * 2, 200);
   alerts->setPos(0, rect.bottom() - alerts->rect().height());
   alerts->setRect(0, 0, rect.width(), alerts->rect().height());
   header->setRect(0, 0, rect.width(), header_h);
@@ -485,77 +487,85 @@ void OnroadScene::setGeometry(const QRectF &rect) {
 void SpeedLimitItem::updateState(const UIState &s) {
   const bool nav_alive = s.sm->alive("navInstruction") && (*s.sm)["navInstruction"].getValid();
   auto nav = (*s.sm)["navInstruction"].getNavInstruction();
-  // auto speed_limit_sign = nav.getSpeedLimitSign();
-  float speed_limit = nav_alive ? nav.getSpeedLimit() : 0.0;
-  speed_limit *= (s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH);
-// setProperty("has_us_speed_limit", nav_alive && speed_limit_sign == cereal::NavInstruction::SpeedLimitSign::MUTCD);
-  // setProperty("has_eu_speed_limit", nav_alive && speed_limit_sign == cereal::NavInstruction::SpeedLimitSign::VIENNA);
+  float speedLimit = nav_alive ? nav.getSpeedLimit() : 0.0;
+  speedLimit *= (s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH);
+  speedLimitStr = (speedLimit > 1) ? QString::number(std::nearbyint(speedLimit)) : "–";
+  auto speed_limit_sign = nav.getSpeedLimitSign();
+  has_us_speed_limit = nav_alive && speed_limit_sign == cereal::NavInstruction::SpeedLimitSign::MUTCD;
+  has_eu_speed_limit = nav_alive && speed_limit_sign == cereal::NavInstruction::SpeedLimitSign::VIENNA;
+  has_us_speed_limit = true;
+  update();
+}
+
+QRectF SpeedLimitItem::boundingRect() const {
+  return {0, 0, 186, 186};
 }
 
 void SpeedLimitItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) {
   // // US/Canada (MUTCD style) sign
-  // if (has_us_speed_limit) {
-  //   const int border_width = 6;
-  //   const int sign_width = rect_width - 24;
-  //   const int sign_height = 186;
+  auto &p = *painter;
+  if (has_us_speed_limit) {
+    const int border_width = 6;
+    const int sign_width = boundingRect().width();
+    const int sign_height = 186;
 
-  //   // White outer square
-  //   QRect sign_rect_outer(set_speed_rect.left() + 12, set_speed_rect.bottom() - 11 - sign_height, sign_width, sign_height);
-  //   p.setPen(Qt::NoPen);
-  //   p.setBrush(whiteColor());
-  //   p.drawRoundedRect(sign_rect_outer, 24, 24);
+    // White outer square
+    QRect sign_rect_outer = boundingRect().toRect();
+    p.setPen(Qt::NoPen);
+    p.setBrush(whiteColor());
+    p.drawRoundedRect(sign_rect_outer, 24, 24);
 
-  //   // Smaller white square with black border
-  //   QRect sign_rect(sign_rect_outer.left() + 1.5 * border_width, sign_rect_outer.top() + 1.5 * border_width, sign_width - 3 * border_width, sign_height - 3 * border_width);
-  //   p.setPen(QPen(blackColor(), border_width));
-  //   p.setBrush(whiteColor());
-  //   p.drawRoundedRect(sign_rect, 16, 16);
+    // Smaller white square with black border
+    QRect sign_rect(sign_rect_outer.left() + 1.5 * border_width, sign_rect_outer.top() + 1.5 * border_width, sign_width - 3 * border_width, sign_height - 3 * border_width);
+    p.setPen(QPen(blackColor(), border_width));
+    p.setBrush(whiteColor());
+    p.drawRoundedRect(sign_rect, 16, 16);
 
-  //   // "SPEED"
-  //   configFont(p, "Inter", 28, "SemiBold");
-  //   QRect text_speed_rect = getTextRect(p, Qt::AlignCenter, tr("SPEED"));
-  //   text_speed_rect.moveCenter({sign_rect.center().x(), 0});
-  //   text_speed_rect.moveTop(sign_rect_outer.top() + 22);
-  //   p.drawText(text_speed_rect, Qt::AlignCenter, tr("SPEED"));
+    // "SPEED"
+    configFont(p, "Inter", 28, "SemiBold");
+    QRect text_speed_rect = getTextRect(p, Qt::AlignCenter, QObject::tr("SPEED"));
+    text_speed_rect.moveCenter({sign_rect_outer.center().x(), 0});
+    text_speed_rect.moveTop(sign_rect_outer.top() + 22);
+    p.drawText(text_speed_rect, Qt::AlignCenter, QObject::tr("SPEED"));
 
-  //   // "LIMIT"
-  //   QRect text_limit_rect = getTextRect(p, Qt::AlignCenter, tr("LIMIT"));
-  //   text_limit_rect.moveCenter({sign_rect.center().x(), 0});
-  //   text_limit_rect.moveTop(sign_rect_outer.top() + 51);
-  //   p.drawText(text_limit_rect, Qt::AlignCenter, tr("LIMIT"));
+    // "LIMIT"
+    QRect text_limit_rect = getTextRect(p, Qt::AlignCenter, QObject::tr("LIMIT"));
+    text_limit_rect.moveCenter({sign_rect_outer.center().x(), 0});
+    text_limit_rect.moveTop(sign_rect_outer.top() + 51);
+    p.drawText(text_limit_rect, Qt::AlignCenter, QObject::tr("LIMIT"));
 
-  //   // Speed limit value
-  //   configFont(p, "Inter", 70, "Bold");
-  //   QRect speed_limit_rect = getTextRect(p, Qt::AlignCenter, speedLimitStr);
-  //   speed_limit_rect.moveCenter({sign_rect.center().x(), 0});
-  //   speed_limit_rect.moveTop(sign_rect_outer.top() + 85);
-  //   p.drawText(speed_limit_rect, Qt::AlignCenter, speedLimitStr);
-  // }
+    // Speed limit value
+    configFont(p, "Inter", 70, "Bold");
+    QRect speed_limit_rect = getTextRect(p, Qt::AlignCenter, speedLimitStr);
+    speed_limit_rect.moveCenter({sign_rect_outer.center().x(), 0});
+    speed_limit_rect.moveTop(sign_rect_outer.top() + 85);
+    p.drawText(speed_limit_rect, Qt::AlignCenter, speedLimitStr);
+  }
 
-  // // EU (Vienna style) sign
-  // if (has_eu_speed_limit) {
-  //   int outer_radius = 176 / 2;
-  //   int inner_radius_1 = outer_radius - 6; // White outer border
-  //   int inner_radius_2 = inner_radius_1 - 20; // Red circle
+  // EU (Vienna style) sign
+  if (has_eu_speed_limit) {
+    int outer_radius = 176 / 2;
+    int inner_radius_1 = outer_radius - 6; // White outer border
+    int inner_radius_2 = inner_radius_1 - 20; // Red circle
 
-  //   // Draw white circle with red border
-  //   QPoint center(set_speed_rect.center().x() + 1, set_speed_rect.top() + 204 + outer_radius);
-  //   p.setPen(Qt::NoPen);
-  //   p.setBrush(whiteColor());
-  //   p.drawEllipse(center, outer_radius, outer_radius);
-  //   p.setBrush(QColor(255, 0, 0, 255));
-  //   p.drawEllipse(center, inner_radius_1, inner_radius_1);
-  //   p.setBrush(whiteColor());
-  //   p.drawEllipse(center, inner_radius_2, inner_radius_2);
+    // Draw white circle with red border
+    QPoint center = boundingRect().center().toPoint();
+    p.setPen(Qt::NoPen);
+    p.setBrush(whiteColor());
+    p.drawEllipse(center, outer_radius, outer_radius);
+    p.setBrush(QColor(255, 0, 0, 255));
+    p.drawEllipse(center, inner_radius_1, inner_radius_1);
+    p.setBrush(whiteColor());
+    p.drawEllipse(center, inner_radius_2, inner_radius_2);
 
-  //   // Speed limit value
-  //   int font_size = (speedLimitStr.size() >= 3) ? 60 : 70;
-  //   configFont(p, "Inter", font_size, "Bold");
-  //   QRect speed_limit_rect = getTextRect(p, Qt::AlignCenter, speedLimitStr);
-  //   speed_limit_rect.moveCenter(center);
-  //   p.setPen(blackColor());
-  //   p.drawText(speed_limit_rect, Qt::AlignCenter, speedLimitStr);
-  // }
+    // Speed limit value
+    int font_size = (speedLimitStr.size() >= 3) ? 60 : 70;
+    configFont(p, "Inter", font_size, "Bold");
+    QRect speed_limit_rect = getTextRect(p, Qt::AlignCenter, speedLimitStr);
+    speed_limit_rect.moveCenter(center);
+    p.setPen(blackColor());
+    p.drawText(speed_limit_rect, Qt::AlignCenter, speedLimitStr);
+  }
 }
 
 // MaxSpeedItem

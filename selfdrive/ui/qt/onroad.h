@@ -47,13 +47,15 @@ class SpeedLimitItem : public QGraphicsItem {
 public:
   SpeedLimitItem(QGraphicsItem *parent = nullptr) : QGraphicsItem(parent) {}
   void updateState(const UIState &s);
-  QRectF boundingRect() const override { return {0, 0, 300, 300}; }
+  QRectF boundingRect() const override;
 
 protected:
   void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget = 0) override;
-  QString speed;
+  QString speedLimitStr;
   QString speedUnit;
-  bool v_ego_cluster_seen = false;
+  bool has_us_speed_limit = false;
+  bool has_eu_speed_limit = false;
+  // bool v_ego_cluster_seen = false;
 };
 
 class DriverStateItem : public QGraphicsItem {

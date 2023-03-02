@@ -606,6 +606,14 @@ location set</source>
         <source>mph</source>
         <translation type="unfinished">mph</translation>
     </message>
+    <message>
+        <source>SPEED</source>
+        <translation type="unfinished">Geschwindigkeit</translation>
+    </message>
+    <message>
+        <source>LIMIT</source>
+        <translation type="unfinished">LIMIT</translation>
+    </message>
 </context>
 <context>
     <name>Reset</name>
