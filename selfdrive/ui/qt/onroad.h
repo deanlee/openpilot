@@ -100,11 +100,11 @@ private:
 class OnroadScene : public QGraphicsScene {
 public:
   explicit OnroadScene(QObject *parent);
-  void updateState(const UIState &s);
+  void updateState();
   void setGeometry(const QRectF &rect);
 
 private:
-  // QGraphicsRectItem *header;
+  QGraphicsRectItem *header;
   OnroadAlerts *alerts;
   MaxSpeedItem *max_speed;
   CurrentSpeedItem *current_speed;

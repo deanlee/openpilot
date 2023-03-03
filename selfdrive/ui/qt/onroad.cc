@@ -227,7 +227,8 @@ void ExperimentalButton::paint(QPainter *painter, const QStyleOptionGraphicsItem
   p.drawPixmap((btn_size - img_size) / 2, (btn_size - img_size) / 2, img);
 }
 
-void OnroadScene::updateState(const UIState &s) {
+void OnroadScene::updateState() {
+  const UIState &s = *uiState();
   max_speed->updateState(s);
   current_speed->updateState(s);
   // driver_state->updateState(s);
@@ -395,11 +396,12 @@ OnroadView::OnroadView(VisionStreamType type, QWidget *parent) : QGraphicsView(p
   
   cam_widget = new CameraWidget("camerad", type, true, this);
   setViewport(cam_widget);
-  // setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+  setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
   
   onroad_scene = new OnroadScene(this);
   setScene(onroad_scene);
 
+  QObject::connect(cam_widget, &CameraWidget::vipcThreadFrameReceived, onroad_scene, &OnroadScene::updateState);
   // QObject::connect(uiState(), &UIState::offroadTransition, this, &OnroadGraphicsView::offroadTransition);
 }
 
@@ -459,10 +461,10 @@ void OnroadView::updateFrameMat() {
 }
 
 OnroadScene::OnroadScene(QObject *parent) : QGraphicsScene(parent) {
-  // QLinearGradient bg(0, header_h - (header_h / 2.5), 0, header_h);
-  // bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
-  // bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
-  // header = addRect({}, Qt::NoPen, bg);
+  QLinearGradient bg(0, header_h - (header_h / 2.5), 0, header_h);
+  bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
+  bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
+  header = addRect({}, Qt::NoPen, bg);
 
   addItem(max_speed = new MaxSpeedItem);
   addItem(current_speed = new CurrentSpeedItem);
@@ -475,7 +477,8 @@ OnroadScene::OnroadScene(QObject *parent) : QGraphicsScene(parent) {
     item->setFlag(QGraphicsItem::ItemIgnoresTransformations);
     item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
   }
-  QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadScene::updateState);
+  // QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadScene::updateState);
+  
 }
 
 void OnroadScene::setGeometry(const QRectF &rect) {
@@ -488,7 +491,7 @@ void OnroadScene::setGeometry(const QRectF &rect) {
   speed_limit->setPos(bdr_s * 2, 200);
   alerts->setPos(0, rect.bottom() - alerts->rect().height());
   alerts->setRect(0, 0, rect.width(), alerts->rect().height());
-  // header->setRect(0, 0, rect.width(), header_h);
+  header->setRect(0, 0, rect.width(), header_h);
 }
 
 // SpeedLimitItem
