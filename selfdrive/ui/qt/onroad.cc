@@ -395,7 +395,7 @@ OnroadView::OnroadView(VisionStreamType type, QWidget *parent) : QGraphicsView(p
   
   cam_widget = new CameraWidget("camerad", type, true, this);
   setViewport(cam_widget);
-  setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
+  // setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
   
   onroad_scene = new OnroadScene(this);
   setScene(onroad_scene);
@@ -411,6 +411,10 @@ void OnroadView::resizeEvent(QResizeEvent *event) {
 }
 #include <QPaintEngine>
 void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
+  static double t1 = millis_since_boot();
+  double t2 = millis_since_boot();
+  qWarning() << t2 - t1;
+  t1 = t2;
   auto s = uiState();
   auto &sm = *(s->sm);
   s->scene.wide_cam = false;
@@ -455,10 +459,10 @@ void OnroadView::updateFrameMat() {
 }
 
 OnroadScene::OnroadScene(QObject *parent) : QGraphicsScene(parent) {
-  QLinearGradient bg(0, header_h - (header_h / 2.5), 0, header_h);
-  bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
-  bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
-  header = addRect({}, Qt::NoPen, bg);
+  // QLinearGradient bg(0, header_h - (header_h / 2.5), 0, header_h);
+  // bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
+  // bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
+  // header = addRect({}, Qt::NoPen, bg);
 
   addItem(max_speed = new MaxSpeedItem);
   addItem(current_speed = new CurrentSpeedItem);
@@ -469,7 +473,7 @@ OnroadScene::OnroadScene(QObject *parent) : QGraphicsScene(parent) {
 
   for (auto item : items()) {
     item->setFlag(QGraphicsItem::ItemIgnoresTransformations);
-    // item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
+    item->setCacheMode(QGraphicsItem::DeviceCoordinateCache);
   }
   QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadScene::updateState);
 }
@@ -484,7 +488,7 @@ void OnroadScene::setGeometry(const QRectF &rect) {
   speed_limit->setPos(bdr_s * 2, 200);
   alerts->setPos(0, rect.bottom() - alerts->rect().height());
   alerts->setRect(0, 0, rect.width(), alerts->rect().height());
-  header->setRect(0, 0, rect.width(), header_h);
+  // header->setRect(0, 0, rect.width(), header_h);
 }
 
 // SpeedLimitItem
