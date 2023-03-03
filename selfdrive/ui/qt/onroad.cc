@@ -418,7 +418,7 @@ void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
   qWarning() << t2 - t1;
   t1 = t2;
   auto s = uiState();
-  auto &sm = *(s->sm);
+  //auto &sm = *(s->sm);
   s->scene.wide_cam = false;
   if (s->scene.calibration_valid) {
     auto calib = s->scene.view_from_calib;
@@ -432,28 +432,28 @@ void OnroadView::drawBackground(QPainter *painter, const QRectF &rect) {
   cam_widget->paintGL();
   // painter->endNativePainting();
 
-  const cereal::RadarState::Reader &radar_state = sm["radarState"].getRadarState();
-  if (s->worldObjectsVisible()) {
-    if (sm.rcv_frame("modelV2") > s->scene.started_frame) {
-      update_model(s, sm["modelV2"].getModelV2(), sm["uiPlan"].getUiPlan());
-      if (sm.rcv_frame("radarState") > s->scene.started_frame) {
-        update_leads(s, radar_state, sm["modelV2"].getModelV2().getPosition());
-      }
-    }
+  // const cereal::RadarState::Reader &radar_state = sm["radarState"].getRadarState();
+  // if (s->worldObjectsVisible()) {
+  //   if (sm.rcv_frame("modelV2") > s->scene.started_frame) {
+  //     update_model(s, sm["modelV2"].getModelV2(), sm["uiPlan"].getUiPlan());
+  //     if (sm.rcv_frame("radarState") > s->scene.started_frame) {
+  //       update_leads(s, radar_state, sm["modelV2"].getModelV2().getPosition());
+  //     }
+  //   }
 
-    drawLaneLines(*painter, s);
+  //   drawLaneLines(*painter, s);
 
-    if (s->scene.longitudinal_control) {
-      auto lead_one = radar_state.getLeadOne();
-      auto lead_two = radar_state.getLeadTwo();
-      if (lead_one.getStatus()) {
-        drawLead(*painter, lead_one, s->scene.lead_vertices[0]);
-      }
-      if (lead_two.getStatus() && (std::abs(lead_one.getDRel() - lead_two.getDRel()) > 3.0)) {
-        drawLead(*painter, lead_two, s->scene.lead_vertices[1]);
-      }
-    }
-  }
+  //   if (s->scene.longitudinal_control) {
+  //     auto lead_one = radar_state.getLeadOne();
+  //     auto lead_two = radar_state.getLeadTwo();
+  //     if (lead_one.getStatus()) {
+  //       drawLead(*painter, lead_one, s->scene.lead_vertices[0]);
+  //     }
+  //     if (lead_two.getStatus() && (std::abs(lead_one.getDRel() - lead_two.getDRel()) > 3.0)) {
+  //       drawLead(*painter, lead_two, s->scene.lead_vertices[1]);
+  //     }
+  //   }
+  // }
   // QGraphicsView::drawBackground(painter, rect);
 }
 
