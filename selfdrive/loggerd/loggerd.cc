@@ -88,7 +88,7 @@ RemoteEncoder::RemoteEncoder(LoggerdState *s, const std::string &name) : s(s), n
 }
 
 int32_t RemoteEncoder::write(cereal::Event::Reader event) {
-  // if this is a new segment, we close any possible old segments, move to the new, and process any queued packets
+  // if this is a new segment, we close any possible old segments, move to the new.
   if (current_segment != s->rotate_segment) {
     writer.reset();
     current_segment = s->rotate_segment;
