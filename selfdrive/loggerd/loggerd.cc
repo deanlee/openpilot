@@ -1,5 +1,4 @@
 #include "selfdrive/loggerd/loggerd.h"
-
 #include "selfdrive/loggerd/video_writer.h"
 
 ExitHandler do_exit;
@@ -12,7 +11,7 @@ struct LoggerdState {
   std::atomic<double> last_camera_seen_tms;
   std::atomic<int> ready_to_rotate;  // count of encoders ready to rotate
   int max_waiting = 0;
-  double last_rotate_tms = 0.;  // last rotate time in ms
+  double last_rotate_tms = 0.;      // last rotate time in ms
   std::unordered_map<std::string, std::unique_ptr<RemoteEncoder>> encoders;
 };
 
@@ -39,7 +38,7 @@ void rotate_if_needed(LoggerdState *s) {
     if ((tms - s->last_camera_seen_tms) > NO_CAMERA_PATIENCE) {
       timed_out = true;
       LOGE("no camera packets seen. auto rotating");
-    } else if (seg_length_secs > SEGMENT_LENGTH * 1.2) {
+    } else if (seg_length_secs > SEGMENT_LENGTH*1.2) {
       timed_out = true;
       LOGE("segment too long. auto rotating");
     }
@@ -113,11 +112,11 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
       // if we aren't actually recording, don't create the writer
       if (cam_info.record) {
         writer.reset(new VideoWriter(s->segment_path,
-                                     cam_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
-                                     cam_info.frame_width, cam_info.frame_height, cam_info.fps, idx.getType()));
+          cam_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
+          cam_info.frame_width, cam_info.frame_height, cam_info.fps, idx.getType()));
         // write the header
         auto header = edata.getHeader();
-        writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof() / 1000, true, false);
+        writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof()/1000, true, false);
       }
       recording = true;
     } else {
@@ -134,7 +133,7 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
   // if we are actually writing the video file, do so
   if (writer) {
     auto data = edata.getData();
-    writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof() / 1000, false, is_key_frame);
+    writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof()/1000, false, is_key_frame);
   }
 
   // put it in log stream as the idx packet
@@ -143,7 +142,7 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
   evt.setLogMonoTime(event.getLogMonoTime());
   (evt.*setEncodeIdx)(idx);
   auto new_msg = msg.toBytes();
-  logger_log(&s->logger, (uint8_t *)new_msg.begin(), new_msg.size(), true);  // always in qlog?
+  logger_log(&s->logger, (uint8_t *)new_msg.begin(), new_msg.size(), true);   // always in qlog?
   return new_msg.size();
 }
 
@@ -166,7 +165,7 @@ int RemoteEncoder::handlePacket(Message *raw_msg) {
     // loggerd is now on the segment that matches this packet
     if (!q.empty()) {
       // we are in this segment now, process any queued messages before this one
-      for (auto &m : q) {
+      for (auto &m: q) {
         capnp::FlatArrayMessageReader reader(kj::ArrayPtr<capnp::word>((capnp::word *)m->getData(), m->getSize() / sizeof(capnp::word)));
         bytes_count += write(reader.getRoot<cereal::Event>());
       }
@@ -178,14 +177,14 @@ int RemoteEncoder::handlePacket(Message *raw_msg) {
     if (q.empty()) {
       ++s->ready_to_rotate;
       LOGD("rotate %d -> %d ready %d/%d for %s",
-           s->rotate_segment.load(), offset_segment_num,
-           s->ready_to_rotate.load(), s->max_waiting, name.c_str());
+        s->rotate_segment.load(), offset_segment_num,
+        s->ready_to_rotate.load(), s->max_waiting, name.c_str());
     }
     // queue up all the new segment messages, they go in after the rotate
     q.emplace_back(std::move(msg));
   } else {
     LOGE("%s: encoderd packet has a older segment!!! idx.getSegmentNum():%d s->rotate_segment:%d re.encoderd_segment_offset:%d",
-         name.c_str(), segment_num, s->rotate_segment.load(), encoderd_segment_offset);
+      name.c_str(), segment_num, s->rotate_segment.load(), encoderd_segment_offset);
     // free the message, it's useless. this should never happen
     // actually, this can happen if you restart encoderd
     encoderd_segment_offset = -s->rotate_segment.load();
@@ -203,6 +202,7 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, const std::string &name) {
   return re->handlePacket(msg);
 }
 
+
 void loggerd_thread() {
   // setup messaging
   typedef struct QlogState {
@@ -210,26 +210,26 @@ void loggerd_thread() {
     int counter, freq;
     bool encoder;
   } QlogState;
-  std::unordered_map<SubSocket *, QlogState> qlog_states;
-  std::unordered_map<SubSocket *, struct RemoteEncoder> remote_encoders;
+  std::unordered_map<SubSocket*, QlogState> qlog_states;
+  std::unordered_map<SubSocket*, struct RemoteEncoder> remote_encoders;
 
   std::unique_ptr<Context> ctx(Context::create());
   std::unique_ptr<Poller> poller(Poller::create());
 
   // subscribe to all socks
-  for (const auto &it : services) {
-    const bool encoder = strcmp(it.name + strlen(it.name) - strlen("EncodeData"), "EncodeData") == 0;
+  for (const auto& it : services) {
+    const bool encoder = strcmp(it.name+strlen(it.name)-strlen("EncodeData"), "EncodeData") == 0;
     if (!it.should_log && !encoder) continue;
     LOGD("logging %s (on port %d)", it.name, it.port);
 
-    SubSocket *sock = SubSocket::create(ctx.get(), it.name);
+    SubSocket * sock = SubSocket::create(ctx.get(), it.name);
     assert(sock != NULL);
     poller->registerSocket(sock);
     qlog_states[sock] = {
-        .name = it.name,
-        .counter = 0,
-        .freq = it.decimation,
-        .encoder = encoder,
+      .name = it.name,
+      .counter = 0,
+      .freq = it.decimation,
+      .encoder = encoder,
     };
   }
 
@@ -243,9 +243,7 @@ void loggerd_thread() {
   s.last_camera_seen_tms = millis_since_boot();
   for (const auto &cam : cameras_logged) {
     s.max_waiting++;
-    if (cam.has_qcamera) {
-      s.max_waiting++;
-    }
+    if (cam.has_qcamera) { s.max_waiting++; }
   }
 
   uint64_t msg_count = 0, bytes_count = 0;
@@ -300,14 +298,14 @@ void loggerd_thread() {
   for (auto &[sock, qs] : qlog_states) delete sock;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   if (!Hardware::PC()) {
     int ret;
     ret = util::set_core_affinity({0, 1, 2, 3});
     assert(ret == 0);
     // TODO: why does this impact camerad timings?
-    // ret = util::set_realtime_priority(1);
-    // assert(ret == 0);
+    //ret = util::set_realtime_priority(1);
+    //assert(ret == 0);
   }
 
   loggerd_thread();
