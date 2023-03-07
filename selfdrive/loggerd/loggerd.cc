@@ -65,7 +65,6 @@ struct RemoteEncoder {
   int current_segment = -1;
   std::vector<std::unique_ptr<Message>> q;
   int dropped_frames = 0;
-  bool recording = false;
 };
 
 RemoteEncoder::RemoteEncoder(LoggerdState *s, const std::string &name) : s(s), name(name) {
@@ -92,7 +91,6 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
   // if this is a new segment, we close any possible old segments, move to the new, and process any queued packets
   if (current_segment != s->rotate_segment) {
     writer.reset();
-    recording = false;
     current_segment = s->rotate_segment;
   }
 
@@ -101,7 +99,7 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
   const bool is_key_frame = idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME;
 
   // if we aren't recording yet, try to start, since we are in the correct segment
-  if (!recording) {
+  if (!writer && cam_info.record) {
     if (is_key_frame) {
       // only create on iframe
       if (dropped_frames) {
@@ -110,15 +108,12 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
         dropped_frames = 0;
       }
       // if we aren't actually recording, don't create the writer
-      if (cam_info.record) {
-        writer.reset(new VideoWriter(s->segment_path,
-          cam_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
-          cam_info.frame_width, cam_info.frame_height, cam_info.fps, idx.getType()));
-        // write the header
-        auto header = edata.getHeader();
-        writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof()/1000, true, false);
-      }
-      recording = true;
+      writer.reset(new VideoWriter(s->segment_path,
+        cam_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
+        cam_info.frame_width, cam_info.frame_height, cam_info.fps, idx.getType()));
+      // write the header
+      auto header = edata.getHeader();
+      writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof()/1000, true, false);
     } else {
       // this is a sad case when we aren't recording, but don't have an iframe
       // nothing we can do but drop the frame
@@ -126,9 +121,6 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
       return 0;
     }
   }
-
-  // we have to be recording if we are here
-  assert(recording);
 
   // if we are actually writing the video file, do so
   if (writer) {
