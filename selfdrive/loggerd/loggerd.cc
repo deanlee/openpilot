@@ -4,6 +4,7 @@
 ExitHandler do_exit;
 
 struct RemoteEncoder;
+
 struct LoggerdState {
   LoggerState logger = {};
   char segment_path[4096];
@@ -88,17 +89,15 @@ RemoteEncoder::RemoteEncoder(LoggerdState *s, const std::string &name) : s(s), n
 }
 
 int32_t RemoteEncoder::write(cereal::Event::Reader event) {
+  const auto edata = (event.*getEncodeData)();
+  const auto idx = edata.getIdx();
+  const bool is_key_frame = idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME;
+
   // if this is a new segment, we close any possible old segments, move to the new.
   if (current_segment != s->rotate_segment) {
     writer.reset();
     current_segment = s->rotate_segment;
   }
-
-  const auto edata = (event.*getEncodeData)();
-  const auto idx = edata.getIdx();
-  const bool is_key_frame = idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME;
-
-  // if we aren't recording yet, try to start, since we are in the correct segment
   if (!writer && cam_info.record) {
     if (is_key_frame) {
       // only create on iframe
