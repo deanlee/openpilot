@@ -50,8 +50,8 @@ void rotate_if_needed(LoggerdState *s) {
 
 struct RemoteEncoder {
   RemoteEncoder(LoggerdState *s, const std::string &name);
-  int32_t handlePacket(Message *raw_msg);
-  int32_t write(cereal::Event::Reader event);
+  int handlePacket(Message *raw_msg);
+  int write(cereal::Event::Reader event);
 
   LoggerdState *s;
   const std::string name;
