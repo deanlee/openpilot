@@ -118,7 +118,6 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
     }
   }
 
-  // if we are actually writing the video file, do so
   if (writer) {
     auto data = edata.getData();
     writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof()/1000, false, is_key_frame);
@@ -137,8 +136,6 @@ int32_t RemoteEncoder::write(cereal::Event::Reader event) {
 int RemoteEncoder::handlePacket(Message *raw_msg) {
   int bytes_count = 0;
   std::unique_ptr<Message> msg(raw_msg);
-
-  // extract the message
   capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
   auto event = cmsg.getRoot<cereal::Event>();
   const int32_t segment_num = (event.*getEncodeData)().getIdx().getSegmentNum();
