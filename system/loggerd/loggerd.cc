@@ -185,6 +185,7 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, const std::string &name) {
   if (!re) {
     re.reset(new RemoteEncoder(s, name));
   }
+  s->last_camera_seen_tms = millis_since_boot();
   return re->handlePacket(msg);
 }
 
@@ -239,7 +240,6 @@ void loggerd_thread() {
         const bool in_qlog = qs.freq != -1 && (qs.counter++ % qs.freq == 0);
 
         if (qs.encoder) {
-          s.last_camera_seen_tms = millis_since_boot();
           bytes_count += handle_encoder_msg(&s, msg, qs.name);
         } else {
           logger_log(&s.logger, (uint8_t *)msg->getData(), msg->getSize(), in_qlog);
@@ -254,8 +254,7 @@ void loggerd_thread() {
           LOGD("%lu messages, %.2f msg/sec, %.2f KB/sec", msg_count, msg_count / seconds, bytes_count * 0.001 / seconds);
         }
 
-        count++;
-        if (count >= 200) {
+        if (++count >= 200) {
           LOGD("large volume of '%s' messages", qs.name.c_str());
           break;
         }
