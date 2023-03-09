@@ -173,13 +173,12 @@ int RemoteEncoder::handlePacket(Message *raw_msg) {
   } else {
     LOGE("%s: encoderd packet has a older segment!!! idx.getSegmentNum():%d s->rotate_segment:%d re.encoderd_segment_offset:%d",
       name.c_str(), segment_num, s->rotate_segment.load(), encoderd_segment_offset);
-    // free the message, it's useless. this should never happen
     // actually, this can happen if you restart encoderd
     encoderd_segment_offset = -s->rotate_segment.load();
   }
-
   return bytes_count;
 }
+
 int handle_encoder_msg(LoggerdState *s, Message *msg, const std::string &name) {
   auto &re = s->encoders[name];
   if (!re) {
