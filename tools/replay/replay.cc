@@ -104,6 +104,9 @@ void Replay::updateEvents(const std::function<bool()> &lambda) {
 void Replay::seekTo(double seconds, bool relative) {
   seconds = relative ? seconds + currentSeconds() : seconds;
   updateEvents([&]() {
+    if (camera_server_) {
+      camera_server_->clearQueue();
+    }
     seconds = std::max(double(0.0), seconds);
     int seg = (int)seconds / 60;
     if (segments_.find(seg) == segments_.end()) {
@@ -432,9 +435,11 @@ void Replay::stream() {
       }
     }
     // wait for frame to be sent before unlock.(frameReader may be deleted after unlock)
+    double t1 = millis_since_boot();
     if (camera_server_) {
-      camera_server_->waitForSent();
+      camera_server_->clearQueue();
     }
+    qDebug() << "wait ***" << millis_since_boot() - t1;
 
     if (eit == events_->end() && !hasFlag(REPLAY_FLAG_NO_LOOP)) {
       int last_segment = segments_.rbegin()->first;

@@ -64,8 +64,6 @@ void CameraServer::cameraThread(Camera &cam) {
     cam.cached_id = id + 1;
     cam.cached_seg = eidx.getSegmentNum();
     cam.cached_buf = read_frame(fr, cam.cached_id);
-
-    --publishing_;
   }
 }
 
@@ -77,22 +75,20 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const cereal::Enc
     waitForSent();
     startVipcServer();
   }
-
-  ++publishing_;
   cam.queue.push({fr, eidx});
 }
 
 void CameraServer::waitForSent() {
-  while (publishing_ > 0) {
-    std::this_thread::yield();
-  }
+  for (auto &c : cameras_) {
+    while (!c.queue.empty()) {
+      std::this_thread::yield();
+    }
+  };
 }
 
 void CameraServer::clearQueue() {
   for (auto &c : cameras_) {
     std::pair<FrameReader*, cereal::EncodeIndex::Reader> item;
-    while(c.queue.try_pop(item)) {
-      /**/
-    }
+    while (c.queue.try_pop(item)) { /**/ }
   }
 }
