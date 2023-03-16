@@ -12,6 +12,7 @@ public:
   ~CameraServer();
   void pushFrame(CameraType type, FrameReader* fr, const cereal::EncodeIndex::Reader& eidx);
   void waitForSent();
+  void clearQueue();
 
 protected:
   struct Camera {
@@ -20,7 +21,7 @@ protected:
     int width;
     int height;
     std::thread thread;
-    SafeQueue<std::pair<FrameReader*, const cereal::EncodeIndex::Reader>> queue;
+    SafeQueue<std::pair<FrameReader*, cereal::EncodeIndex::Reader>> queue;
     int cached_id = -1;
     int cached_seg = -1;
     VisionBuf * cached_buf;

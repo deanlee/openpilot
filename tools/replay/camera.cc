@@ -87,3 +87,12 @@ void CameraServer::waitForSent() {
     std::this_thread::yield();
   }
 }
+
+void CameraServer::clearQueue() {
+  for (auto &c : cameras_) {
+    std::pair<FrameReader*, cereal::EncodeIndex::Reader> item;
+    while(c.queue.try_pop(item)) {
+      /**/
+    }
+  }
+}
