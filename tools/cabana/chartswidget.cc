@@ -294,6 +294,13 @@ void ChartsWidget::doAutoScroll() {
   bool vertical_unchanged = value == scroll->value();
   if (vertical_unchanged) {
     stopAutoScroll();
+  } else {
+    // fake mouseMoveEvent to updates the drag-selection rectangle
+    const QPoint globalPos = charts_scroll->viewport()->mapToGlobal(pos);
+    const QPoint windowPos = charts_scroll->window()->mapFromGlobal(globalPos);
+    QMouseEvent mm(QEvent::MouseMove, pos, windowPos, globalPos,
+                   Qt::NoButton, Qt::LeftButton, Qt::NoModifier, Qt::MouseEventSynthesizedByQt);
+    QApplication::sendEvent(charts_scroll->viewport(), &mm);
   }
 }
 
