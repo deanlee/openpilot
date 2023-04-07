@@ -113,7 +113,6 @@ private:
   ValueTipLabel tip_label;
   QList<SigItem> sigs;
   double cur_sec = 0;
-  const QString mime_type = "application/x-cabanachartview";
   SeriesType series_type = SeriesType::Line;
   bool is_scrubbing = false;
   bool resume_after_scrub = false;
@@ -123,6 +122,23 @@ private:
   ChartsWidget *charts_widget;
   friend class ChartsWidget;
  };
+
+ class ChartContainWidget : public QWidget {
+public:
+  ChartContainWidget(ChartsWidget *parent);
+  void dragEnterEvent(QDragEnterEvent *event) override;
+  void dragLeaveEvent(QDragLeaveEvent *event) override;
+  void drawDropIndicator(const QPoint &pt) { drop_indictor_pos = pt; update(); }
+  void dragMoveEvent(QDragMoveEvent *event) override;
+  void paintEvent(QPaintEvent *ev) override;
+  void dropEvent(QDropEvent *event) override;
+  ChartView *getDropBefore(const QPoint &pos) const;
+
+  QGridLayout *charts_layout;
+  ChartsWidget *charts_widget;
+  ChartView *prev_can_drop_widget = nullptr;
+  QPoint drop_indictor_pos;
+};
 
 class ChartsWidget : public QFrame {
   Q_OBJECT
@@ -158,7 +174,7 @@ private:
   void doAutoScroll();
   void updateToolBar();
   void setMaxChartRange(int value);
-  void updateLayout();
+  void updateLayout(bool force = false);
   void settingChanged();
   void showValueTip(double sec);
   bool eventFilter(QObject *obj, QEvent *event) override;
@@ -178,9 +194,8 @@ private:
   QUndoStack *zoom_undo_stack;
 
   QAction *remove_all_btn;
-  QGridLayout *charts_layout;
   QList<ChartView *> charts;
-  QWidget *charts_container;
+  ChartContainWidget *charts_container;
   QScrollArea *charts_scroll;
   uint32_t max_chart_range = 0;
   bool is_zoomed = false;
@@ -194,6 +209,7 @@ private:
   QTimer align_timer;
   friend class ZoomCommand;
   friend class ChartView;
+  friend class ChartContainWidget;
 };
 
 class ZoomCommand : public QUndoCommand {
