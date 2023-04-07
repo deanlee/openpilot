@@ -418,7 +418,7 @@ ChartView::ChartView(const std::pair<double, double> &x_range, ChartsWidget *par
 
 void ChartView::createToolButtons() {
   move_icon = new QGraphicsPixmapItem(utils::icon("grip-horizontal"), chart());
-  move_icon->setToolTip(tr("Drag and drop to combine charts"));
+  move_icon->setToolTip(tr("Drag and drop to move chart"));
 
   QToolButton *remove_btn = toolButton("x", tr("Remove Chart"));
   close_btn_proxy = new QGraphicsProxyWidget(chart());
@@ -859,23 +859,16 @@ void ChartView::hideTip() {
 }
 
 void ChartView::dragEnterEvent(QDragEnterEvent *event) {
-  can_drop = event->source() != this;
-  viewport()->update();
-  QChartView::dragEnterEvent(event);
-}
-
-void ChartView::dragLeaveEvent(QDragLeaveEvent *event) {
-  can_drop = false;
-  viewport()->update();
-  QChartView::dragLeaveEvent(event);
+  if (event->mimeData()->hasFormat(mime_type)) {
+    drawDropIndicator(event->source() != this);
+    event->acceptProposedAction();
+  }
 }
 
 void ChartView::dragMoveEvent(QDragMoveEvent *event) {
   if (event->mimeData()->hasFormat(mime_type)) {
     event->setDropAction(event->source() == this ? Qt::MoveAction : Qt::CopyAction);
     event->accept();
-  } else {
-    event->ignore();
   }
   charts_widget->startAutoScroll();
 }
