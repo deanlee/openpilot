@@ -46,8 +46,8 @@ public:
   void updatePlot(double cur, double min, double max);
   void setSeriesType(SeriesType type);
   void updatePlotArea(int left, bool force = false);
-  void showTip(double sec);
-  void hideTip();
+  // void showTip(double sec);
+  // void hideTip();
 
   struct SigItem {
     MessageId msg_id;
@@ -81,16 +81,16 @@ private slots:
 
 private:
   void createToolButtons();
-  void mousePressEvent(QMouseEvent *event) override;
-  void mouseReleaseEvent(QMouseEvent *event) override;
-  void mouseMoveEvent(QMouseEvent *ev) override;
+  // void mousePressEvent(QMouseEvent *event) override;
+  // void mouseReleaseEvent(QMouseEvent *event) override;
+  // void mouseMoveEvent(QMouseEvent *ev) override;
   // void dragEnterEvent(QDragEnterEvent *event) override;
   // void dragLeaveEvent(QDragLeaveEvent *event) override { drawDropIndicator(false); }
   // void dragMoveEvent(QDragMoveEvent *event) override;
   // void dropEvent(QDropEvent *event) override;
-  void leaveEvent(QEvent *event) override;
-  void resizeEvent(QResizeEvent *event) override;
-  QSize sizeHint() const override { return {CHART_MIN_WIDTH, settings.chart_height}; }
+  // void leaveEvent(QEvent *event) override;
+  void resizeEvent(QGraphicsSceneResizeEvent *event) override;
+  // QSizeF sizeHint(Qt::SizeHint which, const QSizeF &constraint=QSizeF()) const override { return QSizeF(CHART_MIN_WIDTH, settings.chart_height); }
   void updateAxisY();
   void updateTitle();
   void resetChartCache();
@@ -129,8 +129,11 @@ class ChartsView : public QGraphicsView {
   Q_OBJECT
 public:
   ChartsView(QWidget *parent);
+  void resizeEvent(QResizeEvent *event) override;
+  void paintEvent(QPaintEvent *event) override;
   QGraphicsScene *scene;
   QGraphicsGridLayout *layout;
+  QGraphicsWidget *form;
 };
 
 class ChartContainWidget : public QWidget {
@@ -241,7 +244,7 @@ public:
     const cabana::Signal *sig;
   };
 
-  SeriesSelector(QString title, QWidget *parent);
+  SeriesSelector(QString title, QWidget *parent = nullptr);
   QList<ListItem *> seletedItems();
   inline void addSelected(const MessageId &id, const cabana::Signal *sig) { addItemToList(selected_list, id, sig, true); }
 
