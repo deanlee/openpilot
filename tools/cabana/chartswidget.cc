@@ -863,6 +863,7 @@ void ChartView::dragEnterEvent(QDragEnterEvent *event) {
   viewport()->update();
   QChartView::dragEnterEvent(event);
 }
+
 void ChartView::dragLeaveEvent(QDragLeaveEvent *event) {
   can_drop = false;
   viewport()->update();
@@ -881,10 +882,7 @@ void ChartView::dragMoveEvent(QDragMoveEvent *event) {
 
 void ChartView::dropEvent(QDropEvent *event) {
   if (event->mimeData()->hasFormat(mime_type)) {
-    if (event->source() == this) {
-      event->setDropAction(Qt::MoveAction);
-      event->accept();
-    } else {
+    if (event->source() != this) {
       ChartView *source_chart = (ChartView *)event->source();
       for (auto &s : source_chart->sigs) {
         source_chart->chart()->removeSeries(s.series);
@@ -901,8 +899,6 @@ void ChartView::dropEvent(QDropEvent *event) {
       event->acceptProposedAction();
     }
     can_drop = false;
-  } else {
-    event->ignore();
   }
 }
 
@@ -1212,10 +1208,6 @@ void ChartContainWidget::dragEnterEvent(QDragEnterEvent *event) {
     event->acceptProposedAction();
     drawDropIndicator(event->pos());
   }
-}
-
-void ChartContainWidget::dragLeaveEvent(QDragLeaveEvent *event) {
-  drawDropIndicator({});
 }
 
 void ChartContainWidget::dropEvent(QDropEvent *event) {
