@@ -76,14 +76,15 @@ ChartsWidget::ChartsWidget(QWidget *parent) : align_timer(this), auto_scroll_tim
   main_layout->addWidget(toolbar);
 
   // charts
-  charts_container = new ChartContainWidget(this);
+  charts_view = new ChartsView(this);
+  // charts_container = new ChartContainWidget(this);
 
-  charts_scroll = new QScrollArea(this);
-  charts_scroll->setFrameStyle(QFrame::NoFrame);
-  charts_scroll->setWidgetResizable(true);
-  charts_scroll->setWidget(charts_container);
-  charts_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  main_layout->addWidget(charts_scroll);
+  // charts_scroll = new QScrollArea(this);
+  // charts_scroll->setFrameStyle(QFrame::NoFrame);
+  // charts_scroll->setWidgetResizable(true);
+  // charts_scroll->setWidget(charts_container);
+  // charts_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  // main_layout->addWidget(charts_scroll);
 
   // init settings
   column_count = std::clamp(settings.chart_column_count, 1, MAX_COLUMN_COUNT);
@@ -140,14 +141,14 @@ void ChartsWidget::zoomReset() {
 }
 
 void ChartsWidget::showValueTip(double sec) {
-  const QRect visible_rect(-charts_container->pos(), charts_scroll->viewport()->size());
-  for (auto c : charts) {
-    if (sec >= 0 && visible_rect.contains(QRect(c->mapTo(charts_container, QPoint(0, 0)), c->size()))) {
-      c->showTip(sec);
-    } else {
-      c->hideTip();
-    }
-  }
+  // const QRect visible_rect(-charts_container->pos(), charts_scroll->viewport()->size());
+  // for (auto c : charts) {
+  //   if (sec >= 0 && visible_rect.contains(QRect(c->mapTo(charts_container, QPoint(0, 0)), c->size()))) {
+  //     c->showTip(sec);
+  //   } else {
+  //     c->hideTip();
+  //   }
+  // }
 }
 
 void ChartsWidget::updateState() {
@@ -247,24 +248,24 @@ void ChartsWidget::setColumnCount(int n) {
 }
 
 void ChartsWidget::updateLayout(bool force) {
-  auto charts_layout = charts_container->charts_layout;
-  int n = MAX_COLUMN_COUNT;
-  for (; n > 1; --n) {
-    if ((n * CHART_MIN_WIDTH + (n - 1) * charts_layout->spacing()) < charts_layout->geometry().width()) break;
-  }
+  // auto charts_layout = charts_container->charts_layout;
+  // int n = MAX_COLUMN_COUNT;
+  // for (; n > 1; --n) {
+  //   if ((n * CHART_MIN_WIDTH + (n - 1) * charts_layout->spacing()) < charts_layout->geometry().width()) break;
+  // }
 
-  bool show_column_cb = n > 1;
-  columns_action->setVisible(show_column_cb);
+  // bool show_column_cb = n > 1;
+  // columns_action->setVisible(show_column_cb);
 
-  n = std::min(column_count, n);
-  if ((charts.size() != charts_layout->count() || n != current_column_count) || force) {
-    current_column_count = n;
-    charts_container->setUpdatesEnabled(false);
-    for (int i = 0; i < charts.size(); ++i) {
-      charts_layout->addWidget(charts[i], i / n, i % n);
-    }
-    QTimer::singleShot(0, [this]() { charts_container->setUpdatesEnabled(true); });
-  }
+  // n = std::min(column_count, n);
+  // if ((charts.size() != charts_layout->count() || n != current_column_count) || force) {
+  //   current_column_count = n;
+  //   charts_container->setUpdatesEnabled(false);
+  //   for (int i = 0; i < charts.size(); ++i) {
+  //     charts_layout->addWidget(charts[i], i / n, i % n);
+  //   }
+  //   QTimer::singleShot(0, [this]() { charts_container->setUpdatesEnabled(true); });
+  // }
 }
 
 void ChartsWidget::startAutoScroll() {
@@ -295,7 +296,7 @@ void ChartsWidget::doAutoScroll() {
   if (vertical_unchanged) {
     stopAutoScroll();
   } else {
-    // fake mouseMoveEvent to updates the drag-selection rectangle
+    // mouseMoveEvent to updates the drag-selection rectangle
     const QPoint globalPos = charts_scroll->viewport()->mapToGlobal(pos);
     const QPoint windowPos = charts_scroll->window()->mapFromGlobal(globalPos);
     QMouseEvent mm(QEvent::MouseMove, pos, windowPos, globalPos,
@@ -1242,3 +1243,27 @@ ChartView *ChartContainWidget::getDropBefore(const QPoint &pos) const {
   });
   return it == charts_widget->charts.cend() ? nullptr : *it;
 }
+
+
+
+ChartsView::ChartsView(QWidget *parent) : QGraphicsView(parent) {
+  /*
+   q_ptr->setFrameShape(QFrame::NoFrame);
+    q_ptr->setBackgroundRole(QPalette::Window);
+    q_ptr->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    q_ptr->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    q_ptr->setScene(m_scene);
+    q_ptr->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    if (!m_chart)
+        m_chart = new QChart();
+    m_scene->addItem(m_chart);
+  */
+  scene = new QGraphicsScene(this);
+  setScene(scene);
+  QGraphicsWidget *form = new QGraphicsWidget;
+  layout = new QGraphicsGridLayout(form);
+  scene->addItem(form);
+}
+
+
+

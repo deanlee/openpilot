@@ -3,6 +3,7 @@
 #include <QGridLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QGraphicsGridLayout>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsProxyWidget>
 #include <QTimer>
@@ -124,6 +125,14 @@ private:
   friend class ChartsWidget;
 };
 
+class ChartsView : public QGraphicsView {
+  Q_OBJECT
+public:
+  ChartsView(QWidget *parent);
+  QGraphicsScene *scene;
+  QGraphicsGridLayout *layout;
+};
+
 class ChartContainWidget : public QWidget {
 public:
   ChartContainWidget(ChartsWidget *parent);
@@ -194,7 +203,7 @@ private:
 
   QAction *remove_all_btn;
   QList<ChartView *> charts;
-  ChartContainWidget *charts_container;
+  // ChartContainWidget *charts_container;
   QScrollArea *charts_scroll;
   uint32_t max_chart_range = 0;
   bool is_zoomed = false;
@@ -206,6 +215,7 @@ private:
   int auto_scroll_count = 0;
   QTimer auto_scroll_timer;
   QTimer align_timer;
+  ChartsView *charts_view;
   friend class ZoomCommand;
   friend class ChartView;
   friend class ChartContainWidget;
