@@ -35,11 +35,11 @@ public:
 };
 
 class ChartsWidget;
-class ChartView : public QChartView {
+class ChartView : public QChart {
   Q_OBJECT
 
 public:
-  ChartView(const std::pair<double, double> &x_range, ChartsWidget *parent = nullptr);
+  ChartView(const std::pair<double, double> &x_range, QGraphicsItem *parent = nullptr);
   void addSeries(const MessageId &msg_id, const cabana::Signal *sig);
   bool hasSeries(const MessageId &msg_id, const cabana::Signal *sig) const;
   void updateSeries(const cabana::Signal *sig = nullptr);
@@ -84,20 +84,20 @@ private:
   void mousePressEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;
   void mouseMoveEvent(QMouseEvent *ev) override;
-  void dragEnterEvent(QDragEnterEvent *event) override;
-  void dragLeaveEvent(QDragLeaveEvent *event) override { drawDropIndicator(false); }
-  void dragMoveEvent(QDragMoveEvent *event) override;
-  void dropEvent(QDropEvent *event) override;
+  // void dragEnterEvent(QDragEnterEvent *event) override;
+  // void dragLeaveEvent(QDragLeaveEvent *event) override { drawDropIndicator(false); }
+  // void dragMoveEvent(QDragMoveEvent *event) override;
+  // void dropEvent(QDropEvent *event) override;
   void leaveEvent(QEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;
   QSize sizeHint() const override { return {CHART_MIN_WIDTH, settings.chart_height}; }
   void updateAxisY();
   void updateTitle();
   void resetChartCache();
-  void paintEvent(QPaintEvent *event) override;
-  void drawForeground(QPainter *painter, const QRectF &rect) override;
-  void drawBackground(QPainter *painter, const QRectF &rect) override;
-  void drawDropIndicator(bool draw) { can_drop = draw; viewport()->update(); }
+  // void paintEvent(QPaintEvent *event) override;
+  // void drawForeground(QPainter *painter, const QRectF &rect) override;
+  // void drawBackground(QPainter *painter, const QRectF &rect) override;
+  // void drawDropIndicator(bool draw) { can_drop = draw; viewport()->update(); }
   std::tuple<double, double, int> getNiceAxisNumbers(qreal min, qreal max, int tick_count);
   qreal niceNumber(qreal x, bool ceiling);
   QXYSeries *createSeries(SeriesType type, QColor color);

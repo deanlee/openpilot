@@ -214,7 +214,7 @@ ChartView *ChartsWidget::createChart() {
   chart->setFixedHeight(settings.chart_height);
   chart->setMinimumWidth(CHART_MIN_WIDTH);
   chart->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
-  chart->chart()->setTheme(settings.theme == 2 ? QChart::QChart::ChartThemeDark : QChart::ChartThemeLight);
+  chart->setTheme(settings.theme == 2 ? QChart::QChart::ChartThemeDark : QChart::ChartThemeLight);
   QObject::connect(chart, &ChartView::remove, [=]() { removeChart(chart); });
   QObject::connect(chart, &ChartView::zoomIn, this, &ChartsWidget::zoomIn);
   QObject::connect(chart, &ChartView::zoomUndo, undo_zoom_action, &QAction::trigger);
@@ -395,17 +395,16 @@ bool ChartsWidget::event(QEvent *event) {
 
 // ChartView
 
-ChartView::ChartView(const std::pair<double, double> &x_range, ChartsWidget *parent) : charts_widget(parent), tip_label(this), QChartView(nullptr, parent) {
+ChartView::ChartView(const std::pair<double, double> &x_range, QGraphicsItem *parent) : charts_widget(parent), tip_label(this), QChart(parent) {
   series_type = (SeriesType)settings.chart_series_type;
-  QChart *chart = new QChart();
-  chart->setBackgroundVisible(false);
+  setBackgroundVisible(false);
   axis_x = new QValueAxis(this);
   axis_y = new QValueAxis(this);
-  chart->addAxis(axis_x, Qt::AlignBottom);
-  chart->addAxis(axis_y, Qt::AlignLeft);
-  chart->legend()->layout()->setContentsMargins(0, 0, 0, 0);
-  chart->legend()->setShowToolTips(true);
-  chart->setMargins({0, 0, 0, 0});
+  addAxis(axis_x, Qt::AlignBottom);
+  addAxis(axis_y, Qt::AlignLeft);
+  legend()->layout()->setContentsMargins(0, 0, 0, 0);
+  legend()->setShowToolTips(true);
+  setMargins({0, 0, 0, 0});
 
   axis_x->setRange(x_range.first, x_range.second);
   setChart(chart);
@@ -866,42 +865,42 @@ void ChartView::hideTip() {
   viewport()->update();
 }
 
-void ChartView::dragEnterEvent(QDragEnterEvent *event) {
-  if (event->mimeData()->hasFormat(mime_type)) {
-    drawDropIndicator(event->source() != this);
-    event->acceptProposedAction();
-  }
-}
+// void ChartView::dragEnterEvent(QDragEnterEvent *event) {
+//   if (event->mimeData()->hasFormat(mime_type)) {
+//     drawDropIndicator(event->source() != this);
+//     event->acceptProposedAction();
+//   }
+// }
 
-void ChartView::dragMoveEvent(QDragMoveEvent *event) {
-  if (event->mimeData()->hasFormat(mime_type)) {
-    event->setDropAction(event->source() == this ? Qt::MoveAction : Qt::CopyAction);
-    event->accept();
-  }
-  charts_widget->startAutoScroll();
-}
+// void ChartView::dragMoveEvent(QDragMoveEvent *event) {
+//   if (event->mimeData()->hasFormat(mime_type)) {
+//     event->setDropAction(event->source() == this ? Qt::MoveAction : Qt::CopyAction);
+//     event->accept();
+//   }
+//   charts_widget->startAutoScroll();
+// }
 
-void ChartView::dropEvent(QDropEvent *event) {
-  if (event->mimeData()->hasFormat(mime_type)) {
-    if (event->source() != this) {
-      ChartView *source_chart = (ChartView *)event->source();
-      for (auto &s : source_chart->sigs) {
-        source_chart->chart()->removeSeries(s.series);
-        chart()->addSeries(s.series);
-        s.series->attachAxis(axis_x);
-        s.series->attachAxis(axis_y);
-      }
-      sigs.append(source_chart->sigs);
-      updateAxisY();
-      updateTitle();
+// void ChartView::dropEvent(QDropEvent *event) {
+//   if (event->mimeData()->hasFormat(mime_type)) {
+//     if (event->source() != this) {
+//       ChartView *source_chart = (ChartView *)event->source();
+//       for (auto &s : source_chart->sigs) {
+//         source_chart->chart()->removeSeries(s.series);
+//         chart()->addSeries(s.series);
+//         s.series->attachAxis(axis_x);
+//         s.series->attachAxis(axis_y);
+//       }
+//       sigs.append(source_chart->sigs);
+//       updateAxisY();
+//       updateTitle();
 
-      source_chart->sigs.clear();
-      emit source_chart->remove();
-      event->acceptProposedAction();
-    }
-    can_drop = false;
-  }
-}
+//       source_chart->sigs.clear();
+//       emit source_chart->remove();
+//       event->acceptProposedAction();
+//     }
+//     can_drop = false;
+//   }
+// }
 
 void ChartView::resetChartCache() {
   chart_pixmap = QPixmap();
@@ -939,71 +938,71 @@ void ChartView::drawBackground(QPainter *painter, const QRectF &rect) {
   painter->fillRect(rect, palette().color(QPalette::Base));
 }
 
-void ChartView::drawForeground(QPainter *painter, const QRectF &rect) {
-  // draw time line
-  qreal x = chart()->mapToPosition(QPointF{cur_sec, 0}).x();
-  x = std::clamp(x, chart()->plotArea().left(), chart()->plotArea().right());
-  qreal y1 = chart()->plotArea().top() - 2;
-  qreal y2 = chart()->plotArea().bottom() + 2;
-  painter->setPen(QPen(chart()->titleBrush().color(), 2));
-  painter->drawLine(QPointF{x, y1}, QPointF{x, y2});
+// void ChartView::drawForeground(QPainter *painter, const QRectF &rect) {
+//   // draw time line
+//   qreal x = chart()->mapToPosition(QPointF{cur_sec, 0}).x();
+//   x = std::clamp(x, chart()->plotArea().left(), chart()->plotArea().right());
+//   qreal y1 = chart()->plotArea().top() - 2;
+//   qreal y2 = chart()->plotArea().bottom() + 2;
+//   painter->setPen(QPen(chart()->titleBrush().color(), 2));
+//   painter->drawLine(QPointF{x, y1}, QPointF{x, y2});
 
-  // draw track points
-  painter->setPen(Qt::NoPen);
-  qreal track_line_x = -1;
-  for (auto &s : sigs) {
-    if (!s.track_pt.isNull() && s.series->isVisible()) {
-      painter->setBrush(s.series->color().darker(125));
-      QPointF pos = chart()->mapToPosition(s.track_pt);
-      painter->drawEllipse(pos, 5.5, 5.5);
-      track_line_x = std::max(track_line_x, pos.x());
-    }
-  }
-  if (track_line_x > 0) {
-    painter->setPen(QPen(Qt::darkGray, 1, Qt::DashLine));
-    painter->drawLine(QPointF{track_line_x, y1}, QPointF{track_line_x, y2});
-  }
+//   // draw track points
+//   painter->setPen(Qt::NoPen);
+//   qreal track_line_x = -1;
+//   for (auto &s : sigs) {
+//     if (!s.track_pt.isNull() && s.series->isVisible()) {
+//       painter->setBrush(s.series->color().darker(125));
+//       QPointF pos = chart()->mapToPosition(s.track_pt);
+//       painter->drawEllipse(pos, 5.5, 5.5);
+//       track_line_x = std::max(track_line_x, pos.x());
+//     }
+//   }
+//   if (track_line_x > 0) {
+//     painter->setPen(QPen(Qt::darkGray, 1, Qt::DashLine));
+//     painter->drawLine(QPointF{track_line_x, y1}, QPointF{track_line_x, y2});
+//   }
 
-  // paint points. OpenGL mode lacks certain features (such as showing points)
-  painter->setPen(Qt::NoPen);
-  for (auto &s : sigs) {
-    if (s.series->useOpenGL() && s.series->isVisible() && s.series->pointsVisible()) {
-      auto first = std::lower_bound(s.vals.begin(), s.vals.end(), axis_x->min(), xLessThan);
-      auto last = std::lower_bound(first, s.vals.end(), axis_x->max(), xLessThan);
-      painter->setBrush(s.series->color());
-      for (auto it = first; it != last; ++it) {
-        painter->drawEllipse(chart()->mapToPosition(*it), 4, 4);
-      }
-    }
-  }
+//   // paint points. OpenGL mode lacks certain features (such as showing points)
+//   painter->setPen(Qt::NoPen);
+//   for (auto &s : sigs) {
+//     if (s.series->useOpenGL() && s.series->isVisible() && s.series->pointsVisible()) {
+//       auto first = std::lower_bound(s.vals.begin(), s.vals.end(), axis_x->min(), xLessThan);
+//       auto last = std::lower_bound(first, s.vals.end(), axis_x->max(), xLessThan);
+//       painter->setBrush(s.series->color());
+//       for (auto it = first; it != last; ++it) {
+//         painter->drawEllipse(chart()->mapToPosition(*it), 4, 4);
+//       }
+//     }
+//   }
 
-  // paint zoom range
-  auto rubber = findChild<QRubberBand *>();
-  if (rubber && rubber->isVisible() && rubber->width() > 1) {
-    painter->setPen(Qt::white);
-    auto rubber_rect = rubber->geometry().normalized();
-    for (const auto &pt : {rubber_rect.bottomLeft(), rubber_rect.bottomRight()}) {
-      QString sec = QString::number(chart()->mapToValue(pt).x(), 'f', 1);
-      // ChartAxisElement's padding is 4 (https://codebrowser.dev/qt5/qtcharts/src/charts/axis/chartaxiselement_p.h.html)
-      auto r = painter->fontMetrics().boundingRect(sec).adjusted(-6, -4, 6, 4);
-      pt == rubber_rect.bottomLeft() ? r.moveTopRight(pt + QPoint{0, 2}) : r.moveTopLeft(pt + QPoint{0, 2});
-      painter->fillRect(r, Qt::gray);
-      painter->drawText(r, Qt::AlignCenter, sec);
-    }
-  }
-}
+//   // paint zoom range
+//   auto rubber = findChild<QRubberBand *>();
+//   if (rubber && rubber->isVisible() && rubber->width() > 1) {
+//     painter->setPen(Qt::white);
+//     auto rubber_rect = rubber->geometry().normalized();
+//     for (const auto &pt : {rubber_rect.bottomLeft(), rubber_rect.bottomRight()}) {
+//       QString sec = QString::number(chart()->mapToValue(pt).x(), 'f', 1);
+//       // ChartAxisElement's padding is 4 (https://codebrowser.dev/qt5/qtcharts/src/charts/axis/chartaxiselement_p.h.html)
+//       auto r = painter->fontMetrics().boundingRect(sec).adjusted(-6, -4, 6, 4);
+//       pt == rubber_rect.bottomLeft() ? r.moveTopRight(pt + QPoint{0, 2}) : r.moveTopLeft(pt + QPoint{0, 2});
+//       painter->fillRect(r, Qt::gray);
+//       painter->drawText(r, Qt::AlignCenter, sec);
+//     }
+//   }
+// }
 
 QXYSeries *ChartView::createSeries(SeriesType type, QColor color) {
   QXYSeries *series = nullptr;
   if (type == SeriesType::Line) {
     series = new QLineSeries(this);
-    chart()->legend()->setMarkerShape(QLegend::MarkerShapeRectangle);
+    legend()->setMarkerShape(QLegend::MarkerShapeRectangle);
   } else if (type == SeriesType::StepLine) {
     series = new QLineSeries(this);
-    chart()->legend()->setMarkerShape(QLegend::MarkerShapeFromSeries);
+    legend()->setMarkerShape(QLegend::MarkerShapeFromSeries);
   } else {
     series = new QScatterSeries(this);
-    chart()->legend()->setMarkerShape(QLegend::MarkerShapeCircle);
+    legend()->setMarkerShape(QLegend::MarkerShapeCircle);
   }
   series->setColor(color);
   // TODO: Due to a bug in CameraWidget the camera frames
@@ -1015,7 +1014,7 @@ QXYSeries *ChartView::createSeries(SeriesType type, QColor color) {
   pen.setWidthF(2.0 * devicePixelRatioF());
   series->setPen(pen);
 #endif
-  chart()->addSeries(series);
+  addSeries(series);
   series->attachAxis(axis_x);
   series->attachAxis(axis_y);
 
@@ -1032,7 +1031,7 @@ void ChartView::setSeriesType(SeriesType type) {
   if (type != series_type) {
     series_type = type;
     for (auto &s : sigs) {
-      chart()->removeSeries(s.series);
+      removeSeries(s.series);
       s.series->deleteLater();
     }
     for (auto &s : sigs) {
