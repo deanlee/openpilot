@@ -1210,6 +1210,7 @@ ChartContainWidget::ChartContainWidget(ChartsWidget *parent) : charts_widget(par
 void ChartContainWidget::dragEnterEvent(QDragEnterEvent *event) {
   if (event->mimeData()->hasFormat(mime_type)) {
     event->acceptProposedAction();
+    drawDropIndicator(event->pos());
   }
 }
 
@@ -1217,21 +1218,16 @@ void ChartContainWidget::dragLeaveEvent(QDragLeaveEvent *event) {
   drawDropIndicator({});
 }
 
-void ChartContainWidget::dragMoveEvent(QDragMoveEvent *event) {
-  drawDropIndicator(childAt(event->pos()) ? QPoint() : event->pos());
-}
-
 void ChartContainWidget::dropEvent(QDropEvent *event) {
   if (event->mimeData()->hasFormat(mime_type)) {
     auto w = getDropBefore(event->pos());
-    auto chart = (ChartView *)(event->source());
+    auto chart = qobject_cast<ChartView *>(event->source());
     if (w != chart) {
       charts_widget->charts.removeOne(chart);
       int to = w ? charts_widget->charts.indexOf(w) : charts_widget->charts.size();
       charts_widget->charts.insert(to, chart);
-      event->setDropAction(Qt::MoveAction);
-      event->accept();
       charts_widget->updateLayout(true);
+      event->acceptProposedAction();
     }
     drawDropIndicator({});
   }
