@@ -578,7 +578,7 @@ void ChartView::resetChartCache() {
 }
 
 void ChartView::paintEvent(QPaintEvent *event) {
-  if (!can->liveStreaming()) {
+  if (!charts_widget->dynamic_mode && !can->liveStreaming()) {
     if (chart_pixmap.isNull()) {
       const qreal dpr = viewport()->devicePixelRatioF();
       chart_pixmap = QPixmap(viewport()->size() * dpr);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QCheckBox>
 #include <QGridLayout>
 #include <QLabel>
 #include <QScrollArea>
@@ -64,6 +65,7 @@ private:
   void startAutoScroll();
   void stopAutoScroll();
   void doAutoScroll();
+  void dynamicModeChanged(int state);
   void updateToolBar();
   void setMaxChartRange(int value);
   void updateLayout(bool force = false);
@@ -82,6 +84,8 @@ private:
   QAction *range_slider_action;
   bool docking = true;
   ToolButton *dock_btn;
+  QCheckBox *dynamic_cb;
+  bool dynamic_mode = false;
 
   QAction *undo_zoom_action;
   QAction *redo_zoom_action;

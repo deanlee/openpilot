@@ -29,6 +29,7 @@ void Settings::save() {
   s.setValue("recent_files", recent_files);
   s.setValue("message_header_state", message_header_state);
   s.setValue("chart_series_type", chart_series_type);
+  s.setValue("chart_dynamic_mode", chart_dynamic_mode);
   s.setValue("theme", theme);
   s.setValue("sparkline_range", sparkline_range);
 }
@@ -48,6 +49,7 @@ void Settings::load() {
   recent_files = s.value("recent_files").toStringList();
   message_header_state = s.value("message_header_state").toByteArray();
   chart_series_type = s.value("chart_series_type", 0).toInt();
+  chart_dynamic_mode = s.value("chart_dynamic_mode", false).toBool();
   theme = s.value("theme", 0).toInt();
   sparkline_range = s.value("sparkline_range", 15).toInt();
 }

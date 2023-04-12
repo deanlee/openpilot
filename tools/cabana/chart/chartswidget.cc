@@ -38,6 +38,8 @@ ChartsWidget::ChartsWidget(QWidget *parent) : align_timer(this), auto_scroll_tim
   columns_action->setMenu(menu);
   qobject_cast<QToolButton*>(toolbar->widgetForAction(columns_action))->setPopupMode(QToolButton::InstantPopup);
 
+  dynamic_cb = new QCheckBox(tr("Dynamic"), this);
+  toolbar->addWidget(dynamic_cb);
   QLabel *stretch_label = new QLabel(this);
   stretch_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
   toolbar->addWidget(stretch_label);
@@ -91,6 +93,7 @@ ChartsWidget::ChartsWidget(QWidget *parent) : align_timer(this), auto_scroll_tim
   max_chart_range = std::clamp(settings.chart_range, 1, settings.max_cached_minutes * 60);
   display_range = {0, max_chart_range};
   range_slider->setValue(max_chart_range);
+  dynamic_cb->setChecked(settings.chart_dynamic_mode ? Qt::Checked : Qt::Unchecked);
   updateToolBar();
 
   align_timer.setSingleShot(true);
@@ -103,6 +106,8 @@ ChartsWidget::ChartsWidget(QWidget *parent) : align_timer(this), auto_scroll_tim
   QObject::connect(new_plot_btn, &QToolButton::clicked, this, &ChartsWidget::newChart);
   QObject::connect(remove_all_btn, &QToolButton::clicked, this, &ChartsWidget::removeAll);
   QObject::connect(reset_zoom_btn, &QToolButton::clicked, this, &ChartsWidget::zoomReset);
+  QObject::connect(dynamic_cb, &QCheckBox::stateChanged, this, &ChartsWidget::dynamicModeChanged);
+
   QObject::connect(&settings, &Settings::changed, this, &ChartsWidget::settingChanged);
   QObject::connect(new_tab_btn, &QToolButton::clicked, this, &ChartsWidget::newTab);
   QObject::connect(tabbar, &QTabBar::tabCloseRequested, this, &ChartsWidget::removeTab);
@@ -172,6 +177,11 @@ void ChartsWidget::showValueTip(double sec) {
   }
 }
 
+void ChartsWidget::dynamicModeChanged(int state) {
+  dynamic_mode = settings.chart_dynamic_mode = (state == Qt::Checked);
+  updateState();
+}
+
 void ChartsWidget::updateState() {
   if (charts.isEmpty()) return;
 
@@ -181,7 +191,8 @@ void ChartsWidget::updateState() {
     if (pos < 0 || pos > 0.8) {
       display_range.first = std::max(0.0, cur_sec - max_chart_range * 0.1);
     }
-    double max_sec = std::min(std::floor(display_range.first + max_chart_range), can->lastEventSecond());
+    double last_sec = dynamic_mode ? cur_sec : can->lastEventSecond();
+    double max_sec = std::min(std::floor(display_range.first + max_chart_range), last_sec);
     display_range.first = std::max(0.0, max_sec - max_chart_range);
     display_range.second = display_range.first + max_chart_range;
   } else if (cur_sec < zoomed_range.first || cur_sec >= zoomed_range.second) {
