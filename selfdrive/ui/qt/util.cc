@@ -246,12 +246,29 @@ static QHash<QString, QByteArray> load_bootstrap_icons() {
   return icons;
 }
 
-QPixmap bootstrapPixmap(const QString &id) {
+#include <QtSvg/QSvgRenderer>
+#include <QDebug>
+QPixmap bootstrapPixmap(const QString &id, float dpr) {
   static QHash<QString, QByteArray> icons = load_bootstrap_icons();
 
-  QPixmap pixmap;
+  QPixmap pixmap(QSize(16 ,16) * dpr);
+  pixmap.fill(Qt::transparent);
   if (auto it = icons.find(id); it != icons.end()) {
-    pixmap.loadFromData(it.value(), "svg");
+    // QPixmap src;
+    // pixmap.loadFromData(it.value(), "svg");
+    // QImage image;
+    // image.loadFromData(it.value(), "svg");
+    // QImageReader reader()
+    QSvgRenderer reader;//(it.value());
+    qDebug() << it.value();
+    reader.setViewBox(QRect{0, 0, 32, 32});
+    reader.load(it.value());
+    {
+    QPainter p(&pixmap);
+    //  p.drawImage(0, 0, image);
+    reader.render(&p);
+    }
+    pixmap.setDevicePixelRatio(dpr);
   }
   return pixmap;
 }

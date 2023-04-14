@@ -280,7 +280,7 @@ Export('envCython')
 
 # Qt build environment
 qt_env = env.Clone()
-qt_modules = ["Widgets", "Gui", "Core", "Network", "Concurrent", "Multimedia", "Quick", "Qml", "QuickWidgets", "Location", "Positioning", "DBus", "Xml"]
+qt_modules = ["Widgets", "Gui", "Core", "Svg", "Network", "Concurrent", "Multimedia", "Quick", "Qml", "QuickWidgets", "Location", "Positioning", "DBus", "Xml"]
 
 qt_libs = []
 if arch == "Darwin":

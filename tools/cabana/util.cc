@@ -1,5 +1,6 @@
 #include "tools/cabana/util.h"
 
+#include <QApplication>
 #include <QFontDatabase>
 #include <QPainter>
 #include <QPixmapCache>
@@ -122,7 +123,7 @@ QPixmap icon(const QString &id) {
   QPixmap pm;
   QString key = "bootstrap_" % id % (dark_theme ? "1" : "0");
   if (!QPixmapCache::find(key, &pm)) {
-    pm = bootstrapPixmap(id);
+    pm = bootstrapPixmap(id, qApp->devicePixelRatio());
     if (dark_theme) {
       QPainter p(&pm);
       p.setCompositionMode(QPainter::CompositionMode_SourceIn);
