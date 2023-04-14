@@ -236,8 +236,10 @@ static QHash<QString, QByteArray> load_bootstrap_icons() {
         QString svg_str;
         QTextStream stream(&svg_str);
         n.save(stream, 0);
+        svg_str.replace("viewBox=\"0 0 16 16\"", "");
         svg_str.replace("<symbol", "<svg");
         svg_str.replace("</symbol>", "</svg>");
+        svg_str.replace("fill-rule=\"evenodd\"", "");
         icons[e.attribute("id")] = svg_str.toUtf8();
       }
       n = n.nextSibling();
@@ -260,13 +262,17 @@ QPixmap bootstrapPixmap(const QString &id, float dpr) {
     // image.loadFromData(it.value(), "svg");
     // QImageReader reader()
     QSvgRenderer reader;//(it.value());
+
     qDebug() << it.value();
-    reader.setViewBox(QRect{0, 0, 32, 32});
-    reader.load(it.value());
+    reader.setViewBox(QRect{0, 0, 64, 64});
+    QString s= R"(<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-graph-up" >
+  <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/>
+</svg>)";
+    reader.load(s.toUtf8());
     {
     QPainter p(&pixmap);
     //  p.drawImage(0, 0, image);
-    reader.render(&p);
+    reader.render(&p, QRect(0, 0, 32, 32));
     }
     pixmap.setDevicePixelRatio(dpr);
   }
