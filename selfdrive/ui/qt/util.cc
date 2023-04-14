@@ -250,10 +250,11 @@ static QHash<QString, QByteArray> load_bootstrap_icons() {
 
 #include <QtSvg/QSvgRenderer>
 #include <QDebug>
+#include <QImage>
 QPixmap bootstrapPixmap(const QString &id, float dpr) {
   static QHash<QString, QByteArray> icons = load_bootstrap_icons();
 
-  QPixmap pixmap(QSize(16 ,16) * dpr);
+  QImage pixmap(16 * dpr ,16 * dpr, QImage::Format_ARGB32_Premultiplied);
   pixmap.fill(Qt::transparent);
   if (auto it = icons.find(id); it != icons.end()) {
     // QPixmap src;
@@ -264,17 +265,23 @@ QPixmap bootstrapPixmap(const QString &id, float dpr) {
     QSvgRenderer reader;//(it.value());
 
     qDebug() << it.value();
-    reader.setViewBox(QRect{0, 0, 64, 64});
-    QString s= R"(<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-graph-up" >
-  <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/>
-</svg>)";
-    reader.load(s.toUtf8());
+    reader.setViewBox(QRect{0, 0, 32, 32});
+//     QString s= R"(<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-graph-up" >
+//   <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/>
+// </svg>)";
+//     reader.load(s.toUtf8());
+reader.load(it.value());
     {
     QPainter p(&pixmap);
+    p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing|QPainter::SmoothPixmapTransform);
     //  p.drawImage(0, 0, image);
-    reader.render(&p, QRect(0, 0, 32, 32));
+    reader.render(&p);
     }
-    pixmap.setDevicePixelRatio(dpr);
+    QPixmap pm = QPixmap::fromImage(pixmap);
+    pm.setDevicePixelRatio(dpr);
+    return pm;
+    //pixmap.setDevicePixelRatio(dpr);
   }
-  return pixmap;
+  return {};
+  // return pixmap;
 }
