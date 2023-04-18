@@ -27,9 +27,9 @@ ChartView::ChartView(const std::pair<double, double> &x_range, ChartsWidget *par
   axis_y = new QValueAxis(this);
 
   QFont font;
-  font.setPointSize(10);
-  axis_x->setFont(font);
-  axis_y=>setFont(font);
+  font.setPointSize(11);
+  axis_x->setLabelsFont(font);
+  axis_y=>setLabelsFont(font);
 
   chart->addAxis(axis_x, Qt::AlignBottom);
   chart->addAxis(axis_y, Qt::AlignLeft);
