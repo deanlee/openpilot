@@ -25,6 +25,12 @@ ChartView::ChartView(const std::pair<double, double> &x_range, ChartsWidget *par
   chart->setBackgroundVisible(false);
   axis_x = new QValueAxis(this);
   axis_y = new QValueAxis(this);
+
+  QFont font;
+  font.setPointSize(11);
+  axis_x->setFont(font);
+  axis_y=>setFont(font);
+
   chart->addAxis(axis_x, Qt::AlignBottom);
   chart->addAxis(axis_y, Qt::AlignLeft);
   chart->legend()->layout()->setContentsMargins(0, 0, 0, 0);
@@ -331,7 +337,7 @@ void ChartView::updateAxisY() {
   }
 
   double delta = std::abs(max - min) < 1e-3 ? 1 : (max - min) * 0.05;
-  auto [min_y, max_y, tick_count] = getNiceAxisNumbers(min - delta, max + delta, axis_y->tickCount());
+  auto [min_y, max_y, tick_count] = getNiceAxisNumbers(min - delta, max + delta, 3);
   if (min_y != axis_y->min() || max_y != axis_y->max() || y_label_width == 0) {
     axis_y->setRange(min_y, max_y);
     axis_y->setTickCount(tick_count);
