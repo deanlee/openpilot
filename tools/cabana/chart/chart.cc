@@ -27,7 +27,7 @@ ChartView::ChartView(const std::pair<double, double> &x_range, ChartsWidget *par
   axis_y = new QValueAxis(this);
 
   QFont font;
-  font.setPointSize(11);
+  font.setPointSize(10);
   axis_x->setFont(font);
   axis_y=>setFont(font);
 
