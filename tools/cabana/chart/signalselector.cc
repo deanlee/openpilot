@@ -16,13 +16,17 @@ SignalSelector::SignalSelector(QString title, QWidget *parent) : QDialog(parent)
 
   // left column
   main_layout->addWidget(new QLabel(tr("Available Signals")), 0, 0);
-  main_layout->addWidget(msgs_combo = new QComboBox(this), 1, 0);
+
+  QHBoxLayout *msg_layout = new QHBoxLayout;
+  msg_layout->addWidget(src_combo = new SourceComboBox(this));
+  msg_layout->addWidget(msgs_combo = new QComboBox(this));
   msgs_combo->setEditable(true);
   msgs_combo->lineEdit()->setPlaceholderText(tr("Select a msg..."));
   msgs_combo->setInsertPolicy(QComboBox::NoInsert);
   msgs_combo->completer()->setCompletionMode(QCompleter::PopupCompletion);
   msgs_combo->completer()->setFilterMode(Qt::MatchContains);
 
+  main_layout->addLayout(msg_layout, 1, 0);
   main_layout->addWidget(available_list = new QListWidget(this), 2, 0);
 
   // buttons
@@ -44,14 +48,7 @@ SignalSelector::SignalSelector(QString title, QWidget *parent) : QDialog(parent)
   auto buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
   main_layout->addWidget(buttonBox, 3, 2);
 
-  for (auto it = can->last_msgs.cbegin(); it != can->last_msgs.cend(); ++it) {
-    if (auto m = dbc()->msg(it.key())) {
-      msgs_combo->addItem(QString("%1 (%2)").arg(m->name).arg(it.key().toString()), QVariant::fromValue(it.key()));
-    }
-  }
-  msgs_combo->model()->sort(0);
-  msgs_combo->setCurrentIndex(-1);
-
+  QObject::connect(src_combo, qOverload<int>(&QComboBox::currentIndexChanged), this, &SignalSelector::sourceChanged);
   QObject::connect(msgs_combo, qOverload<int>(&QComboBox::currentIndexChanged), this, &SignalSelector::updateAvailableList);
   QObject::connect(available_list, &QListWidget::currentRowChanged, [=](int row) { add_btn->setEnabled(row != -1); });
   QObject::connect(selected_list, &QListWidget::currentRowChanged, [=](int row) { remove_btn->setEnabled(row != -1); });
@@ -61,6 +58,19 @@ SignalSelector::SignalSelector(QString title, QWidget *parent) : QDialog(parent)
   QObject::connect(remove_btn, &QPushButton::clicked, [this]() { if (auto item = selected_list->currentItem()) remove(item); });
   QObject::connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
   QObject::connect(buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+}
+
+void SignalSelector::sourceChanged(int index) {
+  uint8_t source = src_combo->currentSource();
+  for (auto it = can->last_msgs.cbegin(); it != can->last_msgs.cend(); ++it) {
+    if (it.key().source == source) {
+      if (auto m = dbc()->msg(it.key())) {
+        msgs_combo->addItem(QString("%1 (%2)").arg(m->name).arg(it.key().toString()), QVariant::fromValue(it.key()));
+      }
+    }
+  }
+  msgs_combo->model()->sort(0);
+  msgs_combo->setCurrentIndex(-1);
 }
 
 void SignalSelector::add(QListWidgetItem *item) {

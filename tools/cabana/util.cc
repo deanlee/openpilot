@@ -131,6 +131,24 @@ void MessageBytesDelegate::paint(QPainter *painter, const QStyleOptionViewItem &
   painter->setPen(old_pen);
 }
 
+// SourceComboBox
+
+SourceComboBox::SourceComboBox(QWidget *parent) : QComboBox(parent) {
+  updateSources(can->sources);
+  QObject::connect(can, &AbstractStream::sourcesUpdated, this, &SourceComboBox::updateSources);
+}
+
+void SourceComboBox::updateSources(const SourceSet &sources) {
+  clear();
+  QList<uint8_t> sorted_sources = sources.toList();
+  std::sort(sorted_sources.begin(), sorted_sources.end());
+  for (int i = 0; i < sorted_sources.size(); ++i) {
+    addItem(QString::number(sorted_sources[i]), sorted_sources[i]);
+  }
+  setCurrentIndex(0);
+  qDebug() << "here";
+}
+
 QColor getColor(const cabana::Signal *sig) {
   float h = 19 * (float)sig->lsb / 64.0;
   h = fmod(h, 1.0);

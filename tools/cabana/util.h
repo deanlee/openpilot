@@ -5,8 +5,9 @@
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QByteArray>
-#include <QDateTime>
 #include <QColor>
+#include <QComboBox>
+#include <QDateTime>
 #include <QFont>
 #include <QRegExpValidator>
 #include <QStringBuilder>
@@ -16,6 +17,7 @@
 
 #include "tools/cabana/dbc/dbc.h"
 #include "tools/cabana/settings.h"
+#include "tools/cabana/streams/abstractstream.h"
 
 class LogSlider : public QSlider {
   Q_OBJECT
@@ -120,6 +122,14 @@ private:
   void updateIcon() { if (std::exchange(theme, settings.theme) != theme) setIcon(icon_str); }
   QString icon_str;
   int theme;
+};
+
+class SourceComboBox : public QComboBox {
+  Q_OBJECT
+public:
+  SourceComboBox(QWidget *parent);
+  inline int currentSource() const { return currentIndex() != -1 ? currentData().toInt() : -1; }
+  void updateSources(const SourceSet &sources);
 };
 
 int num_decimals(double num);

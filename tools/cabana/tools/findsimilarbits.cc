@@ -1,8 +1,8 @@
 #include "tools/cabana/tools/findsimilarbits.h"
 
 #include <QGridLayout>
-#include <QHeaderView>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QIntValidator>
 #include <QLabel>
 #include <QPushButton>
@@ -16,29 +16,9 @@ FindSimilarBitsDlg::FindSimilarBitsDlg(QWidget *parent) : QDialog(parent, Qt::Wi
   setAttribute(Qt::WA_DeleteOnClose);
 
   QVBoxLayout *main_layout = new QVBoxLayout(this);
-
   QHBoxLayout *src_layout = new QHBoxLayout();
-  src_bus_combo = new QComboBox(this);
-  find_bus_combo = new QComboBox(this);
-  SourceSet bus_set;
-  for (auto it = can->last_msgs.begin(); it != can->last_msgs.end(); ++it) {
-    bus_set << it.key().source;
-  }
-  for (auto cb : {src_bus_combo, find_bus_combo}) {
-    for (uint8_t bus : bus_set) {
-      cb->addItem(QString::number(bus), bus);
-    }
-    cb->model()->sort(0);
-    cb->setCurrentIndex(0);
-  }
-
-  msg_cb = new QComboBox(this);
-  // TODO: update when src_bus_combo changes
-  for (auto &[id, msg] : dbc()->getMessages(0)) {
-    msg_cb->addItem(msg.name, id.address);
-  }
-  msg_cb->model()->sort(0);
-  msg_cb->setCurrentIndex(0);
+  src_bus_combo = new SourceComboBox(this);
+  find_bus_combo = new SourceComboBox(this);
 
   byte_idx_sb = new QSpinBox(this);
   byte_idx_sb->setFixedWidth(50);
@@ -50,7 +30,7 @@ FindSimilarBitsDlg::FindSimilarBitsDlg(QWidget *parent) : QDialog(parent, Qt::Wi
 
   src_layout->addWidget(new QLabel(tr("Bus")));
   src_layout->addWidget(src_bus_combo);
-  src_layout->addWidget(msg_cb);
+  src_layout->addWidget(msg_cb = new QComboBox(this));
   src_layout->addWidget(new QLabel(tr("Byte Index")));
   src_layout->addWidget(byte_idx_sb);
   src_layout->addWidget(new QLabel(tr("Bit Index")));
@@ -88,13 +68,32 @@ FindSimilarBitsDlg::FindSimilarBitsDlg(QWidget *parent) : QDialog(parent, Qt::Wi
   main_layout->addWidget(table);
 
   setMinimumSize({700, 500});
+  setCurrentSource(src_bus_combo->currentSource());
   QObject::connect(search_btn, &QPushButton::clicked, this, &FindSimilarBitsDlg::find);
+  QObject::connect(src_bus_combo, qOverload<int>(&QComboBox::activated), this, &FindSimilarBitsDlg::setCurrentSource);
   QObject::connect(table, &QTableWidget::doubleClicked, [this](const QModelIndex &index) {
     if (index.isValid()) {
       MessageId msg_id = {.source = (uint8_t)find_bus_combo->currentData().toUInt(), .address = table->item(index.row(), 0)->text().toUInt(0, 16)};
       emit openMessage(msg_id);
     }
   });
+}
+
+void FindSimilarBitsDlg::setCurrentSource(int index) {
+  if (index == -1) {
+    return;
+  }
+  msg_cb->clear();
+  uint8_t source = src_bus_combo->currentSource();
+  for (auto it = can->last_msgs.cbegin(); it != can->last_msgs.cend(); ++it) {
+    if (it.key().source == source) {
+      if (auto msg = dbc()->msg(it.key())) {
+        msg_cb->addItem(msg->name, it.key().address);
+      }
+    }
+  }
+  msg_cb->model()->sort(0);
+  msg_cb->setCurrentIndex(0);
 }
 
 void FindSimilarBitsDlg::find() {

@@ -5,6 +5,7 @@
 #include <QListWidget>
 
 #include "tools/cabana/dbc/dbcmanager.h"
+#include "tools/cabana/util.h"
 
 class SignalSelector : public QDialog {
 public:
@@ -23,7 +24,9 @@ private:
   void addItemToList(QListWidget *parent, const MessageId id, const cabana::Signal *sig, bool show_msg_name = false);
   void add(QListWidgetItem *item);
   void remove(QListWidgetItem *item);
+  void sourceChanged(int index);
 
+  SourceComboBox *src_combo;
   QComboBox *msgs_combo;
   QListWidget *available_list;
   QListWidget *selected_list;
