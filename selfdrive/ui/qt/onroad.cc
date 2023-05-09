@@ -295,7 +295,7 @@ QPixmap AnnotatedCameraWidget::drawMaxSpeed(int width) {
   // Draw outer box + border to contain set speed and speed limit
   QString setSpeedStr = is_cruise_set ? QString::number(std::nearbyint(setSpeed)) : "–";
   int top_radius = 32;
-  int bottom_radius = has_eu_speed_limit ? 100 : 32;
+  int bottom_radius = has_eu_speed_limit ? 100 : top_radius;
 
   QPixmap pixmap(width, 204);
   pixmap.fill(Qt::transparent);
@@ -442,8 +442,6 @@ QPixmap AnnotatedCameraWidget::drawUSSpeedLimit(int rect_width) {
 }
 
 void AnnotatedCameraWidget::drawHud(QPainter &p) {
-  p.save();
-
   // Header gradient
   QLinearGradient bg(0, header_h - (header_h / 2.5), 0, header_h);
   bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
@@ -501,7 +499,6 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
     QPixmapCache::insert(cache_key, pixmap);
   }
   p.drawPixmap(rect().center().x() - pixmap.width() / 2, 45, pixmap);
-  p.restore();
 }
 
 
