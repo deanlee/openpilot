@@ -51,11 +51,15 @@ QMap<QString, QString> getSupportedLanguages() {
   return map;
 }
 
-void configFont(QPainter &p, const QString &family, int size, const QString &style) {
+QFont getFont(int size, const QString &style, const QString &family) {
   QFont f(family);
   f.setPixelSize(size);
   f.setStyleName(style);
-  p.setFont(f);
+  return f;
+}
+
+void configFont(QPainter &p, const QString &family, int size, const QString &style) {
+  p.setFont(getFont(size, style, family));
 }
 
 void clearLayout(QLayout* layout) {

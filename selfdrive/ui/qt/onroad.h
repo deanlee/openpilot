@@ -91,6 +91,10 @@ private:
   bool wide_cam_requested = false;
 
 protected:
+  QPixmap drawMaxSpeed();
+  QPixmap drawCurrentSpeed();
+  QPixmap drawUSSpeedLimit(int rect_width);
+  QPixmap drawEUSpeedLimit();
   void paintGL() override;
   void initializeGL() override;
   void showEvent(QShowEvent *event) override;

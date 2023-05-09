@@ -15,6 +15,7 @@ QString getUserAgent();
 std::optional<QString> getDongleId();
 QMap<QString, QString> getSupportedLanguages();
 void configFont(QPainter &p, const QString &family, int size, const QString &style);
+QFont getFont(int size, const QString &style = "Regular", const QString &family = "Inter");
 void clearLayout(QLayout* layout);
 void setQtSurfaceFormat();
 void sigTermHandler(int s);
