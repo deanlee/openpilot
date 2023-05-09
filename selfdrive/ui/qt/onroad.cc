@@ -293,21 +293,17 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
 
 QPixmap AnnotatedCameraWidget::drawMaxSpeed(int width) {
   // Draw outer box + border to contain set speed and speed limit
-  QString speedLimitStr = (speedLimit > 1) ? QString::number(std::nearbyint(speedLimit)) : "–";
-  QString speedStr = QString::number(std::nearbyint(speed));
   QString setSpeedStr = is_cruise_set ? QString::number(std::nearbyint(setSpeed)) : "–";
-  int rect_height = 204;
   int top_radius = 32;
   int bottom_radius = has_eu_speed_limit ? 100 : 32;
 
-  QRect set_speed_rect(0, 0, width, rect_height);
-  QPixmap pixmap(set_speed_rect.size());
+  QPixmap pixmap(width, 204);
   pixmap.fill(Qt::transparent);
   QPainter p(&pixmap);
   p.setRenderHint(QPainter::Antialiasing);
   p.setPen(QPen(whiteColor(75), 6));
   p.setBrush(blackColor(166));
-  drawRoundedRect(p, set_speed_rect.adjusted(3, 3, -3, -3), top_radius, top_radius, bottom_radius, bottom_radius);
+  drawRoundedRect(p, pixmap.rect().adjusted(3, 3, -3, -3), top_radius, top_radius, bottom_radius, bottom_radius);
 
   // Draw MAX
   if (is_cruise_set) {
@@ -328,8 +324,8 @@ QPixmap AnnotatedCameraWidget::drawMaxSpeed(int width) {
   }
   configFont(p, "Inter", 40, "SemiBold");
   QRect max_rect = getTextRect(p, Qt::AlignCenter, tr("MAX"));
-  max_rect.moveCenter({set_speed_rect.center().x(), 0});
-  max_rect.moveTop(set_speed_rect.top() + 27);
+  max_rect.moveCenter({pixmap.rect().center().x(), 0});
+  max_rect.moveTop(pixmap.rect().top() + 27);
   p.drawText(max_rect, Qt::AlignCenter, tr("MAX"));
 
   // Draw set speed
@@ -347,8 +343,8 @@ QPixmap AnnotatedCameraWidget::drawMaxSpeed(int width) {
   }
   configFont(p, "Inter", 90, "Bold");
   QRect speed_rect = getTextRect(p, Qt::AlignCenter, setSpeedStr);
-  speed_rect.moveCenter({set_speed_rect.center().x(), 0});
-  speed_rect.moveTop(set_speed_rect.top() + 77);
+  speed_rect.moveCenter({pixmap.rect().center().x(), 0});
+  speed_rect.moveTop(pixmap.rect().top() + 77);
   p.drawText(speed_rect, Qt::AlignCenter, setSpeedStr);
   return pixmap;
 }
@@ -459,14 +455,9 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   QString setSpeedStr = is_cruise_set ? QString::number(std::nearbyint(setSpeed)) : "–";
 
   // Draw outer box + border to contain set speed and speed limit
-  int default_rect_width = 172;
-  int rect_width = default_rect_width;
+  int rect_width = 172;
   if (is_metric || has_eu_speed_limit) rect_width = 200;
   if (has_us_speed_limit && speedLimitStr.size() >= 3) rect_width = 223;
-
-  int rect_height = 204;
-  if (has_us_speed_limit) rect_height = 402;
-  else if (has_eu_speed_limit) rect_height = 392;
 
   // Draw MAX
   QString cache_key = QString("max_speed_%1_%2_%3_%4").arg(is_cruise_set).arg(status).arg(setSpeedStr).arg(speedLimit);
@@ -482,7 +473,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   // US/Canada (MUTCD style) sign
   speedLimit = 60;
   QPixmap pixmap;
-  if (true) { //(has_us_speed_limit) {
+  if (true) { //has_us_speed_limit) {
     speedLimitStr = "60";
     cache_key = QString("us_speed_limit_%1").arg(speedLimitStr);
     if (!QPixmapCache::find(cache_key, &pixmap)) {
@@ -516,14 +507,6 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
 
 // Window that shows camera view and variety of
 // info drawn on top
-
-void AnnotatedCameraWidget::drawText(QPainter &p, int x, int y, const QString &text, int alpha) {
-  QRect real_rect = getTextRect(p, 0, text);
-  real_rect.moveCenter({x, y - real_rect.height() / 2});
-
-  p.setPen(QColor(0xff, 0xff, 0xff, alpha));
-  p.drawText(real_rect.x(), real_rect.bottom(), text);
-}
 
 void AnnotatedCameraWidget::drawIcon(QPainter &p, int x, int y, QPixmap &img, QBrush bg, float opacity) {
   p.setOpacity(1.0);  // bg dictates opacity of ellipse
