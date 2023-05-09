@@ -91,7 +91,7 @@ private:
   bool wide_cam_requested = false;
 
 protected:
-  QPixmap drawMaxSpeed();
+  QPixmap drawMaxSpeed(int width);
   QPixmap drawCurrentSpeed();
   QPixmap drawUSSpeedLimit(int rect_width);
   QPixmap drawEUSpeedLimit();
