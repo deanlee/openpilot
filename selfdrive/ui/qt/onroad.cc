@@ -314,6 +314,7 @@ QPixmap AnnotatedCameraWidget::drawMaxSpeed() {
   QPixmap pixmap(set_speed_rect.size());
   pixmap.fill(Qt::transparent);
   QPainter p(&pixmap);
+  p.setRenderHint(QPainter::Antialiasing);
   p.setPen(QPen(whiteColor(75), 6));
   p.setBrush(blackColor(166));
   drawRoundedRect(p, set_speed_rect, top_radius, top_radius, bottom_radius, bottom_radius);
@@ -369,9 +370,10 @@ QPixmap AnnotatedCameraWidget::drawEUSpeedLimit() {
   int inner_radius_2 = inner_radius_1 - 20;  // Red circle
   QString speedLimitStr = (speedLimit > 1) ? QString::number(std::nearbyint(speedLimit)) : "–";
 
-  QPixmap pixmap(outer_radius, outer_radius);
+  QPixmap pixmap(outer_radius * 2, outer_radius * 2);
   pixmap.fill(Qt::transparent);
   QPainter p(&pixmap);
+  p.setRenderHint(QPainter::Antialiasing);
   // Draw white circle with red border
   QPoint center(outer_radius / 2, outer_radius / 2);
   p.setPen(Qt::NoPen);
@@ -402,6 +404,7 @@ QPixmap AnnotatedCameraWidget::drawCurrentSpeed() {
   QPixmap pixmap(r.size());
   pixmap.fill(Qt::transparent);
   QPainter p(&pixmap);
+  p.setRenderHint(QPainter::Antialiasing);
   p.setPen(QColor(0xff, 0xff, 0xff, 200));
   p.setFont(speed_font);
   p.drawText(r, Qt::AlignHCenter | Qt::AlignTop, speedStr);
@@ -419,6 +422,7 @@ QPixmap AnnotatedCameraWidget::drawUSSpeedLimit(int rect_width) {
   QPixmap pixmap(sign_width, sign_height);
   pixmap.fill(Qt::transparent);
   QPainter p(&pixmap);
+  p.setRenderHint(QPainter::Antialiasing);
   // White outer square
   QRect sign_rect_outer(0, 0, sign_width, sign_height);
   p.setPen(Qt::NoPen);
