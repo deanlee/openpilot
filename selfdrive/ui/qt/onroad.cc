@@ -301,6 +301,7 @@ QPixmap AnnotatedCameraWidget::drawMaxSpeed(int width) {
   pixmap.fill(Qt::transparent);
   QPainter p(&pixmap);
   p.setRenderHint(QPainter::Antialiasing);
+
   p.setPen(QPen(whiteColor(75), 6));
   p.setBrush(blackColor(166));
   drawRoundedRect(p, pixmap.rect().adjusted(3, 3, -3, -3), top_radius, top_radius, bottom_radius, bottom_radius);
@@ -323,10 +324,7 @@ QPixmap AnnotatedCameraWidget::drawMaxSpeed(int width) {
     p.setPen(QColor(0xa6, 0xa6, 0xa6, 0xff));
   }
   configFont(p, "Inter", 40, "SemiBold");
-  QRect max_rect = getTextRect(p, Qt::AlignCenter, tr("MAX"));
-  max_rect.moveCenter({pixmap.rect().center().x(), 0});
-  max_rect.moveTop(pixmap.rect().top() + 27);
-  p.drawText(max_rect, Qt::AlignCenter, tr("MAX"));
+  p.drawText(pixmap.rect().adjusted(0, 27, 0, 0), Qt::AlignTop | Qt::AlignHCenter, tr("MAX"));
 
   // Draw set speed
   if (is_cruise_set) {
@@ -342,10 +340,7 @@ QPixmap AnnotatedCameraWidget::drawMaxSpeed(int width) {
     p.setPen(QColor(0x72, 0x72, 0x72, 0xff));
   }
   configFont(p, "Inter", 90, "Bold");
-  QRect speed_rect = getTextRect(p, Qt::AlignCenter, setSpeedStr);
-  speed_rect.moveCenter({pixmap.rect().center().x(), 0});
-  speed_rect.moveTop(pixmap.rect().top() + 77);
-  p.drawText(speed_rect, Qt::AlignCenter, setSpeedStr);
+  p.drawText(pixmap.rect().adjusted(0, 77, 0, 0), Qt::AlignTop | Qt::AlignHCenter, setSpeedStr);
   return pixmap;
 }
 
