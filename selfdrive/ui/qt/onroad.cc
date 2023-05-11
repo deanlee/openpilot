@@ -466,7 +466,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   // US/Canada (MUTCD style) sign
   speedLimit = 60;
   QPixmap pixmap;
-  if (true) { //has_us_speed_limit) {
+  if (has_us_speed_limit) {
     speedLimitStr = "60";
     cache_key = QString("us_speed_limit_%1").arg(speedLimitStr);
     if (!QPixmapCache::find(cache_key, &pixmap)) {
@@ -477,7 +477,7 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   }
 
   // EU (Vienna style) sign
-  if (true) { //(has_eu_speed_limit) {
+  if (has_eu_speed_limit) {
     speedLimitStr = "60";
     cache_key = QString("eu_speed_limit_%1").arg(speedLimitStr);
     if (!QPixmapCache::find(cache_key, &pixmap)) {
