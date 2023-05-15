@@ -19,37 +19,75 @@ QVariant FindSignalModel::headerData(int section, Qt::Orientation orientation, i
 
 QVariant FindSignalModel::data(const QModelIndex &index, int role) const {
   if (role == Qt::DisplayRole) {
-    const auto &s = filtered_signals[index.row()];
-    switch (index.column()) {
-      case 0: return s.id.toString();
-      case 1: return QString("%1, %2").arg(s.sig.start_bit).arg(s.sig.size);
-      case 2: return s.values.join(" ");
+    if (!index.parent().isValid()) {
+      // const auto &s = filtered_signals[index.row()];
+      auto &item = filtered_signals[index.row()];
+      switch (index.column()) {
+        case 0: return item.id.toString();
+        case 1: return item.sigs.size(); //QString("%1, %2").arg(s.sig.start_bit).arg(s.sig.size);
+      }
+    } else {
+      auto &item = filtered_signals[index.internalId() - 1];
+      auto &s = item.sigs[index.row()];
+      switch (index.column()) {
+        case 0: return QString("%1, %2").arg(s.sig.start_bit).arg(s.sig.size);
+        case 1: return s.values.join(" ");
+      }
     }
   }
   return {};
 }
 
+int FindSignalModel::rowCount(const QModelIndex &parent) const {
+  if (!parent.isValid()) {
+    return std::min(filtered_signals.size(), 300);
+  } else {
+    if (parent.column() > 0 || parent.internalId() > 0) {
+      return 0;
+    }
+    return filtered_signals[parent.row()].sigs.size();
+  }
+}
+
+QModelIndex FindSignalModel::index(int row, int column, const QModelIndex &parent) const {
+  if (parent.isValid()) {
+    return createIndex(row, column, parent.row() + 1);
+  } 
+  return createIndex(row, column);
+}
+
+QModelIndex FindSignalModel::parent(const QModelIndex &index) const{
+  if (!index.isValid()) return {};
+  return index.internalId() > 0 ? createIndex(index.internalId() - 1, 0) : QModelIndex();
+}
+
 void FindSignalModel::search(std::function<bool(double)> cmp) {
   beginResetModel();
 
-  std::mutex lock;
-  const auto prev_sigs = !histories.isEmpty() ? histories.back() : initial_signals;
+  const auto prev_items = !histories.isEmpty() ? histories.back() : initial_signals;
   filtered_signals.clear();
-  filtered_signals.reserve(prev_sigs.size());
-  QtConcurrent::blockingMap(prev_sigs, [&](auto &s) {
-    const auto &events = can->events(s.id);
-    auto first = std::upper_bound(events.cbegin(), events.cend(), s.mono_time, [](uint64_t ts, auto &e) { return ts < e->mono_time; });
+  std::mutex lock;
+  QtConcurrent::blockingMap(prev_items, [&](auto &item) {
+    const auto &events = can->events(item.id);
     auto last = events.cend();
     if (last_time < std::numeric_limits<uint64_t>::max()) {
       last = std::upper_bound(events.cbegin(), events.cend(), last_time, [](uint64_t ts, auto &e) { return ts < e->mono_time; });
     }
 
-    auto it = std::find_if(first, last, [&](const CanEvent *e) { return cmp(get_raw_value(e->dat, e->size, s.sig)); });
-    if (it != last) {
-      auto values = s.values;
-      values += QString("(%1, %2)").arg((*it)->mono_time / 1e9 - can->routeStartTime(), 0, 'f', 2).arg(get_raw_value((*it)->dat, (*it)->size, s.sig));
-      std::lock_guard lk(lock);
-      filtered_signals.push_back({.id = s.id, .mono_time = (*it)->mono_time, .sig = s.sig, .values = values});
+
+    lock.lock();
+    filtered_signals.push_back({.id = item.id});
+    lock.unlock();
+    auto &new_item = filtered_signals.back();
+    for (auto &s : item.sigs) {
+      auto first = std::upper_bound(events.cbegin(), events.cend(), s.mono_time, [](uint64_t ts, auto &e) { return ts < e->mono_time; });
+
+      auto it = std::find_if(first, last, [&](const CanEvent *e) { return cmp(get_raw_value(e->dat, e->size, s.sig)); });
+      if (it != last) {
+        auto values = s.values;
+        values.push_front(QString("(%1, %2)").arg((*it)->mono_time / 1e9 - can->routeStartTime(), 0, 'f', 2).arg(get_raw_value((*it)->dat, (*it)->size, s.sig)));
+        new_item.sigs.push_back({.id = s.id, .mono_time = (*it)->mono_time, .sig = s.sig, .values = values});
+      }
     }
   });
   histories.push_back(filtered_signals);
@@ -144,10 +182,11 @@ FindSignalDlg::FindSignalDlg(QWidget *parent) : QDialog(parent, Qt::WindowFlags(
     edit->setValidator(double_validator);
   }
 
-  vlayout->addWidget(view = new QTableView(this));
+  vlayout->addWidget(view = new QTreeView(this));
   view->setContextMenuPolicy(Qt::CustomContextMenu);
-  view->horizontalHeader()->setStretchLastSection(true);
-  view->horizontalHeader()->setSelectionMode(QAbstractItemView::NoSelection);
+  view->setExpandsOnDoubleClick(false);
+  // view->horizontalHeader()->setStretchLastSection(true);
+  // view->horizontalHeader()->setSelectionMode(QAbstractItemView::NoSelection);
   view->setSelectionBehavior(QAbstractItemView::SelectRows);
   view->setModel(model = new FindSignalModel(this));
 
@@ -163,10 +202,10 @@ FindSignalDlg::FindSignalDlg(QWidget *parent) : QDialog(parent, Qt::WindowFlags(
   QObject::connect(undo_btn, &QPushButton::clicked, model, &FindSignalModel::undo);
   QObject::connect(model, &QAbstractItemModel::modelReset, this, &FindSignalDlg::modelReset);
   QObject::connect(reset_btn, &QPushButton::clicked, model, &FindSignalModel::reset);
-  QObject::connect(view, &QTableView::customContextMenuRequested, this, &FindSignalDlg::customMenuRequested);
-  QObject::connect(view, &QTableView::doubleClicked, [this](const QModelIndex &index) {
-    if (index.isValid()) emit openMessage(model->filtered_signals[index.row()].id);
-  });
+  QObject::connect(view, &QTreeView::customContextMenuRequested, this, &FindSignalDlg::customMenuRequested);
+  // QObject::connect(view, &QTableView::doubleClicked, [this](const QModelIndex &index) {
+    // if (index.isValid()) emit openMessage(model->filtered_signals[index.row()].id);
+  // });
   QObject::connect(compare_cb, qOverload<int>(&QComboBox::currentIndexChanged), [=](int index) {
     to_label->setVisible(index == compare_cb->count() - 1);
     value2->setVisible(index == compare_cb->count() - 1);
@@ -226,16 +265,19 @@ void FindSignalDlg::setInitialSignals() {
 
   for (auto it = can->last_msgs.cbegin(); it != can->last_msgs.cend(); ++it) {
     if (buses.isEmpty() || buses.contains(it.key().source) && (addresses.isEmpty() || addresses.contains(it.key().address))) {
-      const auto &events = can->events(it.key());
+      model->initial_signals.push_back({});
+      auto &item = model->initial_signals.back();
+      item.id = it.key();
+      const auto &events = can->events(item.id);
       auto e = std::lower_bound(events.cbegin(), events.cend(), first_time, [](auto e, uint64_t ts) { return e->mono_time < ts; });
       if (e != events.cend()) {
         const int total_size = it.value().dat.size() * 8;
         for (int size = min_size->value(); size <= max_size->value(); ++size) {
           for (int start = 0; start <= total_size - size; ++start) {
-            FindSignalModel::SearchSignal s{.id = it.key(), .mono_time = first_time, .sig = sig};
+            FindSignalModel::SearchSignal s{.id = item.id, .mono_time = first_time, .sig = sig};
             updateSigSizeParamsFromRange(s.sig, start, size);
             s.value = get_raw_value((*e)->dat, (*e)->size, s.sig);
-            model->initial_signals.push_back(s);
+            item.sigs.push_back(s);
           }
         }
       }
@@ -255,19 +297,19 @@ void FindSignalDlg::modelReset() {
 }
 
 void FindSignalDlg::customMenuRequested(const QPoint &pos) {
-  if (auto index = view->indexAt(pos); index.isValid()) {
-    QMenu menu(this);
-    menu.addAction(tr("Create Signal"));
-    if (menu.exec(view->mapToGlobal(pos))) {
-      auto &s = model->filtered_signals[index.row()];
-      auto msg = dbc()->msg(s.id);
-      if (!msg) {
-        UndoStack::push(new EditMsgCommand(s.id, dbc()->newMsgName(s.id), can->lastMessage(s.id).dat.size()));
-        msg = dbc()->msg(s.id);
-      }
-      s.sig.name = dbc()->newSignalName(s.id);
-      UndoStack::push(new AddSigCommand(s.id, s.sig));
-      emit openMessage(s.id);
-    }
-  }
+  // if (auto index = view->indexAt(pos); index.isValid()) {
+  //   QMenu menu(this);
+  //   menu.addAction(tr("Create Signal"));
+  //   if (menu.exec(view->mapToGlobal(pos))) {
+  //     auto &s = model->filtered_signals.keys()[index.row()];
+  //     auto msg = dbc()->msg(s.id);
+  //     if (!msg) {
+  //       UndoStack::push(new EditMsgCommand(s.id, dbc()->newMsgName(s.id), can->lastMessage(s.id).dat.size()));
+  //       msg = dbc()->msg(s.id);
+  //     }
+  //     s.sig.name = dbc()->newSignalName(s.id);
+  //     UndoStack::push(new AddSigCommand(s.id, s.sig));
+  //     emit openMessage(s.id);
+  //   }
+  // }
 }

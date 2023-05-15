@@ -3,7 +3,7 @@
 #include <QAbstractTableModel>
 #include <QLabel>
 #include <QPushButton>
-#include <QTableView>
+#include <QTreeView>
 
 #include "tools/cabana/commands.h"
 #include "tools/cabana/settings.h"
@@ -18,18 +18,29 @@ public:
     QStringList values;
   };
 
+  struct Item {
+    MessageId id;
+    QList<SearchSignal> sigs;
+  };
+
   FindSignalModel(QObject *parent) : QAbstractTableModel(parent) {}
   QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+  QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
   QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-  int columnCount(const QModelIndex &parent = QModelIndex()) const override { return 3; }
-  int rowCount(const QModelIndex &parent = QModelIndex()) const override { return std::min(filtered_signals.size(), 300); }
+  QModelIndex parent(const QModelIndex &index) const override;
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override { return 2; }
+  Qt::ItemFlags flags(const QModelIndex &index) const {
+    if (!index.isValid()) return Qt::NoItemFlags;
+    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+  }
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override;
   void search(std::function<bool(double)> cmp);
   void reset();
   void undo();
 
-  QList<SearchSignal> filtered_signals;
-  QList<SearchSignal> initial_signals;
-  QList<QList<SearchSignal>> histories;
+  QList<Item> filtered_signals;
+  QList<Item> initial_signals;
+  QList<QList<Item>> histories;
   uint64_t last_time = std::numeric_limits<uint64_t>::max();
 };
 
@@ -54,7 +65,7 @@ private:
   QCheckBox *litter_endian, *is_signed;
   QPushButton *search_btn, *reset_btn, *undo_btn;
   QGroupBox *properties_group, *message_group;
-  QTableView *view;
+  QTreeView *view;
   QLabel *to_label, *stats_label;
   FindSignalModel *model;
 };
