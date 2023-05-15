@@ -90,7 +90,8 @@ void FindSignalModel::search(std::function<bool(double)> cmp) {
     }
     std::lock_guard lk(lock);
     if (items.size() > 0) {
-      auto i = new Item{}
+      auto i = new Item{.parent = &filtered_signals, .id=item->id, .children = items};
+      filtered_signals.children.push_back(i);
     }
   });
   // if (histories.size() == 0) {
@@ -120,8 +121,8 @@ void FindSignalModel::undo() {
 void FindSignalModel::reset() {
   beginResetModel();
   histories.clear();
-  filtered_signals.clear();
-  initial_signals.clear();
+  filtered_signals = {};
+  initial_signals = {};
   endResetModel();
 }
 
