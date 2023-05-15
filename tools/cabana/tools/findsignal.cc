@@ -20,16 +20,16 @@ QVariant FindSignalModel::headerData(int section, Qt::Orientation orientation, i
 QVariant FindSignalModel::data(const QModelIndex &index, int role) const {
   if (role == Qt::DisplayRole) {
     if (!index.parent().isValid()) {
-      const auto it = filtered_signals.cbegin() + index.row();
+      auto item = (Item*)index.internalPointer();
       switch (index.column()) {
-        case 0: return it.key().toString();
-        case 1: return it.value().size();
+        case 0: return item->id.toString();
+        case 1: return item->children.size();
       }
     } else {
-      SearchSignal *sig = (SearchSignal*)index.internalPointer();
+      auto item = (Item*)index.internalPointer();
       switch (index.column()) {
-        case 0: return QString("%1, %2").arg(sig->sig.start_bit).arg(sig->sig.size);
-        case 1: return sig->values.join(" ");
+        case 0: return QString("%1, %2").arg(item->sig.start_bit).arg(item->sig.size);
+        case 1: return item->values.join(" ");
       }
     }
   }
@@ -40,48 +40,57 @@ int FindSignalModel::rowCount(const QModelIndex &parent) const {
   if (!parent.isValid()) {
     return std::min(filtered_signals.size(), 300);
   } else {
-    if (parent.column() > 0 || parent.internalPointer()) {
+    auto p = (Item*)parent.internalPointer();
+    if (parent.column() > 0 || p->parent != nullptr) {
       return 0;
     }
-    return (filtered_signals.begin() + parent.row()).value().size();
+    return p.children.size();
   }
 }
 
 QModelIndex FindSignalModel::index(int row, int column, const QModelIndex &parent) const {
   if (parent.isValid()) {
-    auto it = filtered_signals.begin() + parent.row();
-    return createIndex(row, column, (void*)(&(it.value()[row])));
+    auto p = (Item*)parent.internalPointer();
+    return createIndex(row, column, p->cihldren[row]);
   }
-  return createIndex(row, column, nullptr);
+  return createIndex(row, column, &(filtered_signals.children[row]));
 }
 
 QModelIndex FindSignalModel::parent(const QModelIndex &index) const{
   if (!index.isValid()) return {};
-  SearchSignal *sig = (SearchSignal*)index.internalPointer();
-  return sig ? createIndex(std::distance(filtered_signals.begin(), filtered_signals.find(sig->id)), 0) : QModelIndex();
+
+  auto item = (Item*)index.internalPointer();
+  return item->parent && item->parent != &filtered_signals ? createIndex(item->parent.children.indexOf(item), 0, item->parent) : QModelIndex();
 }
 
 void FindSignalModel::search(std::function<bool(double)> cmp) {
   const auto prev_items = !histories.isEmpty() ? histories.back() : initial_signals;
-  filtered_signals.clear();
+  filtered_signals = Item{};
   std::mutex lock;
-  auto keys = prev_items.keys();
-  QtConcurrent::blockingMap(keys, [&](auto &key) {
-    const auto &events = can->events(key);
+  QtConcurrent::blockingMap(prev_items.children, [&](auto item) {
+    const auto &events = can->events(item->id);
     auto last = events.cend();
     if (last_time < std::numeric_limits<uint64_t>::max()) {
       last = std::upper_bound(events.cbegin(), events.cend(), last_time, [](uint64_t ts, auto &e) { return ts < e->mono_time; });
     }
 
-    for (const auto &s : prev_items[key]) {
-      auto first = std::upper_bound(events.cbegin(), events.cend(), s.mono_time, [](uint64_t ts, auto &e) { return ts < e->mono_time; });
-      auto it = std::find_if(first, last, [&](const CanEvent *e) { return cmp(get_raw_value(e->dat, e->size, s.sig)); });
+    QList<Item*> items;
+    for (auto s : item->children) {
+      auto first = std::upper_bound(events.cbegin(), events.cend(), s->mono_time, [](uint64_t ts, auto &e) { return ts < e->mono_time; });
+      auto it = std::find_if(first, last, [&](const CanEvent *e) { return cmp(get_raw_value(e->dat, e->size, s->sig)); });
       if (it != last) {
-        auto values = s.values;
-        values.push_front(QString("(%1, %2)").arg((*it)->mono_time / 1e9 - can->routeStartTime(), 0, 'f', 2).arg(get_raw_value((*it)->dat, (*it)->size, s.sig)));
-        std::lock_guard lk(lock);
-        filtered_signals[s.id].push_back({.id = s.id, .mono_time = (*it)->mono_time, .sig = s.sig, .values = values});
+        auto i = new Item{};
+        *i = *s;
+        i->values.push_front(QString("(%1, %2)").arg((*it)->mono_time / 1e9 - can->routeStartTime(), 0, 'f', 2).arg(get_raw_value((*it)->dat, (*it)->size, s->sig)));
+        items.push_back(i);
+        // std::lock_guard lk(lock);
+        // filtered_signals[s.id].push_back({.id = s.id, .mono_time = (*it)->mono_time, .sig = s.sig, .values = values});
+
       }
+    }
+    std::lock_guard lk(lock);
+    if (items.size() > 0) {
+      auto i = new Item{}
     }
   });
   // if (histories.size() == 0) {
@@ -264,7 +273,7 @@ void FindSignalDlg::setInitialSignals() {
   if (last_sec > 0) {
     model->last_time = (can->routeStartTime() + last_sec) * 1e9;
   }
-  model->initial_signals.clear();
+  model->initial_signals = Item{};
 
   for (auto it = can->last_msgs.cbegin(); it != can->last_msgs.cend(); ++it) {
     if (buses.isEmpty() || buses.contains(it.key().source) && (addresses.isEmpty() || addresses.contains(it.key().address))) {
@@ -272,12 +281,14 @@ void FindSignalDlg::setInitialSignals() {
       auto e = std::lower_bound(events.cbegin(), events.cend(), first_time, [](auto e, uint64_t ts) { return e->mono_time < ts; });
       if (e != events.cend()) {
         const int total_size = it.value().dat.size() * 8;
+        auto msg_item = new Item{.id=it.key(), .parent = &(model->initial_signals)};
+        model->initial_signals->children.push_back(msg_item);
         for (int size = min_size->value(); size <= max_size->value(); ++size) {
           for (int start = 0; start <= total_size - size; ++start) {
-            FindSignalModel::SearchSignal s{.id = it.key(), .mono_time = first_time, .sig = sig};
+            auto item = new Item{.id=it.key(), .parent = msg_item, .mono_time=first_time, .sig=sig};
             updateSigSizeParamsFromRange(s.sig, start, size);
             s.value = get_raw_value((*e)->dat, (*e)->size, s.sig);
-            model->initial_signals[s.id].push_back(s);
+            msg_item.children.push_back(item);
           }
         }
       }
