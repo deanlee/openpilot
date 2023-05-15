@@ -19,14 +19,13 @@ QVariant FindSignalModel::headerData(int section, Qt::Orientation orientation, i
 
 QVariant FindSignalModel::data(const QModelIndex &index, int role) const {
   if (role == Qt::DisplayRole) {
-    if (!index.parent().isValid()) {
-      auto item = (Item*)index.internalPointer();
+    auto item = (Item*)index.internalPointer();
+    if (item->parent == &filtered_signals) {
       switch (index.column()) {
         case 0: return item->id.toString();
         case 1: return item->children.size();
       }
     } else {
-      auto item = (Item*)index.internalPointer();
       switch (index.column()) {
         case 0: return QString("%1, %2").arg(item->sig.start_bit).arg(item->sig.size);
         case 1: return item->values.join(" ");
@@ -38,29 +37,29 @@ QVariant FindSignalModel::data(const QModelIndex &index, int role) const {
 
 int FindSignalModel::rowCount(const QModelIndex &parent) const {
   if (!parent.isValid()) {
-    return std::min(filtered_signals.size(), 300);
+    return filtered_signals.children.size();
   } else {
     auto p = (Item*)parent.internalPointer();
-    if (parent.column() > 0 || p->parent != nullptr) {
+    if (parent.column() > 0) {// || p->parent == &filtered_signals) {
       return 0;
     }
-    return p.children.size();
+    return p->children.size();
   }
 }
 
 QModelIndex FindSignalModel::index(int row, int column, const QModelIndex &parent) const {
   if (parent.isValid()) {
     auto p = (Item*)parent.internalPointer();
-    return createIndex(row, column, p->cihldren[row]);
+    return createIndex(row, column, p->children[row]);
   }
-  return createIndex(row, column, &(filtered_signals.children[row]));
+  return createIndex(row, column, (filtered_signals.children[row]));
 }
 
 QModelIndex FindSignalModel::parent(const QModelIndex &index) const{
   if (!index.isValid()) return {};
 
   auto item = (Item*)index.internalPointer();
-  return item->parent && item->parent != &filtered_signals ? createIndex(item->parent.children.indexOf(item), 0, item->parent) : QModelIndex();
+  return item->parent && item->parent != &filtered_signals ? createIndex(item->parent->children.indexOf(item), 0, item->parent) : QModelIndex();
 }
 
 void FindSignalModel::search(std::function<bool(double)> cmp) {
@@ -112,7 +111,7 @@ void FindSignalModel::undo() {
   if (!histories.isEmpty()) {
     beginResetModel();
     histories.pop_back();
-    filtered_signals.clear();
+    filtered_signals = {};
     if (!histories.isEmpty()) filtered_signals = histories.back();
     endResetModel();
   }
@@ -274,7 +273,7 @@ void FindSignalDlg::setInitialSignals() {
   if (last_sec > 0) {
     model->last_time = (can->routeStartTime() + last_sec) * 1e9;
   }
-  model->initial_signals = Item{};
+  model->initial_signals = FindSignalModel::Item{};
 
   for (auto it = can->last_msgs.cbegin(); it != can->last_msgs.cend(); ++it) {
     if (buses.isEmpty() || buses.contains(it.key().source) && (addresses.isEmpty() || addresses.contains(it.key().address))) {
@@ -282,14 +281,14 @@ void FindSignalDlg::setInitialSignals() {
       auto e = std::lower_bound(events.cbegin(), events.cend(), first_time, [](auto e, uint64_t ts) { return e->mono_time < ts; });
       if (e != events.cend()) {
         const int total_size = it.value().dat.size() * 8;
-        auto msg_item = new Item{.id=it.key(), .parent = &(model->initial_signals)};
-        model->initial_signals->children.push_back(msg_item);
+        auto msg_item = new FindSignalModel::Item{.id=it.key(), .parent = &(model->initial_signals)};
+        model->initial_signals.children.push_back(msg_item);
         for (int size = min_size->value(); size <= max_size->value(); ++size) {
           for (int start = 0; start <= total_size - size; ++start) {
-            auto item = new Item{.id=it.key(), .parent = msg_item, .mono_time=first_time, .sig=sig};
-            updateSigSizeParamsFromRange(s.sig, start, size);
-            s.value = get_raw_value((*e)->dat, (*e)->size, s.sig);
-            msg_item.children.push_back(item);
+            auto item = new FindSignalModel::Item{.id=it.key(), .parent = msg_item, .mono_time=first_time, .sig=sig};
+            updateSigSizeParamsFromRange(item->sig, start, size);
+            item->value = get_raw_value((*e)->dat, (*e)->size, item->sig);
+            msg_item->children.push_back(item);
           }
         }
       }
@@ -305,7 +304,7 @@ void FindSignalDlg::modelReset() {
   undo_btn->setEnabled(model->histories.size() > 1);
   search_btn->setEnabled(model->rowCount() > 0 || model->histories.isEmpty());
   stats_label->setVisible(true);
-  stats_label->setText(tr("%1 matches. right click on an item to create signal. double click to open message").arg(model->filtered_signals.size()));
+  stats_label->setText(tr("%1 matches. right click on an item to create signal. double click to open message").arg(model->filtered_signals.children.size()));
 }
 
 void FindSignalDlg::customMenuRequested(const QPoint &pos) {

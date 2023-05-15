@@ -20,7 +20,7 @@ public:
 
   struct Item {
     ~Item() {
-      qDeleteAll(cihldren);
+      // qDeleteAll(cihldren);
     }
     MessageId id = {};
     uint64_t mono_time = 0;
@@ -29,7 +29,7 @@ public:
     QStringList values;
 
     Item *parent = nullptr;
-    QVector<Item*> children;
+    QList<Item*> children;
   };
 
   FindSignalModel(QObject *parent) : QAbstractTableModel(parent) {}
