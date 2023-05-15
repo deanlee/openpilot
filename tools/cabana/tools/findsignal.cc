@@ -62,8 +62,6 @@ QModelIndex FindSignalModel::parent(const QModelIndex &index) const{
 }
 
 void FindSignalModel::search(std::function<bool(double)> cmp) {
-  beginResetModel();
-
   const auto prev_items = !histories.isEmpty() ? histories.back() : initial_signals;
   filtered_signals.clear();
   std::mutex lock;
@@ -74,11 +72,7 @@ void FindSignalModel::search(std::function<bool(double)> cmp) {
       last = std::upper_bound(events.cbegin(), events.cend(), last_time, [](uint64_t ts, auto &e) { return ts < e->mono_time; });
     }
 
-
-    lock.lock();
-    filtered_signals.push_back({.id = item.id});
-    lock.unlock();
-    auto &new_item = filtered_signals.back();
+    QList<SearchSignal> sigs;
     for (auto &s : item.sigs) {
       auto first = std::upper_bound(events.cbegin(), events.cend(), s.mono_time, [](uint64_t ts, auto &e) { return ts < e->mono_time; });
 
@@ -86,13 +80,26 @@ void FindSignalModel::search(std::function<bool(double)> cmp) {
       if (it != last) {
         auto values = s.values;
         values.push_front(QString("(%1, %2)").arg((*it)->mono_time / 1e9 - can->routeStartTime(), 0, 'f', 2).arg(get_raw_value((*it)->dat, (*it)->size, s.sig)));
-        new_item.sigs.push_back({.id = s.id, .mono_time = (*it)->mono_time, .sig = s.sig, .values = values});
+        sigs.push_back({.id = s.id, .mono_time = (*it)->mono_time, .sig = s.sig, .values = values});
       }
     }
+    if (!sigs.isEmpty()) {
+      std::lock_guard lk(lock);
+      filtered_signals.push_back({.id = item.id, .sigs = sigs});
+    }
   });
-  histories.push_back(filtered_signals);
+  // if (histories.size() == 0) {
+    beginResetModel();
+    endResetModel();
+  // }
+  // } else {
+  //   for (auto &item : prev_items) {
+  //     if (!std::any_of(filtered_signals.cbegin(), filtered_signals.cend(), [id=item.id](auto &i) { return i.id == id; })) {
 
-  endResetModel();
+  //     }
+  //   }
+  // }
+  histories.push_back(filtered_signals);
 }
 
 void FindSignalModel::undo() {
