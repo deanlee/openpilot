@@ -18,11 +18,6 @@ public:
     QStringList values;
   };
 
-  struct Item {
-    MessageId id;
-    QList<SearchSignal> sigs;
-  };
-
   FindSignalModel(QObject *parent) : QAbstractTableModel(parent) {}
   QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
   QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const override;
@@ -38,9 +33,9 @@ public:
   void reset();
   void undo();
 
-  QList<Item> filtered_signals;
-  QList<Item> initial_signals;
-  QList<QList<Item>> histories;
+  QMap<MessageId, QList<SearchSignal>> filtered_signals;
+  QMap<MessageId, QList<SearchSignal>> initial_signals;
+  QList<QMap<MessageId, QList<SearchSignal>>> histories;
   uint64_t last_time = std::numeric_limits<uint64_t>::max();
 };
 
