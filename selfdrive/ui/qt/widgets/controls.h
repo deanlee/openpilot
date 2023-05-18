@@ -46,10 +46,6 @@ public:
     title_label->setText(title);
   }
 
-  void setValue(const QString &val) {
-    value->setText(val);
-  }
-
   const QString getDescription() {
     return description->text();
   }
@@ -73,7 +69,6 @@ protected:
   QPushButton *title_label;
 
 private:
-  ElidedLabel *value;
   QLabel *description = nullptr;
 };
 

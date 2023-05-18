@@ -18,7 +18,7 @@ public:
 };
 
 // SSH key management widget
-class SshControl : public ButtonControl {
+class SshControl : public AbstractControl {
   Q_OBJECT
 
 public:
@@ -26,6 +26,7 @@ public:
 
 private:
   Params params;
+  QPushButton btn;
 
   void refresh();
   void getUserKeys(const QString &username);
