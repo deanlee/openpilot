@@ -15,6 +15,7 @@ class Sidebar : public QFrame {
   Q_PROPERTY(ItemStatus tempStatus MEMBER temp_status NOTIFY valueChanged);
   Q_PROPERTY(QString netType MEMBER net_type NOTIFY valueChanged);
   Q_PROPERTY(int netStrength MEMBER net_strength NOTIFY valueChanged);
+  Q_PROPERTY(bool onRoad MEMBER on_road NOTIFY valueChanged);
 
 public:
   explicit Sidebar(QWidget* parent = 0);
@@ -24,7 +25,6 @@ signals:
   void valueChanged();
 
 public slots:
-  void offroadTransition(bool offroad);
   void updateState(const UIState &s);
 
 protected:
@@ -34,7 +34,7 @@ protected:
   void drawMetric(QPainter &p, const QPair<QString, QString> &label, QColor c, int y);
 
   QPixmap home_img, flag_img, settings_img;
-  bool onroad, flag_pressed, settings_pressed;
+  bool flag_pressed, settings_pressed;
   const QMap<cereal::DeviceState::NetworkType, QString> network_type = {
     {cereal::DeviceState::NetworkType::NONE, tr("--")},
     {cereal::DeviceState::NetworkType::WIFI, tr("Wi-Fi")},

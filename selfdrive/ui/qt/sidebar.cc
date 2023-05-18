@@ -72,15 +72,12 @@ void Sidebar::mouseReleaseEvent(QMouseEvent *event) {
   }
 }
 
-void Sidebar::offroadTransition(bool offroad) {
-  onroad = !offroad;
-  update();
-}
-
 void Sidebar::updateState(const UIState &s) {
   if (!isVisible()) return;
 
   auto &sm = *(s.sm);
+
+  setProperty("onRoad", s.scene.started);
 
   auto deviceState = sm["deviceState"].getDeviceState();
   setProperty("netType", network_type[deviceState.getNetworkType()]);
