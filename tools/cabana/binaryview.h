@@ -75,10 +75,11 @@ signals:
   void showChart(const MessageId &id, const cabana::Signal *sig, bool show, bool merge);
 
 private:
-  void addShortcuts();
+  void createActions();
   void refresh();
   std::tuple<int, int, bool> getSelection(QModelIndex index);
   void setSelection(const QRect &rect, QItemSelectionModel::SelectionFlags flags) override;
+  void contextMenuEvent(QContextMenuEvent *event) override;
   void mousePressEvent(QMouseEvent *event) override;
   void mouseMoveEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;
@@ -90,5 +91,7 @@ private:
   BinaryItemDelegate *delegate;
   const cabana::Signal *resize_sig = nullptr;
   const cabana::Signal *hovered_sig = nullptr;
+  const cabana::Signal *action_sig = nullptr;
+  QAction *signal_name_act, *endianness_act, *signedness_act, *openchart_act, *remove_act;
   friend class BinaryItemDelegate;
 };

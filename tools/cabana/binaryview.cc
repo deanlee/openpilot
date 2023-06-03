@@ -4,6 +4,7 @@
 
 #include <QFontDatabase>
 #include <QHeaderView>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
@@ -11,7 +12,6 @@
 #include <QToolTip>
 
 #include "tools/cabana/commands.h"
-#include "tools/cabana/signalview.h"
 
 // BinaryView
 
@@ -39,7 +39,7 @@ BinaryView::BinaryView(QWidget *parent) : QTableView(parent) {
   QObject::connect(dbc(), &DBCManager::DBCFileChanged, this, &BinaryView::refresh);
   QObject::connect(UndoStack::instance(), &QUndoStack::indexChanged, this, &BinaryView::refresh);
 
-  addShortcuts();
+  createActions();
   setWhatsThis(R"(
     <b>Binary View</b><br/>
     <!-- TODO: add descprition here -->
@@ -57,59 +57,65 @@ BinaryView::BinaryView(QWidget *parent) : QTableView(parent) {
   )");
 }
 
-void BinaryView::addShortcuts() {
-  // Delete (x, backspace, delete)
-  QShortcut *shortcut_delete_x = new QShortcut(QKeySequence(Qt::Key_X), this);
-  QShortcut *shortcut_delete_backspace = new QShortcut(QKeySequence(Qt::Key_Backspace), this);
-  QShortcut *shortcut_delete_delete = new QShortcut(QKeySequence(Qt::Key_Delete), this);
-  QObject::connect(shortcut_delete_delete, &QShortcut::activated, shortcut_delete_x, &QShortcut::activated);
-  QObject::connect(shortcut_delete_backspace, &QShortcut::activated, shortcut_delete_x, &QShortcut::activated);
-  QObject::connect(shortcut_delete_x, &QShortcut::activated, [=]{
-    if (hovered_sig != nullptr) {
-      emit removeSignal(hovered_sig);
-      hovered_sig = nullptr;
-    }
-  });
+void BinaryView::createActions() {
+  signal_name_act = new QAction(this);
+  signal_name_act->setEnabled(false);
 
-  // Change endianness (e)
-  QShortcut *shortcut_endian = new QShortcut(QKeySequence(Qt::Key_E), this);
-  QObject::connect(shortcut_endian, &QShortcut::activated, [=]{
-    if (hovered_sig != nullptr) {
-      const cabana::Signal *hovered_sig_prev = hovered_sig;
-      cabana::Signal s = *hovered_sig;
+  endianness_act = new QAction(tr("little Endian"), this);
+  endianness_act->setShortcut(Qt::Key_E);
+  endianness_act->setCheckable(true);
+  QObject::connect(endianness_act, &QAction::triggered, [this]() {
+    if (auto sig = action_sig ? action_sig : hovered_sig) {
+      cabana::Signal s = *sig;
       s.is_little_endian = !s.is_little_endian;
-      emit editSignal(hovered_sig, s);
-
-      hovered_sig = nullptr;
-      highlight(hovered_sig_prev);
+      emit editSignal(sig, s);
     }
   });
 
-  // Change signedness (s)
-  QShortcut *shortcut_sign = new QShortcut(QKeySequence(Qt::Key_S), this);
-  QObject::connect(shortcut_sign, &QShortcut::activated, [=]{
-    if (hovered_sig != nullptr) {
-      const cabana::Signal *hovered_sig_prev = hovered_sig;
-      cabana::Signal s = *hovered_sig;
+  signedness_act = new QAction(tr("Signed"));
+  signedness_act->setShortcut(Qt::Key_S);
+  signedness_act->setCheckable(true);
+  QObject::connect(signedness_act, &QAction::triggered, [this]() {
+    if (auto sig = action_sig ? action_sig : hovered_sig) {
+      cabana::Signal s = *sig;
       s.is_signed = !s.is_signed;
-      emit editSignal(hovered_sig, s);
-
-      hovered_sig = nullptr;
-      highlight(hovered_sig_prev);
+      emit editSignal(sig, s);
     }
   });
 
-  // Open chart (c, p, g)
-  QShortcut *shortcut_plot = new QShortcut(QKeySequence(Qt::Key_P), this);
-  QShortcut *shortcut_plot_g = new QShortcut(QKeySequence(Qt::Key_G), this);
-  QShortcut *shortcut_plot_c = new QShortcut(QKeySequence(Qt::Key_C), this);
-  QObject::connect(shortcut_plot_g, &QShortcut::activated, shortcut_plot, &QShortcut::activated);
-  QObject::connect(shortcut_plot_c, &QShortcut::activated, shortcut_plot, &QShortcut::activated);
-  QObject::connect(shortcut_plot, &QShortcut::activated, [=]{
-    if (hovered_sig != nullptr) {
-      emit showChart(model->msg_id, hovered_sig, true, false);
+  openchart_act = new QAction(tr("Open Chart"));
+  openchart_act->setShortcuts({Qt::Key_P, Qt::Key_G, Qt::Key_C});
+  QObject::connect(openchart_act, &QAction::triggered, [this]() {
+    if (auto sig = action_sig ? action_sig : hovered_sig) {
+      emit showChart(model->msg_id, sig, true, false);
     }
   });
+
+  remove_act = new QAction(tr("Remove"));
+  remove_act->setShortcuts({Qt::Key_X, Qt::Key_Backspace, Qt::Key_Delete});
+  QObject::connect(remove_act, &QAction::triggered, [this]() {
+    if (auto sig = action_sig ? action_sig : hovered_sig) {
+      emit emit removeSignal(sig);
+    }
+  });
+
+  auto seperator_act = new QAction(this);
+  seperator_act->setSeparator(true);
+  addActions({signal_name_act, endianness_act, signedness_act, openchart_act, seperator_act, remove_act});
+}
+
+void BinaryView::contextMenuEvent(QContextMenuEvent *event) {
+  if (auto index = indexAt(event->pos()); index.isValid()) {
+    auto item = (BinaryViewModel::Item *)index.internalPointer();
+    if (!item->sigs.isEmpty()) {
+      action_sig = item->sigs.back();
+      signal_name_act->setText(action_sig->name);
+      endianness_act->setChecked(action_sig->is_little_endian);
+      signedness_act->setChecked(action_sig->is_signed);
+      QMenu::exec(actions(), event->globalPos());
+      action_sig = nullptr;
+    }
+  }
 }
 
 QSize BinaryView::minimumSizeHint() const {
@@ -156,6 +162,10 @@ void BinaryView::setSelection(const QRect &rect, QItemSelectionModel::SelectionF
 }
 
 void BinaryView::mousePressEvent(QMouseEvent *event) {
+  if (event->button() != Qt::LeftButton) {
+    return QTableView::mousePressEvent(event);
+  }
+
   delegate->selection_color = (palette().color(QPalette::Active, QPalette::Highlight));
   if (auto index = indexAt(event->pos()); index.isValid() && index.column() != 8) {
     anchor_index = index;
@@ -187,7 +197,9 @@ void BinaryView::mouseMoveEvent(QMouseEvent *event) {
 }
 
 void BinaryView::mouseReleaseEvent(QMouseEvent *event) {
-  QTableView::mouseReleaseEvent(event);
+  if (event->button() != Qt::LeftButton) {
+    return QTableView::mouseReleaseEvent(event);
+  }
 
   auto release_index = indexAt(event->pos());
   if (release_index.isValid() && anchor_index.isValid()) {
@@ -204,6 +216,7 @@ void BinaryView::mouseReleaseEvent(QMouseEvent *event) {
   clearSelection();
   anchor_index = QModelIndex();
   resize_sig = nullptr;
+  action_sig = nullptr;
 }
 
 void BinaryView::leaveEvent(QEvent *event) {
