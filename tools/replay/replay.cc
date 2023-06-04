@@ -208,12 +208,6 @@ void Replay::pause(bool pause) {
   });
 }
 
-void Replay::setCurrentSegment(int n) {
-  if (current_segment_.exchange(n) != n) {
-    QMetaObject::invokeMethod(this, &Replay::queueSegment, Qt::QueuedConnection);
-  }
-}
-
 void Replay::segmentLoadFinished(bool success) {
   if (!success) {
     Segment *seg = qobject_cast<Segment *>(sender());
@@ -403,7 +397,6 @@ void Replay::stream() {
       const Event *evt = (*eit);
       cur_which = evt->which;
       cur_mono_time_ = evt->mono_time;
-      setCurrentSegment(toSeconds(cur_mono_time_) / 60);
 
       // migration for pandaState -> pandaStates to keep UI working for old segments
       if (cur_which == cereal::Event::Which::PANDA_STATE_D_E_P_R_E_C_A_T_E_D &&

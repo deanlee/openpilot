@@ -92,7 +92,6 @@ protected:
   std::optional<uint64_t> find(FindFlag flag);
   void startStream(const Segment *cur_segment);
   void stream();
-  void setCurrentSegment(int n);
   void queueSegment();
   void mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::iterator &end);
   void updateEvents(const std::function<bool()>& lambda);
