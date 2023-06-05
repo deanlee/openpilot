@@ -397,25 +397,18 @@ void ChartView::leaveEvent(QEvent *event) {
 
 QPixmap getBlankShadowPixmap(const QPixmap &px, int radius) {
   QGraphicsDropShadowEffect *e = new QGraphicsDropShadowEffect;
-  e->setColor(QColor(40, 40, 40, 245));
   e->setOffset(0, 0);
   e->setBlurRadius(radius);
 
   qreal dpr = px.devicePixelRatio();
-  QPixmap blank(px.size());
-  blank.setDevicePixelRatio(dpr);
-  blank.fill(Qt::white);
-
   QGraphicsScene scene;
-  QGraphicsPixmapItem item(blank);
-  item.setGraphicsEffect(e);
-  scene.addItem(&item);
+  scene.addRect({QPoint(0, 0), px.size()})->setGraphicsEffect(e);
 
   QPixmap shadow(px.size() + QSize(radius * dpr * 2, radius * dpr * 2));
   shadow.setDevicePixelRatio(dpr);
   shadow.fill(Qt::transparent);
   QPainter p(&shadow);
-  scene.render(&p, {QPoint(), shadow.size() / dpr}, item.boundingRect().adjusted(-radius, -radius, radius, radius));
+  scene.render(&p, {QPoint(), shadow.size() / dpr}, QRect({0, 0}, px.size()).adjusted(-radius, -radius, radius, radius));
   return shadow;
 }
 
