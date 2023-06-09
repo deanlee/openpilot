@@ -405,37 +405,87 @@ void ChartView::leaveEvent(QEvent *event) {
   QChartView::leaveEvent(event);
 }
 
-static QPixmap getShadowPixmap(const QSize &size, int radius) {
+
+// QPixmap getBlankShadowPixmap(const QPixmap &px, int radius) {
+//   QGraphicsDropShadowEffect *e = new QGraphicsDropShadowEffect;
+//   e->setColor(QColor(40, 40, 40, 245));
+//   e->setOffset(0, 0);
+//   e->setBlurRadius(radius);
+
+//   qreal dpr = px.devicePixelRatio();
+//   QPixmap blank(px.size());
+//   blank.setDevicePixelRatio(dpr);
+//   blank.fill(Qt::white);
+
+//   QGraphicsScene scene;
+//   QGraphicsPixmapItem item(blank);
+//   item.setGraphicsEffect(e);
+//   scene.addItem(&item);
+
+//   QPixmap shadow(px.size() + QSize(radius * dpr * 2, radius * dpr * 2));
+//   shadow.setDevicePixelRatio(dpr);
+//   shadow.fill(Qt::transparent);
+//   QPainter p(&shadow);
+//   scene.render(&p, {QPoint(), shadow.size() / dpr}, item.boundingRect().adjusted(-radius, -radius, radius, radius));
+//   return shadow;
+// }
+
+// static QPixmap getDropPixmap(const QPixmap &src) {
+//   static QPixmap shadow_px;
+//   const int radius = 10;
+//   if (shadow_px.size() != src.size() + QSize(radius * 2, radius * 2)) {
+//     shadow_px = getBlankShadowPixmap(src, radius);
+//   }
+//   qDebug() << src.size() << src.devicePixelRatio() << shadow_px.size() << shadow_px.devicePixelRatio();
+//   return shadow_px;
+//   QPixmap px = shadow_px;
+//   QPainter p(&px);
+//   QRectF target_rect(QPointF(radius, radius), src.size() / src.devicePixelRatio());
+//   p.drawPixmap(target_rect.topLeft(), src);
+//   p.setCompositionMode(QPainter::CompositionMode_DestinationIn);
+//   p.fillRect(target_rect, QColor(0, 0, 0, 200));
+//   return px;
+// }
+
+
+static QPixmap getShadowPixmap(const QSize &size, int radius, float dpr) {
   QGraphicsDropShadowEffect *e = new QGraphicsDropShadowEffect;
   e->setColor(QColor(40, 40, 40, 245));
   e->setOffset(0, 0);
   e->setBlurRadius(radius);
 
   QGraphicsScene scene;
-  auto rect_item = scene.addRect({QPoint(0, 0), size}, Qt::NoPen, QColor(0, 0, 0, 200));
+  auto rect_item = scene.addRect(QRectF(QPoint(radius, radius), size/dpr), Qt::NoPen, QColor(255, 255, 255, 150));
   rect_item->setGraphicsEffect(e);
 
-  QPixmap shadow(size + QSize{radius * 2, radius * 2});
-  shadow.setDevicePixelRatio(qApp->devicePixelRatio());
+  QPixmap shadow(size + QSize(radius * dpr * 2, radius * dpr * 2));
+  shadow.setDevicePixelRatio(dpr);
   shadow.fill(Qt::transparent);
   QPainter p(&shadow);
-  scene.render(&p, {QPoint(), shadow.size() / qApp->devicePixelRatio()}, QRect({-radius, -radius}, shadow.size()));
+  scene.setSceneRect(shadow.rect());
+  scene.render(&p);
   return shadow;
 }
 
 static QPixmap getDropPixmap(const QPixmap &src) {
   static QPixmap shadow_px;
   const int radius = 15;
+  const float dpr = src.devicePixelRatio();
   if (shadow_px.size() != src.size() + QSize(radius * 2, radius * 2) ||
-      shadow_px.devicePixelRatio() != src.devicePixelRatio()) {
-    shadow_px = getShadowPixmap(src.size(), radius);
+      shadow_px.devicePixelRatio() != dpr) {
+    shadow_px = getShadowPixmap(src.size(), radius, dpr);
   }
   QPixmap px = shadow_px;
   QPainter p(&px);
   p.setCompositionMode(QPainter::CompositionMode_SourceIn);
-  p.drawPixmap(radius / px.devicePixelRatio(), radius / px.devicePixelRatio(), src);
+  p.drawPixmap(radius, radius, src);
   return px;
 }
+
+// 600 285 2
+// 640 350 2
+
+// QSize(600, 285) 2 QSize(630, 315) 2
 
 void ChartView::mousePressEvent(QMouseEvent *event) {
   if (event->button() == Qt::LeftButton && move_icon->sceneBoundingRect().contains(event->pos())) {
