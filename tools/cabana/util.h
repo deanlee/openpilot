@@ -2,11 +2,13 @@
 
 #include <cmath>
 
+#include <QAction>
 #include <QApplication>
 #include <QByteArray>
 #include <QDateTime>
 #include <QDoubleValidator>
 #include <QFont>
+#include <QMenu>
 #include <QRegExpValidator>
 #include <QStringBuilder>
 #include <QStyledItemDelegate>
@@ -133,6 +135,19 @@ public:
 
 private:
   void closeTabClicked();
+};
+
+class SignalMenu : QMenu {
+  Q_OBJECT
+public:
+  SignalMenu(QObject *parent);
+  QAction *signal_name_act;
+  QAction *endianness_act;
+  QAction *signedness_act;
+  QAction *openchart_act;
+  QAction *remove_act;
+  MessageId msg_id;
+  cabana::Signal *sig = nullptr;
 };
 
 int num_decimals(double num);

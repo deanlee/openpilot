@@ -43,6 +43,43 @@ std::pair<double, double> SegmentTree::get_minmax(int n, int left, int right, in
   return {std::min(l.first, r.first), std::max(l.second, r.second)};
 }
 
+// SignalMenu
+
+SignalMenu::SignalMenu(QObject *parent) : QMenu(parent) {
+  signal_name_act = new QAction(this);
+  signal_name_act->setEnabled(false);
+
+  endianness_act = new QAction(tr("little Endian"), this);
+  endianness_act->setShortcut(Qt::Key_E);
+  endianness_act->setCheckable(true);
+  QObject::connect(endianness_act, &QAction::triggered, [this]() {
+    cabana::Signal s = *sig;
+    s.is_little_endian = !s.is_little_endian;
+    emit editSignal(sig, s);
+  });
+
+  signedness_act = new QAction(tr("Signed"));
+  signedness_act->setShortcut(Qt::Key_S);
+  signedness_act->setCheckable(true);
+  QObject::connect(signedness_act, &QAction::triggered, [this]() {
+    cabana::Signal s = *sig;
+    s.is_signed = !s.is_signed;
+    emit editSignal(sig, s);
+  });
+
+  openchart_act = new QAction(tr("Open Chart"));
+  openchart_act->setShortcuts({Qt::Key_P, Qt::Key_G, Qt::Key_C});
+  QObject::connect(openchart_act, &QAction::triggered, [this]() {
+    emit showChart(msg_id, sig, true, false);
+  });
+
+  remove_act = new QAction(tr("Remove"));
+  remove_act->setShortcuts({Qt::Key_X, Qt::Key_Backspace, Qt::Key_Delete});
+  QObject::connect(remove_act, &QAction::triggered, [this]() {
+    emit emit removeSignal(sig);
+  });
+}
+
 // MessageBytesDelegate
 
 MessageBytesDelegate::MessageBytesDelegate(QObject *parent, bool multiple_lines) : multiple_lines(multiple_lines), QStyledItemDelegate(parent) {
