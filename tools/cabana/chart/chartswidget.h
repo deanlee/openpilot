@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QGraphicsView>
 #include <QGridLayout>
 #include <QLabel>
 #include <QScrollArea>
@@ -30,6 +31,12 @@ public:
   QGridLayout *charts_layout;
   ChartsWidget *charts_widget;
   QPoint drop_indictor_pos;
+};
+
+class ChartsView : public QGraphicsView {
+  Q_OBJECT
+public:
+  ChartsView(QWidget *parent) : QGraphicsView(parent) {}
 };
 
 class ChartsWidget : public QFrame {
