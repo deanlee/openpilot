@@ -77,18 +77,14 @@ QString cabana::Msg::newSignalName() {
 
 void cabana::Msg::update() {
   mask = QVector<uint8_t>(size, 0x00).toList();
-  multiplexor = nullptr;
 
   // sort signals
   std::sort(sigs.begin(), sigs.end(), [](auto l, auto r) {
-    return std::tie(r->type, l->multiplex_value, l->start_bit, l->name) <
-           std::tie(l->type, r->multiplex_value, r->start_bit, r->name);
+    return std::tie(r->type, l->multiplexor_value_min, l->start_bit, l->name) <
+           std::tie(l->type, r->multiplexor_value_min, r->start_bit, r->name);
   });
 
   for (auto sig : sigs) {
-    if (sig->type == cabana::Signal::Type::Multiplexor) {
-      multiplexor = sig;
-    }
     sig->update();
 
     // update mask
@@ -105,13 +101,6 @@ void cabana::Msg::update() {
 
       bits -= size;
       i = sig->is_little_endian ? i - 1 : i + 1;
-    }
-  }
-
-  for (auto sig : sigs) {
-    sig->multiplexor = sig->type == cabana::Signal::Type::Multiplexed ? multiplexor : nullptr;
-    if (!sig->multiplexor) {
-      sig->multiplex_value = 0;
     }
   }
 }
@@ -146,8 +135,11 @@ QString cabana::Signal::formatValue(double value) const {
 }
 
 bool cabana::Signal::getValue(const uint8_t *data, size_t data_size, double *val) const {
-  if (multiplexor && get_raw_value(data, data_size, *multiplexor) != multiplex_value) {
-    return false;
+  if (multiplexor) {
+    double multiplexor_value = get_raw_value(data, data_size, *multiplexor);
+    if (multiplexor_value < multiplexor_value_min || multiplexor_value > multiplexor_value_max) {
+      return false;
+    }
   }
   *val = get_raw_value(data, data_size, *this);
   return true;
@@ -160,7 +152,7 @@ bool cabana::Signal::operator==(const cabana::Signal &other) const {
          is_signed == other.is_signed && is_little_endian == other.is_little_endian &&
          factor == other.factor && offset == other.offset &&
          min == other.min && max == other.max && comment == other.comment && unit == other.unit && val_desc == other.val_desc &&
-         multiplex_value == other.multiplex_value && type == other.type;
+         multiplexor_value_min == other.multiplexor_value_min && multiplexor_value_max == other.multiplexor_value_max && type == other.type;
 }
 
 // helper functions

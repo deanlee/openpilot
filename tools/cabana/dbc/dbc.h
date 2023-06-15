@@ -60,7 +60,8 @@ public:
   enum class Type {
     Normal = 0,
     Multiplexed,
-    Multiplexor
+    Multiplexor,
+    ExtendMultiplexed
   };
 
   Type type = Type::Normal;
@@ -77,7 +78,8 @@ public:
   QColor color;
 
   // Multiplexed
-  int multiplex_value = 0;
+  int multiplexor_value_min = 0;
+  int multiplexor_value_max = 0;
   Signal *multiplexor = nullptr;
 };
 
@@ -103,7 +105,6 @@ public:
   std::vector<cabana::Signal *> sigs;
 
   QList<uint8_t> mask;
-  cabana::Signal *multiplexor = nullptr;
 };
 
 }  // namespace cabana

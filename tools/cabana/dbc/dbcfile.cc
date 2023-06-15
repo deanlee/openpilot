@@ -86,6 +86,7 @@ void DBCFile::parse(const QString &content) {
   static QRegularExpression bo_regexp(R"(^BO_ (\w+) (\w+) *: (\w+) (\w+))");
   static QRegularExpression sg_regexp(R"(^SG_ (\w+) : (\d+)\|(\d+)@(\d+)([\+|\-]) \(([0-9.+\-eE]+),([0-9.+\-eE]+)\) \[([0-9.+\-eE]+)\|([0-9.+\-eE]+)\] \"(.*)\" (.*))");
   static QRegularExpression sgm_regexp(R"(^SG_ (\w+) (\w+) *: (\d+)\|(\d+)@(\d+)([\+|\-]) \(([0-9.+\-eE]+),([0-9.+\-eE]+)\) \[([0-9.+\-eE]+)\|([0-9.+\-eE]+)\] \"(.*)\" (.*))");
+  static QRegularExpression sg_mulval_regexp(R"(^SG_MUL_VAL_ (\d+) (\w+) (\w+) (\d+)-(\d+);)");
   static QRegularExpression msg_comment_regexp(R"(^CM_ BO_ *(\w+) *\"([^"]*)\"\s*;)");
   static QRegularExpression sg_comment_regexp(R"(^CM_ SG_ *(\w+) *(\w+) *\"([^"]*)\"\s*;)");
   static QRegularExpression val_regexp(R"(VAL_ (\w+) (\w+) (\s*[-+]?[0-9]+\s+\".+?\"[^;]*))");
@@ -138,7 +139,7 @@ void DBCFile::parse(const QString &content) {
         } else {
           dbc_assert(multiplexor_cnt == 1, "No multiplexor");
           s.type = cabana::Signal::Type::Multiplexed;
-          s.multiplex_value = indicator.mid(1).toInt();
+          s.multiplexor_value_min = s. multiplexor_value_min = indicator.mid(1).toInt();
         }
       }
       s.name = name;
@@ -159,6 +160,18 @@ void DBCFile::parse(const QString &content) {
       s.max = match.captured(9 + offset).toDouble();
       s.unit = match.captured(10 + offset);
       current_msg->sigs.push_back(new cabana::Signal(s));
+    } else if (line.startsWith("SG_MUL_VAL_ ")) {
+      auto match = sg_mulval_regexp.match(line);
+      dbc_assert(match.hasMatch());
+      uint32_t address = match.captured(1).toUInt();
+      auto multiplexed_sig = get_sig(address, match.captured(2));
+      auto multiplexor_sig = get_sig(address, match.captured(3));
+      dbc_assert(multiplexed_sig != nullptr, "invalid multiplexed signal");
+      dbc_assert(multiplexor_sig != nullptr, "invalid multiplexor signal");
+
+      multiplexed_sig->multiplexor = multiplexor_sig;
+      multiplexed_sig->multiplexor_value_min = match.captured(4).toUInt();
+      multiplexed_sig->multiplexor_value_max = match.captured(5).toUInt();
     } else if (line.startsWith("VAL_ ")) {
       auto match = val_regexp.match(line);
       dbc_assert(match.hasMatch());
@@ -212,7 +225,7 @@ QString DBCFile::generateDBC() {
       if (sig->type == cabana::Signal::Type::Multiplexor) {
         multiplexer_indicator = "M ";
       } else if (sig->type == cabana::Signal::Type::Multiplexed) {
-        multiplexer_indicator = QString("m%1 ").arg(sig->multiplex_value);
+        multiplexer_indicator = QString("m%1 ").arg(sig->multiplexor_value_min);
       }
       dbc_string += QString(" SG_ %1 %2: %3|%4@%5%6 (%7,%8) [%9|%10] \"%11\" XXX\n")
                         .arg(sig->name)

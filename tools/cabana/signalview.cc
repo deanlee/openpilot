@@ -135,7 +135,7 @@ QVariant SignalModel::data(const QModelIndex &index, int role) const {
           case Item::Name: return item->sig->name;
           case Item::Size: return item->sig->size;
           case Item::SignalType: return signalTypeToString(item->sig->type);
-          case Item::MultiplexValue: return item->sig->multiplex_value;
+          case Item::MultiplexValue: return item->sig->multiplexor_value_min;
           case Item::Offset: return doubleToString(item->sig->offset);
           case Item::Factor: return doubleToString(item->sig->factor);
           case Item::Unit: return item->sig->unit;
@@ -173,7 +173,7 @@ bool SignalModel::setData(const QModelIndex &index, const QVariant &value, int r
     case Item::Name: s.name = value.toString(); break;
     case Item::Size: s.size = value.toInt(); break;
     case Item::SignalType: s.type = (cabana::Signal::Type)value.toInt(); break;
-    case Item::MultiplexValue: s.multiplex_value = value.toInt(); break;
+    case Item::MultiplexValue: s.multiplexor_value_min = value.toInt(); break;
     case Item::Endian: s.is_little_endian = value.toBool(); break;
     case Item::Signed: s.is_signed = value.toBool(); break;
     case Item::Offset: s.offset = value.toDouble(); break;
@@ -315,7 +315,7 @@ QSize SignalItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QMo
     auto text = index.data(Qt::DisplayRole).toString();;
     auto item = (SignalModel::Item *)index.internalPointer();
     if (item->type == SignalModel::Item::Sig && item->sig->type != cabana::Signal::Type::Normal) {
-      text += item->sig->type == cabana::Signal::Type::Multiplexor ? QString(" M ") : QString(" m%1 ").arg(item->sig->multiplex_value);
+      text += item->sig->type == cabana::Signal::Type::Multiplexor ? QString(" M ") : QString(" m%1 ").arg(item->sig->multiplexor_value_min);
       spacing += (option.widget->style()->pixelMetric(QStyle::PM_FocusFrameHMargin) + 1) * 2;
     }
     auto it = width_cache.find(text);
@@ -363,7 +363,7 @@ void SignalItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &op
       r.setLeft(icon_rect.right() + h_margin * 2);
       // multiplexer indicator
       if (item->sig->type != cabana::Signal::Type::Normal) {
-        QString indicator = item->sig->type == cabana::Signal::Type::Multiplexor ? QString(" M ") : QString(" m%1 ").arg(item->sig->multiplex_value);
+        QString indicator = item->sig->type == cabana::Signal::Type::Multiplexor ? QString(" M ") : QString(" m%1 ").arg(item->sig->multiplexor_value_min);
         QRect indicator_rect{r.x(), r.y(), option.fontMetrics.width(indicator), r.height()};
         painter->setBrush(Qt::gray);
         painter->setPen(Qt::NoPen);
@@ -438,14 +438,15 @@ QWidget *SignalItemDelegate::createEditor(QWidget *parent, const QStyleOptionVie
     spin->setRange(1, 64);
     return spin;
   } else if (item->type == SignalModel::Item::SignalType) {
-    QComboBox *c = new QComboBox(parent);
-    c->addItem(signalTypeToString(cabana::Signal::Type::Normal), (int)cabana::Signal::Type::Normal);
-    if (!dbc()->msg(((SignalModel *)index.model())->msg_id)->multiplexor) {
-      c->addItem(signalTypeToString(cabana::Signal::Type::Multiplexor), (int)cabana::Signal::Type::Multiplexor);
-    } else if (item->sig->type != cabana::Signal::Type::Multiplexor) {
-      c->addItem(signalTypeToString(cabana::Signal::Type::Multiplexed), (int)cabana::Signal::Type::Multiplexed);
-    }
-    return c;
+    // QComboBox *c = new QComboBox(parent);
+    // c->addItem(signalTypeToString(cabana::Signal::Type::Normal), (int)cabana::Signal::Type::Normal);
+    // if (!dbc()->msg(((SignalModel *)index.model())->msg_id)->multiplexor) {
+    //   c->addItem(signalTypeToString(cabana::Signal::Type::Multiplexor), (int)cabana::Signal::Type::Multiplexor);
+    // } else if (item->sig->type != cabana::Signal::Type::Multiplexor) {
+    //   c->addItem(signalTypeToString(cabana::Signal::Type::Multiplexed), (int)cabana::Signal::Type::Multiplexed);
+    // }
+    // return c;
+    return nullptr;
   } else if (item->type == SignalModel::Item::Desc) {
     ValueDescriptionDlg dlg(item->sig->val_desc, parent);
     dlg.setWindowTitle(item->sig->name);
