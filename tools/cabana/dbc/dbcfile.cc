@@ -169,7 +169,9 @@ void DBCFile::parse(const QString &content) {
       auto multiplexor_s = get_sig(address, match.captured(3));
       dbc_assert(multiplexed_s != nullptr, "invalid multiplexed signal");
       dbc_assert(multiplexor_s != nullptr, "invalid multiplexor signal");
-
+      dbc_assert(multiplexor_s->multiplexor != multiplexed_s, "recursive multiplexed signals");
+      multiplexor_s->type |= cabana::Signal::Type::Multiplexor;
+      multiplexed_s->type = cabana::Signal::Type::ExtendMultiplexed;
       multiplexed_s->multiplexor = multiplexor_s;
       multiplexed_s->multiplexor_value_min = match.captured(4).toUInt();
       multiplexed_s->multiplexor_value_max = match.captured(5).toUInt();

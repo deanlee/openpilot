@@ -136,7 +136,10 @@ QString cabana::Signal::formatValue(double value) const {
 
 bool cabana::Signal::getValue(const uint8_t *data, size_t data_size, double *val) const {
   if (multiplexor) {
-    double multiplexor_value = get_raw_value(data, data_size, *multiplexor);
+    double multiplexor_value = 0;
+    if (!multiplexor->getValue(data, data_size, &multiplexor_value)) {
+      return false;
+    }
     if (multiplexor_value < multiplexor_value_min || multiplexor_value > multiplexor_value_max) {
       return false;
     }

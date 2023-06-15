@@ -57,14 +57,14 @@ public:
   bool operator==(const cabana::Signal &other) const;
   inline bool operator!=(const cabana::Signal &other) const { return !(*this == other); }
 
-  enum class Type {
+  enum Type {
     Normal = 0,
-    Multiplexed,
-    Multiplexor,
-    ExtendMultiplexed
+    Multiplexed = 0x02,
+    // ExtendMultiplexed = 0x04,
+    Multiplexor = 0x08,
   };
 
-  Type type = Type::Normal;
+  uint32_t type = 0;
   QString name;
   int start_bit, msb, lsb, size;
   double factor, offset;

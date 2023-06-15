@@ -18,10 +18,10 @@
 
 // SignalModel
 
-static QString signalTypeToString(cabana::Signal::Type type) {
-  if (type == cabana::Signal::Type::Multiplexor) return "Multiplexor Signal";
-  else if (type == cabana::Signal::Type::Multiplexed) return "Multiplexed Signal";
-  else return "Normal Signal";
+static QString signalTypeToString(const uint32_t type) {
+  // if (type == cabana::Signal::Type::Multiplexor) return "Multiplexor Signal";
+  // else if (type == cabana::Signal::Type::Multiplexed) return "Multiplexed Signal";
+  return "Normal Signal";
 }
 
 SignalModel::SignalModel(QObject *parent) : root(new Item), QAbstractItemModel(parent) {
@@ -363,7 +363,14 @@ void SignalItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &op
       r.setLeft(icon_rect.right() + h_margin * 2);
       // multiplexer indicator
       if (item->sig->type != cabana::Signal::Type::Normal) {
-        QString indicator = item->sig->type == cabana::Signal::Type::Multiplexor ? QString(" M ") : QString(" m%1 ").arg(item->sig->multiplexor_value_min);
+        QString indicator;
+        if (item->sig->type & cabana::Signal::Type::Multiplexed || item->sig->type &  cabana::Signal::Type::ExtendMultiplexed) {
+          // cabana::Signal::Type::Multiplexor ? QString(" M ") : QString(" m%1 ").arg(item->sig->multiplexor_value_min);
+          indicator = QString(" m%1").arg(item->sig->multiplexor_value_min);
+        }
+        if (item->sig->type & cabana::Signal::Type::Multiplexor) {
+          indicator += " M ";
+        }
         QRect indicator_rect{r.x(), r.y(), option.fontMetrics.width(indicator), r.height()};
         painter->setBrush(Qt::gray);
         painter->setPen(Qt::NoPen);
