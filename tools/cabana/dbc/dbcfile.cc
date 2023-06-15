@@ -104,12 +104,12 @@ void DBCFile::parse(const QString &content) {
   msgs.clear();
   QTextStream stream((QString *)&content);
   cabana::Msg *current_msg = nullptr;
-  int multiplexor_cnt = 0;
+  cabana::Signal *multiplexor_sig = nullptr;
   while (!stream.atEnd()) {
     ++line_num;
     line = stream.readLine().trimmed();
     if (line.startsWith("BO_ ")) {
-      multiplexor_cnt = 0;
+      multiplexor_sig = nullptr;
       auto match = bo_regexp.match(line);
       dbc_assert(match.hasMatch());
       auto address = match.captured(1).toUInt();
@@ -134,11 +134,12 @@ void DBCFile::parse(const QString &content) {
         auto indicator = match.captured(2);
         if (indicator == "M") {
           // Only one signal within a single message can be the multiplexer switch.
-          dbc_assert(++multiplexor_cnt < 2, "Multiple multiplexor");
+          dbc_assert(multiplexor_sig == nullptr, "Multiple multiplexor");
           s.type = cabana::Signal::Type::Multiplexor;
         } else {
-          dbc_assert(multiplexor_cnt == 1, "No multiplexor");
+          dbc_assert(multiplexor_sig != nullptr, "No multiplexor");
           s.type = cabana::Signal::Type::Multiplexed;
+          s.multiplexor = multiplexor_sig;
           s.multiplexor_value_min = s. multiplexor_value_min = indicator.mid(1).toInt();
         }
       }
@@ -164,14 +165,14 @@ void DBCFile::parse(const QString &content) {
       auto match = sg_mulval_regexp.match(line);
       dbc_assert(match.hasMatch());
       uint32_t address = match.captured(1).toUInt();
-      auto multiplexed_sig = get_sig(address, match.captured(2));
-      auto multiplexor_sig = get_sig(address, match.captured(3));
-      dbc_assert(multiplexed_sig != nullptr, "invalid multiplexed signal");
-      dbc_assert(multiplexor_sig != nullptr, "invalid multiplexor signal");
+      auto multiplexed_s = get_sig(address, match.captured(2));
+      auto multiplexor_s = get_sig(address, match.captured(3));
+      dbc_assert(multiplexed_s != nullptr, "invalid multiplexed signal");
+      dbc_assert(multiplexor_s != nullptr, "invalid multiplexor signal");
 
-      multiplexed_sig->multiplexor = multiplexor_sig;
-      multiplexed_sig->multiplexor_value_min = match.captured(4).toUInt();
-      multiplexed_sig->multiplexor_value_max = match.captured(5).toUInt();
+      multiplexed_s->multiplexor = multiplexor_s;
+      multiplexed_s->multiplexor_value_min = match.captured(4).toUInt();
+      multiplexed_s->multiplexor_value_max = match.captured(5).toUInt();
     } else if (line.startsWith("VAL_ ")) {
       auto match = val_regexp.match(line);
       dbc_assert(match.hasMatch());
