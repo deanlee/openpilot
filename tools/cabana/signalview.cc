@@ -364,7 +364,7 @@ void SignalItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &op
       // multiplexer indicator
       if (item->sig->type != cabana::Signal::Type::Normal) {
         QString indicator;
-        if (item->sig->type & cabana::Signal::Type::Multiplexed || item->sig->type &  cabana::Signal::Type::ExtendMultiplexed) {
+        if (item->sig->type & cabana::Signal::Type::Multiplexed) {
           // cabana::Signal::Type::Multiplexor ? QString(" M ") : QString(" m%1 ").arg(item->sig->multiplexor_value_min);
           indicator = QString(" m%1").arg(item->sig->multiplexor_value_min);
         }
