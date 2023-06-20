@@ -80,7 +80,7 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   QObject::connect(tabbar, &QTabBar::customContextMenuRequested, this, &DetailWidget::showTabBarContextMenu);
   QObject::connect(tabbar, &QTabBar::currentChanged, [this](int index) {
     if (index != -1) {
-      setMessage(tabbar->tabData(index).value<MessageId>());
+      setMessage(tabbar->tabData(index).value<MessageId>(), nullptr);
     }
   });
   QObject::connect(tabbar, &QTabBar::tabCloseRequested, tabbar, &QTabBar::removeTab);
@@ -102,8 +102,11 @@ void DetailWidget::showTabBarContextMenu(const QPoint &pt) {
   }
 }
 
-void DetailWidget::setMessage(const MessageId &message_id) {
-  if (std::exchange(msg_id, message_id) == message_id) return;
+void DetailWidget::setMessage(const MessageId &message_id, const cabana::Signal *sig) {
+  if (std::exchange(msg_id, message_id) == message_id) {
+    if (sig) signal_view->selectSignal(sig, true);
+    return;
+  }
 
   tabbar->blockSignals(true);
   int index = tabbar->count() - 1;
@@ -124,6 +127,7 @@ void DetailWidget::setMessage(const MessageId &message_id) {
   history_log->setMessage(msg_id);
   refresh();
   setUpdatesEnabled(true);
+  if (sig) signal_view->selectSignal(sig, true);
 }
 
 void DetailWidget::refresh() {
@@ -231,13 +235,13 @@ CenterWidget::CenterWidget(QWidget *parent) : QWidget(parent) {
   main_layout->addWidget(welcome_widget = createWelcomeWidget());
 }
 
-void CenterWidget::setMessage(const MessageId &msg_id) {
+void CenterWidget::setMessage(const MessageId &msg_id, const cabana::Signal *sig) {
   if (!detail_widget) {
     delete welcome_widget;
     welcome_widget = nullptr;
     layout()->addWidget(detail_widget = new DetailWidget(((MainWindow*)parentWidget())->charts_widget, this));
   }
-  detail_widget->setMessage(msg_id);
+  detail_widget->setMessage(msg_id, sig);
 }
 
 void CenterWidget::clear() {

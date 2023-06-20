@@ -99,7 +99,7 @@ MessagesWidget::MessagesWidget(QWidget *parent) : QWidget(parent) {
       auto &id = model->msgs[current.row()];
       if (!current_msg_id || id != *current_msg_id) {
         current_msg_id = id;
-        emit msgSelectionChanged(*current_msg_id);
+        emit msgSelectionChanged(id, nullptr);
       }
     }
   });
@@ -129,9 +129,11 @@ void MessagesWidget::dbcModified() {
   model->dbcModified();
 }
 
-void MessagesWidget::selectMessage(const MessageId &msg_id) {
+void MessagesWidget::selectMessage(const MessageId &msg_id, const cabana::Signal *sig) {
   auto it = std::find(model->msgs.cbegin(), model->msgs.cend(), msg_id);
   if (it != model->msgs.cend()) {
+    current_msg_id = msg_id;
+    emit msgSelectionChanged(msg_id, sig);
     view->setCurrentIndex(model->index(std::distance(model->msgs.cbegin(), it), 0));
   }
 }

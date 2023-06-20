@@ -7,7 +7,6 @@
 #include <QGraphicsDropShadowEffect>
 #include <QGraphicsItemGroup>
 #include <QGraphicsOpacityEffect>
-#include <QMenu>
 #include <QMimeData>
 #include <QOpenGLWidget>
 #include <QPropertyAnimation>
@@ -63,7 +62,7 @@ void ChartView::createToolButtons() {
   close_btn_proxy->setZValue(chart()->zValue() + 11);
 
   // series types
-  QMenu *menu = new QMenu(this);
+  menu = new QMenu(this);
   auto change_series_group = new QActionGroup(menu);
   change_series_group->setExclusive(true);
   QStringList types{tr("Line"), tr("Step Line"), tr("Scatter")};
@@ -77,6 +76,7 @@ void ChartView::createToolButtons() {
   menu->addSeparator();
   menu->addAction(tr("Manage Signals"), this, &ChartView::manageSignals);
   split_chart_act = menu->addAction(tr("Split Chart"), [this]() { charts_widget->splitChart(this); });
+  menu->addSeparator();
 
   QToolButton *manage_btn = new ToolButton("list", "");
   manage_btn->setMenu(menu);
@@ -86,10 +86,27 @@ void ChartView::createToolButtons() {
   manage_btn_proxy->setWidget(manage_btn);
   manage_btn_proxy->setZValue(chart()->zValue() + 11);
 
+  QObject::connect(menu, &QMenu::aboutToShow, this, &ChartView::menuAboutToShow);
   QObject::connect(remove_btn, &QToolButton::clicked, [this]() { charts_widget->removeChart(this); });
   QObject::connect(change_series_group, &QActionGroup::triggered, [this](QAction *action) {
     setSeriesType((SeriesType)action->data().toInt());
   });
+}
+
+void ChartView::contextMenuEvent(QContextMenuEvent *event) {
+  menu->exec(event->globalPos());
+  event->setAccepted(true);
+}
+
+void ChartView::menuAboutToShow() {
+  qDeleteAll(signal_actions);
+  signal_actions.clear();
+  for (const auto &s : sigs) {
+    QAction *action = new QAction(tr("Open %1").arg(s.sig->name));
+    QObject::connect(action, &QAction::triggered, [=]() { emit charts_widget->openMessage(s.msg_id, s.sig); });
+    signal_actions.push_back(action);
+  }
+  menu->addActions(signal_actions);
 }
 
 QSize ChartView::sizeHint() const {

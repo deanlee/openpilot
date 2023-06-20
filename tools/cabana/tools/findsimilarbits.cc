@@ -86,7 +86,7 @@ FindSimilarBitsDlg::FindSimilarBitsDlg(QWidget *parent) : QDialog(parent, Qt::Wi
   QObject::connect(table, &QTableWidget::doubleClicked, [this](const QModelIndex &index) {
     if (index.isValid()) {
       MessageId msg_id = {.source = (uint8_t)find_bus_combo->currentData().toUInt(), .address = table->item(index.row(), 0)->text().toUInt(0, 16)};
-      emit openMessage(msg_id);
+      emit openMessage(msg_id, nullptr);
     }
   });
 }

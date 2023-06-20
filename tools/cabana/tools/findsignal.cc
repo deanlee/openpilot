@@ -163,7 +163,7 @@ FindSignalDlg::FindSignalDlg(QWidget *parent) : QDialog(parent, Qt::WindowFlags(
   QObject::connect(reset_btn, &QPushButton::clicked, model, &FindSignalModel::reset);
   QObject::connect(view, &QTableView::customContextMenuRequested, this, &FindSignalDlg::customMenuRequested);
   QObject::connect(view, &QTableView::doubleClicked, [this](const QModelIndex &index) {
-    if (index.isValid()) emit openMessage(model->filtered_signals[index.row()].id);
+    if (index.isValid()) emit openMessage(model->filtered_signals[index.row()].id, nullptr);
   });
   QObject::connect(compare_cb, qOverload<int>(&QComboBox::currentIndexChanged), [=](int index) {
     to_label->setVisible(index == compare_cb->count() - 1);
@@ -265,7 +265,7 @@ void FindSignalDlg::customMenuRequested(const QPoint &pos) {
       }
       s.sig.name = dbc()->newSignalName(s.id);
       UndoStack::push(new AddSigCommand(s.id, s.sig));
-      emit openMessage(s.id);
+      emit openMessage(s.id, nullptr);
     }
   }
 }

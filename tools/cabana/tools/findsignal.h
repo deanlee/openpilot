@@ -39,7 +39,7 @@ public:
   FindSignalDlg(QWidget *parent);
 
 signals:
-  void openMessage(const MessageId &id);
+  void openMessage(const MessageId &id, const cabana::Signal *sig);
 
 private:
   void search();

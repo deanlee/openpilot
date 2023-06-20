@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QMenu>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsProxyWidget>
 #include <QtCharts/QChartView>
@@ -62,6 +63,7 @@ private slots:
 private:
   void createToolButtons();
   void addSeries(QXYSeries *series);
+  void contextMenuEvent(QContextMenuEvent *event) override;
   void mousePressEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;
   void mouseMoveEvent(QMouseEvent *ev) override;
@@ -82,6 +84,7 @@ private:
   void drawDropIndicator(bool draw) { if (std::exchange(can_drop, draw) != can_drop) viewport()->update(); }
   void drawTimeline(QPainter *painter);
   std::tuple<double, double, int> getNiceAxisNumbers(qreal min, qreal max, int tick_count);
+  void menuAboutToShow();
   qreal niceNumber(qreal x, bool ceiling);
   QXYSeries *createSeries(SeriesType type, QColor color);
   void updateSeriesPoints();
@@ -106,6 +109,8 @@ private:
   bool can_drop = false;
   double tooltip_x = -1;
   QFont signal_value_font;
+  QMenu *menu;
+  QList<QAction *> signal_actions;
   ChartsWidget *charts_widget;
   friend class ChartsWidget;
 };

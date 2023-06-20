@@ -48,6 +48,7 @@ public slots:
 signals:
   void dock(bool floating);
   void rangeChanged(double min, double max, bool is_zommed);
+  void openMessage(const MessageId &id, const cabana::Signal *sig);
   void seriesChanged();
 
 private:

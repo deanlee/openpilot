@@ -31,7 +31,7 @@ class DetailWidget : public QWidget {
 
 public:
   DetailWidget(ChartsWidget *charts, QWidget *parent);
-  void setMessage(const MessageId &message_id);
+  void setMessage(const MessageId &message_id, const cabana::Signal *sig);
   void refresh();
 
 private:
@@ -58,7 +58,7 @@ class CenterWidget : public QWidget {
   Q_OBJECT
 public:
   CenterWidget(QWidget *parent);
-  void setMessage(const MessageId &msg_id);
+  void setMessage(const MessageId &msg_id, const cabana::Signal *sig);
   void clear();
 
 private:

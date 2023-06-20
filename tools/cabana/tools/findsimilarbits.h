@@ -15,7 +15,7 @@ public:
   FindSimilarBitsDlg(QWidget *parent);
 
 signals:
-  void openMessage(const MessageId &msg_id);
+  void openMessage(const MessageId &msg_id, const cabana::Signal *sig);
 
 private:
   struct mismatched_struct {

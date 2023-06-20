@@ -94,7 +94,7 @@ class MessagesWidget : public QWidget {
 
 public:
   MessagesWidget(QWidget *parent);
-  void selectMessage(const MessageId &message_id);
+  void selectMessage(const MessageId &message_id, const cabana::Signal *sig = nullptr);
   QByteArray saveHeaderState() const { return view->header()->saveState(); }
   bool restoreHeaderState(const QByteArray &state) const { return view->header()->restoreState(state); }
   void updateSuppressedButtons();
@@ -103,7 +103,7 @@ public slots:
   void dbcModified();
 
 signals:
-  void msgSelectionChanged(const MessageId &message_id);
+  void msgSelectionChanged(const MessageId &message_id, const cabana::Signal *sig);
 
 protected:
   MessageView *view;
