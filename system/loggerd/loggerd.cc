@@ -3,15 +3,31 @@
 
 ExitHandler do_exit;
 
-struct RemoteEncoder;
+struct RemoteEncoder {
+  RemoteEncoder(const std::string &name);
+
+  std::unique_ptr<VideoWriter> writer;
+  int encoderd_segment_offset;
+  int current_segment = -1;
+  std::vector<Message *> q;
+  int dropped_frames = 0;
+  bool recording = false;
+  bool marked_ready_to_rotate = false;
+  bool seen_first_packet = false;
+  std::string name;
+  EncoderInfo encoder_info = {};
+};
+
 struct LoggerdState {
   LoggerState logger = {};
   char segment_path[4096];
   std::atomic<int> rotate_segment;
   std::atomic<double> last_camera_seen_tms;
-  std::atomic<int> ready_to_rotate;  // count of encoders ready to rotate
   double last_rotate_tms = 0.;      // last rotate time in ms
   std::unordered_map<std::string, std::unique_ptr<RemoteEncoder>> encoders;
+  int readyToRotate() {
+    return std::count_if(encoders.begin(), encoders.end(), [](auto &e) { return e.second->marked_ready_to_rotate = 0; });
+  }
 };
 
 void logger_rotate(LoggerdState *s) {
@@ -19,14 +35,16 @@ void logger_rotate(LoggerdState *s) {
   int err = logger_next(&s->logger, LOG_ROOT.c_str(), s->segment_path, sizeof(s->segment_path), &segment);
   assert(err == 0);
   s->rotate_segment = segment;
-  s->ready_to_rotate = 0;
   s->last_rotate_tms = millis_since_boot();
+  for (auto &[_, e] : s->encoders) {
+    e->marked_ready_to_rotate = false;
+  }
   LOGW((s->logger.part == 0) ? "logging to %s" : "rotated to %s", s->segment_path);
 }
 
 void rotate_if_needed(LoggerdState *s) {
   // all encoders ready, trigger rotation
-  bool all_ready = s->ready_to_rotate == s->encoders.size();
+  bool all_ready = s->readyToRotate() == s->encoders.size();
 
   // fallback logic to prevent extremely long segments in the case of camera, encoder, etc. malfunctions
   bool timed_out = false;
@@ -47,21 +65,6 @@ void rotate_if_needed(LoggerdState *s) {
     logger_rotate(s);
   }
 }
-
-struct RemoteEncoder {
-  RemoteEncoder(const std::string &name);
-
-  std::unique_ptr<VideoWriter> writer;
-  int encoderd_segment_offset;
-  int current_segment = -1;
-  std::vector<Message *> q;
-  int dropped_frames = 0;
-  bool recording = false;
-  bool marked_ready_to_rotate = false;
-  bool seen_first_packet = false;
-  std::string name;
-  EncoderInfo encoder_info = {};
-};
 
 RemoteEncoder::RemoteEncoder(const std::string &name) : name(name) {
   for (const auto &cam : cameras_logged) {
@@ -162,10 +165,9 @@ int handle_encoder_msg(LoggerdState *s, Message *msg_ptr, struct RemoteEncoder &
     // encoderd packet has a newer segment, this means encoderd has rolled over
     if (!re.marked_ready_to_rotate) {
       re.marked_ready_to_rotate = true;
-      ++s->ready_to_rotate;
       LOGD("rotate %d -> %d ready %d/%lu for %s",
         s->rotate_segment.load(), offset_segment_num,
-        s->ready_to_rotate.load(), s->encoders.size(), re.name.c_str());
+        s->readyToRotate(), s->encoders.size(), re.name.c_str());
     }
     // queue up all the new segment messages, they go in after the rotate
     re.q.push_back(msg.release());
