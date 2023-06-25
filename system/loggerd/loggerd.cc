@@ -19,15 +19,17 @@ struct RemoteEncoder {
 };
 
 struct LoggerdState {
+  RemoteEncoder *getRemoteEncoder(const std::string &name);
+  int readyToRotate() {
+    return std::count_if(encoders.begin(), encoders.end(), [](auto &e) { return e.second->marked_ready_to_rotate = 0; });
+  }
+
   LoggerState logger = {};
   char segment_path[4096];
   std::atomic<int> rotate_segment;
   std::atomic<double> last_camera_seen_tms;
   double last_rotate_tms = 0.;      // last rotate time in ms
   std::unordered_map<std::string, std::unique_ptr<RemoteEncoder>> encoders;
-  int readyToRotate() {
-    return std::count_if(encoders.begin(), encoders.end(), [](auto &e) { return e.second->marked_ready_to_rotate = 0; });
-  }
 };
 
 void logger_rotate(LoggerdState *s) {
@@ -182,8 +184,8 @@ int handle_encoder_msg(LoggerdState *s, Message *msg_ptr, struct RemoteEncoder &
   return bytes_count;
 }
 
-RemoteEncoder *get_remote_encoder(LoggerdState *s, const std::string &name) {
-  auto &e = s->encoders[name];
+RemoteEncoder *LoggerdState::getRemoteEncoder(const std::string &name) {
+  auto &e = encoders[name];
   if (!e) {
     e.reset(new RemoteEncoder(name));
   }
@@ -241,7 +243,7 @@ void loggerd_thread() {
 
         if (qs.encoder) {
           s.last_camera_seen_tms = millis_since_boot();
-          bytes_count += handle_encoder_msg(&s, msg, *get_remote_encoder(&s, qs.name));
+          bytes_count += handle_encoder_msg(&s, msg, *(s.getRemoteEncoder(qs.name)));
         } else {
           logger_log(&s.logger, (uint8_t *)msg->getData(), msg->getSize(), in_qlog);
           bytes_count += msg->getSize();
