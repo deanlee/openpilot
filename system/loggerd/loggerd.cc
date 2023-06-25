@@ -34,9 +34,7 @@ struct LoggerdState {
 
 RemoteEncoder *LoggerdState::getRemoteEncoder(const std::string &name) {
   auto &e = encoders[name];
-  if (!e) {
-    e.reset(new RemoteEncoder(name));
-  }
+  if (!e) e.reset(new RemoteEncoder(name));
   return e.get();
 }
 
