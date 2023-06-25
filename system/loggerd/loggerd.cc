@@ -32,6 +32,14 @@ struct LoggerdState {
   std::unordered_map<std::string, std::unique_ptr<RemoteEncoder>> encoders;
 };
 
+RemoteEncoder *LoggerdState::getRemoteEncoder(const std::string &name) {
+  auto &e = encoders[name];
+  if (!e) {
+    e.reset(new RemoteEncoder(name));
+  }
+  return e.get();
+}
+
 void logger_rotate(LoggerdState *s) {
   int segment = -1;
   int err = logger_next(&s->logger, LOG_ROOT.c_str(), s->segment_path, sizeof(s->segment_path), &segment);
@@ -182,14 +190,6 @@ int handle_encoder_msg(LoggerdState *s, Message *msg_ptr, struct RemoteEncoder &
   }
 
   return bytes_count;
-}
-
-RemoteEncoder *LoggerdState::getRemoteEncoder(const std::string &name) {
-  auto &e = encoders[name];
-  if (!e) {
-    e.reset(new RemoteEncoder(name));
-  }
-  return e.get();
 }
 
 void loggerd_thread() {
