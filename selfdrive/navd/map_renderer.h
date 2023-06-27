@@ -19,7 +19,7 @@ class MapRenderer : public QObject {
   Q_OBJECT
 
 public:
-  MapRenderer(const QMapboxGLSettings &, bool online=true);
+  MapRenderer(const QMapboxGLSettings &, bool online=true, QObject *parent = nullptr);
   uint8_t* getImage();
   void update();
   bool loaded();

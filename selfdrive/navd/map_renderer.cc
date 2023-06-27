@@ -35,9 +35,9 @@ QMapbox::Coordinate get_point_along_line(float lat, float lon, float bearing, fl
   float lon2 = lon1 + atan2(sin(bearing1)*sin(ang_dist)*cos(lat1), cos(ang_dist)-sin(lat1)*sin(lat2));
   return QMapbox::Coordinate(RAD2DEG(lat2), RAD2DEG(lon2));
 }
+#include <QDebug>
 
-
-MapRenderer::MapRenderer(const QMapboxGLSettings &settings, bool online) : m_settings(settings) {
+MapRenderer::MapRenderer(const QMapboxGLSettings &settings, bool online, QObject *parent) : m_settings(settings), QObject(parent) {
   QSurfaceFormat fmt;
   fmt.setRenderableType(QSurfaceFormat::OpenGLES);
 
@@ -60,6 +60,7 @@ MapRenderer::MapRenderer(const QMapboxGLSettings &settings, bool online) : m_set
   fbo.reset(new QOpenGLFramebufferObject(WIDTH, HEIGHT, fbo_format));
 
   std::string style = util::read_file(STYLE_PATH);
+  m_settings.setMapMode(QMapboxGLSettings::MapMode::Static);
   m_map.reset(new QMapboxGL(nullptr, m_settings, fbo->size(), 1));
   m_map->setCoordinateZoom(QMapbox::Coordinate(0, 0), DEFAULT_ZOOM);
   m_map->setStyleJson(style.c_str());
@@ -74,8 +75,20 @@ MapRenderer::MapRenderer(const QMapboxGLSettings &settings, bool online) : m_set
     //LOGD("new state %d", change);
   });
 
+  QObject::connect(m_map.data(), &QMapboxGL::staticRenderFinished, [=](const QString &err) {
+    qDebug() << "finished" << err;
+    // qWarning(err);
+    // printf("here\n")
+    // LOGE("Map loading failed with %d: '%s'\n", err_code, reason.toStdString().c_str());
+  });
+
   QObject::connect(m_map.data(), &QMapboxGL::mapLoadingFailed, [=](QMapboxGL::MapLoadingFailure err_code, const QString &reason) {
-    LOGE("Map loading failed with %d: '%s'\n", err_code, reason.toStdString().c_str());
+    // LOGE("Map loading failed with %d: '%s'\n", err_code, reason.toStdString().c_str());
+  });
+
+  QObject::connect(qApp, &QCoreApplication::aboutToQuit, [this]() {
+    qWarning("here");
+    m_map->destroyRenderer();
   });
 
   if (online) {
@@ -91,6 +104,7 @@ MapRenderer::MapRenderer(const QMapboxGLSettings &settings, bool online) : m_set
     QObject::connect(timer, SIGNAL(timeout()), this, SLOT(msgUpdate()));
     timer->start(0);
   }
+  printf("wori **********\n");
 }
 
 void MapRenderer::msgUpdate() {
@@ -107,11 +121,11 @@ void MapRenderer::msgUpdate() {
 
       // TODO: use the static rendering mode
       if (!loaded() && frame_id > 0) {
-        for (int i = 0; i < 5 && !loaded(); i++) {
-          LOGW("map render retry #%d, %d", i+1, m_map.isNull());
-          QApplication::processEvents(QEventLoop::AllEvents, 100);
+        // for (int i = 0; i < 5 && !loaded(); i++) {
+        //   LOGW("map render retry #%d, %d", i+1, m_map.isNull());
+        //   QApplication::processEvents(QEventLoop::AllEvents, 100);
           update();
-        }
+        // }
 
         if (!loaded()) {
           LOGE("failed to render map after retry");
@@ -154,15 +168,19 @@ bool MapRenderer::loaded() {
 }
 
 void MapRenderer::update() {
+  printf("before update\n");
   double start_t = millis_since_boot();
   gl_functions->glClear(GL_COLOR_BUFFER_BIT);
-  m_map->render();
-  gl_functions->glFlush();
+  m_map->startStaticRender();
+  
+  // m_map->render();
+  // gl_functions->glFlush();
   double end_t = millis_since_boot();
 
   if ((vipc_server != nullptr) && loaded()) {
     publish((end_t - start_t) / 1000.0, true);
   }
+  printf("update\n");
 }
 
 void MapRenderer::sendThumbnail(const uint64_t ts, const kj::Array<capnp::byte> &buf) {
@@ -246,6 +264,8 @@ void MapRenderer::updateRoute(QList<QGeoCoordinate> coordinates) {
   if (m_map.isNull()) return;
   initLayers();
 
+  printf("update route\n");
+
   auto route_points = coordinate_list_to_collection(coordinates);
   QMapbox::Feature feature(QMapbox::Feature::LineStringType, route_points, {}, {});
   QVariantMap navSource;
@@ -269,12 +289,13 @@ void MapRenderer::initLayers() {
 }
 
 MapRenderer::~MapRenderer() {
+  qWarning("worko");
 }
 
 extern "C" {
   MapRenderer* map_renderer_init(char *maps_host = nullptr, char *token = nullptr) {
     char *argv[] = {
-      (char*)"navd",
+      (char*)"map_render",
       nullptr
     };
     int argc = 0;
@@ -290,7 +311,7 @@ extern "C" {
 
   void map_renderer_update_position(MapRenderer *inst, float lat, float lon, float bearing) {
     inst->updatePosition({lat, lon}, bearing);
-    QApplication::processEvents();
+    // QApplication::processEvents();
   }
 
   void map_renderer_update_route(MapRenderer *inst, char* polyline) {

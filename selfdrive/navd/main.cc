@@ -14,8 +14,8 @@ int main(int argc, char *argv[]) {
   std::signal(SIGINT, sigTermHandler);
   std::signal(SIGTERM, sigTermHandler);
 
-  MapRenderer * m = new MapRenderer(get_mapbox_settings());
-  assert(m);
+  MapRenderer  m(get_mapbox_settings(), true, &app);
+  // assert(m);
 
   return app.exec();
 }

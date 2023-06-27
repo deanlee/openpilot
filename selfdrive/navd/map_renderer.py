@@ -32,13 +32,15 @@ void map_renderer_free_image(void *inst, uint8_t *buf);
 
 
 def wait_ready(lib, renderer):
+  lib.map_renderer_update(renderer)
   while not lib.map_renderer_loaded(renderer):
-    lib.map_renderer_update(renderer)
+    print("dd")
 
     # The main qt app is not execed, so we need to periodically process events for e.g. network requests
     lib.map_renderer_process(renderer)
 
     time.sleep(0.01)
+  print("finish wait")
 
 
 def get_image(lib, renderer):
@@ -74,6 +76,7 @@ if __name__ == "__main__":
   renderer = lib.map_renderer_init(ffi.NULL, ffi.NULL)
   wait_ready(lib, renderer)
 
+  print("go")
   geometry = r"{yxk}@|obn~Eg@@eCFqc@J{RFw@?kA@gA?q|@Riu@NuJBgi@ZqVNcRBaPBkG@iSD{I@_H@cH?gG@mG@gG?aD@{LDgDDkVVyQLiGDgX@q_@@qI@qKhS{R~[}NtYaDbGoIvLwNfP_b@|f@oFnF_JxHel@bf@{JlIuxAlpAkNnLmZrWqFhFoh@jd@kX|TkJxH_RnPy^|[uKtHoZ~Um`DlkCorC``CuShQogCtwB_ThQcr@fk@sVrWgRhVmSb\\oj@jxA{Qvg@u]tbAyHzSos@xjBeKbWszAbgEc~@~jCuTrl@cYfo@mRn\\_m@v}@ij@jp@om@lk@y|A`pAiXbVmWzUod@xj@wNlTw}@|uAwSn\\kRfYqOdS_IdJuK`KmKvJoOhLuLbHaMzGwO~GoOzFiSrEsOhD}PhCqw@vJmnAxSczA`Vyb@bHk[fFgl@pJeoDdl@}}@zIyr@hG}X`BmUdBcM^aRR}Oe@iZc@mR_@{FScHxAn_@vz@zCzH~GjPxAhDlB~DhEdJlIbMhFfG|F~GlHrGjNjItLnGvQ~EhLnBfOn@p`@AzAAvn@CfC?fc@`@lUrArStCfSxEtSzGxM|ElFlBrOzJlEbDnC~BfDtCnHjHlLvMdTnZzHpObOf^pKla@~G|a@dErg@rCbj@zArYlj@ttJ~AfZh@r]LzYg@`TkDbj@gIdv@oE|i@kKzhA{CdNsEfOiGlPsEvMiDpLgBpHyB`MkB|MmArPg@|N?|P^rUvFz~AWpOCdAkB|PuB`KeFfHkCfGy@tAqC~AsBPkDs@uAiAcJwMe@s@eKkPMoXQux@EuuCoH?eI?Kas@}Dy@wAUkMOgDL"
   lib.map_renderer_update_route(renderer, geometry.encode())
 
