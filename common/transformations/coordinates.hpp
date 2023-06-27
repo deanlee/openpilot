@@ -5,7 +5,7 @@
 
 struct ECEF {
   double x, y, z;
-  Eigen::Vector3d to_vector(){
+  Eigen::Vector3d to_vector() const {
     return Eigen::Vector3d(x, y, z);
   }
 };
