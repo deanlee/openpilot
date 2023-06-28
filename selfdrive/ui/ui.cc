@@ -341,7 +341,63 @@ void Device::updateWakefulness(const UIState &s) {
   setAwake(s.scene.ignition || interactive_timeout > 0);
 }
 
+class Test {
+  public:
+    Test() {
+      printf("Ctor %d\n", i);
+    }
+    Test(int i) : i (i) {
+      printf("Ctor %d\n", i);
+      array.push_back(0);
+    }
+    
+    Test &operator=(const Test &other) {
+      printf("operator=(const Test &other)\n");
+      i = other.i;
+      array = other.array;
+      return *this;
+    }
+    Test &operator=(Test &&other) {
+      printf("operator=(Test &&other)\n");
+      i = other.i;
+      array = std::move(other.array);
+      return *this;
+    }
+
+    Test(Test &other) {
+      printf("Test(Test &other)\n");
+      i = other.i;
+      array = other.array;
+    }
+    Test(Test&& other) {
+      printf("Test(Test &&other)\n");
+      i = other.i;
+      array = std::move(other.array);
+    }
+    ~Test() {
+      printf("Dctor %d\n", i);
+    }
+    std::vector<int> array;
+    int i = 0;
+};
+
+Test test_func() {
+  Test test(1);
+  test.array.push_back(1);
+  return test;
+}
+
+Test test_func2() {
+  return test_func();
+}
+
 UIState *uiState() {
+  {
+      auto t = test_func2();
+      // t.i = 2;
+      t.array.push_back(1);
+  }
+  assert(0);
   static UIState ui_state;
   return &ui_state;
 }
