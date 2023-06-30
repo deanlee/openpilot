@@ -257,8 +257,8 @@ void Slider::mouseMoveEvent(QMouseEvent *e) {
     uint64_t mono_time = (seconds + can->routeStartTime()) * 1e9;
     auto it = thumbnails.lowerBound(mono_time);
     if (it != thumbnails.end()) thumb = it.value();
-    auto alert_it = alerts.lower_bound(mono_time);
-    if (alert_it != alerts.end() && (alert_it->first - mono_time) < 1e9) {
+    auto alert_it = alerts.upper_bound(mono_time);
+    if (alert_it != alerts.end() && (alert_it->first - mono_time) < 1e9 / 2) {
       alert = alert_it->second;
     }
   }
