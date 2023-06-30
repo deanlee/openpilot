@@ -143,6 +143,7 @@ void Replay::buildTimeline() {
   auto alert_size = cereal::ControlsState::AlertSize::NONE;
   uint64_t alert_begin = 0;
   std::string alert_type;
+  std::string alertString1, alertString2;
 
   const TimelineType timeline_types[] = {
     [(int)cereal::ControlsState::AlertStatus::NORMAL] = TimelineType::AlertInfo,
@@ -163,7 +164,7 @@ void Replay::buildTimeline() {
         if (engaged != cs.getEnabled()) {
           if (engaged) {
             std::lock_guard lk(timeline_lock);
-            timeline.push_back({toSeconds(engaged_begin), toSeconds(e->mono_time), TimelineType::Engaged});
+            timeline.emplace_back({TimelineType::Engaged, toSeconds(engaged_begin), toSeconds(e->mono_time)});
           }
           engaged_begin = e->mono_time;
           engaged = cs.getEnabled();
@@ -172,12 +173,14 @@ void Replay::buildTimeline() {
         if (alert_type != cs.getAlertType().cStr() || alert_status != cs.getAlertStatus()) {
           if (!alert_type.empty() && alert_size != cereal::ControlsState::AlertSize::NONE) {
             std::lock_guard lk(timeline_lock);
-            timeline.push_back({toSeconds(alert_begin), toSeconds(e->mono_time), timeline_types[(int)alert_status]});
+            timeline.push_back({timeline_types[(int)alert_status], toSeconds(alert_begin), toSeconds(e->mono_time), alsertString1, alsertString2});
           }
           alert_begin = e->mono_time;
           alert_type = cs.getAlertType().cStr();
           alert_size = cs.getAlertSize();
           alert_status = cs.getAlertStatus();
+          alsertString1 = cs.getAlertText1();
+          alsertString2 = cs.getAlertText2();
         }
       } else if (e->which == cereal::Event::Which::USER_FLAG) {
         std::lock_guard lk(timeline_lock);

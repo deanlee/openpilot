@@ -37,10 +37,19 @@ enum class FindFlag {
 enum class TimelineType { None, Engaged, AlertInfo, AlertWarning, AlertCritical, UserFlag };
 typedef bool (*replayEventFilter)(const Event *, void *);
 
+
 class Replay : public QObject {
   Q_OBJECT
 
 public:
+  struct Timeline {
+    TimelineType type;
+    double start_sec;
+    double end_sec;
+    QString text1;
+    QString test2;
+  };
+
   Replay(QString route, QStringList allow, QStringList block, QStringList base_blacklist, SubMaster *sm = nullptr,
           uint32_t flags = REPLAY_FLAG_NONE, QString data_dir = "", QObject *parent = 0);
   ~Replay();
@@ -74,7 +83,7 @@ public:
   inline const std::vector<Event *> *events() const { return events_.get(); }
   inline const std::map<int, std::unique_ptr<Segment>> &segments() const { return segments_; };
   inline const std::string &carFingerprint() const { return car_fingerprint_; }
-  inline const std::vector<std::tuple<int, int, TimelineType>> getTimeline() {
+  inline const std::vector<Timeline> getTimeline() {
     std::lock_guard lk(timeline_lock);
     return timeline;
   }
@@ -131,7 +140,7 @@ protected:
 
   std::mutex timeline_lock;
   QFuture<void> timeline_future;
-  std::vector<std::tuple<int, int, TimelineType>> timeline;
+  std::vector<Timeline> timeline;
   std::set<cereal::Event::Which> allow_list;
   std::string car_fingerprint_;
   float speed_ = 1.0;
