@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QPushButton>
+#include <QStaticText>
 #include <QStackedLayout>
 #include <QWidget>
 
@@ -89,7 +90,7 @@ private:
   bool v_ego_cluster_seen = false;
   int status = STATUS_DISENGAGED;
   std::unique_ptr<PubMaster> pm;
-
+  QStaticText speed_unit_text;
   int skip_frame_count = 0;
   bool wide_cam_requested = false;
 
