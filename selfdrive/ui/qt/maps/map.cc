@@ -380,60 +380,11 @@ void MapWindow::updateDestinationMarker() {
 
 MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
   is_rhd = Params().getBool("IsRhdDetected");
-  QHBoxLayout *main_layout = new QHBoxLayout(this);
-  main_layout->setContentsMargins(11, 50, 11, 11);
-  {
-    QVBoxLayout *layout = new QVBoxLayout;
-    icon_01 = new QLabel;
-    layout->addWidget(icon_01);
-    layout->addStretch();
-    main_layout->addLayout(layout);
-  }
-
-  {
-    QVBoxLayout *layout = new QVBoxLayout;
-
-    distance = new QLabel;
-    distance->setStyleSheet(R"(font-size: 90px;)");
-    layout->addWidget(distance);
-
-    primary = new QLabel;
-    primary->setStyleSheet(R"(font-size: 60px;)");
-    primary->setWordWrap(true);
-    layout->addWidget(primary);
-
-    secondary = new QLabel;
-    secondary->setStyleSheet(R"(font-size: 50px;)");
-    secondary->setWordWrap(true);
-    layout->addWidget(secondary);
-
-    lane_widget = new QWidget;
-    lane_widget->setFixedHeight(125);
-
-    lane_layout = new QHBoxLayout(lane_widget);
-    layout->addWidget(lane_widget);
-
-    main_layout->addLayout(layout);
-  }
-
-  setStyleSheet(R"(
-    * {
-      color: white;
-      font-family: "Inter";
-    }
-  )");
-
-  QPalette pal = palette();
-  pal.setColor(QPalette::Background, QColor(0, 0, 0, 150));
-  setAutoFillBackground(true);
-  setPalette(pal);
 }
 
 void MapInstructions::updateDistance(float d) {
   d = std::max(d, 0.0f);
-  QString distance_str;
-
-  if (uiState()->scene.is_metric) {
+    if (uiState()->scene.is_metric) {
     if (d > 500) {
       distance_str.setNum(d / 1000, 'f', 1);
       distance_str += tr(" km");
@@ -454,8 +405,6 @@ void MapInstructions::updateDistance(float d) {
     }
   }
 
-  distance->setAlignment(Qt::AlignLeft);
-  distance->setText(distance_str);
 }
 
 void MapInstructions::showError(QString error_text) {
@@ -477,18 +426,15 @@ void MapInstructions::noError() {
 }
 
 void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruction) {
-  // Word wrap widgets need fixed width
-  primary->setFixedWidth(width() - 250);
-  secondary->setFixedWidth(width() - 250);
+  // primary->setFixedWidth(width() - 250);
+  // secondary->setFixedWidth(width() - 250);
 
+  // Instruction text
+  primary_str = QString::fromStdString(instruction.getManeuverPrimaryText());
+  secondary_str = QString::fromStdString(instruction.getManeuverSecondaryText());
 
-  // Show instruction text
-  QString primary_str = QString::fromStdString(instruction.getManeuverPrimaryText());
-  QString secondary_str = QString::fromStdString(instruction.getManeuverSecondaryText());
-
-  primary->setText(primary_str);
-  secondary->setVisible(secondary_str.length() > 0);
-  secondary->setText(secondary_str);
+  maneuver_icon.clear();
+  lane_icon.clear();
 
   // Show arrow with direction
   QString type = QString::fromStdString(instruction.getManeuverType());
@@ -514,16 +460,11 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
     if (is_rhd) {
       pix = pix.transformed(QTransform().scale(-1, 1));
     }
-    icon_01->setPixmap(pix.scaledToWidth(200, Qt::SmoothTransformation));
-    icon_01->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
-    icon_01->setVisible(true);
+    maneuver_icon = pix.scaledToWidth(200, Qt::SmoothTransformation);
   }
 
   // Show lanes
-  bool has_lanes = false;
-  clearLayout(lane_layout);
   for (auto const &lane: instruction.getLanes()) {
-    has_lanes = true;
     bool active = lane.getActive();
 
     // TODO: only use active direction if active
@@ -548,17 +489,15 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
       fn += "_inactive";
     }
 
-    auto icon = new QLabel;
-    icon->setPixmap(loadPixmap(fn + ICON_SUFFIX, {125, 125}, Qt::IgnoreAspectRatio));
-    icon->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
-    lane_layout->addWidget(icon);
+    lane_icon.push_back(loadPixmap(fn + ICON_SUFFIX, {125, 125}, Qt::IgnoreAspectRatio));
   }
-  lane_widget->setVisible(has_lanes);
-
-  show();
-  resize(sizeHint());
+  update();
 }
 
+void MapInstructions::paintEvent(QPaintEvent *event) {
+  QPainter p(this);
+
+}
 
 void MapInstructions::hideIfNoError() {
   if (!error) {

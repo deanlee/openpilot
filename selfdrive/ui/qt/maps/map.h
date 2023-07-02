@@ -27,18 +27,18 @@ class MapInstructions : public QWidget {
   Q_OBJECT
 
 private:
-  QLabel *distance;
-  QLabel *primary;
-  QLabel *secondary;
-  QLabel *icon_01;
-  QWidget *lane_widget;
-  QHBoxLayout *lane_layout;
   bool error = false;
   bool is_rhd = false;
+  QPixmap maneuver_icon;
+  QList<QPixmap> lane_icon;
+
+  QString primary_str, second_str;
+  QString distance_str;
 
 public:
   MapInstructions(QWidget * parent=nullptr);
   void showError(QString error);
+  void paintEvent(QPaintEvent *event) override;
   void noError();
   void hideIfNoError();
 
