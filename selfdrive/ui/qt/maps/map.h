@@ -27,7 +27,6 @@ class MapInstructions : public QWidget {
   Q_OBJECT
 
 private:
-  bool error = false;
   bool is_rhd = false;
   QPixmap maneuver_icon;
   QList<QPixmap> lane_icon;
@@ -40,7 +39,6 @@ public:
   MapInstructions(QWidget * parent=nullptr);
   void showError(QString error);
   void paintEvent(QPaintEvent *event) override;
-  void noError();
   void hideIfNoError();
 
 public slots:

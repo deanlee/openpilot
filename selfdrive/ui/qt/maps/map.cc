@@ -33,7 +33,7 @@ MapWindow::MapWindow(const QMapboxGLSettings &settings) : m_settings(settings), 
   map_instructions = new MapInstructions(this);
   QObject::connect(this, &MapWindow::instructionsChanged, map_instructions, &MapInstructions::updateInstructions);
   QObject::connect(this, &MapWindow::distanceChanged, map_instructions, &MapInstructions::updateDistance);
-  map_instructions->setFixedWidth(width());
+  // map_instructions->setFixedWidth(width());
   map_instructions->setVisible(false);
 
   map_eta = new MapETA(this);
@@ -172,7 +172,7 @@ void MapWindow::updateState(const UIState &s) {
   initLayers();
 
   if (locationd_valid) {
-    map_instructions->noError();
+    map_instructions->showError({});
 
     // Update current location marker
     auto point = coordinate_to_collection(*last_position);
@@ -409,7 +409,7 @@ void MapInstructions::updateDistance(float d) {
       distance_str += tr(" ft");
     }
   }
-
+  update();
 }
 
 void MapInstructions::showError(QString error_text) {
@@ -418,12 +418,8 @@ void MapInstructions::showError(QString error_text) {
   update();
 }
 
-void MapInstructions::noError() {
-  // error = false;
-  // showError
-}
-
 void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruction) {
+  setVisible(true);
   // primary->setFixedWidth(width() - 250);
   // secondary->setFixedWidth(width() - 250);
 
@@ -437,6 +433,7 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
   // Show arrow with direction
   QString type = QString::fromStdString(instruction.getManeuverType());
   QString modifier = QString::fromStdString(instruction.getManeuverModifier());
+  type = "turn left";
   if (!type.isEmpty()) {
     QString fn = "../assets/navigation/direction_" + type;
     if (!modifier.isEmpty()) {
@@ -462,16 +459,17 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
   }
 
   // Show lanes
-  for (auto const &lane: instruction.getLanes()) {
-    bool active = lane.getActive();
+  // for (auto const &lane: int[]{0, 1, 2, 3}) {//instruction.getLanes()) {
+    for (int i = 0; i < 3;++i) {
+    bool active = true;//lane.getActive();
 
     // TODO: only use active direction if active
-    bool left = false, straight = false, right = false;
-    for (auto const &direction: lane.getDirections()) {
-      left |= direction == cereal::NavInstruction::Direction::LEFT;
-      right |= direction == cereal::NavInstruction::Direction::RIGHT;
-      straight |= direction == cereal::NavInstruction::Direction::STRAIGHT;
-    }
+    bool left = false, straight = true, right = false;
+    // for (auto const &direction: lane.getDirections()) {
+    //   left |= direction == cereal::NavInstruction::Direction::LEFT;
+    //   right |= direction == cereal::NavInstruction::Direction::RIGHT;
+    //   straight |= direction == cereal::NavInstruction::Direction::STRAIGHT;
+    // }
 
     // TODO: Make more images based on active direction and combined directions
     QString fn = "../assets/navigation/direction_";
@@ -497,46 +495,45 @@ void MapInstructions::paintEvent(QPaintEvent *event) {
   pm.fill(Qt::transparent);
   QPainter p(&pm);
   p.setPen(Qt::white);
-  if (!err_str.isEmpty()) {
-    QRect rc(0, 0, width(), 200);
-    p.fillRect(rc, QColor(0, 0, 0, 150));
+  QRect r(0, 0, width(), 200);
+  if (false) {//!err_str.isEmpty()) {
+    p.fillRect(r, QColor(0, 0, 0, 150));
     configFont(p, "Inter", 90, "Regular");
-    p.drawText(rc, Qt::AlignCenter, err_str);
-    return;
-  }
+    p.drawText(r, Qt::AlignCenter, err_str);
+  } else {
+    const int h_margin = 10, v_margin = 50, spacing = 8;
+    r = rect().adjusted(h_margin, v_margin, -h_margin, -v_margin);
+    if (!maneuver_icon.isNull()) {
+      p.drawPixmap(h_margin, v_margin, maneuver_icon);
+      r.adjust(maneuver_icon.width(), 0, 0, 0);
+    }
+    if (!distance_str.isEmpty()) {
+      configFont(p, "Inter", 90, "Regular");
+      p.drawText(r, Qt::AlignLeft | Qt::AlignTop, distance_str);
+      r.setY(r.y() + p.fontMetrics().height() + spacing);
+    }
+    if (!primary_str.isEmpty()) {
+      configFont(p, "Inter", 60, "Regular");
+      p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, primary_str);
+      r.setY(r.y() + p.fontMetrics().height() + spacing);
+    }
+    if (!secondary_str.isEmpty()) {
+      configFont(p, "Inter", 50, "Regular");
+      p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, secondary_str);
+      r.setY(r.y() + p.fontMetrics().height() + spacing);
+    }
 
-  const int h_margin = 10, v_margin = 50;
-  QRect r = rect().adjusted(h_margin, v_margin, -h_margin, -v_margin);
-  if (!maneuver_icon.isNull()) {
-    p.drawPixmap(h_margin, v_margin, maneuver_icon);
-    r.adjust(maneuver_icon.width(), 0, 0, 0);
+    for (int i = 0, x = r.x(); i < lane_icon.size(); ++i, x += 125) {
+      p.drawPixmap(x, r.y(), lane_icon[i]);
+    }
   }
-  if (!distance_str.isEmpty()) {
-    configFont(p, "Inter", 90, "Regular");
-    p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, distance_str);
-    r.setY(r.y() + p.fontMetrics().height() + 8);
-  }
-  if (!primary_str.isEmpty()) {
-    configFont(p, "Inter", 60, "Regular");
-    p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, primary_str);
-    r.setY(r.y() + p.fontMetrics().height() + 8);
-  }
-  if (!secondary_str.isEmpty()) {
-    configFont(p, "Inter", 50, "Regular");
-    p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, secondary_str);
-    r.setY(r.y() + p.fontMetrics().height() + 8);
-  }
-
-  for (int i = 0, x = r.x(); i < lane_icon.size(); ++i, x += 125) {
-    p.drawPixmap(x, r.y(), lane_icon[i]);
-  }
-
   QPainter painter(this);
+  painter.fillRect(QRect{0, 0, width(), r.y() + 50}, QColor(0, 0, 0, 150));
   painter.drawPixmap(0, 0, pm);
 }
 
 void MapInstructions::hideIfNoError() {
-  if (!error) {
+  if (!err_str.isEmpty()) {
     hide();
   }
 }
