@@ -504,7 +504,7 @@ void MapInstructions::paintEvent(QPaintEvent *event) {
     r = rect().adjusted(h_margin, v_margin, -h_margin, -v_margin);
     if (!maneuver_icon.isNull()) {
       p.drawPixmap(h_margin, v_margin, maneuver_icon);
-      r.adjust(maneuver_icon.width() + spacing, 1, 0, 0);
+      r.adjust(maneuver_icon.width() + h_margin, 1, 0, 0);
     }
     std::pair<QString ,int> strings[] = {{distance_str, 90}, {primary_str, 60}, {secondary_str, 50}};
     for (auto &[str, size] : strings) {
@@ -519,7 +519,7 @@ void MapInstructions::paintEvent(QPaintEvent *event) {
       p.drawPixmap(x, r.y(), lane_icon[i]);
     }
     if (r.y() > v_margin) {
-      r.setY(r.y() + (lane_icon.size() > 0 ? 153 : 0) + v_margin);
+      r.setY(r.y() + (lane_icon.size() > 0 ? 153 : 0) + v_margin - spacing);
     }
   }
   if (r.y() > v_margin) {
