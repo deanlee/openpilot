@@ -425,8 +425,8 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
   // secondary->setFixedWidth(width() - 250);
 
   // Instruction text
-  primary_str = QString::fromStdString(instruction.getManeuverPrimaryText());
-  secondary_str = QString::fromStdString(instruction.getManeuverSecondaryText());
+  primary_str = "aaaa fdsaf dsa fdsaf dsf asf dsadf asfdsaf dsafsaf fds afdsafdsafd";//QString::fromStdString(instruction.getManeuverPrimaryText());
+  secondary_str = "bbbb";//QString::fromStdString(instruction.getManeuverSecondaryText());
 
   maneuver_icon = {};
   lane_icon.clear();
@@ -494,44 +494,37 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
 
 void MapInstructions::paintEvent(QPaintEvent *event) {
   double t1 = millis_since_boot();
-  QPixmap pm(width(), 300);
+  QPixmap pm(width(), height());
   pm.fill(Qt::transparent);
   QPainter p(&pm);
   p.setPen(Qt::white);
   QRect r(0, 0, width(), 200);
+  const int h_margin = 10, v_margin = 50, spacing = 8;
   if (false) {//!err_str.isEmpty()) {
     p.fillRect(r, QColor(0, 0, 0, 150));
     configFont(p, "Inter", 90, "Regular");
     p.drawText(r, Qt::AlignCenter, err_str);
   } else {
-    const int h_margin = 10, v_margin = 50, spacing = 8;
     r = rect().adjusted(h_margin, v_margin, -h_margin, -v_margin);
     if (!maneuver_icon.isNull()) {
       p.drawPixmap(h_margin, v_margin, maneuver_icon);
-      r.adjust(maneuver_icon.width(), 0, 0, 0);
+      r.adjust(maneuver_icon.width() + spacing, 0, 0, 0);
     }
-    if (!distance_str.isEmpty()) {
-      configFont(p, "Inter", 90, "Regular");
-      p.drawText(r, Qt::AlignLeft | Qt::AlignTop, distance_str);
-      r.setY(r.y() + p.fontMetrics().height() + spacing);
+    std::pair<QString ,int> strings[] = {{distance_str, 90}, {primary_str, 60}, {secondary_str, 50}};
+    for (auto &[str, size] : strings) {
+      if (!str.isEmpty()) {
+        QRect text_rect;
+        configFont(p, "Inter", size, "Regular");
+        p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, str, &text_rect);
+        r.setY(text_rect.bottom() + spacing);
+      }
     }
-    if (!primary_str.isEmpty()) {
-      configFont(p, "Inter", 60, "Regular");
-      p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, primary_str);
-      r.setY(r.y() + p.fontMetrics().height() + spacing);
-    }
-    if (!secondary_str.isEmpty()) {
-      configFont(p, "Inter", 50, "Regular");
-      p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, secondary_str);
-      r.setY(r.y() + p.fontMetrics().height() + spacing);
-    }
-
     for (int i = 0, x = r.x(); i < lane_icon.size(); ++i, x += 125) {
       p.drawPixmap(x, r.y(), lane_icon[i]);
     }
   }
   QPainter painter(this);
-  painter.fillRect(QRect{0, 0, width(), r.y() + 50}, QColor(0, 0, 0, 150));
+  painter.fillRect(QRect{0, 0, width(), r.y() + v_margin + (lane_icon.size() > 0 ? 135 : 0)}, QColor(0, 0, 0, 150));
   painter.drawPixmap(0, 0, pm);
   qWarning() << "paint " << millis_since_boot() - t1;
 }
