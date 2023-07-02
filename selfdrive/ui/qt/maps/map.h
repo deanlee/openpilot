@@ -32,8 +32,9 @@ private:
   QPixmap maneuver_icon;
   QList<QPixmap> lane_icon;
 
-  QString primary_str, second_str;
+  QString primary_str, secondary_str;
   QString distance_str;
+  QString err_str;
 
 public:
   MapInstructions(QWidget * parent=nullptr);

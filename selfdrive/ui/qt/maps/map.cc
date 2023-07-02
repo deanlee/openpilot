@@ -20,7 +20,7 @@ const float MANEUVER_TRANSITION_THRESHOLD = 10;
 
 const float MAX_ZOOM = 17;
 const float MIN_ZOOM = 14;
-const float MAX_PITCH = 50;
+// const float MAX_PITCH = 50;
 const float MIN_PITCH = 0;
 const float MAP_SCALE = 2;
 
@@ -199,19 +199,22 @@ void MapWindow::updateState(const UIState &s) {
     zoom_counter--;
   }
 
-  if (sm.updated("navInstruction")) {
-    if (sm.valid("navInstruction")) {
-      auto i = sm["navInstruction"].getNavInstruction();
-      emit ETAChanged(i.getTimeRemaining(), i.getTimeRemainingTypical(), i.getDistanceRemaining());
+  if (true) {//sm.updated("navInstruction")) {
+    // if (sm.valid("navInstruction")) {
+    //   auto i = sm["navInstruction"].getNavInstruction();
+    //   emit ETAChanged(i.getTimeRemaining(), i.getTimeRemainingTypical(), i.getDistanceRemaining());
 
-      if (locationd_valid) {
-        m_map->setPitch(MAX_PITCH); // TODO: smooth pitching based on maneuver distance
-        emit distanceChanged(i.getManeuverDistance()); // TODO: combine with instructionsChanged
-        emit instructionsChanged(i);
-      }
-    } else {
-      clearRoute();
-    }
+    //   if (locationd_valid) {
+    //     m_map->setPitch(MAX_PITCH); // TODO: smooth pitching based on maneuver distance
+    //     emit distanceChanged(i.getManeuverDistance()); // TODO: combine with instructionsChanged
+    //     emit instructionsChanged(i);
+    //   }
+    // } else {
+    //   clearRoute();
+    // }
+    auto i = sm["navInstruction"].getNavInstruction();
+    emit distanceChanged(i.getManeuverDistance());  // TODO: combine with instructionsChanged
+    emit instructionsChanged(i);
 
     // TODO: only move if position should change
     // don't move while map isn't visible
@@ -245,7 +248,7 @@ void MapWindow::updateState(const UIState &s) {
 
 void MapWindow::resizeGL(int w, int h) {
   m_map->resize(size() / MAP_SCALE);
-  map_instructions->setFixedWidth(width());
+  map_instructions->setFixedSize(width(), 500);
 }
 
 void MapWindow::initializeGL() {
@@ -379,6 +382,8 @@ void MapWindow::updateDestinationMarker() {
 }
 
 MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
+  setAttribute(Qt::WA_TranslucentBackground);
+  setAttribute(Qt::WA_TransparentForMouseEvents);
   is_rhd = Params().getBool("IsRhdDetected");
 }
 
@@ -408,21 +413,14 @@ void MapInstructions::updateDistance(float d) {
 }
 
 void MapInstructions::showError(QString error_text) {
-  primary->setText("");
-  distance->setText(error_text);
-  distance->setAlignment(Qt::AlignCenter);
-
-  secondary->setVisible(false);
-  icon_01->setVisible(false);
-
-  this->error = true;
-  lane_widget->setVisible(false);
-
+  err_str = error_text;
   setVisible(true);
+  update();
 }
 
 void MapInstructions::noError() {
-  error = false;
+  // error = false;
+  // showError
 }
 
 void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruction) {
@@ -433,7 +431,7 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
   primary_str = QString::fromStdString(instruction.getManeuverPrimaryText());
   secondary_str = QString::fromStdString(instruction.getManeuverSecondaryText());
 
-  maneuver_icon.clear();
+  maneuver_icon = {};
   lane_icon.clear();
 
   // Show arrow with direction
@@ -495,8 +493,46 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
 }
 
 void MapInstructions::paintEvent(QPaintEvent *event) {
-  QPainter p(this);
+  QPixmap pm(width(), 300);
+  pm.fill(Qt::transparent);
+  QPainter p(&pm);
+  p.setPen(Qt::white);
+  if (!err_str.isEmpty()) {
+    QRect rc(0, 0, width(), 200);
+    p.fillRect(rc, QColor(0, 0, 0, 150));
+    configFont(p, "Inter", 90, "Regular");
+    p.drawText(rc, Qt::AlignCenter, err_str);
+    return;
+  }
 
+  const int h_margin = 10, v_margin = 50;
+  QRect r = rect().adjusted(h_margin, v_margin, -h_margin, -v_margin);
+  if (!maneuver_icon.isNull()) {
+    p.drawPixmap(h_margin, v_margin, maneuver_icon);
+    r.adjust(maneuver_icon.width(), 0, 0, 0);
+  }
+  if (!distance_str.isEmpty()) {
+    configFont(p, "Inter", 90, "Regular");
+    p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, distance_str);
+    r.setY(r.y() + p.fontMetrics().height() + 8);
+  }
+  if (!primary_str.isEmpty()) {
+    configFont(p, "Inter", 60, "Regular");
+    p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, primary_str);
+    r.setY(r.y() + p.fontMetrics().height() + 8);
+  }
+  if (!secondary_str.isEmpty()) {
+    configFont(p, "Inter", 50, "Regular");
+    p.drawText(r, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, secondary_str);
+    r.setY(r.y() + p.fontMetrics().height() + 8);
+  }
+
+  for (int i = 0, x = r.x(); i < lane_icon.size(); ++i, x += 125) {
+    p.drawPixmap(x, r.y(), lane_icon[i]);
+  }
+
+  QPainter painter(this);
+  painter.drawPixmap(0, 0, pm);
 }
 
 void MapInstructions::hideIfNoError() {
