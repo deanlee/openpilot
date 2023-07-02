@@ -417,15 +417,12 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
   double t1 = millis_since_boot();
   setVisible(true);
   updateDistance(instruction.getManeuverDistance());
-  // primary->setFixedWidth(width() - 250);
-  // secondary->setFixedWidth(width() - 250);
-
-  // Instruction text
-  primary_str = "aaaa fdsaf dsa fdsaf dsf asf dsadf asfdsaf dsafsaf fds afdsafdsafd";//QString::fromStdString(instruction.getManeuverPrimaryText());
-  secondary_str = "bbbb";//QString::fromStdString(instruction.getManeuverSecondaryText());
 
   maneuver_icon = {};
   lane_icon.clear();
+  primary_str = "aaaa fdsaf dsa fdsaf dsf asf dsadf asfdsaf dsafsaf fds afdsafdsafd";//QString::fromStdString(instruction.getManeuverPrimaryText());
+  secondary_str = "bbbb";//QString::fromStdString(instruction.getManeuverSecondaryText());
+
 
   // Show arrow with direction
   QString type = QString::fromStdString(instruction.getManeuverType());
@@ -525,7 +522,7 @@ void MapInstructions::paintEvent(QPaintEvent *event) {
   if (r.y() > v_margin) {
     QPainter painter(this);
     painter.drawPixmap(0, 0, pm, 0, 0, pm.width(), r.y());
-    qWarning() << millis_since_boot() - t1;
+    qWarning() << "paint" << millis_since_boot() - t1;
   }
 }
 
