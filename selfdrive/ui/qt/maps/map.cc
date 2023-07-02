@@ -419,6 +419,7 @@ void MapInstructions::showError(QString error_text) {
 }
 
 void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruction) {
+  double t1 = millis_since_boot();
   setVisible(true);
   // primary->setFixedWidth(width() - 250);
   // secondary->setFixedWidth(width() - 250);
@@ -488,9 +489,11 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
     lane_icon.push_back(loadPixmap(fn + ICON_SUFFIX, {125, 125}, Qt::IgnoreAspectRatio));
   }
   update();
+  qWarning() << "update " << millis_since_boot() - t1;
 }
 
 void MapInstructions::paintEvent(QPaintEvent *event) {
+  double t1 = millis_since_boot();
   QPixmap pm(width(), 300);
   pm.fill(Qt::transparent);
   QPainter p(&pm);
@@ -530,6 +533,7 @@ void MapInstructions::paintEvent(QPaintEvent *event) {
   QPainter painter(this);
   painter.fillRect(QRect{0, 0, width(), r.y() + 50}, QColor(0, 0, 0, 150));
   painter.drawPixmap(0, 0, pm);
+  qWarning() << "paint " << millis_since_boot() - t1;
 }
 
 void MapInstructions::hideIfNoError() {
