@@ -20,7 +20,7 @@ const float MANEUVER_TRANSITION_THRESHOLD = 10;
 
 const float MAX_ZOOM = 17;
 const float MIN_ZOOM = 14;
-// const float MAX_PITCH = 50;
+const float MAX_PITCH = 50;
 const float MIN_PITCH = 0;
 const float MAP_SCALE = 2;
 
@@ -194,21 +194,18 @@ void MapWindow::updateState(const UIState &s) {
     zoom_counter--;
   }
 
-  if (true) {//sm.updated("navInstruction")) {
-    // if (sm.valid("navInstruction")) {
-    //   auto i = sm["navInstruction"].getNavInstruction();
-    //   emit ETAChanged(i.getTimeRemaining(), i.getTimeRemainingTypical(), i.getDistanceRemaining());
+  if (sm.updated("navInstruction")) {
+    if (sm.valid("navInstruction")) {
+      auto i = sm["navInstruction"].getNavInstruction();
+      emit ETAChanged(i.getTimeRemaining(), i.getTimeRemainingTypical(), i.getDistanceRemaining());
 
-    //   if (locationd_valid) {
-    //     m_map->setPitch(MAX_PITCH); // TODO: smooth pitching based on maneuver distance
-    //     emit distanceChanged(i.getManeuverDistance()); // TODO: combine with instructionsChanged
-    //     emit instructionsChanged(i);
-    //   }
-    // } else {
-    //   clearRoute();
-    // }
-    auto i = sm["navInstruction"].getNavInstruction();
-    map_instructions->updateInstructions(i);  // TODO: combine with instructionsChanged
+      if (locationd_valid) {
+        m_map->setPitch(MAX_PITCH); // TODO: smooth pitching based on maneuver distance
+        map_instructions->updateInstructions(i);
+      }
+    } else {
+      clearRoute();
+    }
 
     // TODO: only move if position should change
     // don't move while map isn't visible
@@ -404,7 +401,6 @@ void MapInstructions::updateDistance(float d) {
       distance_str += tr(" ft");
     }
   }
-  update();
 }
 
 void MapInstructions::showError(const QString &error_text) {
@@ -414,20 +410,16 @@ void MapInstructions::showError(const QString &error_text) {
 }
 
 void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruction) {
-  double t1 = millis_since_boot();
   setVisible(true);
-  updateDistance(instruction.getManeuverDistance());
 
   maneuver_icon = {};
   lane_icon.clear();
-  primary_str = "aaaa fdsaf dsa fdsaf dsf asf dsadf asfdsaf dsafsaf fds afdsafdsafd";//QString::fromStdString(instruction.getManeuverPrimaryText());
-  secondary_str = "bbbb";//QString::fromStdString(instruction.getManeuverSecondaryText());
-
+  primary_str = QString::fromStdString(instruction.getManeuverPrimaryText());
+  secondary_str = QString::fromStdString(instruction.getManeuverSecondaryText());
 
   // Show arrow with direction
   QString type = QString::fromStdString(instruction.getManeuverType());
   QString modifier = QString::fromStdString(instruction.getManeuverModifier());
-  type = "turn left";
   if (!type.isEmpty()) {
     QString fn = "../assets/navigation/direction_" + type;
     if (!modifier.isEmpty()) {
@@ -452,18 +444,14 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
     maneuver_icon = pix.scaledToWidth(200, Qt::SmoothTransformation);
   }
 
-  // Show lanes
-  // for (auto const &lane: int[]{0, 1, 2, 3}) {//instruction.getLanes()) {
-    for (int i = 0; i < 3;++i) {
-    bool active = true;//lane.getActive();
-
+  for (auto const &lane: instruction.getLanes()) {
     // TODO: only use active direction if active
-    bool left = false, straight = true, right = false;
-    // for (auto const &direction: lane.getDirections()) {
-    //   left |= direction == cereal::NavInstruction::Direction::LEFT;
-    //   right |= direction == cereal::NavInstruction::Direction::RIGHT;
-    //   straight |= direction == cereal::NavInstruction::Direction::STRAIGHT;
-    // }
+    bool left = false, straight = false, right = false;
+    for (auto const &direction: lane.getDirections()) {
+      left |= direction == cereal::NavInstruction::Direction::LEFT;
+      right |= direction == cereal::NavInstruction::Direction::RIGHT;
+      straight |= direction == cereal::NavInstruction::Direction::STRAIGHT;
+    }
 
     // TODO: Make more images based on active direction and combined directions
     QString fn = "../assets/navigation/direction_";
@@ -475,25 +463,25 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
       fn += "turn_straight";
     }
 
-    if (!active) {
+    if (!lane.getActive()) {
       fn += "_inactive";
     }
 
     lane_icon.push_back(loadPixmap(fn + ICON_SUFFIX, {125, 125}, Qt::IgnoreAspectRatio));
   }
+
+  updateDistance(instruction.getManeuverDistance());
   update();
-  qWarning() << "update " << millis_since_boot() - t1;
 }
 
 void MapInstructions::paintEvent(QPaintEvent *event) {
-  double t1 = millis_since_boot();
   QPixmap pm(width(), height());
   pm.fill(QColor(0, 0, 0, 150));
   QPainter p(&pm);
   p.setPen(Qt::white);
   QRect r({0, 0}, pm.size());
   const int h_margin = 10, v_margin = 50, spacing = 8;
-  if (false) {//!err_str.isEmpty()) {
+  if (!err_str.isEmpty()) {
     configFont(p, "Inter", 90, "Regular");
     p.drawText(QRect{0, 0, pm.width(), 200}, Qt::AlignCenter, err_str);
     r.setY(200);
@@ -522,7 +510,6 @@ void MapInstructions::paintEvent(QPaintEvent *event) {
   if (r.y() > v_margin) {
     QPainter painter(this);
     painter.drawPixmap(0, 0, pm, 0, 0, pm.width(), r.y());
-    qWarning() << "paint" << millis_since_boot() - t1;
   }
 }
 
