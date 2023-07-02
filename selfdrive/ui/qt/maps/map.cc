@@ -31,11 +31,6 @@ MapWindow::MapWindow(const QMapboxGLSettings &settings) : m_settings(settings), 
 
   // Instructions
   map_instructions = new MapInstructions(this);
-  QObject::connect(this, &MapWindow::instructionsChanged, map_instructions, &MapInstructions::updateInstructions);
-  QObject::connect(this, &MapWindow::distanceChanged, map_instructions, &MapInstructions::updateDistance);
-  // map_instructions->setFixedWidth(width());
-  map_instructions->setVisible(false);
-
   map_eta = new MapETA(this);
   QObject::connect(this, &MapWindow::ETAChanged, map_eta, &MapETA::updateETA);
 
@@ -213,8 +208,7 @@ void MapWindow::updateState(const UIState &s) {
     //   clearRoute();
     // }
     auto i = sm["navInstruction"].getNavInstruction();
-    emit distanceChanged(i.getManeuverDistance());  // TODO: combine with instructionsChanged
-    emit instructionsChanged(i);
+    map_instructions->updateInstructions(i);  // TODO: combine with instructionsChanged
 
     // TODO: only move if position should change
     // don't move while map isn't visible
@@ -248,7 +242,7 @@ void MapWindow::updateState(const UIState &s) {
 
 void MapWindow::resizeGL(int w, int h) {
   m_map->resize(size() / MAP_SCALE);
-  map_instructions->setFixedSize(width(), 500);
+  map_instructions->setFixedSize(width(), height());
 }
 
 void MapWindow::initializeGL() {
@@ -385,6 +379,7 @@ MapInstructions::MapInstructions(QWidget * parent) : QWidget(parent) {
   setAttribute(Qt::WA_TranslucentBackground);
   setAttribute(Qt::WA_TransparentForMouseEvents);
   is_rhd = Params().getBool("IsRhdDetected");
+  setVisible(false);
 }
 
 void MapInstructions::updateDistance(float d) {
@@ -412,15 +407,16 @@ void MapInstructions::updateDistance(float d) {
   update();
 }
 
-void MapInstructions::showError(QString error_text) {
+void MapInstructions::showError(const QString &error_text) {
   err_str = error_text;
-  setVisible(true);
+  setVisible(!err_str.isEmpty());
   update();
 }
 
 void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruction) {
   double t1 = millis_since_boot();
   setVisible(true);
+  updateDistance(instruction.getManeuverDistance());
   // primary->setFixedWidth(width() - 250);
   // secondary->setFixedWidth(width() - 250);
 
@@ -495,20 +491,20 @@ void MapInstructions::updateInstructions(cereal::NavInstruction::Reader instruct
 void MapInstructions::paintEvent(QPaintEvent *event) {
   double t1 = millis_since_boot();
   QPixmap pm(width(), height());
-  pm.fill(Qt::transparent);
+  pm.fill(QColor(0, 0, 0, 150));
   QPainter p(&pm);
   p.setPen(Qt::white);
-  QRect r(0, 0, width(), 200);
+  QRect r({0, 0}, pm.size());
   const int h_margin = 10, v_margin = 50, spacing = 8;
   if (false) {//!err_str.isEmpty()) {
-    p.fillRect(r, QColor(0, 0, 0, 150));
     configFont(p, "Inter", 90, "Regular");
-    p.drawText(r, Qt::AlignCenter, err_str);
+    p.drawText(QRect{0, 0, pm.width(), 200}, Qt::AlignCenter, err_str);
+    r.setY(200);
   } else {
     r = rect().adjusted(h_margin, v_margin, -h_margin, -v_margin);
     if (!maneuver_icon.isNull()) {
       p.drawPixmap(h_margin, v_margin, maneuver_icon);
-      r.adjust(maneuver_icon.width() + spacing, 0, 0, 0);
+      r.adjust(maneuver_icon.width() + spacing, 1, 0, 0);
     }
     std::pair<QString ,int> strings[] = {{distance_str, 90}, {primary_str, 60}, {secondary_str, 50}};
     for (auto &[str, size] : strings) {
@@ -522,15 +518,19 @@ void MapInstructions::paintEvent(QPaintEvent *event) {
     for (int i = 0, x = r.x(); i < lane_icon.size(); ++i, x += 125) {
       p.drawPixmap(x, r.y(), lane_icon[i]);
     }
+    if (r.y() > v_margin) {
+      r.setY(r.y() + (lane_icon.size() > 0 ? 153 : 0) + v_margin);
+    }
   }
-  QPainter painter(this);
-  painter.fillRect(QRect{0, 0, width(), r.y() + v_margin + (lane_icon.size() > 0 ? 135 : 0)}, QColor(0, 0, 0, 150));
-  painter.drawPixmap(0, 0, pm);
-  qWarning() << "paint " << millis_since_boot() - t1;
+  if (r.y() > v_margin) {
+    QPainter painter(this);
+    painter.drawPixmap(0, 0, pm, 0, 0, pm.width(), r.y());
+    qWarning() << millis_since_boot() - t1;
+  }
 }
 
 void MapInstructions::hideIfNoError() {
-  if (!err_str.isEmpty()) {
+  if (err_str.isEmpty()) {
     hide();
   }
 }

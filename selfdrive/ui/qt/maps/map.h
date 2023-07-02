@@ -30,18 +30,15 @@ private:
   bool is_rhd = false;
   QPixmap maneuver_icon;
   QList<QPixmap> lane_icon;
-
   QString primary_str, secondary_str;
   QString distance_str;
   QString err_str;
 
 public:
   MapInstructions(QWidget * parent=nullptr);
-  void showError(QString error);
+  void showError(const QString &error);
   void paintEvent(QPaintEvent *event) override;
   void hideIfNoError();
-
-public slots:
   void updateDistance(float d);
   void updateInstructions(cereal::NavInstruction::Reader instruction);
 };
@@ -123,8 +120,6 @@ public slots:
   void offroadTransition(bool offroad);
 
 signals:
-  void distanceChanged(float distance);
-  void instructionsChanged(cereal::NavInstruction::Reader instruction);
   void ETAChanged(float seconds, float seconds_typical, float distance);
 
   void requestVisible(bool visible);
