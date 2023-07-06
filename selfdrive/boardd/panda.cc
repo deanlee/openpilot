@@ -27,6 +27,15 @@ Panda::Panda(std::string serial, uint32_t bus_offset) : bus_offset(bus_offset) {
             (hw_type == cereal::PandaState::PandaType::DOS) ||
             (hw_type == cereal::PandaState::PandaType::TRES);
 
+  auto fw_sig = get_firmware_version();
+  for (auto s : {"panda.bin.signed", "panda_h7.bin.signed "}) {
+    auto sig = util::read_file(std::string("../../panda/board/obj/") + s);
+    if (memcmp(sig.data(), fw_sig->data(), fw_sig->size()) == 0) {
+      printf("found %s\n", s);
+    }
+  }
+  
+
   can_reset_communications();
 
   return;
