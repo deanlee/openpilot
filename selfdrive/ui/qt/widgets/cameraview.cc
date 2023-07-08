@@ -169,14 +169,17 @@ void CameraWidget::initializeGL() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindVertexArray(0);
 
-  glUseProgram(program->programId());
+  // glUseProgram(program->programId());
+  program->bind();
 
 #ifdef QCOM2
-  glUniform1i(program->uniformLocation("uTexture"), 0);
+  program->setUniformValue("uTexture", 0);
 #else
-  glGenTextures(2, textures);
-  glUniform1i(program->uniformLocation("uTextureY"), 0);
-  glUniform1i(program->uniformLocation("uTextureUV"), 1);
+  // glGenTextures(2, textures);
+  texture1 = std::make_unique<QOpenGLTexture>();
+  texture2 = std::make_unique<QOpenGLTexture>();
+  program->setUniformValue("uTextureY", 0);
+  program->setUniformValue("uTextureUV", 1);
 #endif
 }
 
@@ -284,7 +287,9 @@ void CameraWidget::paintGL() {
 
   glViewport(0, 0, glWidth(), glHeight());
   glBindVertexArray(frame_vao);
-  glUseProgram(program->programId());
+
+  program->bind();
+  // glUseProgram(program->programId());
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
 #ifdef QCOM2
@@ -350,6 +355,7 @@ void CameraWidget::vipcConnected(VisionIpcClient *vipc_client) {
     assert(eglGetError() == EGL_SUCCESS);
   }
 #else
+  texture1->allocateStorage();
   glBindTexture(GL_TEXTURE_2D, textures[0]);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

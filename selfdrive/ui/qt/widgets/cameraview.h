@@ -4,6 +4,7 @@
 #include <mutex>
 
 #include <QOpenGLBuffer>
+#include <QOpenGLTexture>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLWidget>
@@ -60,7 +61,8 @@ protected:
 
   bool zoomed_view;
   GLuint frame_vao, frame_ibo;
-  GLuint textures[2];
+  // GLuint textures[2];
+  std::unique_ptr<QOpenGLTexture> texture1, texture2;
   mat4 frame_mat;
   std::unique_ptr<QOpenGLShaderProgram> program;
   QOpenGLBuffer frame_vbo;
