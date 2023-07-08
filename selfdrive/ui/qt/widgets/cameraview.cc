@@ -305,8 +305,9 @@ void CameraWidget::paintGL() {
   glPixelStorei(GL_UNPACK_ROW_LENGTH, stream_stride);
   // QOpenGLPixelTransferOptions uploadOptions;
   // uploadOptions.setAlignment(1);
-  texture1->setData(QOpenGLTexture::Red, QOpenGLTexture::UInt8, frame->y);//, &uploadOptions);
   texture1->bind();
+  texture1->setData(0, QOpenGLTexture::Red, QOpenGLTexture::UInt8, frame->y);//, &uploadOptions);
+  
   assert(glGetError() == GL_NO_ERROR);
   // glActiveTexture(GL_TEXTURE0);
   // glBindTexture(GL_TEXTURE_2D, textures[0]);
@@ -317,8 +318,9 @@ void CameraWidget::paintGL() {
   // glActiveTexture(GL_TEXTURE0 + 1);
   // glBindTexture(GL_TEXTURE_2D, textures[1]);
   // glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, stream_width/2, stream_height/2, GL_RG, GL_UNSIGNED_BYTE, frame->uv);
-  texture2->setData(QOpenGLTexture::RG, QOpenGLTexture::UInt8, frame->uv);//, &uploadOptions);
   texture2->bind();
+  texture2->setData(0, QOpenGLTexture::RG, QOpenGLTexture::UInt8, frame->uv);//, &uploadOptions);
+  
   
   assert(glGetError() == GL_NO_ERROR);
 #endif
@@ -367,13 +369,14 @@ void CameraWidget::vipcConnected(VisionIpcClient *vipc_client) {
   }
 #else
   // texture1->allocateStorage();
-  
+  texture1->create();
+  // texture1->bind();
   texture1->setFormat(QOpenGLTexture::R8_UNorm);
   // texture1->bind();
-  texture1->setSize(stream_width, stream_height);
-  texture1->allocateStorage(QOpenGLTexture::Red, QOpenGLTexture::UInt8);
   texture1->setMinMagFilters(QOpenGLTexture::Linear, QOpenGLTexture::Linear);
   texture1->setWrapMode(QOpenGLTexture::ClampToEdge);
+  texture1->setSize(stream_width, stream_height);
+  texture1->allocateStorage(QOpenGLTexture::Red, QOpenGLTexture::UInt8);
   // glBindTexture(GL_TEXTURE_2D, textures[0]);
   // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -383,12 +386,14 @@ void CameraWidget::vipcConnected(VisionIpcClient *vipc_client) {
   assert(glGetError() == GL_NO_ERROR);
   // texture1->allocateStorage();
   
+  texture2->create();
+  // texture2->bind();
   texture2->setFormat(QOpenGLTexture::RG8_UNorm);
   // texture2->bind();
-  texture2->setSize(stream_width/2, stream_height/2);
-  texture2->allocateStorage(QOpenGLTexture::RG, QOpenGLTexture::UInt8);
   texture2->setMinMagFilters(QOpenGLTexture::Linear, QOpenGLTexture::Linear);
   texture2->setWrapMode(QOpenGLTexture::ClampToEdge);
+  texture2->setSize(stream_width/2, stream_height/2);
+  texture2->allocateStorage(QOpenGLTexture::RG, QOpenGLTexture::UInt8);
   // glBindTexture(GL_TEXTURE_2D, textures[1]);
   // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
