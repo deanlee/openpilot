@@ -179,8 +179,10 @@ void CameraWidget::initializeGL() {
   // glGenTextures(2, textures);
   texture1 = std::make_unique<QOpenGLTexture>(QOpenGLTexture::Target2D);
   texture2 = std::make_unique<QOpenGLTexture>(QOpenGLTexture::Target2D);
-  program->setUniformValue("uTextureY", 0);
-  program->setUniformValue("uTextureUV", 1);
+  // program->setUniformValue("uTextureY", 0);
+  // program->setUniformValue("uTextureUV", 1);
+    glUniform1i(program->uniformLocation("uTextureY"), 0);
+  glUniform1i(program->uniformLocation("uTextureUV"), 1);
 #endif
 }
 
@@ -300,7 +302,7 @@ void CameraWidget::paintGL() {
   assert(glGetError() == GL_NO_ERROR);
 #else
   // fallback to copy
-  // glPixelStorei(GL_UNPACK_ROW_LENGTH, stream_stride);
+  glPixelStorei(GL_UNPACK_ROW_LENGTH, stream_stride);
   // QOpenGLPixelTransferOptions uploadOptions;
   // uploadOptions.setAlignment(1);
   texture1->bind();
