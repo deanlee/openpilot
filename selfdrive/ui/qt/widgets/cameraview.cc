@@ -376,6 +376,7 @@ void CameraWidget::vipcConnected(VisionIpcClient *vipc_client) {
   texture1->setMinMagFilters(QOpenGLTexture::Linear, QOpenGLTexture::Linear);
   texture1->setWrapMode(QOpenGLTexture::ClampToEdge);
   texture1->setSize(stream_width, stream_height);
+  texture1->setMipLevels(1);
   texture1->allocateStorage(QOpenGLTexture::Red, QOpenGLTexture::UInt8);
   // glBindTexture(GL_TEXTURE_2D, textures[0]);
   // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -393,6 +394,7 @@ void CameraWidget::vipcConnected(VisionIpcClient *vipc_client) {
   texture2->setMinMagFilters(QOpenGLTexture::Linear, QOpenGLTexture::Linear);
   texture2->setWrapMode(QOpenGLTexture::ClampToEdge);
   texture2->setSize(stream_width/2, stream_height/2);
+  texture2->setMipLevels(1);
   texture2->allocateStorage(QOpenGLTexture::RG, QOpenGLTexture::UInt8);
   // glBindTexture(GL_TEXTURE_2D, textures[1]);
   // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
