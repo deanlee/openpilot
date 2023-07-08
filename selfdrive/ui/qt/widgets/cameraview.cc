@@ -107,8 +107,8 @@ CameraWidget::~CameraWidget() {
   stopVipcThread();
   if (isValid()) {
     glDeleteVertexArrays(1, &frame_vao);
-    glDeleteBuffers(1, &frame_vbo);
-    glDeleteBuffers(1, &frame_ibo);
+    // glDeleteBuffers(1, &frame_vbo);
+    // glDeleteBuffers(1, &frame_ibo);
     glDeleteBuffers(2, textures);
   }
   doneCurrent();
@@ -148,9 +148,15 @@ void CameraWidget::initializeGL() {
 
   glGenVertexArrays(1, &frame_vao);
   glBindVertexArray(frame_vao);
-  glGenBuffers(1, &frame_vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, frame_vbo);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(frame_coords), frame_coords, GL_STATIC_DRAW);
+
+    frame_vbo.create();
+    frame_vbo.setUsagePattern(QOpenGLBuffer::StaticDraw);
+    frame_vbo.bind();
+    frame_vbo.allocate(frame_coords, sizeof(frame_coords));
+  
+  // glGenBuffers(1, &frame_vbo);
+  // glBindBuffer(GL_ARRAY_BUFFER, frame_vbo);
+  // glBufferData(GL_ARRAY_BUFFER, sizeof(frame_coords), frame_coords, GL_STATIC_DRAW);
   glEnableVertexAttribArray(frame_pos_loc);
   glVertexAttribPointer(frame_pos_loc, 2, GL_FLOAT, GL_FALSE,
                         sizeof(frame_coords[0]), (const void *)0);

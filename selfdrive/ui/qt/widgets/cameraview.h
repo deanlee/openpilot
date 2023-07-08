@@ -3,6 +3,7 @@
 #include <memory>
 #include <mutex>
 
+#include <QOpenGLBuffer>
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLWidget>
@@ -58,10 +59,11 @@ protected:
   int glHeight();
 
   bool zoomed_view;
-  GLuint frame_vao, frame_vbo, frame_ibo;
+  GLuint frame_vao, frame_ibo;
   GLuint textures[2];
   mat4 frame_mat;
   std::unique_ptr<QOpenGLShaderProgram> program;
+  QOpenGLBuffer frame_vbo;
   QColor bg = QColor("#000000");
 
 #ifdef QCOM2
