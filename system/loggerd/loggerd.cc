@@ -13,9 +13,8 @@ struct RemoteEncoder {
 
   inline static int ready_to_rotate = 0;  // count of encoders ready to rotate
   std::unique_ptr<VideoWriter> writer;
-  int encoderd_segment_offset;
-  int current_segment = -1;
-  int current_encode_segment = -1;
+  int remote_encoder_segment = -1;
+  int current_encoder_segment = -1;
   std::vector<Message *> q;
   int dropped_frames = 0;
   bool recording = false;
@@ -26,20 +25,18 @@ struct RemoteEncoder {
 struct LoggerdState {
   LoggerState logger = {};
   char segment_path[4096];
-  std::atomic<int> rotate_segment;
   std::atomic<double> last_camera_seen_tms;
   double last_rotate_tms = 0.;      // last rotate time in ms
-  std::unordered_map<std::string, struct RemoteEncoder> remote_encoders;
+  std::unordered_map<std::string, std::unique_ptr<RemoteEncoder>> remote_encoders;
 };
 
 void logger_rotate(LoggerdState *s) {
   int segment = -1;
   int err = logger_next(&s->logger, LOG_ROOT.c_str(), s->segment_path, sizeof(s->segment_path), &segment);
   assert(err == 0);
-  s->rotate_segment = segment;
 
   for (auto &[_, encoder] : s->remote_encoders) {
-    encoder.rotate(s, segment);
+    encoder->rotate(s, segment);
   }
 
   s->last_rotate_tms = millis_since_boot();
@@ -73,18 +70,8 @@ void RemoteEncoder::rotate(LoggerdState *s, int segment) {
   // if this is a new segment, we close any possible old segments, move to the new, and process any queued packets
   writer.reset();
   recording = false;
-  current_segment = segment;
+  current_encoder_segment = remote_encoder_segment;
   marked_ready_to_rotate = false;
-
-  // process any queued messages
-  if (!q.empty()) {
-    for (auto &qmsg : q) {
-      capnp::FlatArrayMessageReader msg_reader({(capnp::word *)qmsg->getData(), qmsg->getSize() / sizeof(capnp::word)});
-      write_encode_data(s, msg_reader.getRoot<cereal::Event>());
-      delete qmsg;
-    }
-    q.clear();
-  }
 }
 
 int RemoteEncoder::write_encode_data(LoggerdState *s, const cereal::Event::Reader event) {
@@ -143,40 +130,48 @@ size_t RemoteEncoder::write_msg(LoggerdState *s, Message *msg) {
   auto event = cmsg.getRoot<cereal::Event>();
   auto idx = (event.*(info.get_encode_data_func))().getIdx();
 
-  int bytes_count = 0;
-  // encoderd can have started long before loggerd
-  if (encoderd_segment_offset == -1) {
-    encoderd_segment_offset = idx.getSegmentNum();
-    current_encode_segment = idx.getSegmentNum();
-    // LOGD("%s: has encoderd offset %d", name.c_str(), re.encoderd_segment_offset);
+  remote_encoder_segment = idx.getSegmentNum();
+  if (current_encoder_segment == -1) {
+    current_encoder_segment = remote_encoder_segment;
+    LOGD("%s: has encoderd offset %d", info.publish_name, current_encoder_segment);
   }
 
-  if (!marked_ready_to_rotate && idx.getSegmentNum() == current_encode_segment) {
-    bytes_count = write_encode_data(s, event);
+  size_t written = 0;
+  if (current_encoder_segment = remote_encoder_segment) {
+    if (!q.empty()) {
+      for (auto &qmsg : q) {
+        capnp::FlatArrayMessageReader msg_reader({(capnp::word *)qmsg->getData(), qmsg->getSize() / sizeof(capnp::word)});
+        written += write_encode_data(s, msg_reader.getRoot<cereal::Event>());
+        delete qmsg;
+      }
+      q.clear();
+    }
+    written = write_encode_data(s, event);
     delete msg;
-  } else  if (!marked_ready_to_rotate) {
-    marked_ready_to_rotate = true;
-    ++ready_to_rotate;
+  } else {
+    if (!marked_ready_to_rotate) {
+      marked_ready_to_rotate = true;
+      ++ready_to_rotate;
+    }
     q.push_back(msg);
   }
-  return bytes_count;
+  return written;
 }
 
 size_t handle_encoder_msg(LoggerdState *s, const std::string &name, Message *m) {
-  auto it = s->remote_encoders.find(name);
-  if (it == s->remote_encoders.end()) {
+  auto &encoder = s->remote_encoders[name];
+  if (!encoder) {
     for (const auto &cam : cameras_logged) {
       for (const auto &encoder_info : cam.encoder_infos) {
         if (name == encoder_info.publish_name) {
-          s->remote_encoders.emplace(name, RemoteEncoder(encoder_info));
-          it = s->remote_encoders.find(name);
+          encoder.reset(new RemoteEncoder(encoder_info));
           break;
         }
       }
     }
-    assert(it != s->remote_encoders.end());
+    assert(encoder != nullptr);
   }
-  return it->second.write_msg(s, m);
+  return encoder->write_msg(s, m);
 }
 
 void loggerd_thread() {
