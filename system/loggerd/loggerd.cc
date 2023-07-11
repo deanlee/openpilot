@@ -21,7 +21,6 @@ struct LoggerdState {
   char segment_path[4096];
   std::atomic<double> last_camera_seen_tms;
   std::atomic<int> ready_to_rotate;  // count of encoders ready to rotate
-  int max_waiting = 0;
   double last_rotate_tms = 0.;      // last rotate time in ms
   std::unordered_map<SubSocket*, struct RemoteEncoder> remote_encoders;
 };
@@ -41,7 +40,7 @@ void logger_rotate(LoggerdState *s) {
 
 void rotate_if_needed(LoggerdState *s) {
   // all encoders ready, trigger rotation
-  bool all_ready = s->ready_to_rotate == s->max_waiting;
+  bool all_ready = s->ready_to_rotate == s->remote_encoders.size();
 
   // fallback logic to prevent extremely long segments in the case of camera, encoder, etc. malfunctions
   bool timed_out = false;
@@ -153,7 +152,7 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
       ++s->ready_to_rotate;
       LOGD("rotate %d -> %d ready %d/%d for %s",
         re.current_segment, offset_segment_num,
-        s->ready_to_rotate.load(), s->max_waiting, name.c_str());
+        s->ready_to_rotate.load(), s->remote_encoders.size(), name.c_str());
     }
     // queue up all the new segment messages, they go in after the rotate
     re.q.push_back(msg);
@@ -208,7 +207,6 @@ void loggerd_thread() {
   for (const auto &cam : cameras_logged) {
     for (const auto &encoder_info: cam.encoder_infos) {
       encoder_infos_dict[encoder_info.publish_name] = encoder_info;
-      s.max_waiting++;
     }
   }
 
