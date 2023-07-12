@@ -1,5 +1,4 @@
 #include "system/loggerd/logger/loggerd.h"
-#include "system/loggerd/video_writer.h"
 
 ExitHandler do_exit;
 

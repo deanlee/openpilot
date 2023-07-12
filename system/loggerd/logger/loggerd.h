@@ -25,6 +25,7 @@
 
 #include "system/loggerd/encoder/encoder.h"
 #include "system/loggerd/logger/logger.h"
+#include "system/loggerd/logger/video_writer.h"
 #ifdef QCOM2
 #include "system/loggerd/encoder/v4l_encoder.h"
 #define Encoder V4LEncoder
@@ -141,3 +142,6 @@ struct RemoteEncoder {
 };
 
 void logger_rotate(LoggerdState *s);
+void rotate_if_needed(LoggerdState *s);
+int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct RemoteEncoder &re, const EncoderInfo &encoder_info);
+void loggerd_thread();
