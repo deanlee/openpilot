@@ -1,80 +1,147 @@
 #pragma once
 
+#include <unistd.h>
+
+#include <atomic>
 #include <cassert>
-#include <pthread.h>
-
-#include <cstdint>
-#include <cstdio>
-#include <memory>
-
-#include <capnp/serialize.h>
-#include <kj/array.h>
+#include <cerrno>
+#include <condition_variable>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <utility>
 
 #include "cereal/messaging/messaging.h"
-#include "common/util.h"
+#include "cereal/services.h"
+#include "cereal/visionipc/visionipc.h"
+#include "cereal/visionipc/visionipc_client.h"
+#include "system/camerad/cameras/camera_common.h"
+#include "common/params.h"
 #include "common/swaglog.h"
+#include "common/timing.h"
+#include "common/util.h"
 #include "system/hardware/hw.h"
 
-const std::string LOG_ROOT = Path::log_root();
+#include "system/loggerd/encoder/encoder.h"
+#include "system/loggerd/logger/logger.h"
+#include "system/loggerd/logger/video_writer.h"
+#ifdef QCOM2
+#include "system/loggerd/encoder/v4l_encoder.h"
+#define Encoder V4LEncoder
+#else
+#include "system/loggerd/encoder/ffmpeg_encoder.h"
+#define Encoder FfmpegEncoder
+#endif
 
-#define LOGGER_MAX_HANDLES 16
+constexpr int MAIN_FPS = 20;
+const int MAIN_BITRATE = 10000000;
 
-class RawFile {
- public:
-  RawFile(const char* path) {
-    file = util::safe_fopen(path, "wb");
-    assert(file != nullptr);
-  }
-  ~RawFile() {
-    util::safe_fflush(file);
-    int err = fclose(file);
-    assert(err == 0);
-  }
-  inline void write(void* data, size_t size) {
-    int written = util::safe_fwrite(data, 1, size, file);
-    assert(written == size);
-  }
-  inline void write(kj::ArrayPtr<capnp::byte> array) { write(array.begin(), array.size()); }
+#define NO_CAMERA_PATIENCE 500 // fall back to time-based rotation if all cameras are dead
 
- private:
-  FILE* file = nullptr;
+const bool LOGGERD_TEST = getenv("LOGGERD_TEST");
+const int SEGMENT_LENGTH = LOGGERD_TEST ? atoi(getenv("LOGGERD_SEGMENT_LENGTH")) : 60;
+
+class EncoderInfo {
+public:
+  const char *publish_name;
+  const char *filename;
+  bool record = true;
+  int frame_width = 1928;
+  int frame_height = 1208;
+  int fps = MAIN_FPS;
+  int bitrate = MAIN_BITRATE;
+  cereal::EncodeIndex::Type encode_type = cereal::EncodeIndex::Type::FULL_H_E_V_C;
+  ::cereal::EncodeData::Reader (cereal::Event::Reader::*get_encode_data_func)() const;
+  void (cereal::Event::Builder::*set_encode_idx_func)(::cereal::EncodeIndex::Reader);
 };
 
-typedef cereal::Sentinel::SentinelType SentinelType;
+class LogCameraInfo {
+public:
+  const char *thread_name;
+  int fps = MAIN_FPS;
+  CameraType type;
+  VisionStreamType stream_type;
+  std::vector<EncoderInfo> encoder_infos;
+};
 
-typedef struct LoggerHandle {
-  pthread_mutex_t lock;
-  SentinelType end_sentinel_type;
-  int exit_signal;
-  int refcnt;
+const EncoderInfo main_road_encoder_info = {
+  .publish_name = "roadEncodeData",
+  .filename = "fcamera.hevc",
+  .get_encode_data_func = &cereal::Event::Reader::getRoadEncodeData,
+  .set_encode_idx_func = &cereal::Event::Builder::setRoadEncodeIdx,
+};
+const EncoderInfo main_wide_road_encoder_info = {
+  .publish_name = "wideRoadEncodeData",
+  .filename = "ecamera.hevc",
+  .get_encode_data_func = &cereal::Event::Reader::getWideRoadEncodeData,
+  .set_encode_idx_func = &cereal::Event::Builder::setWideRoadEncodeIdx,
+};
+const EncoderInfo main_driver_encoder_info = {
+   .publish_name = "driverEncodeData",
+  .filename = "dcamera.hevc",
+  .record = Params().getBool("RecordFront"),
+  .get_encode_data_func = &cereal::Event::Reader::getDriverEncodeData,
+  .set_encode_idx_func = &cereal::Event::Builder::setDriverEncodeIdx,
+};
+
+const EncoderInfo qcam_encoder_info = {
+  .publish_name = "qRoadEncodeData",
+  .filename = "qcamera.ts",
+  .bitrate = 256000,
+  .encode_type = cereal::EncodeIndex::Type::QCAMERA_H264,
+  .frame_width = 526,
+  .frame_height = 330,
+  .get_encode_data_func = &cereal::Event::Reader::getQRoadEncodeData,
+  .set_encode_idx_func = &cereal::Event::Builder::setQRoadEncodeIdx,
+};
+
+
+const LogCameraInfo road_camera_info{
+    .thread_name = "road_cam_encoder",
+    .type = RoadCam,
+    .stream_type = VISION_STREAM_ROAD,
+    .encoder_infos = {main_road_encoder_info, qcam_encoder_info}
+    };
+
+const LogCameraInfo wide_road_camera_info{
+    .thread_name = "wide_road_cam_encoder",
+    .type = WideRoadCam,
+    .stream_type = VISION_STREAM_WIDE_ROAD,
+   .encoder_infos = {main_wide_road_encoder_info}
+    };
+  
+const LogCameraInfo driver_camera_info{
+    .thread_name = "driver_cam_encoder",
+    .type = DriverCam,
+    .stream_type = VISION_STREAM_DRIVER,
+    .encoder_infos = {main_driver_encoder_info}
+    };
+
+const LogCameraInfo cameras_logged[] = {road_camera_info, wide_road_camera_info, driver_camera_info};
+
+struct LoggerdState {
+  LoggerState logger = {};
   char segment_path[4096];
-  char log_path[4096];
-  char qlog_path[4096];
-  char lock_path[4096];
-  std::unique_ptr<RawFile> log, q_log;
-} LoggerHandle;
+  std::atomic<int> rotate_segment;
+  std::atomic<double> last_camera_seen_tms;
+  std::atomic<int> ready_to_rotate;  // count of encoders ready to rotate
+  int max_waiting = 0;
+  double last_rotate_tms = 0.;      // last rotate time in ms
+};
 
-typedef struct LoggerState {
-  pthread_mutex_t lock;
-  int part;
-  kj::Array<capnp::word> init_data;
-  std::string route_name;
-  char log_name[64];
-  bool has_qlog;
+struct RemoteEncoder {
+  std::unique_ptr<VideoWriter> writer;
+  int encoderd_segment_offset;
+  int current_segment = -1;
+  std::vector<Message *> q;
+  int dropped_frames = 0;
+  bool recording = false;
+  bool marked_ready_to_rotate = false;
+  bool seen_first_packet = false;
+};
 
-  LoggerHandle handles[LOGGER_MAX_HANDLES];
-  LoggerHandle* cur_handle;
-} LoggerState;
-
-kj::Array<capnp::word> logger_build_init_data();
-std::string logger_get_route_name();
-void logger_init(LoggerState *s, bool has_qlog);
-int logger_next(LoggerState *s, const char* root_path,
-                            char* out_segment_path, size_t out_segment_path_len,
-                            int* out_part);
-LoggerHandle* logger_get_handle(LoggerState *s);
-void logger_close(LoggerState *s, ExitHandler *exit_handler=nullptr);
-void logger_log(LoggerState *s, uint8_t* data, size_t data_size, bool in_qlog);
-
-void lh_log(LoggerHandle* h, uint8_t* data, size_t data_size, bool in_qlog);
-void lh_close(LoggerHandle* h);
+void logger_rotate(LoggerdState *s);
+void rotate_if_needed(LoggerdState *s);
+int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct RemoteEncoder &re, const EncoderInfo &encoder_info);
+void loggerd_thread();

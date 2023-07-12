@@ -1,260 +1,242 @@
-#include "system/loggerd/logger/logger.h"
+#include "system/loggerd/logger/loggerd.h"
 
-#include <sys/stat.h>
-#include <unistd.h>
-#include <ftw.h>
+ExitHandler do_exit;
 
-#include <cassert>
-#include <cerrno>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <ctime>
-#include <fstream>
-#include <iostream>
-#include <streambuf>
-
-#include "common/params.h"
-#include "common/swaglog.h"
-#include "common/version.h"
-
-// ***** log metadata *****
-kj::Array<capnp::word> logger_build_init_data() {
-  MessageBuilder msg;
-  auto init = msg.initEvent().initInitData();
-
-  init.setVersion(COMMA_VERSION);
-  init.setDirty(!getenv("CLEAN"));
-  init.setDeviceType(Hardware::get_device_type());
-
-  // log kernel args
-  std::ifstream cmdline_stream("/proc/cmdline");
-  std::vector<std::string> kernel_args;
-  std::string buf;
-  while (cmdline_stream >> buf) {
-    kernel_args.push_back(buf);
-  }
-
-  auto lkernel_args = init.initKernelArgs(kernel_args.size());
-  for (int i=0; i<kernel_args.size(); i++) {
-    lkernel_args.set(i, kernel_args[i]);
-  }
-
-  init.setKernelVersion(util::read_file("/proc/version"));
-  init.setOsVersion(util::read_file("/VERSION"));
-
-  // log params
-  auto params = Params();
-  std::map<std::string, std::string> params_map = params.readAll();
-
-  init.setGitCommit(params_map["GitCommit"]);
-  init.setGitBranch(params_map["GitBranch"]);
-  init.setGitRemote(params_map["GitRemote"]);
-  init.setPassive(params.getBool("Passive"));
-  init.setDongleId(params_map["DongleId"]);
-
-  auto lparams = init.initParams().initEntries(params_map.size());
-  int j = 0;
-  for (auto& [key, value] : params_map) {
-    auto lentry = lparams[j];
-    lentry.setKey(key);
-    if ( !(params.getKeyType(key) & DONT_LOG) ) {
-      lentry.setValue(capnp::Data::Reader((const kj::byte*)value.data(), value.size()));
-    }
-    j++;
-  }
-
-  // log commands
-  std::vector<std::string> log_commands = {
-    "df -h",  // usage for all filesystems
-  };
-
-  auto hw_logs = Hardware::get_init_logs();
-
-  auto commands = init.initCommands().initEntries(log_commands.size() + hw_logs.size());
-  for (int i = 0; i < log_commands.size(); i++) {
-    auto lentry = commands[i];
-
-    lentry.setKey(log_commands[i]);
-
-    const std::string result = util::check_output(log_commands[i]);
-    lentry.setValue(capnp::Data::Reader((const kj::byte*)result.data(), result.size()));
-  }
-
-  int i = log_commands.size();
-  for (auto &[key, value] : hw_logs) {
-    auto lentry = commands[i];
-    lentry.setKey(key);
-    lentry.setValue(capnp::Data::Reader((const kj::byte*)value.data(), value.size()));
-    i++;
-  }
-
-  return capnp::messageToFlatArray(msg);
+void logger_rotate(LoggerdState *s) {
+  int segment = -1;
+  int err = logger_next(&s->logger, LOG_ROOT.c_str(), s->segment_path, sizeof(s->segment_path), &segment);
+  assert(err == 0);
+  s->rotate_segment = segment;
+  s->ready_to_rotate = 0;
+  s->last_rotate_tms = millis_since_boot();
+  LOGW((s->logger.part == 0) ? "logging to %s" : "rotated to %s", s->segment_path);
 }
 
-std::string logger_get_route_name() {
-  char route_name[64] = {'\0'};
-  time_t rawtime = time(NULL);
-  struct tm timeinfo;
-  localtime_r(&rawtime, &timeinfo);
-  strftime(route_name, sizeof(route_name), "%Y-%m-%d--%H-%M-%S", &timeinfo);
-  return route_name;
-}
+void rotate_if_needed(LoggerdState *s) {
+  // all encoders ready, trigger rotation
+  bool all_ready = s->ready_to_rotate == s->max_waiting;
 
-void log_init_data(LoggerState *s) {
-  auto bytes = s->init_data.asBytes();
-  logger_log(s, bytes.begin(), bytes.size(), s->has_qlog);
-}
-
-
-static void lh_log_sentinel(LoggerHandle *h, SentinelType type) {
-  MessageBuilder msg;
-  auto sen = msg.initEvent().initSentinel();
-  sen.setType(type);
-  sen.setSignal(h->exit_signal);
-  auto bytes = msg.toBytes();
-
-  lh_log(h, bytes.begin(), bytes.size(), true);
-}
-
-// ***** logging functions *****
-
-void logger_init(LoggerState *s, bool has_qlog) {
-  pthread_mutex_init(&s->lock, NULL);
-
-  s->part = -1;
-  s->has_qlog = has_qlog;
-  s->route_name = logger_get_route_name();
-  s->init_data = logger_build_init_data();
-}
-
-static LoggerHandle* logger_open(LoggerState *s, const char* root_path) {
-  LoggerHandle *h = NULL;
-  for (int i=0; i<LOGGER_MAX_HANDLES; i++) {
-    if (s->handles[i].refcnt == 0) {
-      h = &s->handles[i];
-      break;
+  // fallback logic to prevent extremely long segments in the case of camera, encoder, etc. malfunctions
+  bool timed_out = false;
+  double tms = millis_since_boot();
+  double seg_length_secs = (tms - s->last_rotate_tms) / 1000.;
+  if ((seg_length_secs > SEGMENT_LENGTH) && !LOGGERD_TEST) {
+    // TODO: might be nice to put these reasons in the sentinel
+    if ((tms - s->last_camera_seen_tms) > NO_CAMERA_PATIENCE) {
+      timed_out = true;
+      LOGE("no camera packets seen. auto rotating");
+    } else if (seg_length_secs > SEGMENT_LENGTH*1.2) {
+      timed_out = true;
+      LOGE("segment too long. auto rotating");
     }
   }
-  assert(h);
 
-  snprintf(h->segment_path, sizeof(h->segment_path),
-          "%s/%s--%d", root_path, s->route_name.c_str(), s->part);
-
-  snprintf(h->log_path, sizeof(h->log_path), "%s/rlog", h->segment_path);
-  snprintf(h->qlog_path, sizeof(h->qlog_path), "%s/qlog", h->segment_path);
-  snprintf(h->lock_path, sizeof(h->lock_path), "%s.lock", h->log_path);
-  h->end_sentinel_type = SentinelType::END_OF_SEGMENT;
-  h->exit_signal = 0;
-
-  if (!util::create_directories(h->segment_path, 0775)) return nullptr;
-
-  FILE* lock_file = fopen(h->lock_path, "wb");
-  if (lock_file == NULL) return NULL;
-  fclose(lock_file);
-
-  h->log = std::make_unique<RawFile>(h->log_path);
-  if (s->has_qlog) {
-    h->q_log = std::make_unique<RawFile>(h->qlog_path);
+  if (all_ready || timed_out) {
+    logger_rotate(s);
   }
-
-  pthread_mutex_init(&h->lock, NULL);
-  h->refcnt++;
-  return h;
 }
 
-int logger_next(LoggerState *s, const char* root_path,
-                            char* out_segment_path, size_t out_segment_path_len,
-                            int* out_part) {
-  bool is_start_of_route = !s->cur_handle;
+int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct RemoteEncoder &re, const EncoderInfo &encoder_info) {
+  int bytes_count = 0;
 
-  pthread_mutex_lock(&s->lock);
-  s->part++;
+  // extract the message
+  capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
+  auto event = cmsg.getRoot<cereal::Event>();
+  auto edata = (event.*(encoder_info.get_encode_data_func))();
+  auto idx = edata.getIdx();
+  auto flags = idx.getFlags();
 
-  LoggerHandle* next_h = logger_open(s, root_path);
-  if (!next_h) {
-    pthread_mutex_unlock(&s->lock);
-    return -1;
+  // encoderd can have started long before loggerd
+  if (!re.seen_first_packet) {
+    re.seen_first_packet = true;
+    re.encoderd_segment_offset = idx.getSegmentNum();
+    LOGD("%s: has encoderd offset %d", name.c_str(), re.encoderd_segment_offset);
+  }
+  int offset_segment_num = idx.getSegmentNum() - re.encoderd_segment_offset;
+
+  if (offset_segment_num == s->rotate_segment) {
+    // loggerd is now on the segment that matches this packet
+
+    // if this is a new segment, we close any possible old segments, move to the new, and process any queued packets
+    if (re.current_segment != s->rotate_segment) {
+      if (re.recording) {
+        re.writer.reset();
+        re.recording = false;
+      }
+      re.current_segment = s->rotate_segment;
+      re.marked_ready_to_rotate = false;
+      // we are in this segment now, process any queued messages before this one
+      if (!re.q.empty()) {
+        for (auto &qmsg: re.q) {
+          bytes_count += handle_encoder_msg(s, qmsg, name, re, encoder_info);
+        }
+        re.q.clear();
+      }
+    }
+
+    // if we aren't recording yet, try to start, since we are in the correct segment
+    if (!re.recording) {
+      if (flags & V4L2_BUF_FLAG_KEYFRAME) {
+        // only create on iframe
+        if (re.dropped_frames) {
+          // this should only happen for the first segment, maybe
+          LOGW("%s: dropped %d non iframe packets before init", name.c_str(), re.dropped_frames);
+          re.dropped_frames = 0;
+        }
+        // if we aren't actually recording, don't create the writer
+        if (encoder_info.record) {
+          re.writer.reset(new VideoWriter(s->segment_path,
+            encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
+            encoder_info.frame_width, encoder_info.frame_height, encoder_info.fps, idx.getType()));
+          // write the header
+          auto header = edata.getHeader();
+          re.writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof()/1000, true, false);
+        }
+        re.recording = true;
+      } else {
+        // this is a sad case when we aren't recording, but don't have an iframe
+        // nothing we can do but drop the frame
+        delete msg;
+        ++re.dropped_frames;
+        return bytes_count;
+      }
+    }
+
+    // we have to be recording if we are here
+    assert(re.recording);
+
+    // if we are actually writing the video file, do so
+    if (re.writer) {
+      auto data = edata.getData();
+      re.writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof()/1000, false, flags & V4L2_BUF_FLAG_KEYFRAME);
+    }
+
+    // put it in log stream as the idx packet
+    MessageBuilder bmsg;
+    auto evt = bmsg.initEvent(event.getValid());
+    evt.setLogMonoTime(event.getLogMonoTime());
+    (evt.*(encoder_info.set_encode_idx_func))(idx);
+    auto new_msg = bmsg.toBytes();
+    logger_log(&s->logger, (uint8_t *)new_msg.begin(), new_msg.size(), true);   // always in qlog?
+    bytes_count += new_msg.size();
+
+    // free the message, we used it
+    delete msg;
+  } else if (offset_segment_num > s->rotate_segment) {
+    // encoderd packet has a newer segment, this means encoderd has rolled over
+    if (!re.marked_ready_to_rotate) {
+      re.marked_ready_to_rotate = true;
+      ++s->ready_to_rotate;
+      LOGD("rotate %d -> %d ready %d/%d for %s",
+        s->rotate_segment.load(), offset_segment_num,
+        s->ready_to_rotate.load(), s->max_waiting, name.c_str());
+    }
+    // queue up all the new segment messages, they go in after the rotate
+    re.q.push_back(msg);
+  } else {
+    LOGE("%s: encoderd packet has a older segment!!! idx.getSegmentNum():%d s->rotate_segment:%d re.encoderd_segment_offset:%d",
+      name.c_str(), idx.getSegmentNum(), s->rotate_segment.load(), re.encoderd_segment_offset);
+    // free the message, it's useless. this should never happen
+    // actually, this can happen if you restart encoderd
+    re.encoderd_segment_offset = -s->rotate_segment.load();
+    delete msg;
   }
 
-  if (s->cur_handle) {
-    lh_close(s->cur_handle);
-  }
-  s->cur_handle = next_h;
-
-  if (out_segment_path) {
-    snprintf(out_segment_path, out_segment_path_len, "%s", next_h->segment_path);
-  }
-  if (out_part) {
-    *out_part = s->part;
-  }
-
-  pthread_mutex_unlock(&s->lock);
-
-  // write beginning of log metadata
-  log_init_data(s);
-  lh_log_sentinel(s->cur_handle, is_start_of_route ? SentinelType::START_OF_ROUTE : SentinelType::START_OF_SEGMENT);
-  return 0;
+  return bytes_count;
 }
 
-LoggerHandle* logger_get_handle(LoggerState *s) {
-  pthread_mutex_lock(&s->lock);
-  LoggerHandle* h = s->cur_handle;
-  if (h) {
-    pthread_mutex_lock(&h->lock);
-    h->refcnt++;
-    pthread_mutex_unlock(&h->lock);
-  }
-  pthread_mutex_unlock(&s->lock);
-  return h;
-}
+void loggerd_thread() {
+  // setup messaging
+  typedef struct QlogState {
+    std::string name;
+    int counter, freq;
+    bool encoder;
+  } QlogState;
+  std::unordered_map<SubSocket*, QlogState> qlog_states;
+  std::unordered_map<SubSocket*, struct RemoteEncoder> remote_encoders;
 
-void logger_log(LoggerState *s, uint8_t* data, size_t data_size, bool in_qlog) {
-  pthread_mutex_lock(&s->lock);
-  if (s->cur_handle) {
-    lh_log(s->cur_handle, data, data_size, in_qlog);
-  }
-  pthread_mutex_unlock(&s->lock);
-}
+  std::unique_ptr<Context> ctx(Context::create());
+  std::unique_ptr<Poller> poller(Poller::create());
 
-void logger_close(LoggerState *s, ExitHandler *exit_handler) {
-  pthread_mutex_lock(&s->lock);
-  if (s->cur_handle) {
-    s->cur_handle->exit_signal = exit_handler && exit_handler->signal.load();
-    s->cur_handle->end_sentinel_type = SentinelType::END_OF_ROUTE;
-    lh_close(s->cur_handle);
-  }
-  pthread_mutex_unlock(&s->lock);
-}
+  // subscribe to all socks
+  for (const auto& it : services) {
+    const bool encoder = strcmp(it.name+strlen(it.name)-strlen("EncodeData"), "EncodeData") == 0;
+    if (!it.should_log && !encoder) continue;
+    LOGD("logging %s (on port %d)", it.name, it.port);
 
-void lh_log(LoggerHandle* h, uint8_t* data, size_t data_size, bool in_qlog) {
-  pthread_mutex_lock(&h->lock);
-  assert(h->refcnt > 0);
-  h->log->write(data, data_size);
-  if (in_qlog && h->q_log) {
-    h->q_log->write(data, data_size);
+    SubSocket * sock = SubSocket::create(ctx.get(), it.name);
+    assert(sock != NULL);
+    poller->registerSocket(sock);
+    qlog_states[sock] = {
+      .name = it.name,
+      .counter = 0,
+      .freq = it.decimation,
+      .encoder = encoder,
+    };
   }
-  pthread_mutex_unlock(&h->lock);
-}
 
-void lh_close(LoggerHandle* h) {
-  pthread_mutex_lock(&h->lock);
-  assert(h->refcnt > 0);
-  if (h->refcnt == 1) {
-    // a very ugly hack. only here can guarantee sentinel is the last msg
-    pthread_mutex_unlock(&h->lock);
-    lh_log_sentinel(h, h->end_sentinel_type);
-    pthread_mutex_lock(&h->lock);
+  LoggerdState s;
+  // init logger
+  logger_init(&s.logger, true);
+  logger_rotate(&s);
+  Params().put("CurrentRoute", s.logger.route_name);
+
+  std::map<std::string, EncoderInfo> encoder_infos_dict;
+  for (const auto &cam : cameras_logged) {
+    for (const auto &encoder_info: cam.encoder_infos) {
+      encoder_infos_dict[encoder_info.publish_name] = encoder_info;
+      s.max_waiting++;
+    }
   }
-  h->refcnt--;
-  if (h->refcnt == 0) {
-    h->log.reset(nullptr);
-    h->q_log.reset(nullptr);
-    unlink(h->lock_path);
-    pthread_mutex_unlock(&h->lock);
-    pthread_mutex_destroy(&h->lock);
-    return;
+
+  uint64_t msg_count = 0, bytes_count = 0;
+  double start_ts = millis_since_boot();
+  while (!do_exit) {
+    // poll for new messages on all sockets
+    for (auto sock : poller->poll(1000)) {
+      if (do_exit) break;
+
+      // drain socket
+      int count = 0;
+      QlogState &qs = qlog_states[sock];
+      Message *msg = nullptr;
+      while (!do_exit && (msg = sock->receive(true))) {
+        const bool in_qlog = qs.freq != -1 && (qs.counter++ % qs.freq == 0);
+
+        if (qs.encoder) {
+          s.last_camera_seen_tms = millis_since_boot();
+          bytes_count += handle_encoder_msg(&s, msg, qs.name, remote_encoders[sock], encoder_infos_dict[qs.name]);
+        } else {
+          logger_log(&s.logger, (uint8_t *)msg->getData(), msg->getSize(), in_qlog);
+          bytes_count += msg->getSize();
+          delete msg;
+        }
+
+        rotate_if_needed(&s);
+
+        if ((++msg_count % 1000) == 0) {
+          double seconds = (millis_since_boot() - start_ts) / 1000.0;
+          LOGD("%lu messages, %.2f msg/sec, %.2f KB/sec", msg_count, msg_count / seconds, bytes_count * 0.001 / seconds);
+        }
+
+        count++;
+        if (count >= 200) {
+          LOGD("large volume of '%s' messages", qs.name.c_str());
+          break;
+        }
+      }
+    }
   }
-  pthread_mutex_unlock(&h->lock);
+
+  LOGW("closing logger");
+  logger_close(&s.logger, &do_exit);
+
+  if (do_exit.power_failure) {
+    LOGE("power failure");
+    sync();
+    LOGE("sync done");
+  }
+
+  // messaging cleanup
+  for (auto &[sock, qs] : qlog_states) delete sock;
 }
