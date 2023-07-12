@@ -24,7 +24,7 @@
 #include "system/hardware/hw.h"
 
 #include "system/loggerd/encoder/encoder.h"
-#include "system/loggerd/logger.h"
+#include "system/loggerd/logger/logger.h"
 #ifdef QCOM2
 #include "system/loggerd/encoder/v4l_encoder.h"
 #define Encoder V4LEncoder
@@ -119,3 +119,25 @@ const LogCameraInfo driver_camera_info{
 
 const LogCameraInfo cameras_logged[] = {road_camera_info, wide_road_camera_info, driver_camera_info};
 
+struct LoggerdState {
+  LoggerState logger = {};
+  char segment_path[4096];
+  std::atomic<int> rotate_segment;
+  std::atomic<double> last_camera_seen_tms;
+  std::atomic<int> ready_to_rotate;  // count of encoders ready to rotate
+  int max_waiting = 0;
+  double last_rotate_tms = 0.;      // last rotate time in ms
+};
+
+struct RemoteEncoder {
+  std::unique_ptr<VideoWriter> writer;
+  int encoderd_segment_offset;
+  int current_segment = -1;
+  std::vector<Message *> q;
+  int dropped_frames = 0;
+  bool recording = false;
+  bool marked_ready_to_rotate = false;
+  bool seen_first_packet = false;
+};
+
+void logger_rotate(LoggerdState *s);

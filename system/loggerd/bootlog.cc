@@ -4,7 +4,7 @@
 #include "cereal/messaging/messaging.h"
 #include "common/params.h"
 #include "common/swaglog.h"
-#include "system/loggerd/logger.h"
+#include "system/loggerd/logger/logger.h"
 
 
 static kj::Array<capnp::word> build_boot_log() {
