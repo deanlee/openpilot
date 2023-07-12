@@ -24,7 +24,7 @@
 #include "system/hardware/hw.h"
 
 #include "system/loggerd/encoder/encoder.h"
-#include "system/loggerd/logger/logger.h"
+#include "system/loggerd/logger/logger_writer.h"
 #include "system/loggerd/logger/video_writer.h"
 #ifdef QCOM2
 #include "system/loggerd/encoder/v4l_encoder.h"

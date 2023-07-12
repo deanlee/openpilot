@@ -12,7 +12,7 @@ extern "C" {
 }
 
 #include "system/loggerd/encoder/encoder.h"
-#include "system/loggerd/logger/loggerd.h"
+#include "system/loggerd/logger/logger.h"
 
 class FfmpegEncoder : public VideoEncoder {
  public:

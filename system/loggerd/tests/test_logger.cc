@@ -9,7 +9,7 @@
 #include "catch2/catch.hpp"
 #include "cereal/messaging/messaging.h"
 #include "common/util.h"
-#include "system/loggerd/logger/logger.h"
+#include "system/loggerd/logger/logger_writer.h"
 #include "tools/replay/util.h"
 
 typedef cereal::Sentinel::SentinelType SentinelType;

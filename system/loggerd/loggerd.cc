@@ -1,5 +1,4 @@
 #include "system/loggerd/logger/logger.h"
-#include "system/loggerd/logger/loggerd.h"
 
 
 int main(int argc, char** argv) {
