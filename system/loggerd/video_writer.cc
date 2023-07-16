@@ -6,11 +6,11 @@
 #include "common/swaglog.h"
 #include "common/util.h"
 
-VideoWriter::VideoWriter(const char *path, const char *filename, bool remuxing, int width, int height, int fps, cereal::EncodeIndex::Type codec)
-  : remuxing(remuxing) {
-  raw = codec == cereal::EncodeIndex::Type::BIG_BOX_LOSSLESS;
-  vid_path = util::string_format("%s/%s", path, filename);
-  lock_path = util::string_format("%s/%s.lock", path, filename);
+VideoWriter::VideoWriter(const char *path, const EncoderInfo &encoder_info) {
+  raw = encoder_info.encode_type == cereal::EncodeIndex::Type::BIG_BOX_LOSSLESS;
+  remuxing = encoder_info.encode_type != cereal::EncodeIndex::Type::FULL_H_E_V_C;
+  vid_path = util::string_format("%s/%s", path, encoder_info.filename);
+  lock_path = util::string_format("%s/%s.lock", path, encoder_info.filename);
 
   int lock_fd = HANDLE_EINTR(open(lock_path.c_str(), O_RDWR | O_CREAT, 0664));
   assert(lock_fd >= 0);
@@ -22,18 +22,18 @@ VideoWriter::VideoWriter(const char *path, const char *filename, bool remuxing, 
     assert(this->ofmt_ctx);
 
     // set codec correctly. needed?
-    assert(codec != cereal::EncodeIndex::Type::FULL_H_E_V_C);
+    assert(encoder_info.encode_type != cereal::EncodeIndex::Type::FULL_H_E_V_C);
     const AVCodec *avcodec = avcodec_find_encoder(raw ? AV_CODEC_ID_FFVHUFF : AV_CODEC_ID_H264);
     assert(avcodec);
 
     this->codec_ctx = avcodec_alloc_context3(avcodec);
     assert(this->codec_ctx);
-    this->codec_ctx->width = width;
-    this->codec_ctx->height = height;
+    this->codec_ctx->width = encoder_info.frame_width;
+    this->codec_ctx->height = encoder_info.frame_height;
     this->codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
-    this->codec_ctx->time_base = (AVRational){ 1, fps };
+    this->codec_ctx->time_base = (AVRational){ 1, encoder_info.fps };
 
-    if (codec == cereal::EncodeIndex::Type::BIG_BOX_LOSSLESS) {
+    if (encoder_info.encode_type == cereal::EncodeIndex::Type::BIG_BOX_LOSSLESS) {
       // without this, there's just noise
       int err = avcodec_open2(this->codec_ctx, avcodec, NULL);
       assert(err >= 0);

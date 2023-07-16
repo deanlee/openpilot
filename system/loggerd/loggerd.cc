@@ -110,9 +110,7 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
         }
         // if we aren't actually recording, don't create the writer
         if (encoder_info.record) {
-          re.writer.reset(new VideoWriter(s->segment_path,
-            encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
-            encoder_info.frame_width, encoder_info.frame_height, encoder_info.fps, idx.getType()));
+          re.writer.reset(new VideoWriter(s->segment_path, encoder_info));
           // write the header
           auto header = edata.getHeader();
           re.writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof()/1000, true, false);

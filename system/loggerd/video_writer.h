@@ -8,10 +8,11 @@ extern "C" {
 }
 
 #include "cereal/messaging/messaging.h"
+#include "system/loggerd/loggerd.h"
 
 class VideoWriter {
 public:
-  VideoWriter(const char *path, const char *filename, bool remuxing, int width, int height, int fps, cereal::EncodeIndex::Type codec);
+  VideoWriter(const char *path, const EncoderInfo &encoder_info);
   void write(uint8_t *data, int len, long long timestamp, bool codecconfig, bool keyframe);
   ~VideoWriter();
 private:
