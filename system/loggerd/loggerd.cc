@@ -71,12 +71,10 @@ struct RemoteEncoder {
 
 size_t RemoteEncoder::write_encode_data(LoggerdState *s, const cereal::Event::Reader &event) {
   auto edata = (event.*(encoder_info.get_encode_data_func))();
-
   // write video
   if (encoder_info.record) {
     write_video(s, edata);
   }
-
   // put it in log stream as the idx packet
   MessageBuilder msg;
   auto evt = msg.initEvent(event.getValid());
