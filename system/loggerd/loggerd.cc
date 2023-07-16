@@ -71,7 +71,6 @@ struct RemoteEncoder {
 
 size_t RemoteEncoder::write_encode_data(LoggerdState *s, const cereal::Event::Reader &event) {
   auto edata = (event.*(encoder_info.get_encode_data_func))();
-  const auto idx = edata.getIdx();
 
   // write video
   if (encoder_info.record) {
@@ -82,7 +81,7 @@ size_t RemoteEncoder::write_encode_data(LoggerdState *s, const cereal::Event::Re
   MessageBuilder msg;
   auto evt = msg.initEvent(event.getValid());
   evt.setLogMonoTime(event.getLogMonoTime());
-  (evt.*(encoder_info.set_encode_idx_func))(idx);
+  (evt.*(encoder_info.set_encode_idx_func))(edata.getIdx());
   auto bytes = msg.toBytes();
   logger_log(&s->logger, (uint8_t *)bytes.begin(), bytes.size(), true);  // always in qlog?
   return bytes.size();
