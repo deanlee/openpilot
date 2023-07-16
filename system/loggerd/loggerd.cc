@@ -118,14 +118,11 @@ size_t RemoteEncoder::write_video(LoggerdState *s, const cereal::EncodeData::Rea
 }
 
 int write_encoder_msg(RemoteEncoder &re, LoggerdState *s, Message *msg) {
-  int bytes_count = 0;
   std::unique_ptr<Message> m(msg);
-
   // extract the message
   capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)m->getData(), m->getSize() / sizeof(capnp::word)));
   auto event = cmsg.getRoot<cereal::Event>();
-  auto edata = (event.*(re.encoder_info.get_encode_data_func))();
-  auto idx = edata.getIdx();
+  auto idx = (event.*(re.encoder_info.get_encode_data_func))().getIdx();
 
   // encoderd can have started long before loggerd
   if (!re.seen_first_packet) {
@@ -135,6 +132,7 @@ int write_encoder_msg(RemoteEncoder &re, LoggerdState *s, Message *msg) {
   }
   int offset_segment_num = idx.getSegmentNum() - re.encoderd_segment_offset;
 
+  int bytes_count = 0;
   if (offset_segment_num == s->rotate_segment) {
     // loggerd is now on the segment that matches this packet
 
