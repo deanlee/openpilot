@@ -2,7 +2,6 @@
 
 #include "selfdrive/boardd/boardd.h"
 #include "common/swaglog.h"
-#include "common/util.h"
 #include "system/hardware/hw.h"
 
 int main(int argc, char *argv[]) {
