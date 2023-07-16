@@ -56,7 +56,7 @@ void rotate_if_needed(LoggerdState *s) {
 struct RemoteEncoder {
   RemoteEncoder(const EncoderInfo &encoder_info) : encoder_info(encoder_info) {}
   size_t write_encode_data(LoggerdState *s, const cereal::Event::Reader &event);
-  size_t write_video(LoggerdState *s, const cereal::EncodeData::Reader &edata, const cereal::EncodeIndex::Reader &idx);
+  size_t write_video(LoggerdState *s, const cereal::EncodeData::Reader &edata);
 
   std::unique_ptr<VideoWriter> video_writer;
   int encoderd_segment_offset;
@@ -75,7 +75,7 @@ size_t RemoteEncoder::write_encode_data(LoggerdState *s, const cereal::Event::Re
 
   // write video
   if (encoder_info.record) {
-    write_video(s, edata, idx);
+    write_video(s, edata);
   }
 
   // put it in log stream as the idx packet
@@ -88,8 +88,9 @@ size_t RemoteEncoder::write_encode_data(LoggerdState *s, const cereal::Event::Re
   return bytes.size();
 }
 
-size_t RemoteEncoder::write_video(LoggerdState *s, const cereal::EncodeData::Reader &edata, const cereal::EncodeIndex::Reader &idx) {
+size_t RemoteEncoder::write_video(LoggerdState *s, const cereal::EncodeData::Reader &edata) {
   size_t written = 0;
+  auto idx = edata.getIdx();
   const bool is_key_frame = idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME;
 
   if (!video_writer) {
