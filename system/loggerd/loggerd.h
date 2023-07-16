@@ -76,7 +76,6 @@ const EncoderInfo qcam_encoder_info = {
   INIT_ENCODE_FUNCTIONS(QRoadEncode),
 };
 
-
 const LogCameraInfo road_camera_info{
     .thread_name = "road_cam_encoder",
     .type = RoadCam,
@@ -99,3 +98,4 @@ const LogCameraInfo driver_camera_info{
     };
 
 const LogCameraInfo cameras_logged[] = {road_camera_info, wide_road_camera_info, driver_camera_info};
+const EncoderInfo ALL_ENCODER_INFO[] = {main_road_encoder_info, qcam_encoder_info, main_wide_road_encoder_info, main_driver_encoder_info};
