@@ -121,7 +121,7 @@ size_t RemoteEncoder::write_video(LoggerdState *s, const cereal::EncodeData::Rea
 
 int write_encoder_msg(RemoteEncoder &re, LoggerdState *s, Message *msg) {
   int bytes_count = 0;
-  std::unique_ptr<Message> m;
+  std::unique_ptr<Message> m(msg);
 
   // extract the message
   capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)m->getData(), m->getSize() / sizeof(capnp::word)));
