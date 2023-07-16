@@ -54,8 +54,10 @@ void rotate_if_needed(LoggerdState *s) {
 
 struct RemoteEncoder {
   RemoteEncoder(const EncoderInfo &encoder_info) : encoder_info(encoder_info) {}
+  size_t write_encode_data(LoggerState *logger, const cereal::Event::Reader &event);
+  size_t write_video(const cereal::EncodeData::Reader &edata, const cereal::EncodeIndex::Reader &idx);
 
-  std::unique_ptr<VideoWriter> writer;
+  std::unique_ptr<VideoWriter> video_writer;
   int encoderd_segment_offset;
   int current_segment = -1;
   std::vector<Message *> q;
@@ -65,6 +67,56 @@ struct RemoteEncoder {
   bool seen_first_packet = false;
   const EncoderInfo encoder_info;
 };
+
+size_t RemoteEncoder::write_encode_data(LoggerState *logger, const cereal::Event::Reader &event) {
+  auto edata = (event.*(encoder_info.get_encode_data_func))();
+  const auto idx = edata.getIdx();
+
+  // write video
+  if (encoder_info.record) {
+    write_video(edata, idx);
+  }
+
+  // put it in log stream as the idx packet
+  MessageBuilder msg;
+  auto evt = msg.initEvent(event.getValid());
+  evt.setLogMonoTime(event.getLogMonoTime());
+  (evt.*(encoder_info.set_encode_idx_func))(idx);
+  auto bytes = msg.toBytes();
+  logger_log(logger, (uint8_t *)bytes.begin(), bytes.size(), true);  // always in qlog?
+  return bytes.size();
+}
+
+size_t RemoteEncoder::write_video(const cereal::EncodeData::Reader &edata, const cereal::EncodeIndex::Reader &idx) {
+  size_t written = 0;
+  const bool is_key_frame = idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME;
+
+  if (!video_writer) {
+    if (is_key_frame) {  // only create on iframe
+      if (dropped_frames) {
+        // this should only happen for the first segment, maybe
+        LOGW("%s: dropped %d non iframe packets before init", encoder_info.publish_name, dropped_frames);
+        dropped_frames = 0;
+      }
+      video_writer.reset(new VideoWriter(segment_path.c_str(), encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
+                                         encoder_info.frame_width, encoder_info.frame_height, encoder_info.fps, idx.getType()));
+      auto header = edata.getHeader();
+      video_writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof() / 1000, true, false);
+      written += header.size();
+    } else {
+      // this is a sad case when we aren't recording, but don't have an iframe
+      // nothing we can do but drop the frame
+      ++dropped_frames;
+    }
+  }
+
+  if (video_writer) {
+    auto data = edata.getData();
+    video_writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof() / 1000, false, is_key_frame);
+    written += data.size();
+  }
+  return written;
+}
 
 int write_encoder_msg(RemoteEncoder &re, LoggerdState *s, Message *msg) {
   int bytes_count = 0;
