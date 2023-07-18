@@ -46,17 +46,13 @@ VideoWriter::VideoWriter(const char *path, const char *filename, bool remuxing, 
     assert(err >= 0);
 
   } else {
-    this->of = util::safe_fopen(this->vid_path.c_str(), "wb");
-    assert(this->of);
+    file_writer = std::make_unique<RawFile>(vid_path.c_str());
   }
 }
 
 void VideoWriter::write(uint8_t *data, int len, long long timestamp, bool codecconfig, bool keyframe) {
-  if (of && data) {
-    size_t written = util::safe_fwrite(data, 1, len, of);
-    if (written != len) {
-      LOGE("failed to write file.errno=%d", errno);
-    }
+  if (file_writer && data) {
+    file_writer->write(data, len);
   }
 
   if (remuxing) {
@@ -106,9 +102,7 @@ VideoWriter::~VideoWriter() {
     if (err != 0) LOGE("avio_closep failed %d", err);
     avformat_free_context(this->ofmt_ctx);
   } else {
-    util::safe_fflush(this->of);
-    fclose(this->of);
-    this->of = nullptr;
+    file_writer.reset(nullptr);
   }
   unlink(this->lock_path.c_str());
 }

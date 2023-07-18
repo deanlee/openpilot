@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 
 extern "C" {
@@ -8,6 +9,7 @@ extern "C" {
 }
 
 #include "cereal/messaging/messaging.h"
+#include "system/loggerd/logger.h"
 
 class VideoWriter {
 public:
@@ -16,9 +18,7 @@ public:
   ~VideoWriter();
 private:
   std::string vid_path, lock_path;
-
-  FILE *of = nullptr;
-
+  std::unique_ptr<RawFile> file_writer;
   AVCodecContext *codec_ctx;
   AVFormatContext *ofmt_ctx;
   AVStream *out_stream;

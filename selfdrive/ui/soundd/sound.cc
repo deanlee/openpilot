@@ -56,8 +56,10 @@ void Sound::update() {
   setAlert(Alert::get(sm, started_frame));
 }
 
+#include <QDebug>
 void Sound::setAlert(const Alert &alert) {
-  if (!current_alert.equal(alert)) {
+  qWarning() << "here";
+  // if (!current_alert.equal(alert)) {
     current_alert = alert;
     // stop sounds
     for (auto &[s, loops] : sounds) {
@@ -67,11 +69,12 @@ void Sound::setAlert(const Alert &alert) {
       }
     }
 
+    current_alert.sound = AudibleAlert::ENGAGE;
     // play sound
-    if (alert.sound != AudibleAlert::NONE) {
-      auto &[s, loops] = sounds[alert.sound];
+    if (current_alert.sound != AudibleAlert::NONE) {
+      auto &[s, loops] = sounds[current_alert.sound];
       s->setLoopCount(loops);
       s->play();
     }
-  }
+  // }
 }
