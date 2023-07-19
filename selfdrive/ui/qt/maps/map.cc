@@ -188,8 +188,10 @@ void MapWindow::updateState(const UIState &s) {
   if (!loaded_once) {
     setError(tr("Map Loading"));
     return;
+  } else if (!layers_initialized) {
+    layers_initialized = true;
+    initLayers();
   }
-  initLayers();
 
   setError(locationd_valid ? "" : tr("Waiting for GPS"));
   if (locationd_valid) {

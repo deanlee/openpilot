@@ -90,6 +90,7 @@ private:
   bool m_sourceAdded = false;
 
   bool loaded_once = false;
+  bool layers_initialized = false;
   bool allow_open = true;
 
   // Panning
