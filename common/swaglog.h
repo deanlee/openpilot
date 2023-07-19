@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sstream>
 #include "common/timing.h"
 
 #define CLOUDLOG_DEBUG 10
@@ -22,7 +23,7 @@ void cloudlog_te(int levelnum, const char* filename, int lineno, const char* fun
 #define cloudlog(lvl, fmt, ...) cloudlog_e(lvl, __FILE__, __LINE__, \
                                            __func__, \
                                            fmt, ## __VA_ARGS__);
- 
+
 #define cloudlog_t(lvl, ...) cloudlog_te(lvl, __FILE__, __LINE__, \
                                           __func__, \
                                           __VA_ARGS__);
@@ -57,12 +58,39 @@ void cloudlog_te(int levelnum, const char* filename, int lineno, const char* fun
   }                                                 \
 }
 
+class SwagLog {
+public:
+  SwagLog(int levelnum, const char *file, const char *func, int line) : levelnum(levelnum), file(file), func(func), line(line) {}
+  ~SwagLog() {
+    cloudlog_e(levelnum, file, line, func, "%s", os.str().c_str());
+  }
+
+  template <typename U>
+  SwagLog &operator<<(U arg) {
+    if (os.tellp() > 0) os << " ";
+    os << arg;
+    return *this;
+  }
+
+private:
+  int levelnum;
+  std::ostringstream os;
+  const char *file = nullptr;
+  const char *func = nullptr;
+  int line = 0;
+};
+
+#define LOG_FILE_LINE(levelnum) SwagLog(levelnum, __FILE__, __func__, __LINE__)
 
 #define LOGT(...) cloudlog_t(CLOUDLOG_DEBUG, __VA_ARGS__)
 #define LOGD(fmt, ...) cloudlog(CLOUDLOG_DEBUG, fmt, ## __VA_ARGS__)
 #define LOG(fmt, ...) cloudlog(CLOUDLOG_INFO, fmt, ## __VA_ARGS__)
-#define LOGW(fmt, ...) cloudlog(CLOUDLOG_WARNING, fmt, ## __VA_ARGS__)
+// #define LOGW(fmt, ...) cloudlog(CLOUDLOG_WARNING, fmt, ## __VA_ARGS__)
 #define LOGE(fmt, ...) cloudlog(CLOUDLOG_ERROR, fmt, ## __VA_ARGS__)
+// #define LOGW(fmt) cloudlog_e(CLOUDLOG_WARNING, __FILE__, __LINE__, __func__, "%s", fmt)
+struct LOGW : public SwagLog {
+  SwagLog() : SwagLog()
+};
 
 #define LOGD_100(fmt, ...) cloudlog_rl(2, 100, CLOUDLOG_DEBUG, fmt, ## __VA_ARGS__)
 #define LOG_100(fmt, ...) cloudlog_rl(2, 100, CLOUDLOG_INFO, fmt, ## __VA_ARGS__)
