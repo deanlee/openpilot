@@ -224,10 +224,7 @@ void MapWindow::updateState(const UIState &s) {
         m_map->setPitch(MAX_PITCH); // TODO: smooth pitching based on maneuver distance
         map_instructions->updateInstructions(i);
       }
-    } else {
-      clearRoute();
     }
-
     if (isVisible()) {
       settings_btn->setIcon(map_eta->isVisible() ? settings_icon : directions_icon);
     }
@@ -235,17 +232,22 @@ void MapWindow::updateState(const UIState &s) {
 
   if (sm.rcv_frame("navRoute") != route_rcv_frame) {
     qWarning() << "Updating navLayer with new route";
-    auto route = sm["navRoute"].getNavRoute();
-    auto route_points = capnp_coordinate_list_to_collection(route.getCoordinates());
-    QMapbox::Feature feature(QMapbox::Feature::LineStringType, route_points, {}, {});
-    QVariantMap navSource;
-    navSource["type"] = "geojson";
-    navSource["data"] = QVariant::fromValue<QMapbox::Feature>(feature);
-    m_map->updateSource("navSource", navSource);
-    m_map->setLayoutProperty("navLayer", "visibility", "visible");
-
     route_rcv_frame = sm.rcv_frame("navRoute");
-    updateDestinationMarker();
+
+    auto route = sm["navRoute"].getNavRoute();
+    auto coordinates = route.getCoordinates();
+    if (coordinates.size() > 0) {
+      auto route_points = capnp_coordinate_list_to_collection(route.getCoordinates());
+      QMapbox::Feature feature(QMapbox::Feature::LineStringType, route_points, {}, {});
+      QVariantMap navSource;
+      navSource["type"] = "geojson";
+      navSource["data"] = QVariant::fromValue<QMapbox::Feature>(feature);
+      m_map->updateSource("navSource", navSource);
+      m_map->setLayoutProperty("navLayer", "visibility", "visible");
+      updateDestinationMarker();
+    } else {
+      clearRoute();
+    }
   }
 }
 
@@ -291,7 +293,8 @@ void MapWindow::clearRoute() {
   if (!m_map.isNull()) {
     m_map->setLayoutProperty("navLayer", "visibility", "none");
     m_map->setPitch(MIN_PITCH);
-    updateDestinationMarker();
+    removeAnnotation
+    
   }
 
   map_instructions->setVisible(false);
@@ -381,11 +384,6 @@ void MapWindow::offroadTransition(bool offroad) {
 }
 
 void MapWindow::updateDestinationMarker() {
-  if (marker_id != -1) {
-    m_map->removeAnnotation(marker_id);
-    marker_id = -1;
-  }
-
   auto nav_dest = coordinate_from_param("NavDestination");
   if (nav_dest.has_value()) {
     auto ano = QMapbox::SymbolAnnotation {*nav_dest, "default_marker"};
