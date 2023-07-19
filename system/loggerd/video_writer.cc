@@ -51,10 +51,6 @@ VideoWriter::VideoWriter(const char *path, const char *filename, bool remuxing, 
 }
 
 void VideoWriter::write(uint8_t *data, int len, long long timestamp, bool codecconfig, bool keyframe) {
-  if (file_writer && data) {
-    file_writer->write(data, len);
-  }
-
   if (remuxing) {
     if (codecconfig) {
       if (len > 0) {
@@ -89,6 +85,8 @@ void VideoWriter::write(uint8_t *data, int len, long long timestamp, bool codecc
 
       av_packet_unref(&pkt);
     }
+  } else {
+    file_writer->write(data, len);
   }
 }
 
