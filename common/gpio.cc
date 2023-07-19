@@ -53,7 +53,7 @@ int gpiochip_get_ro_value_fd(const char* consumer_label, int gpiochiop_id, int p
   std::string gpiochip_path = "/dev/gpiochip" + std::to_string(gpiochiop_id);
   int fd = open(gpiochip_path.c_str(), O_RDONLY);
   if (fd < 0) {
-    LOGE("Error opening gpiochip0 fd")
+    LOGE("Error opening gpiochip0 fd");
     return -1;
   }
 
@@ -70,7 +70,7 @@ int gpiochip_get_ro_value_fd(const char* consumer_label, int gpiochiop_id, int p
   strncpy(rq.consumer_label, consumer_label, std::size(rq.consumer_label) - 1);
   int ret = ioctl(fd, GPIO_GET_LINEEVENT_IOCTL, &rq);
   if (ret == -1) {
-    LOGE("Unable to get line event from ioctl : %s", strerror(errno));
+    LOGE() << "Unable to get line event from ioctl :" << strerror(errno);
     close(fd);
     return -1;
   }

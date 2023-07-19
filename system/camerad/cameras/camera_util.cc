@@ -23,7 +23,7 @@ int do_cam_control(int fd, int op_code, void *handle, int size) {
 
   int ret = HANDLE_EINTR(ioctl(fd, VIDIOC_CAM_CONTROL, &camcontrol));
   if (ret == -1) {
-    LOGE("VIDIOC_CAM_CONTROL error: op_code %d - errno %d", op_code, errno);
+    LOGE() << "VIDIOC_CAM_CONTROL error: op_code" << op_code << "- errno" << errno;
   }
   return ret;
 }
@@ -125,7 +125,7 @@ MemoryManager::~MemoryManager() {
     while (!x.second.empty()) {
       void *ptr = x.second.front();
       x.second.pop();
-      LOGD("freeing cached allocation %p with size %d", ptr, size_lookup[ptr]);
+      LOGD() << "freeing cached allocation" << ptr << "with" << sizesize_lookup[ptr];
       munmap(ptr, size_lookup[ptr]);
       release_fd(video0_fd, handle_lookup[ptr]);
       handle_lookup.erase(ptr);

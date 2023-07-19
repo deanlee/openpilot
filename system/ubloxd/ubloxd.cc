@@ -52,7 +52,7 @@ int main() {
             pm.send(ublox_msg.first.c_str(), bytes.begin(), bytes.size());
           }
         } catch (const std::exception& e) {
-          LOGE("Error parsing ublox message %s", e.what());
+          LOGE() << "Error parsing ublox message" << e.what();
         }
 
         parser.reset();

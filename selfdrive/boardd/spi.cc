@@ -74,14 +74,14 @@ PandaSpiHandle::PandaSpiHandle(std::string serial) : PandaCommsHandle(serial) {
 
   spi_fd = open(SPI_DEVICE.c_str(), O_RDWR);
   if (spi_fd < 0) {
-    LOGE("failed opening SPI device %d", spi_fd);
+    LOGE() << "failed opening SPI device" << spi_fd;
     goto fail;
   }
 
   // SPI settings
   ret = util::safe_ioctl(spi_fd, SPI_IOC_WR_MODE, &spi_mode);
   if (ret < 0) {
-    LOGE("failed setting SPI mode %d", ret);
+    LOGE() << "failed setting SPI mode" << ret;
     goto fail;
   }
 
@@ -178,7 +178,7 @@ int PandaSpiHandle::bulk_transfer(uint8_t endpoint, uint8_t *tx_data, uint16_t t
     }
 
     if (d < 0) {
-      LOGE("SPI: bulk transfer failed with %d", d);
+      LOGE() << "SPI: bulk transfer failed with" << d;
       comms_healthy = false;
       return d;
     }
@@ -244,7 +244,7 @@ int PandaSpiHandle::spi_transfer_retry(uint8_t endpoint, uint8_t *tx_data, uint1
   } while (ret < 0 && connected && !timed_out);
 
   if (ret < 0) {
-    LOGE("transfer failed, after %d tries, %.2fms", timeout_count, millis_since_boot() - start_time);
+    LOGE() << "transfer failed, after" << timeout_count <<"tries" << std::setprecision(2) << (millis_since_boot() - start_time);
   }
 
   return ret;
@@ -350,7 +350,7 @@ int PandaSpiHandle::spi_transfer(uint8_t endpoint, uint8_t *tx_data, uint16_t tx
   // Read data
   rx_data_len = *(uint16_t *)(rx_buf+1);
   if (rx_data_len >= SPI_BUF_SIZE) {
-    LOGE("SPI: RX data len larger than buf size %d", rx_data_len);
+    LOGE() << "SPI: RX data len larger than buf size" << rx_data_len;
     goto transfer_fail;
   }
 

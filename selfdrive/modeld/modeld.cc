@@ -108,9 +108,9 @@ void run_model(ModelState &model, VisionIpcClient &vipc_client_main, VisionIpcCl
       }
 
       if (std::abs((int64_t)meta_main.timestamp_sof - (int64_t)meta_extra.timestamp_sof) > 10000000ULL) {
-        LOGE("frames out of sync! main: %d (%.5f), extra: %d (%.5f)",
+        LOGE(util::string_format("frames out of sync! main: %d (%.5f), extra: %d (%.5f)",
           meta_main.frame_id, double(meta_main.timestamp_sof) / 1e9,
-          meta_extra.frame_id, double(meta_extra.timestamp_sof) / 1e9);
+          meta_extra.frame_id, double(meta_extra.timestamp_sof) / 1e9));
       }
     } else {
       // Use single camera
@@ -170,7 +170,7 @@ void run_model(ModelState &model, VisionIpcClient &vipc_client_main, VisionIpcCl
     bool prepare_only = vipc_dropped_frames > 0;
 
     if (prepare_only) {
-      LOGE("skipping model eval. Dropped %d frames", vipc_dropped_frames);
+      LOGE() << "skipping model eval. Dropped" << vipc_dropped_frames << "frames";
     }
 
     double mt1 = millis_since_boot();

@@ -50,7 +50,7 @@ void cl_print_build_errors(cl_program program, cl_device_id device) {
   std::string log(log_size, '\0');
   clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, &log[0], NULL);
 
-  LOGE("build failed; status=%d, log: %s", status, log.c_str());
+  LOGE() << "build failed; status=" << status << ", log:" << log;
 }
 
 }  // namespace

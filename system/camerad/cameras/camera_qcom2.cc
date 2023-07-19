@@ -487,7 +487,7 @@ void CameraState::enqueue_buffer(int i, bool dp) {
     sync_destroy.sync_obj = sync_objs[i];
     ret = do_cam_control(multi_cam_state->cam_sync_fd, CAM_SYNC_DESTROY, &sync_destroy, sizeof(sync_destroy));
     if (ret != 0) {
-      LOGE("failed to destroy sync object: %d %d", ret, sync_destroy.sync_obj);
+      LOGE() << "failed to destroy sync object:" << ret << sync_destroy.sync_obj;
     }
   }
 
@@ -496,7 +496,7 @@ void CameraState::enqueue_buffer(int i, bool dp) {
   strcpy(sync_create.name, "NodeOutputPortFence");
   ret = do_cam_control(multi_cam_state->cam_sync_fd, CAM_SYNC_CREATE, &sync_create, sizeof(sync_create));
   if (ret != 0) {
-    LOGE("failed to create fence: %d %d", ret, sync_create.sync_obj)
+    LOGE() << "failed to create fence:" << ret << sync_create.sync_obj;
   }
   sync_objs[i] = sync_create.sync_obj;
 
@@ -507,7 +507,7 @@ void CameraState::enqueue_buffer(int i, bool dp) {
   req_mgr_sched_request.req_id = request_id;
   ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_SCHED_REQ, &req_mgr_sched_request, sizeof(req_mgr_sched_request));
   if (ret != 0) {
-    LOGE("failed to schedule cam mgr request: %d %d", ret, request_id);
+    LOGE() << "failed to schedule cam mgr request:" << ret << request_id;
   }
 
   // poke sensor, must happen after schedule
@@ -999,7 +999,7 @@ void CameraState::handle_camera_event(void *evdat) {
 
     // check for skipped frames
     if (main_id > frame_id_last + 1 && !skipped) {
-      LOGE("camera %d realign", camera_num);
+      LOGE("camera" << camera_num << "realign";
       clear_req_queue();
       enqueue_req_multi(real_id + 1, FRAME_BUF_COUNT - 1, 0);
       skipped = true;
@@ -1009,7 +1009,7 @@ void CameraState::handle_camera_event(void *evdat) {
 
     // check for dropped requests
     if (real_id > request_id_last + 1) {
-      LOGE("camera %d dropped requests %d %d", camera_num, real_id, request_id_last);
+      LOGE() << "camera" << camera_num << "dropped requests" << real_id << request_id_last;
       enqueue_req_multi(request_id_last + 1 + FRAME_BUF_COUNT, real_id - (request_id_last + 1), 0);
     }
 
@@ -1032,7 +1032,7 @@ void CameraState::handle_camera_event(void *evdat) {
     enqueue_req_multi(real_id + FRAME_BUF_COUNT, 1, 1);
   } else { // not ready
     if (main_id > frame_id_last + 10) {
-      LOGE("camera %d reset after half second of no response", camera_num);
+      LOGE() << "camera" << camera_num << "reset after half second of no response";
       clear_req_queue();
       enqueue_req_multi(request_id_last + 1, FRAME_BUF_COUNT, 0);
       frame_id_last = main_id;
@@ -1306,7 +1306,7 @@ void cameras_run(MultiCameraState *s) {
         }
       }
     } else {
-      LOGE("VIDIOC_DQEVENT failed, errno=%d", errno);
+      LOGE() << "VIDIOC_DQEVENT failed, errno=" << errno;
     }
   }
 

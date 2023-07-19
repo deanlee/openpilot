@@ -38,13 +38,13 @@ public:
     uint8_t chip_id = 0;
     int ret = read_register(address, &chip_id, 1);
     if (ret < 0) {
-      LOGE("Reading chip ID failed: %d", ret);
+      LOGE() << "Reading chip ID failed:" << ret;
       return -1;
     }
     for (int i = 0; i < expected_ids.size(); ++i) {
       if (chip_id == expected_ids[i]) return chip_id;
     }
-    LOGE("Chip ID wrong. Got: %d, Expected %d", chip_id, expected_ids[0]);
+    LOGE() << "Chip ID wrong. Got:" << chip_id << ", Expected" << expected_ids[0];
     return -1;
   }
 };

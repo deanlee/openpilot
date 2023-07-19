@@ -74,7 +74,7 @@ public:
   FileLock(const std::string &fn) {
     fd_ = HANDLE_EINTR(open(fn.c_str(), O_CREAT, 0775));
     if (fd_ < 0 || HANDLE_EINTR(flock(fd_, LOCK_EX)) < 0) {
-      LOGE("Failed to lock file %s, errno=%d", fn.c_str(), errno);
+      LOGE() << "Failed to lock file" << fn << ", errno=" << errno;
     }
   }
   ~FileLock() { close(fd_); }

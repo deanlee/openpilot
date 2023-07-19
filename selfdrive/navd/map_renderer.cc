@@ -75,7 +75,7 @@ MapRenderer::MapRenderer(const QMapboxGLSettings &settings, bool online) : m_set
   });
 
   QObject::connect(m_map.data(), &QMapboxGL::mapLoadingFailed, [=](QMapboxGL::MapLoadingFailure err_code, const QString &reason) {
-    LOGE("Map loading failed with %d: '%s'\n", err_code, reason.toStdString().c_str());
+    LOGE() << "Map loading failed with" << err_code << ":" << reason.toStdString();
   });
 
   if (online) {

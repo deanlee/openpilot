@@ -78,7 +78,7 @@ int BMX055_Magn::init() {
   // suspend -> sleep
   int ret = set_register(BMX055_MAGN_I2C_REG_PWR_0, 0x01);
   if(ret < 0) {
-    LOGE("Enabling power failed: %d", ret);
+    LOGE() << "Enabling power failed:" << ret;
     goto fail;
   }
   util::sleep_for(5); // wait until the chip is powered on
@@ -191,7 +191,7 @@ bool BMX055_Magn::perform_self_test() {
   bool passed = (diff > 180) && (diff < 240);
 
   if (!passed) {
-    LOGE("self test failed: neg %d pos %d diff %d", neg_z, pos_z, diff);
+    LOGE() << "self test failed: neg" << neg_z << "pos" << pos_z << "diff" << diff;
   }
 
   return passed;

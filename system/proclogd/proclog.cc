@@ -100,9 +100,9 @@ std::optional<ProcStat> procStat(std::string stat) {
     };
     return p;
   } catch (const std::invalid_argument &e) {
-    LOGE("failed to parse procStat (%s) :%s", e.what(), stat.c_str());
+    LOGE() << "failed to parse procStat (" << e.what() << ") :" << stat;
   } catch (const std::out_of_range &e) {
-    LOGE("failed to parse procStat (%s) :%s", e.what(), stat.c_str());
+    LOGE() << "failed to parse procStat (" << e.what() << ") :" << stat;
   }
   return std::nullopt;
 }

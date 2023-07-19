@@ -39,7 +39,7 @@ public:
         return;
       }
     }
-    LOGE("Tried to update input `%s` but no input with this name exists", name.c_str());
+    LOGE() << "Tried to update input `" << name << "` but no input with this name exists";
     assert(false);
   }
 };
