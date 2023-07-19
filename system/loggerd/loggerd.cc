@@ -23,7 +23,7 @@ void logger_rotate(LoggerdState *s) {
   s->rotate_segment = segment;
   s->ready_to_rotate = 0;
   s->last_rotate_tms = millis_since_boot();
-  LOGW((s->logger.part == 0) ? "logging to %s" : "rotated to %s", s->segment_path);
+  LOGW() << ((s->logger.part == 0) ? "logging to" : "rotated to") << s->segment_path;
 }
 
 void rotate_if_needed(LoggerdState *s) {
@@ -105,7 +105,7 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
         // only create on iframe
         if (re.dropped_frames) {
           // this should only happen for the first segment, maybe
-          LOGW("%s: dropped %d non iframe packets before init", name.c_str(), re.dropped_frames);
+          LOGW() << name << ": dropped" << re.dropped_frames << "non iframe packets before init";
           re.dropped_frames = 0;
         }
         // if we aren't actually recording, don't create the writer

@@ -152,7 +152,7 @@ SecurityType WifiManager::getSecurityType(const QVariantMap &properties) {
   } else if ((sflag & NM_802_11_AP_FLAGS_PRIVACY) && (wpa_props & supports_wpa) && !(wpa_props & NM_802_11_AP_SEC_KEY_MGMT_802_1X)) {
     return SecurityType::WPA;
   } else {
-    LOGW("Unsupported network! sflag: %d, wpaflag: %d, rsnflag: %d", sflag, wpaflag, rsnflag);
+    LOGW() << "Unsupported network! sflag:" << sflag << ", wpaflag:" << wpaflag << ", rsnflag:" << rsnflag;
     return SecurityType::UNSUPPORTED;
   }
 }

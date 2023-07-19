@@ -223,7 +223,7 @@ int main(int argc, char **argv) {
 
   VisionIpcClient vipc_client_main = VisionIpcClient("camerad", main_wide_camera ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD, true, device_id, context);
   VisionIpcClient vipc_client_extra = VisionIpcClient("camerad", VISION_STREAM_WIDE_ROAD, false, device_id, context);
-  LOGW("vision stream set up, main_wide_camera: %d, use_extra_client: %d", main_wide_camera, use_extra_client);
+  LOGW() << "vision stream set up, main_wide_camera:" << main_wide_camera << ", use_extra_client:" << use_extra_client;
 
   while (!do_exit && !vipc_client_main.connect(false)) {
     util::sleep_for(100);
@@ -237,11 +237,11 @@ int main(int argc, char **argv) {
   // vipc_client.connected is false only when do_exit is true
   if (!do_exit) {
     const VisionBuf *b = &vipc_client_main.buffers[0];
-    LOGW("connected main cam with buffer size: %d (%d x %d)", b->len, b->width, b->height);
+    LOGW() << "connected main cam with buffer size:" << b->len << "(" << b->width << "x" << b->height << ")";
 
     if (use_extra_client) {
       const VisionBuf *wb = &vipc_client_extra.buffers[0];
-      LOGW("connected extra cam with buffer size: %d (%d x %d)", wb->len, wb->width, wb->height);
+      LOGW() << "connected extra cam with buffer size:" << wb->len << "(" << wb->width << "x" << wb->height << ")";
     }
 
     run_model(model, vipc_client_main, vipc_client_extra, main_wide_camera, use_extra_client);

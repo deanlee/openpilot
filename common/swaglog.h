@@ -64,6 +64,10 @@ public:
   ~SwagLog() {
     cloudlog_e(levelnum, file, line, func, "%s", os.str().c_str());
   }
+  SwagLog &init(const std::string &msg = {}) {
+    if (!msg.empty()) os << msg;
+    return *this;
+  }
 
   template <typename U>
   SwagLog &operator<<(U arg) {
@@ -80,17 +84,13 @@ private:
   int line = 0;
 };
 
-#define LOG_FILE_LINE(levelnum) SwagLog(levelnum, __FILE__, __func__, __LINE__)
+#define LOG_FILE_LINE(levelnum) SwagLog(levelnum, __FILE__, __func__, __LINE__).init
 
 #define LOGT(...) cloudlog_t(CLOUDLOG_DEBUG, __VA_ARGS__)
 #define LOGD(fmt, ...) cloudlog(CLOUDLOG_DEBUG, fmt, ## __VA_ARGS__)
 #define LOG(fmt, ...) cloudlog(CLOUDLOG_INFO, fmt, ## __VA_ARGS__)
-// #define LOGW(fmt, ...) cloudlog(CLOUDLOG_WARNING, fmt, ## __VA_ARGS__)
+#define LOGW LOG_FILE_LINE(CLOUDLOG_WARNING)
 #define LOGE(fmt, ...) cloudlog(CLOUDLOG_ERROR, fmt, ## __VA_ARGS__)
-// #define LOGW(fmt) cloudlog_e(CLOUDLOG_WARNING, __FILE__, __LINE__, __func__, "%s", fmt)
-struct LOGW : public SwagLog {
-  SwagLog() : SwagLog()
-};
 
 #define LOGD_100(fmt, ...) cloudlog_rl(2, 100, CLOUDLOG_DEBUG, fmt, ## __VA_ARGS__)
 #define LOG_100(fmt, ...) cloudlog_rl(2, 100, CLOUDLOG_INFO, fmt, ## __VA_ARGS__)

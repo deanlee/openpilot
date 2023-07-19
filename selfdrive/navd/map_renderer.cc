@@ -111,7 +111,7 @@ void MapRenderer::msgUpdate() {
         QApplication::processEvents(QEventLoop::AllEvents, 100);
         update();
         if (rendered()) {
-          LOGW("rendered after %d retries", i+1);
+          LOGW() << "rendered after" << i+1 << "retries";
           break;
         }
       }

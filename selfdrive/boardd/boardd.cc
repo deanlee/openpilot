@@ -88,12 +88,11 @@ void sync_time(Panda *panda, SyncTimeDir dir) {
       double seconds = difftime(mktime(&rtc_time), mktime(&sys_time));
       if (std::abs(seconds) > 1.1) {
         panda->set_rtc(sys_time);
-        LOGW("Updating panda RTC. dt = %.2f System: %s RTC: %s",
-              seconds, get_time_str(sys_time).c_str(), get_time_str(rtc_time).c_str());
+        LOGW() << "Updating panda RTC. dt =" <<  seconds << "System:" << get_time_str(sys_time) << ", RTC:" << get_time_str(rtc_time);
       }
     }
   } else if (dir == SyncTimeDir::FROM_PANDA) {
-    LOGW("System time: %s, RTC time: %s", get_time_str(sys_time).c_str(), get_time_str(rtc_time).c_str());
+    LOGW() << "System time:" <<  get_time_str(sys_time) << ", RTC time:" << get_time_str(rtc_time);
 
     if (!util::time_valid(sys_time) && util::time_valid(rtc_time)) {
       const struct timeval tv = {mktime(&rtc_time), 0};
@@ -155,7 +154,7 @@ bool safety_setter_thread(std::vector<Panda *> pandas) {
     }
     util::sleep_for(100);
   }
-  LOGW("got %d bytes CarParams", params.size());
+  LOGW() << "got" << params.size() << "bytes CarParams";
 
   AlignedBuffer aligned_buf;
   capnp::FlatArrayMessageReader cmsg(aligned_buf.align(params.data(), params.size()));
@@ -177,7 +176,7 @@ bool safety_setter_thread(std::vector<Panda *> pandas) {
       safety_param = 0U;
     }
 
-    LOGW("panda %d: setting safety model: %d, param: %d, alternative experience: %d", i, (int)safety_model, safety_param, alternative_experience);
+    LOGW() << "panda" << i << ": setting safety model:" << (int)safety_model<< ", param:" << safety_param << ", alternative experience" << alternative_experience;
     panda->set_alternative_experience(alternative_experience);
     panda->set_safety_model(safety_model, safety_param);
   }
@@ -277,7 +276,7 @@ void can_recv_thread(std::vector<Panda *> pandas) {
       std::this_thread::sleep_for(std::chrono::nanoseconds(remaining));
     } else {
       if (ignition) {
-        LOGW("missed cycles (%d) %lld", (int)-1*remaining/dt, remaining);
+        LOGW() << "missed cycles (" << (int)-1*remaining/dt << ")" << remaining;
       }
       next_frame_time = cur_time;
     }
@@ -443,7 +442,7 @@ void send_peripheral_state(PubMaster *pm, Panda *panda) {
   ps.setCurrent(Hardware::get_current());
   read_time = millis_since_boot() - read_time;
   if (read_time > 50) {
-    LOGW("reading hwmon took %lfms", read_time);
+    LOGW() << "reading hwmon took" << read_time << "ms";
   }
 
   uint16_t fan_speed_rpm = panda->get_fan_speed();
@@ -500,7 +499,7 @@ void panda_state_thread(std::vector<Panda *> pandas, bool spoofing_started) {
         // check for new pandas
         for (std::string &s : Panda::list(true)) {
           if (!std::count(connected_serials.begin(), connected_serials.end(), s)) {
-            LOGW("Reconnecting to new panda: %s", s.c_str());
+            LOGW() << "Reconnecting to new panda:" << s;
             do_exit = true;
             break;
           }
@@ -612,7 +611,7 @@ void boardd_main_thread(std::vector<std::string> serials) {
     serials_str += serials[i];
     if (i < serials.size() - 1) serials_str += ", ";
   }
-  LOGW("connecting to pandas: %s", serials_str.c_str());
+  LOGW() << "connecting to pandas:" << serials_str;
 
   // connect to all provided serials
   std::vector<Panda *> pandas;
