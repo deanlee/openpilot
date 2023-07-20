@@ -24,17 +24,16 @@ struct EncoderdState {
 bool sync_encoders(EncoderdState *s, CameraType cam_type, uint32_t frame_id) {
   if (s->max_waiting == 1) return true;
 
+  bool synced = false;
   if (s->encoders_ready != s->max_waiting) {
     // add a small margin to the start frame id in case one of the encoders already dropped the next frame
     update_max_atomic(s->start_frame_id, frame_id + 2);
-    return false;
   } else {
-    bool synced = frame_id >= s->start_frame_id;
+    synced = frame_id >= s->start_frame_id;
     if (!synced) LOGD("camera %d waiting for frame %d, cur %d", cam_type, (int)s->start_frame_id, frame_id);
-    return synced;
   }
+  return synced;
 }
-
 
 void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
   util::set_thread_name(cam_info.thread_name);
@@ -63,6 +62,7 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
     for (int i = 0; i < encoders.size(); ++i) {
       encoders[i]->encoder_open(NULL);
     }
+    ++s->encoders_ready;
 
     bool lagging = false;
     while (!do_exit) {
