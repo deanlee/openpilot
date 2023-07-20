@@ -18,26 +18,18 @@ struct EncoderdState {
   // Sync logic for startup
   std::atomic<int> encoders_ready = 0;
   std::atomic<uint32_t> start_frame_id = 0;
-  bool camera_ready[WideRoadCam + 1] = {};
-  bool camera_synced[WideRoadCam + 1] = {};
 };
 
 // Handle initial encoder syncing by waiting for all encoders to reach the same frame id
 bool sync_encoders(EncoderdState *s, CameraType cam_type, uint32_t frame_id) {
-  if (s->camera_synced[cam_type]) return true;
+  if (s->max_waiting == 1) return true;
 
-  if (s->max_waiting > 1 && s->encoders_ready != s->max_waiting) {
+  if (s->encoders_ready != s->max_waiting) {
     // add a small margin to the start frame id in case one of the encoders already dropped the next frame
     update_max_atomic(s->start_frame_id, frame_id + 2);
-    if (std::exchange(s->camera_ready[cam_type], true) == false) {
-      ++s->encoders_ready;
-      LOGD("camera %d encoder ready", cam_type);
-    }
     return false;
   } else {
-    if (s->max_waiting == 1) update_max_atomic(s->start_frame_id, frame_id);
     bool synced = frame_id >= s->start_frame_id;
-    s->camera_synced[cam_type] = synced;
     if (!synced) LOGD("camera %d waiting for frame %d, cur %d", cam_type, (int)s->start_frame_id, frame_id);
     return synced;
   }
