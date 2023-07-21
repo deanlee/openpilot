@@ -73,7 +73,7 @@ class DestinationWidget : public QPushButton {
 public:
   explicit DestinationWidget(QWidget *parent = nullptr);
   void set(const QJsonObject &location, bool current = false);
-  void unset(const QString &label, bool current = false);
+  void unset(const QString &label);
 
 signals:
   void actionClicked();

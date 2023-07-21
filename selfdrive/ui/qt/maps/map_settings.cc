@@ -7,10 +7,6 @@
 #include "selfdrive/ui/qt/request_repeater.h"
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 
-static QString shorten(const QString &str, int max_len) {
-  return str.size() > max_len ? str.left(max_len).trimmed() + "…" : str;
-}
-
 MapSettings::MapSettings(bool closeable, QWidget *parent) : QFrame(parent) {
   close_icon = loadPixmap("../assets/icons/close.svg", {100, 100});
   setContentsMargins(0, 0, 0, 0);
@@ -63,6 +59,7 @@ MapSettings::MapSettings(bool closeable, QWidget *parent) : QFrame(parent) {
   frame->addSpacing(32);
 
   current_widget = new DestinationWidget(this);
+  current_widget->setProperty("current", true);
   QObject::connect(current_widget, &DestinationWidget::actionClicked, [=]() {
     if (current_destination.empty()) return;
     params.remove("NavDestination");
@@ -114,7 +111,7 @@ void MapSettings::updateCurrentRoute() {
     current_widget->set(current_destination, true);
   } else {
     current_destination = {};
-    current_widget->unset("", true);
+    current_widget->unset("");
   }
   if (isVisible()) refresh();
 }
@@ -202,8 +199,9 @@ DestinationWidget::DestinationWidget(QWidget *parent) : QPushButton(parent) {
 
   setFixedHeight(164);
   setStyleSheet(R"(
-    DestinationWidget { background-color: #202123; border-radius: 10px; }
-    QLabel { color: #FFFFFF; font-size: 48px; font-weight: 400; }
+    { background-color: #202123; border-radius: 10px; }
+    { color: #FFFFFF; font-size: 48px; font-weight: 400; }
+    /*DestinationWidget:disabled {color: #9BA0A5; }*/
     #icon { background-color: #3B4356; border-radius: 48px; }
     #subtitle { color: #9BA0A5; }
     #action { border: none; border-radius: 48px; color: #FFFFFF; padding-bottom: 4px; }
@@ -216,8 +214,6 @@ DestinationWidget::DestinationWidget(QWidget *parent) : QPushButton(parent) {
     [current="true"] #action { color: #202123; }
 
     /* no saved destination */
-    [set="false"] QLabel { color: #9BA0A5; }
-    [current="true"][set="false"] QLabel { color: #A0000000; }
 
     /* pressed */
     [current="false"]:pressed { background-color: #18191B; }
@@ -230,9 +226,6 @@ void DestinationWidget::set(const QJsonObject &destination, bool current) {
   if (dest == destination) return;
 
   dest = destination;
-  setProperty("current", current);
-  setProperty("set", true);
-
   auto icon_pixmap = current ? icons().directions : icons().recent;
   auto title_text = destination["place_name"].toString();
   auto subtitle_text = destination["place_details"].toString();
@@ -254,23 +247,19 @@ void DestinationWidget::set(const QJsonObject &destination, bool current) {
   icon->setPixmap(icon_pixmap);
 
   // TODO: onroad and offroad have different dimensions
-  title->setText(shorten(title_text, 26));
-  subtitle->setText(shorten(subtitle_text, 26));
+  title->setText(title_text);
+  subtitle->setText(subtitle_text);
   subtitle->setVisible(true);
 
   // TODO: use pixmap
   action->setAttribute(Qt::WA_TransparentForMouseEvents, !current);
   action->setText(current ? "×" : "→");
   action->setVisible(true);
-
-  setStyleSheet(styleSheet());
+  setEnabled(true);
 }
 
-void DestinationWidget::unset(const QString &label, bool current) {
+void DestinationWidget::unset(const QString &label) {
   dest = {};
-  setProperty("current", current);
-  setProperty("set", false);
-
   if (label.isEmpty()) {
     icon->setPixmap(icons().directions);
     title->setText(tr("No destination set"));
@@ -283,7 +272,7 @@ void DestinationWidget::unset(const QString &label, bool current) {
   subtitle->setVisible(false);
   action->setVisible(false);
 
-  setStyleSheet(styleSheet());
+  setEnabled(false);
   setVisible(true);
 }
 
@@ -295,11 +284,11 @@ NavigationRequest *NavigationRequest::instance() {
 }
 
 NavigationRequest::NavigationRequest(QObject *parent) : QObject(parent) {
-  if (auto dongle_id = getDongleId()) {
+  if (true) {//auto dongle_id = getDongleId()) {
     {
       // Fetch favorite and recent locations
-      QString url = CommaApi::BASE_URL + "/v1/navigation/" + *dongle_id + "/locations";
-      RequestRepeater *repeater = new RequestRepeater(this, url, "ApiCache_NavDestinations", 30, true);
+      QString url = CommaApi::BASE_URL + "/v1/navigation/" + "10" + "/locations";
+      RequestRepeater *repeater = new RequestRepeater(this, url, "ApiCache_NavDestinations", 2, true);
       QObject::connect(repeater, &RequestRepeater::requestDone, this, &NavigationRequest::parseLocationsResponse);
     }
     {
@@ -307,7 +296,7 @@ NavigationRequest::NavigationRequest(QObject *parent) : QObject(parent) {
       QObject::connect(param_watcher, &ParamWatcher::paramChanged, this, &NavigationRequest::nextDestinationUpdated);
 
       // Destination set while offline
-      QString url = CommaApi::BASE_URL + "/v1/navigation/" + *dongle_id + "/next";
+      QString url = CommaApi::BASE_URL + "/v1/navigation/" + "10" + "/next";
       HttpRequest *deleter = new HttpRequest(this);
       RequestRepeater *repeater = new RequestRepeater(this, url, "", 10, true);
       QObject::connect(repeater, &RequestRepeater::requestDone, [=](const QString &resp, bool success) {
@@ -332,10 +321,20 @@ NavigationRequest::NavigationRequest(QObject *parent) : QObject(parent) {
 static void swap(QJsonValueRef v1, QJsonValueRef v2) { std::swap(v1, v2); }
 
 void NavigationRequest::parseLocationsResponse(const QString &response, bool success) {
-  if (!success || response == prev_response) return;
+  // if (!success || response == prev_response) return;
 
-  prev_response = response;
-  QJsonDocument doc = QJsonDocument::fromJson(response.trimmed().toUtf8());
+  prev_response = R"([
+      {"id":"1", "dongle_id":"2", "place_name":"a1ddddddddddddddddddddddddddd dddddddddddddddddddddddddd", "place_details":"detaildetaildetaildetaildetaildetaildetaildetail", "latitude":1, "longitude":2, "save_type":"favorite", "label":"", "modified":"dd"},
+    {"id":"1", "dongle_id":"2", "place_name":"a2", "place_details":"detaildetaildetaildetaildetaildetaildetail", "latitude":1, "longitude":2, "save_type":"favorite", "label":"", "modified":"dd"},
+    {"id":"1", "dongle_id":"2", "place_name":"a3", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"recent", "label":"", "modified":"dd"},
+    {"id":"1", "dongle_id":"2", "place_name":"1", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"recent", "label":"", "modified":"dd"},
+    {"id":"1", "dongle_id":"2", "place_name":"a5", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"recent", "label":"", "modified":"dd"},
+    {"id":"1", "dongle_id":"2", "place_name":"a6", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"recent", "label":"", "modified":"dd"},
+    {"id":"1", "dongle_id":"2", "place_name":"113", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"recent", "label":"", "modified":"dd"}
+    ]
+  )";
+  // prev_response = response;
+  QJsonDocument doc = QJsonDocument::fromJson(prev_response.trimmed().toUtf8());
   if (doc.isNull()) {
     qWarning() << "JSON Parse failed on navigation locations" << response;
     return;
