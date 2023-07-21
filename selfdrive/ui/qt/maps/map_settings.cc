@@ -59,7 +59,7 @@ MapSettings::MapSettings(bool closeable, QWidget *parent) : QFrame(parent) {
   frame->addSpacing(32);
 
   current_widget = new DestinationWidget(this);
-  current_widget->setProperty("current", true);
+  current_widget->setObjectName("current");
   QObject::connect(current_widget, &DestinationWidget::actionClicked, [=]() {
     if (current_destination.empty()) return;
     params.remove("NavDestination");
@@ -199,9 +199,8 @@ DestinationWidget::DestinationWidget(QWidget *parent) : QPushButton(parent) {
 
   setFixedHeight(164);
   setStyleSheet(R"(
-    { background-color: #202123; border-radius: 10px; }
-    { color: #FFFFFF; font-size: 48px; font-weight: 400; }
-    /*DestinationWidget:disabled {color: #9BA0A5; }*/
+    DestinationWidget { background-color: #202123; border-radius: 10px; }
+    QLabel { color: #FFFFFF; font-size: 48px; font-weight: 400; }
     #icon { background-color: #3B4356; border-radius: 48px; }
     #subtitle { color: #9BA0A5; }
     #action { border: none; border-radius: 48px; color: #FFFFFF; padding-bottom: 4px; }
@@ -214,6 +213,8 @@ DestinationWidget::DestinationWidget(QWidget *parent) : QPushButton(parent) {
     [current="true"] #action { color: #202123; }
 
     /* no saved destination */
+    DestinationWidget:disabled QLabel { color: #9BA0A5; }
+    DestinationWidget:disabled[current="true"][set="false"] QLabel { color: #A0000000; }
 
     /* pressed */
     [current="false"]:pressed { background-color: #18191B; }
