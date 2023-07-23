@@ -344,8 +344,9 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   sidebar_layout->setMargin(0);
   panel_widget = new QStackedWidget();
   panel_widget->setStyleSheet(R"(
-    border-radius: 30px;
-    background-color: #292929;
+    QStackedWidget {border-radius: 30px;
+    border:3px solid red;
+    background-color: blue;}
   )");
 
   // close button
@@ -433,7 +434,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
       font-size: 50px;
     }
     SettingsWindow {
-      background-color: black;
+      background-color: yellow;
     }
   )");
 }
