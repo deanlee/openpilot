@@ -43,9 +43,9 @@ void MapETA::updateETA(float s, float s_typical, float d) {
     color = "#DAA725";
 
   // Distance
-  float num = uiState()->scene.is_metric ? (d / 1000.0) : (d * METER_TO_MILE);
+  float num = uiState()->is_metric ? (d / 1000.0) : (d * METER_TO_MILE);
   auto distance = std::array{QString::number(num, 'f', num < 100 ? 1 : 0),
-                             uiState()->scene.is_metric ? tr("km") : tr("mi")};
+                             uiState()->is_metric ? tr("km") : tr("mi")};
 
   eta_doc.setHtml(QString(R"(<body><table><tr><td><b>%1</b></td><td>%2</td>
                              <td style="padding-left:40px;color:%3;"><b>%4</b></td><td style="padding-right:40px;color:%3;">%5</td>

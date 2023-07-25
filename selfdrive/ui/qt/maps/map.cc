@@ -119,7 +119,7 @@ void MapWindow::initLayers() {
 }
 
 void MapWindow::updateState(const UIState &s) {
-  if (!uiState()->scene.started) {
+  if (!uiState()->started) {
     return;
   }
   const SubMaster &sm = *(s.sm);

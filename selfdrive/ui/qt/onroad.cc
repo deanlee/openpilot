@@ -53,10 +53,10 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
 
 void OnroadWindow::updateState(const UIState &s) {
   QColor bgColor = bg_colors[s.status];
-  Alert alert = Alert::get(*(s.sm), s.scene.started_frame);
+  Alert alert = Alert::get(*(s.sm), s.started_frame);
   alerts->updateAlert(alert);
 
-  if (s.scene.map_on_left) {
+  if (s.map_on_left) {
     split->setDirection(QBoxLayout::LeftToRight);
   } else {
     split->setDirection(QBoxLayout::RightToLeft);
@@ -278,7 +278,7 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
   float v_cruise =  cs.getVCruiseCluster() == 0.0 ? cs.getVCruise() : cs.getVCruiseCluster();
   float set_speed = cs_alive ? v_cruise : SET_SPEED_NA;
   bool cruise_set = set_speed > 0 && (int)set_speed != SET_SPEED_NA;
-  if (cruise_set && !s.scene.is_metric) {
+  if (cruise_set && !s.is_metric) {
     set_speed *= KM_TO_MILE;
   }
 
@@ -291,21 +291,21 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
     v_ego_cluster_seen = true;
   }
   float cur_speed = cs_alive ? std::max<float>(0.0, v_ego) : 0.0;
-  cur_speed *= s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH;
+  cur_speed *= s.is_metric ? MS_TO_KPH : MS_TO_MPH;
 
   auto speed_limit_sign = sm["navInstruction"].getNavInstruction().getSpeedLimitSign();
   float speed_limit = nav_alive ? sm["navInstruction"].getNavInstruction().getSpeedLimit() : 0.0;
-  speed_limit *= (s.scene.is_metric ? MS_TO_KPH : MS_TO_MPH);
+  speed_limit *= (s.is_metric ? MS_TO_KPH : MS_TO_MPH);
 
   setProperty("speedLimit", speed_limit);
   setProperty("has_us_speed_limit", nav_alive && speed_limit_sign == cereal::NavInstruction::SpeedLimitSign::MUTCD);
   setProperty("has_eu_speed_limit", nav_alive && speed_limit_sign == cereal::NavInstruction::SpeedLimitSign::VIENNA);
 
   setProperty("is_cruise_set", cruise_set);
-  setProperty("is_metric", s.scene.is_metric);
+  setProperty("is_metric", s.is_metric);
   setProperty("speed", cur_speed);
   setProperty("setSpeed", set_speed);
-  setProperty("speedUnit", s.scene.is_metric ? tr("km/h") : tr("mph"));
+  setProperty("speedUnit", s.is_metric ? tr("km/h") : tr("mph"));
   setProperty("hideBottomIcons", (cs.getAlertSize() != cereal::ControlsState::AlertSize::NONE));
   setProperty("status", s.status);
 
@@ -662,16 +662,16 @@ void AnnotatedCameraWidget::paintGL() {
   painter.setPen(Qt::NoPen);
 
   if (s->worldObjectsVisible()) {
-    if (sm.rcv_frame("modelV2") > s->scene.started_frame) {
+    if (sm.rcv_frame("modelV2") > s->started_frame) {
       update_model(s, model, sm["uiPlan"].getUiPlan());
-      if (sm.rcv_frame("radarState") > s->scene.started_frame) {
+      if (sm.rcv_frame("radarState") > s->started_frame) {
         update_leads(s, radar_state, model.getPosition());
       }
     }
 
     drawLaneLines(painter, s);
 
-    if (s->scene.longitudinal_control) {
+    if (s->longitudinal_control) {
       auto lead_one = radar_state.getLeadOne();
       auto lead_two = radar_state.getLeadTwo();
       if (lead_one.getStatus()) {
@@ -684,7 +684,7 @@ void AnnotatedCameraWidget::paintGL() {
   }
 
   // DMoji
-  if (!hideBottomIcons && (sm.rcv_frame("driverStateV2") > s->scene.started_frame)) {
+  if (!hideBottomIcons && (sm.rcv_frame("driverStateV2") > s->started_frame)) {
     update_dmonitoring(s, sm["driverStateV2"].getDriverStateV2(), dm_fade_state, rightHandDM);
     drawDriverState(painter, s);
   }

@@ -73,7 +73,7 @@ void MainWindow::openSettings(int index, const QString &param) {
 void MainWindow::closeSettings() {
   main_layout->setCurrentWidget(homeWindow);
 
-  if (uiState()->scene.started) {
+  if (uiState()->started) {
     homeWindow->showSidebar(false);
     // Map is always shown when using navigate on openpilot
     if (uiState()->scene.navigate_on_openpilot) {

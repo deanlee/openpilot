@@ -65,7 +65,7 @@ void MapInstructions::buildPixmapCache() {
 
 QString MapInstructions::getDistance(float d) {
   d = std::max(d, 0.0f);
-  if (uiState()->scene.is_metric) {
+  if (uiState()->is_metric) {
     return (d > 500) ? QString::number(d / 1000, 'f', 1) + tr(" km")
                      : QString::number(50 * int(d / 50)) + tr(" m");
   } else {
