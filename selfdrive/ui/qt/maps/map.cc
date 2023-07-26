@@ -346,27 +346,15 @@ void MapWindow::wheelEvent(QWheelEvent *ev) {
 
 bool MapWindow::event(QEvent *event) {
   if (event->type() == QEvent::Gesture) {
-    return gestureEvent(static_cast<QGestureEvent*>(event));
+    auto gesture_event = static_cast<QGestureEvent *>(event);
+    auto pinch = (QPinchGesture *)(gesture_event->gesture(Qt::PinchGesture));
+    if (pinch && (pinch->changeFlags() & QPinchGesture::ScaleFactorChanged)) {
+      // TODO: figure out why gesture centerPoint doesn't work
+      m_map->scaleBy(pinch->scaleFactor(), rect().center() / MAP_SCALE);
+      zoom_counter = PAN_TIMEOUT;
+    }
   }
-
   return QWidget::event(event);
-}
-
-bool MapWindow::gestureEvent(QGestureEvent *event) {
-  if (QGesture *pinch = event->gesture(Qt::PinchGesture)) {
-    pinchTriggered(static_cast<QPinchGesture *>(pinch));
-  }
-  return true;
-}
-
-void MapWindow::pinchTriggered(QPinchGesture *gesture) {
-  QPinchGesture::ChangeFlags changeFlags = gesture->changeFlags();
-  if (changeFlags & QPinchGesture::ScaleFactorChanged) {
-    // TODO: figure out why gesture centerPoint doesn't work
-    m_map->scaleBy(gesture->scaleFactor(), {width() / 2.0 / MAP_SCALE, height() / 2.0 / MAP_SCALE});
-    update();
-    zoom_counter = PAN_TIMEOUT;
-  }
 }
 
 void MapWindow::offroadTransition(bool offroad) {

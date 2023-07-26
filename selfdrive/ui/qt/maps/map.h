@@ -45,8 +45,6 @@ private:
   void mouseMoveEvent(QMouseEvent *ev) final;
   void wheelEvent(QWheelEvent *ev) final;
   bool event(QEvent *event) final;
-  bool gestureEvent(QGestureEvent *event);
-  void pinchTriggered(QPinchGesture *gesture);
   void setError(const QString &err_str);
 
   bool loaded_once = false;
