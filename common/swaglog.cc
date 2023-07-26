@@ -92,6 +92,17 @@ static void cloudlog_common(int levelnum, const char* filename, int lineno, cons
   free(msg_buf);
 }
 
+void format_str(std::string& str, char levelnum, const char *fmt va_list args) {
+  va_copy(copy, args);
+  const int predicted_length = vsnprintf(nullptr, 0, fmt, copy);
+  va_end(copy);
+  str.resize(1 + predicted_length);
+  str[0] = levelnum;
+  // Pass "+ 1" to vsnprintf to include space for the '\0'.
+  vsnprintf(&str[1], predicted_length + 1, fmt, args);
+  return str;
+}
+
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
                 const char* fmt, ...) {
   va_list args;
