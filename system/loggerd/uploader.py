@@ -85,7 +85,7 @@ class Uploader:
     self.last_speed = 0.0
     self.last_filename = ""
 
-    self.immediate_folders = ["crash/", "boot/"]
+    self.immediate_folders = ["crash", "boot"]
     self.immediate_priority = {"qlog": 0, "qlog.bz2": 0, "qcamera.ts": 1}
 
   def get_upload_sort(self, name: str) -> int:
@@ -93,13 +93,13 @@ class Uploader:
       return self.immediate_priority[name]
     return 1000
 
-  def list_upload_files(self) -> Iterator[Tuple[str, str, str]]:
+  def list_upload_files(self) -> List[Tuple[str, str, str]]:
     if not os.path.isdir(self.root):
       return
 
+    files = []
     self.immediate_size = 0
     self.immediate_count = 0
-
     for logname in listdir_by_creation(self.root):
       path = os.path.join(self.root, logname)
       try:
@@ -110,9 +110,15 @@ class Uploader:
       if any(name.endswith(".lock") for name in names):
         continue
 
+      in_immediate_folder = logname in self.immediate_folders
       for name in sorted(names, key=self.get_upload_sort):
         key = os.path.join(logname, name)
         fn = os.path.join(path, name)
+
+        is_immediate_file = name in self.immediate_priority
+        if not in_immediate_folder and not is_immediate_file:
+          continue
+
         # skip files already uploaded
         try:
           is_uploaded = getxattr(fn, UPLOAD_ATTR_NAME) == UPLOAD_ATTR_VALUE
@@ -123,26 +129,18 @@ class Uploader:
           continue
 
         try:
-          if name in self.immediate_priority:
+          if is_immediate_file:
             self.immediate_count += 1
             self.immediate_size += os.path.getsize(fn)
         except OSError:
           pass
 
-        yield name, key, fn
+        if (in_immediate_folder):
+          files.insert(0, (name, key, fn))
+        else:
+          files.append((name, key, fn))
 
-  def next_file_to_upload(self) -> Optional[Tuple[str, str, str]]:
-    upload_files = list(self.list_upload_files())
-
-    for name, key, fn in upload_files:
-      if any(f in fn for f in self.immediate_folders):
-        return name, key, fn
-
-    for name, key, fn in upload_files:
-      if name in self.immediate_priority:
-        return name, key, fn
-
-    return None
+    return files
 
   def do_upload(self, key: str, fn: str) -> None:
     try:
@@ -260,6 +258,7 @@ def uploader_fn(exit_event: threading.Event) -> None:
   uploader = Uploader(dongle_id, ROOT)
 
   backoff = 0.1
+  upload_files = []
   while not exit_event.is_set():
     sm.update(0)
     offroad = params.get_bool("IsOffroad")
@@ -269,13 +268,15 @@ def uploader_fn(exit_event: threading.Event) -> None:
         time.sleep(60 if offroad else 5)
       continue
 
-    d = uploader.next_file_to_upload()
-    if d is None:  # Nothing to upload
+    if not upload_files:
+      upload_files = uploader.list_upload_files()
+
+    if not upload_files:  # Nothing to upload
       if allow_sleep:
         time.sleep(60 if offroad else 5)
       continue
 
-    name, key, fn = d
+    name, key, fn = upload_files.pop(0)
 
     # qlogs and bootlogs need to be compressed before uploading
     if key.endswith(('qlog', 'rlog')) or (key.startswith('boot/') and not key.endswith('.bz2')):
