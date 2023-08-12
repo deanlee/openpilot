@@ -19,6 +19,16 @@
 #include "common/swaglog.h"
 #include "common/version.h"
 
+void set_key_value(std::map<std::string, std::string> &map, cereal::Map<capnp::Text, capnp::Data>::Builder cereal_map) {
+  int i = 0;
+  auto entries = cereal_map.initEntries(map.size());
+  for (const auto& [key, value] : map) {
+    auto entry = entries[i++];
+    entry.setKey(key);
+    entry.setValue(capnp::Data::Reader((const kj::byte*)value.data(), value.size()));
+  }
+}
+
 // ***** log metadata *****
 kj::Array<capnp::word> logger_build_init_data() {
   MessageBuilder msg;
@@ -65,30 +75,9 @@ kj::Array<capnp::word> logger_build_init_data() {
     j++;
   }
 
-  // log commands
-  std::vector<std::string> log_commands = {
-    "df -h",  // usage for all filesystems
-  };
-
-  auto hw_logs = Hardware::get_init_logs();
-
-  auto commands = init.initCommands().initEntries(log_commands.size() + hw_logs.size());
-  for (int i = 0; i < log_commands.size(); i++) {
-    auto lentry = commands[i];
-
-    lentry.setKey(log_commands[i]);
-
-    const std::string result = util::check_output(log_commands[i]);
-    lentry.setValue(capnp::Data::Reader((const kj::byte*)result.data(), result.size()));
-  }
-
-  int i = log_commands.size();
-  for (auto &[key, value] : hw_logs) {
-    auto lentry = commands[i];
-    lentry.setKey(key);
-    lentry.setValue(capnp::Data::Reader((const kj::byte*)value.data(), value.size()));
-    i++;
-  }
+  auto logs = Hardware::get_init_logs();
+  logs["df -h"] = util::check_output("df -h");// usage for all filesystems
+  set_key_value(logs, init.initCommands());
 
   return capnp::messageToFlatArray(msg);
 }

@@ -15,15 +15,7 @@ static kj::Array<capnp::word> build_boot_log() {
 
   std::string pstore = "/sys/fs/pstore";
   std::map<std::string, std::string> pstore_map = util::read_files_in_dir(pstore);
-
-  int i = 0;
-  auto lpstore = boot.initPstore().initEntries(pstore_map.size());
-  for (auto& kv : pstore_map) {
-    auto lentry = lpstore[i];
-    lentry.setKey(kv.first);
-    lentry.setValue(capnp::Data::Reader((const kj::byte*)kv.second.data(), kv.second.size()));
-    i++;
-  }
+  set_key_value(pstore_map, boot.initPstore());
 
   // Gather output of commands
   std::vector<std::string> bootlog_commands = {

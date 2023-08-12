@@ -78,3 +78,5 @@ void logger_log(LoggerState *s, uint8_t* data, size_t data_size, bool in_qlog);
 
 void lh_log(LoggerHandle* h, uint8_t* data, size_t data_size, bool in_qlog);
 void lh_close(LoggerHandle* h);
+
+void set_key_value(std::map<std::string, std::string> &map, cereal::Map<capnp::Text, capnp::Data>::Builder cereal_map);
