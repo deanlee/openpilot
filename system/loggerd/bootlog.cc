@@ -21,7 +21,6 @@ static kj::Array<capnp::word> build_boot_log() {
   std::vector<std::string> bootlog_commands = {
     "[ -x \"$(command -v journalctl)\" ] && journalctl",
   };
-
   if (Hardware::TICI()) {
     bootlog_commands.push_back("[ -e /dev/nvme0 ] && sudo nvme smart-log --output-format=json /dev/nvme0");
   }
