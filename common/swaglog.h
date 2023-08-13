@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/timing.h"
+#include "common/util.h"
 
 #define CLOUDLOG_DEBUG 10
 #define CLOUDLOG_INFO 20
@@ -9,20 +10,14 @@
 #define CLOUDLOG_CRITICAL 50
 
 
-#ifdef __GNUC__
-#define SWAG_LOG_CHECK_FMT(a, b) __attribute__ ((format (printf, a, b)))
-#else
-#define SWAG_LOG_CHECK_FMT(a, b)
-#endif
-
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
-                const char* fmt, ...) SWAG_LOG_CHECK_FMT(5, 6);
+                const char* fmt, ...) CHECK_FORMAT(5, 6);
 
 void cloudlog_te(int levelnum, const char* filename, int lineno, const char* func,
-                 const char* fmt, ...) SWAG_LOG_CHECK_FMT(5, 6);
+                 const char* fmt, ...) CHECK_FORMAT(5, 6);
 
 void cloudlog_te(int levelnum, const char* filename, int lineno, const char* func,
-                 uint32_t frame_id, const char* fmt, ...) SWAG_LOG_CHECK_FMT(6, 7);
+                 uint32_t frame_id, const char* fmt, ...) CHECK_FORMAT(6, 7);
 
 
 #define cloudlog(lvl, fmt, ...) cloudlog_e(lvl, __FILE__, __LINE__, \

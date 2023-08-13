@@ -285,14 +285,11 @@ std::string string_format_v(const char* format, va_list ap) {
     if (ret < std::size(stack_buf)) {
       // It fit.
       result.append(stack_buf, ret);
-    } else if (ret < 32 * 1024 * 1024) {
-      // That should be plenty, don't try anything larger. This protects against huge allocations.
+    } else {
       result.resize(ret);
       va_copy(ap_copy, ap);
       vsnprintf(&result[0], ret + 1, format, ap_copy);
       va_end(ap_copy);
-    } else {
-      std::cout << "Unable to format the requested string due to size."
     }
   }
 

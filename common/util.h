@@ -17,6 +17,12 @@
 #include <thread>
 #include <vector>
 
+#ifdef __GNUC__
+#define CHECK_FORMAT(a, b) __attribute__ ((format (printf, a, b)))
+#else
+#define CHECK_FORMAT(a, b)
+#endif
+
 // keep trying if x gets interrupted by a signal
 #define HANDLE_EINTR(x)                                        \
   ({                                                           \
@@ -62,7 +68,7 @@ T map_val(T x, T a1, T a2, T b1, T b2) {
 
 // ***** string helpers *****
 
-std::string string_format(const char* format, ...);
+std::string string_format(const char* format, ...) CHECK_FORMAT(1, 2);
 std::string string_format_v(const char* format, va_list ap);
 
 std::string getenv(const char* key, std::string default_val = "");

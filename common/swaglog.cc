@@ -14,7 +14,6 @@
 #include <zmq.h>
 #include "json11.hpp"
 
-#include "common/util.h"
 #include "common/version.h"
 #include "system/hardware/hw.h"
 

@@ -184,7 +184,7 @@ bool httpDownload(const std::string &url, T &buf, size_t chunk_size, size_t cont
     curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_cb<T>);
     curl_easy_setopt(eh, CURLOPT_WRITEDATA, (void *)(&writers[eh]));
     curl_easy_setopt(eh, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(eh, CURLOPT_RANGE, util::string_format("%d-%d", writers[eh].offset, writers[eh].end - 1).c_str());
+    curl_easy_setopt(eh, CURLOPT_RANGE, util::string_format("%zu-%lu", writers[eh].offset, writers[eh].end - 1).c_str());
     curl_easy_setopt(eh, CURLOPT_HTTPGET, 1);
     curl_easy_setopt(eh, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(eh, CURLOPT_FOLLOWLOCATION, 1);
