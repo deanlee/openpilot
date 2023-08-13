@@ -272,26 +272,30 @@ std::string string_format(const char* format, ...) {
 }
 
 std::string string_format_v(const char* format, va_list ap) {
-  auto format_str = [](char *buf, size_t size, const char* format, va_list ap) -> int {
-    va_list ap_copy;
-    va_copy(ap_copy, ap);
-    int ret = vsnprintf(buf, size, format, ap_copy);
-    va_end(ap_copy);
-    return ret;
-  };
-
   std::string result;
+
   // First try with a small fixed size buffer.
   char stack_buf[1024];
-  int ret = format_str(stack_buf, std::size(stack_buf), format, ap);
+  va_list ap_copy;
+  va_copy(ap_copy, ap);
+  int ret = vsnprintf(stack_buf, std::size(stack_buf), format, ap_copy);
+  va_end(ap_copy);
+
   if (ret >= 0) {
-    if (static_cast<size_t>(ret) < std::size(stack_buf)) {
+    if (ret < std::size(stack_buf)) {
+      // It fit.
       result.append(stack_buf, ret);
-    } else {
+    } else if (ret < 32 * 1024 * 1024) {
+      // That should be plenty, don't try anything larger. This protects against huge allocations.
       result.resize(ret);
-      format_str(&result[0], ret + 1, format, ap);
+      va_copy(ap_copy, ap);
+      vsnprintf(&result[0], ret + 1, format, ap_copy);
+      va_end(ap_copy);
+    } else {
+      std::cout << "Unable to format the requested string due to size."
     }
   }
+
   return result;
 }
 
