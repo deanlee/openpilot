@@ -263,4 +263,44 @@ bool time_valid(struct tm sys_time) {
   return (year > 2023) || (year == 2023 && month >= 6);
 }
 
+std::string sprintf(const char* format, ...) {
+  va_list ap;
+  va_start(ap, format);
+  std::string result = vsprintf(format, ap);
+  va_end(ap);
+  return result;
+}
+
+std::string vsprintf(const char* format, va_list ap) {
+  std::string result;
+
+  // First try with a small fixed size buffer.
+  char stack_buf[1024];
+  va_list ap_copy;
+  va_copy(ap_copy, ap);
+  int ret = ::vsnprintf(stack_buf, std::size(stack_buf), format, ap_copy);
+  va_end(ap_copy);
+
+  if (ret >= 0) {
+    if (static_cast<size_t>(ret) < std::size(stack_buf)) {
+      // It fit.
+      result.append(stack_buf, ret);
+    } else {
+      // We need exactly "ret + 1" characters.
+      size_t mem_length = static_cast<size_t>(ret) + 1;
+      std::vector<char> mem_buf(mem_length);
+
+      va_copy(ap_copy, ap);
+      ret = ::vsnprintf(&mem_buf[0], mem_length, format, ap_copy);
+      va_end(ap_copy);
+
+      if (ret >= 0 && static_cast<size_t>(ret) < mem_length) {
+        result.append(&mem_buf[0], ret);
+      }
+    }
+  }
+
+  return result;
+}
+
 }  // namespace util

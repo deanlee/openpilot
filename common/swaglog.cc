@@ -69,7 +69,7 @@ static void log(int levelnum, const char* filename, int lineno, const char* func
 }
 
 static void cloudlog_common(int levelnum, const char* filename, int lineno, const char* func,
-                            char* msg_buf, const json11::Json::object &msg_j={}) {
+                            const std::string &msg_buf, const json11::Json::object &msg_j={}) {
   std::lock_guard lk(s.lock);
   if (!s.initialized) s.initialize();
 
@@ -88,36 +88,32 @@ static void cloudlog_common(int levelnum, const char* filename, int lineno, cons
   }
 
   std::string log_s = ((json11::Json)log_j).dump();
-  log(levelnum, filename, lineno, func, msg_buf, log_s);
-  free(msg_buf);
+  log(levelnum, filename, lineno, func, msg_buf.c_str(), log_s);
 }
 
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
                 const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  char* msg_buf = nullptr;
-  int ret = vasprintf(&msg_buf, fmt, args);
+  std::string result = util::vsprintf(fmt, args);
   va_end(args);
-  if (ret <= 0 || !msg_buf) return;
-  cloudlog_common(levelnum, filename, lineno, func, msg_buf);
+  cloudlog_common(levelnum, filename, lineno, func, result);
 }
 
 void cloudlog_t_common(int levelnum, const char* filename, int lineno, const char* func,
                        uint32_t frame_id, const char* fmt, va_list args) {
   if (!LOG_TIMESTAMPS) return;
-  char* msg_buf = nullptr;
-  int ret = vasprintf(&msg_buf, fmt, args);
-  if (ret <= 0 || !msg_buf) return;
+
+  std::string result = util::vsprintf(fmt, args);
   json11::Json::object tspt_j = json11::Json::object{
-    {"event", msg_buf},
+    {"event", result},
     {"time", std::to_string(nanos_since_boot())}
   };
   if (frame_id < NO_FRAME_ID) {
     tspt_j["frame_id"] = std::to_string(frame_id);
   }
   tspt_j = json11::Json::object{{"timestamp", tspt_j}};
-  cloudlog_common(levelnum, filename, lineno, func, msg_buf, tspt_j);
+  cloudlog_common(levelnum, filename, lineno, func, result, tspt_j);
 }
 
 

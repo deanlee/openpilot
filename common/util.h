@@ -62,6 +62,9 @@ T map_val(T x, T a1, T a2, T b1, T b2) {
 
 // ***** string helpers *****
 
+std::string sprintf(const char* format, ...);
+std::string vsprintf(const char* format, va_list ap);
+
 template <typename... Args>
 std::string string_format(const std::string& format, Args... args) {
   size_t size = snprintf(nullptr, 0, format.c_str(), args...) + 1;

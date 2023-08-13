@@ -25,28 +25,24 @@ void logMessage(ReplyMsgType type, const char *fmt, ...) {
   static std::mutex lock;
   std::lock_guard lk(lock);
 
-  char *msg_buf = nullptr;
   va_list args;
   va_start(args, fmt);
-  int ret = vasprintf(&msg_buf, fmt, args);
+  std::string msg = util::vsprintf(fmt, args);
   va_end(args);
-  if (ret <= 0 || !msg_buf) return;
 
   if (message_handler) {
-    message_handler(type, msg_buf);
+    message_handler(type, msg.c_str());
   } else {
     if (type == ReplyMsgType::Debug) {
-      std::cout << "\033[38;5;248m" << msg_buf << "\033[00m" << std::endl;
+      std::cout << "\033[38;5;248m" << msg << "\033[00m" << std::endl;
     } else if (type == ReplyMsgType::Warning) {
-      std::cout << "\033[38;5;227m" << msg_buf << "\033[00m" << std::endl;
+      std::cout << "\033[38;5;227m" << msg << "\033[00m" << std::endl;
     } else if (type == ReplyMsgType::Critical) {
-      std::cout << "\033[38;5;196m" << msg_buf << "\033[00m" << std::endl;
+      std::cout << "\033[38;5;196m" << msg << "\033[00m" << std::endl;
     } else {
-      std::cout << msg_buf << std::endl;
+      std::cout << msg << std::endl;
     }
   }
-
-  free(msg_buf);
 }
 
 namespace {
