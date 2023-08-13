@@ -95,7 +95,7 @@ void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func
                 const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  std::string result = util::vsprintf(fmt, args);
+  std::string result = util::string_format_v(fmt, args);
   va_end(args);
   cloudlog_common(levelnum, filename, lineno, func, result);
 }
@@ -104,7 +104,7 @@ void cloudlog_t_common(int levelnum, const char* filename, int lineno, const cha
                        uint32_t frame_id, const char* fmt, va_list args) {
   if (!LOG_TIMESTAMPS) return;
 
-  std::string result = util::vsprintf(fmt, args);
+  std::string result = util::string_format_v(fmt, args);
   json11::Json::object tspt_j = json11::Json::object{
     {"event", result},
     {"time", std::to_string(nanos_since_boot())}

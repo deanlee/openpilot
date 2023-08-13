@@ -263,36 +263,36 @@ bool time_valid(struct tm sys_time) {
   return (year > 2023) || (year == 2023 && month >= 6);
 }
 
-std::string sprintf(const char* format, ...) {
+std::string string_format(const char* format, ...) {
   va_list ap;
   va_start(ap, format);
-  std::string result = vsprintf(format, ap);
+  std::string result = string_format_v(format, ap);
   va_end(ap);
   return result;
 }
 
-std::string vsprintf(const char* format, va_list ap) {
+std::string string_format_v(const char* format, va_list ap) {
   auto format_str = [](char *buf, size_t size, const char* format, va_list ap) -> int {
     va_list ap_copy;
     va_copy(ap_copy, ap);
-    int ret = ::vsnprintf(buf, size, format, ap_copy);
+    int ret = vsnprintf(buf, size, format, ap_copy);
     va_end(ap_copy);
     return ret;
   };
 
+  std::string result;
   // First try with a small fixed size buffer.
   char stack_buf[1024];
   int ret = format_str(stack_buf, std::size(stack_buf), format, ap);
   if (ret >= 0) {
     if (static_cast<size_t>(ret) < std::size(stack_buf)) {
-      return std::string(stack_buf, ret);
+      result.append(stack_buf, ret);
     } else {
-      std::string result(ret, '\0');
+      result.resize(ret);
       format_str(&result[0], ret + 1, format, ap);
-      return result;
     }
   }
-  return {};
+  return result;
 }
 
 }  // namespace util

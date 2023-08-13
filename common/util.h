@@ -62,16 +62,8 @@ T map_val(T x, T a1, T a2, T b1, T b2) {
 
 // ***** string helpers *****
 
-std::string sprintf(const char* format, ...);
-std::string vsprintf(const char* format, va_list ap);
-
-template <typename... Args>
-std::string string_format(const std::string& format, Args... args) {
-  size_t size = snprintf(nullptr, 0, format.c_str(), args...) + 1;
-  std::unique_ptr<char[]> buf(new char[size]);
-  snprintf(buf.get(), size, format.c_str(), args...);
-  return std::string(buf.get(), buf.get() + size - 1);
-}
+std::string string_format(const char* format, ...);
+std::string string_format_v(const char* format, va_list ap);
 
 std::string getenv(const char* key, std::string default_val = "");
 int getenv(const char* key, int default_val);

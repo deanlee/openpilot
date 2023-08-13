@@ -21,20 +21,14 @@ static void log(const char* metric_type, const char* metric, const char* fmt, ..
   std::lock_guard lk(s.lock);
   if (!s.initialized) s.initialize();
 
-  char* value_buf = nullptr;
   va_list args;
   va_start(args, fmt);
-  int ret = vasprintf(&value_buf, fmt, args);
+  std::string value = util::string_format_v(fmt, args);
   va_end(args);
 
-  if (ret > 0 && value_buf) {
-    char* line_buf = nullptr;
-    ret = asprintf(&line_buf, "%s:%s|%s", metric, value_buf, metric_type);
-    if (ret > 0 && line_buf) {
-      zmq_send(s.sock, line_buf, ret, ZMQ_NOBLOCK);
-      free(line_buf);
-    }
-    free(value_buf);
+  if (!value.empty()) {
+    std::string line = util::string_format("%s:%s|%s", metric, value.c_str(), metric_type);
+    zmq_send(s.sock, line.data(), line.size(), ZMQ_NOBLOCK);
   }
 }
 

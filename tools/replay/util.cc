@@ -27,7 +27,7 @@ void logMessage(ReplyMsgType type, const char *fmt, ...) {
 
   va_list args;
   va_start(args, fmt);
-  std::string msg = util::vsprintf(fmt, args);
+  std::string msg = util::string_format_v(fmt, args);
   va_end(args);
 
   if (message_handler) {
