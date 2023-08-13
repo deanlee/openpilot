@@ -272,7 +272,6 @@ std::string string_format(const char* format, ...) {
 }
 
 std::string string_format_v(const char* format, va_list ap) {
-
   // First try with a small fixed size buffer.
   char stack_buf[1024];
   va_list ap_copy;
