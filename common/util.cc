@@ -272,7 +272,6 @@ std::string string_format(const char* format, ...) {
 }
 
 std::string string_format_v(const char* format, va_list ap) {
-  std::string result;
 
   // First try with a small fixed size buffer.
   char stack_buf[1024];
@@ -283,17 +282,17 @@ std::string string_format_v(const char* format, va_list ap) {
 
   if (ret >= 0) {
     if (ret < std::size(stack_buf)) {
-      // It fit.
-      result.append(stack_buf, ret);
+      return std::string(stack_buf, ret);
     } else {
-      result.resize(ret);
+      std::string result(ret, '\0');
       va_copy(ap_copy, ap);
+      // Pass "+ 1" to vsnprintf to include space for the '\0'.
       vsnprintf(&result[0], ret + 1, format, ap_copy);
       va_end(ap_copy);
+      return result;
     }
   }
-
-  return result;
+  return {};
 }
 
 }  // namespace util
