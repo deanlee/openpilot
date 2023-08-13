@@ -280,19 +280,19 @@ std::string vsprintf(const char* format, va_list ap) {
     return ret;
   };
 
-  std::string result;
   // First try with a small fixed size buffer.
   char stack_buf[1024];
   int ret = format_str(stack_buf, std::size(stack_buf), format, ap);
   if (ret >= 0) {
     if (static_cast<size_t>(ret) < std::size(stack_buf)) {
-      result.append(stack_buf, ret);
+      return std::string(stack_buf, ret);
     } else {
-      result.resize(ret);
+      std::string result(ret, '\0');
       format_str(&result[0], ret + 1, format, ap);
+      return result;
     }
   }
-  return result;
+  return {};
 }
 
 }  // namespace util
