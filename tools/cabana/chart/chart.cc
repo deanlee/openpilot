@@ -20,7 +20,7 @@
 
 // ChartAxisElement's padding is 4 (https://codebrowser.dev/qt5/qtcharts/src/charts/axis/chartaxiselement_p.h.html)
 const int AXIS_X_TOP_MARGIN = 4;
-static inline bool xLessThan(const QPointF &p, float x) { return p.x() < x; }
+static inline bool xLessThan(const QPointF &p, qreal x) { return p.x() < x; }
 
 ChartView::ChartView(const std::pair<double, double> &x_range, ChartsWidget *parent) : charts_widget(parent), tip_label(this), QChartView(nullptr, parent) {
   series_type = (SeriesType)settings.chart_series_type;
@@ -252,7 +252,7 @@ void ChartView::updateSeriesPoints() {
     auto begin = std::lower_bound(s.vals.cbegin(), s.vals.cend(), axis_x->min(), xLessThan);
     auto end = std::lower_bound(begin, s.vals.cend(), axis_x->max(), xLessThan);
     if (begin != end) {
-      int num_points = std::max<int>((end - begin), 1);
+      uint32_t num_points = std::max<int>((end - begin), 1);
       QPointF right_pt = end == s.vals.cend() ? s.vals.back() : *end;
       double pixels_per_point = (chart()->mapToPosition(right_pt).x() - chart()->mapToPosition(*begin).x()) / num_points;
 
