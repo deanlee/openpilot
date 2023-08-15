@@ -41,9 +41,8 @@ Networking::Networking(QWidget* parent, bool show_advanced) : QFrame(parent) {
   wifiWidget->setObjectName("wifiWidget");
   connect(wifiWidget, &WifiUI::connectToNetwork, this, &Networking::connectToNetwork);
 
-  ScrollView *wifiScroller = new ScrollView(wifiWidget, this);
-  wifiScroller->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-  vlayout->addWidget(wifiScroller, 1);
+  // wifiWidget->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+  vlayout->addWidget(wifiWidget, 1);
   main_layout->addWidget(wifiScreen);
 
   an = new AdvancedNetworking(this, wifi);
@@ -191,7 +190,7 @@ AdvancedNetworking::AdvancedNetworking(QWidget* parent, WifiManager* wifi): QWid
     meteredToggle->setVisible(gsmVisible);
   });
 
-  main_layout->addWidget(new ScrollView(list, this));
+  main_layout->addWidget(list);
   main_layout->addStretch(1);
 }
 

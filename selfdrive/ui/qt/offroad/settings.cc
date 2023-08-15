@@ -412,10 +412,8 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     const int lr_margin = name != tr("Network") ? 50 : 0;  // Network panel handles its own margins
     panel->setContentsMargins(lr_margin, 25, lr_margin, 25);
 
-    ScrollView *panel_frame = new ScrollView(panel, this);
-    panel_widget->addWidget(panel_frame);
-
-    QObject::connect(btn, &QPushButton::clicked, [=, w = panel_frame]() {
+    panel_widget->addWidget(panel);
+    QObject::connect(btn, &QPushButton::clicked, [=, w = panel]() {
       btn->setChecked(true);
       panel_widget->setCurrentWidget(w);
     });
