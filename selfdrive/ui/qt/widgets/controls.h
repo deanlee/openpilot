@@ -9,6 +9,7 @@
 
 #include "common/params.h"
 #include "selfdrive/ui/qt/widgets/input.h"
+#include "selfdrive/ui/qt/widgets/scrollview.h"
 #include "selfdrive/ui/qt/widgets/toggle.h"
 
 class ElidedLabel : public QLabel {
@@ -255,35 +256,45 @@ private:
   QButtonGroup *button_group;
 };
 
-class ListWidget : public QWidget {
+class ListWidget : public ScrollView {
   Q_OBJECT
  public:
-  explicit ListWidget(QWidget *parent = 0) : QWidget(parent), outer_layout(this) {
-    outer_layout.setMargin(0);
-    outer_layout.setSpacing(0);
-    outer_layout.addLayout(&inner_layout);
+  explicit ListWidget(QWidget *parent = 0) : ScrollView(nullptr, parent) {
+    container_widget = new QWidget;
+    outer_layout = new QVBoxLayout(container_widget);
+    outer_layout->setMargin(0);
+    outer_layout->setSpacing(0);
+    outer_layout->addLayout(&inner_layout);
     inner_layout.setMargin(0);
     inner_layout.setSpacing(25); // default spacing is 25
-    outer_layout.addStretch();
+    outer_layout->addStretch();
+    setWidget(container_widget);
+    setWidgetResizable(true);
   }
   inline void addItem(QWidget *w) { inner_layout.addWidget(w); }
   inline void addItem(QLayout *layout) { inner_layout.addLayout(layout); }
   inline void setSpacing(int spacing) { inner_layout.setSpacing(spacing); }
 
 private:
-  void paintEvent(QPaintEvent *) override {
-    QPainter p(this);
-    p.setPen(Qt::gray);
-    for (int i = 0; i < inner_layout.count() - 1; ++i) {
-      QWidget *widget = inner_layout.itemAt(i)->widget();
-      if (widget == nullptr || widget->isVisible()) {
-        QRect r = inner_layout.itemAt(i)->geometry();
-        int bottom = r.bottom() + inner_layout.spacing() / 2;
-        p.drawLine(r.left() + 40, bottom, r.right() - 40, bottom);
+  bool eventFilter(QObject *o, QEvent *e) override {
+    if (o == container_widget && e->type() == QEvent::Paint) {
+      QPainter p(container_widget);
+      p.setPen(Qt::gray);
+      for (int i = 0; i < inner_layout.count() - 1; ++i) {
+        QWidget *widget = inner_layout.itemAt(i)->widget();
+        if (widget == nullptr || widget->isVisible()) {
+          QRect r = inner_layout.itemAt(i)->geometry();
+          int bottom = r.bottom() + inner_layout.spacing() / 2;
+          p.drawLine(r.left() + 40, bottom, r.right() - 40, bottom);
+        }
       }
+      return true;
     }
+    return ScrollView::eventFilter(o, e);
   }
-  QVBoxLayout outer_layout;
+
+  QWidget *container_widget;
+  QVBoxLayout *outer_layout;
   QVBoxLayout inner_layout;
 };
 
