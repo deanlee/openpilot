@@ -296,3 +296,10 @@ public:
     setLayout(l);
   }
 };
+
+class StyledButton : public QPushButton {
+  Q_OBJECT
+public:
+  StyledButton(QWidget *parent) : QPushButton(parent) {}
+  StyledButton(const QStirng &text, QWidget *parent) : QPushButton(text, parent) {}
+};
