@@ -77,7 +77,6 @@ PairingPopup::PairingPopup(QWidget *parent) : QDialogBase(parent) {
 
   // text
   QVBoxLayout *vlayout = new QVBoxLayout();
-  vlayout->setContentsMargins(85, 70, 50, 70);
   vlayout->setSpacing(50);
   hlayout->addLayout(vlayout, 1);
   {
@@ -126,7 +125,6 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QFrame(parent) {
   QWidget *primeWidget = new QWidget;
   primeWidget->setObjectName("primeWidget");
   QVBoxLayout *primeLayout = new QVBoxLayout(primeWidget);
-  primeLayout->setContentsMargins(56, 40, 56, 40);
   primeLayout->setSpacing(20);
 
   QLabel *subscribed = new QLabel(tr("✓ SUBSCRIBED"));
@@ -144,7 +142,6 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QFrame(parent) {
 
 PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
-  main_layout->setContentsMargins(80, 90, 80, 60);
   main_layout->setSpacing(0);
 
   QLabel *upgrade = new QLabel(tr("Upgrade Now"));
@@ -184,7 +181,6 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
   finishRegistration->setObjectName("primeWidget");
   QVBoxLayout* finishRegistationLayout = new QVBoxLayout(finishRegistration);
   finishRegistationLayout->setSpacing(38);
-  finishRegistationLayout->setContentsMargins(64, 48, 64, 48);
 
   QLabel* registrationTitle = new QLabel(tr("Finish Setup"));
   registrationTitle->setStyleSheet("font-size: 75px; font-weight: bold;");

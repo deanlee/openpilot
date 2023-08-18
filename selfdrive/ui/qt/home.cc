@@ -215,6 +215,7 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
     #home_widget > QWidget {
       background-color: #333333;
       border-radius: 10px;
+      padding: 50 50 50 50;
     }
 
   )");

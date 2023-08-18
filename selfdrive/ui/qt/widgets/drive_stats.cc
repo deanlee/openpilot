@@ -19,7 +19,6 @@ DriveStats::DriveStats(QWidget* parent) : QFrame(parent) {
   metric_ = Params().getBool("IsMetric");
 
   QVBoxLayout* main_layout = new QVBoxLayout(this);
-  main_layout->setContentsMargins(50, 50, 50, 60);
 
   auto add_stats_layouts = [=](const QString &title, StatsLabels& labels) {
     QGridLayout* grid_layout = new QGridLayout;
