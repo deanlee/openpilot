@@ -172,13 +172,6 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
     l->setStyleSheet("font-size: 50px; margin-bottom: 15px;");
     main_layout->addWidget(l, 0, Qt::AlignBottom);
   }
-
-  setStyleSheet(R"(
-    PrimeAdWidget {
-      border-radius: 10px;
-      background-color: #333333;
-    }
-  )");
 }
 
 

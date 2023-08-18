@@ -81,13 +81,6 @@ WiFiPromptWidget::WiFiPromptWidget(QWidget *parent) : QFrame(parent) {
   }
   stack->addWidget(uploading);
 
-  setStyleSheet(R"(
-    WiFiPromptWidget {
-      background-color: #333333;
-      border-radius: 10px;
-    }
-  )");
-
   QObject::connect(uiState(), &UIState::uiUpdate, this, &WiFiPromptWidget::updateState);
 }
 
