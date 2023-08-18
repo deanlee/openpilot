@@ -149,7 +149,7 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
     home_layout->setSpacing(30);
 
     // left: MapSettings/PrimeAdWidget
-    QStackedLayout *left_widget = new QStackedLayout(this);
+    QStackedLayout *left_widget = new QStackedLayout();
 #ifdef ENABLE_MAPS
     left_widget->addWidget(new MapSettings);
 #else
@@ -167,7 +167,6 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
     // right: ExperimentalModeButton, SetupWidget
     QVBoxLayout* right_column = new QVBoxLayout();
     right_column->setContentsMargins(0, 0, 0, 0);
-    // right_widget->setFixedWidth(750);
     right_column->setSpacing(30);
 
     ExperimentalModeButton *experimental_mode = new ExperimentalModeButton(this);
