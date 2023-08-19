@@ -9,7 +9,7 @@ WiFiPromptWidget::WiFiPromptWidget(QWidget *parent) : QFrame(parent) {
   stack = new QStackedLayout(this);
 
   // Setup Wi-Fi
-  QFrame *setup = new QFrame;
+  QWidget *setup = new QWidget;
   QVBoxLayout *setup_layout = new QVBoxLayout(setup);
   setup_layout->setContentsMargins(56, 40, 56, 40);
   setup_layout->setSpacing(20);
