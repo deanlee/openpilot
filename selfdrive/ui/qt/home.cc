@@ -169,7 +169,6 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
     right_column->setSpacing(30);
 
     ExperimentalModeButton *experimental_mode = new ExperimentalModeButton(this);
-    experimental_mode->setFixedWidth(750);
     QObject::connect(experimental_mode, &ExperimentalModeButton::openSettings, this, &OffroadHome::openSettings);
     right_column->addWidget(experimental_mode);
 
