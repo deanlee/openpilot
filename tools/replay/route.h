@@ -25,7 +25,7 @@ struct SegmentFile {
 
 class Route {
 public:
-  Route(const QString &route, const QString &data_dir = {});
+  Route(const QString &route);
   bool load();
   inline const QString &name() const { return route_.str; }
   inline const QDateTime datetime() const { return date_time_; }

@@ -10,7 +10,7 @@
 #include "system/hardware/hw.h"
 #include "tools/replay/util.h"
 
-Replay::Replay(QString route, QStringList allow, QStringList block, QStringList base_blacklist, SubMaster *sm_, uint32_t flags, QString data_dir, QObject *parent)
+Replay::Replay(QString route, QStringList allow, QStringList block, QStringList base_blacklist, SubMaster *sm_, uint32_t flags, QObject *parent)
     : sm(sm_), flags_(flags), QObject(parent) {
   std::vector<const char *> s;
   auto event_struct = capnp::Schema::from<cereal::Event>().asStruct();
@@ -47,7 +47,7 @@ Replay::Replay(QString route, QStringList allow, QStringList block, QStringList 
   if (sm == nullptr) {
     pm = std::make_unique<PubMaster>(s);
   }
-  route_ = std::make_unique<Route>(route, data_dir);
+  route_ = std::make_unique<Route>(route);
   events_ = std::make_unique<std::vector<Event *>>();
   new_events_ = std::make_unique<std::vector<Event *>>();
 }

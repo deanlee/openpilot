@@ -42,7 +42,7 @@ class Replay : public QObject {
 
 public:
   Replay(QString route, QStringList allow, QStringList block, QStringList base_blacklist, SubMaster *sm = nullptr,
-          uint32_t flags = REPLAY_FLAG_NONE, QString data_dir = "", QObject *parent = 0);
+          uint32_t flags = REPLAY_FLAG_NONE, QObject *parent = 0);
   ~Replay();
   bool load();
   void start(int seconds = 0);

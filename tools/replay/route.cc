@@ -14,12 +14,12 @@
 #include "tools/replay/replay.h"
 #include "tools/replay/util.h"
 
-Route::Route(const QString &route, const QString &data_dir) : data_dir_(data_dir) {
+Route::Route(const QString &route) {
   route_ = parseRoute(route);
 }
 
 RouteIdentifier Route::parseRoute(const QString &str) {
-  QRegExp rx(R"(^(?:([a-z0-9]{16})([|_/]))?(\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2})(?:(--|/)(\d*))?$)");
+  static QRegExp rx(R"(^(?:([a-z0-9]{16})([|_/]))?(\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2})(?:(--|/)(\d*))?$)");
   if (rx.indexIn(str) == -1) return {};
 
   const QStringList list = rx.capturedTexts();
