@@ -211,7 +211,7 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
     OffroadHome > QLabel {
       font-size: 55px;
     }
-    #home_widget > QFrame {
+    #home_panel_widget {
       border-radius: 10px;
       background-color: #333333;
     }

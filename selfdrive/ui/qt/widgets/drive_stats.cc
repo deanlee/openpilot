@@ -16,6 +16,7 @@ static QLabel* newLabel(const QString& text, const QString &type) {
 }
 
 DriveStats::DriveStats(QWidget* parent) : QFrame(parent) {
+  setObjectName("home_panel_widget");
   metric_ = Params().getBool("IsMetric");
 
   QVBoxLayout* main_layout = new QVBoxLayout(this);

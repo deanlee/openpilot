@@ -6,6 +6,7 @@
 #include <QPushButton>
 
 WiFiPromptWidget::WiFiPromptWidget(QWidget *parent) : QFrame(parent) {
+  setObjectName("home_panel_widget");
   stack = new QStackedLayout(this);
 
   // Setup Wi-Fi
@@ -88,6 +89,8 @@ void WiFiPromptWidget::updateState(const UIState &s) {
 
   auto &sm = *(s.sm);
 
+  stack->setCurrentIndex(1);
+  return;
   auto network_type = sm["deviceState"].getDeviceState().getNetworkType();
   auto uploading = network_type == cereal::DeviceState::NetworkType::WIFI ||
       network_type == cereal::DeviceState::NetworkType::ETHERNET;

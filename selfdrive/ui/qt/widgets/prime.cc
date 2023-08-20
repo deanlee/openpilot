@@ -124,7 +124,7 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QFrame(parent) {
 
   // subscribed prime layout
   QWidget *primeWidget = new QWidget;
-  primeWidget->setObjectName("primeWidget");
+  primeWidget->setObjectName("home_panel_widget");
   QVBoxLayout *primeLayout = new QVBoxLayout(primeWidget);
   primeLayout->setContentsMargins(56, 40, 56, 40);
   primeLayout->setSpacing(20);
@@ -143,6 +143,7 @@ PrimeUserWidget::PrimeUserWidget(QWidget* parent) : QFrame(parent) {
 
 
 PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
+  setObjectName("home_panel_widget");
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(80, 90, 80, 60);
   main_layout->setSpacing(0);
@@ -181,7 +182,7 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
   // Unpaired, registration prompt layout
 
   QFrame* finishRegistration = new QFrame;
-  finishRegistration->setObjectName("primeWidget");
+  finishRegistration->setObjectName("home_panel_widget");
   QVBoxLayout* finishRegistationLayout = new QVBoxLayout(finishRegistration);
   finishRegistationLayout->setSpacing(38);
   finishRegistationLayout->setContentsMargins(64, 48, 64, 48);

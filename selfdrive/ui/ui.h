@@ -153,7 +153,7 @@ public:
   }
 
   void setPrimeType(int type);
-  inline int primeType() const { return 1; }
+  inline int primeType() const { return 0; }
 
   int fb_w = 0, fb_h = 0;
 
