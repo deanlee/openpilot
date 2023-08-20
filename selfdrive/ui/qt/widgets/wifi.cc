@@ -12,7 +12,6 @@ WiFiPromptWidget::WiFiPromptWidget(QWidget *parent) : QFrame(parent) {
   // Setup Wi-Fi
   QWidget *setup = new QWidget;
   QVBoxLayout *setup_layout = new QVBoxLayout(setup);
-  setup_layout->setContentsMargins(56, 40, 56, 40);
   setup_layout->setSpacing(20);
   {
     QHBoxLayout *title_layout = new QHBoxLayout;
