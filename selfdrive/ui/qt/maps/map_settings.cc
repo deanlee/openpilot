@@ -219,8 +219,19 @@ void DestinationWidget::set(const QJsonObject &destination) {
   } else {
     title->setText(destination.isEmpty() ? tr("No destination set") : destination["place_name"].toString());
     subtitle->setText(destination["place_details"].toString());
-    if (type == Type::Recent) {
+    if (type == Type::Recent || type == Type::Current) {
+      if (destination["save_type"] == NAV_TYPE_FAVORITE) {
+        icon->setPixmap(Type::Favorite);
+      } else if (destination["save_type"] == NAV_FAVORITE_LABEL_HOME) {
+        icon->setPixmap(Type::Home);
+      } else if (destination["save_type"] == NAV_FAVORITE_LABEL_WORK) {
+        icon->setPixmap(Type::Work);
+      } else {
+        // icon->setPixmap(type == Type::Current ? )
+      }
       icon->setPixmap(typeIcon((destination["save_type"] == NAV_TYPE_FAVORITE ? Type::Favorite : Type::Recent)));
+    } else if (type == Type::Current) {
+      // if (destination["save_type"] == )
     }
   }
   dest = destination;
