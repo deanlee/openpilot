@@ -244,7 +244,7 @@ NavigationRequest::NavigationRequest(QObject *parent) : QObject(parent) {
     {
       // Fetch favorite and recent locations
       QString url = CommaApi::BASE_URL + "/v1/navigation/" + "1" + "/locations";
-      RequestRepeater *repeater = new RequestRepeater(this, url, "ApiCache_NavDestinations", 30, true);
+      RequestRepeater *repeater = new RequestRepeater(this, url, "ApiCache_NavDestinations", 1, true);
       QObject::connect(repeater, &RequestRepeater::requestDone, this, &NavigationRequest::parseLocationsResponse);
     }
     {
@@ -295,8 +295,8 @@ void NavigationRequest::parseLocationsResponse(const QString &response, bool suc
   )";
 
 
-  prev_response = response;
-  QJsonDocument doc = QJsonDocument::fromJson(response.trimmed().toUtf8());
+  // prev_response = response;
+  QJsonDocument doc = QJsonDocument::fromJson(prev_response.trimmed().toUtf8());
   if (doc.isNull()) {
     qWarning() << "JSON Parse failed on navigation locations" << response;
     return;
