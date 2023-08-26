@@ -10,9 +10,9 @@
 #include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/ui/qt/util.h"
 #include "selfdrive/ui/qt/widgets/controls.h"
-#include "selfdrive/ui/qt/widgets/prime.h"
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 
+static const int ICON_WIDTH = 49;
 
 // Networking functions
 
@@ -76,10 +76,9 @@ void Networking::refresh() {
   an->refresh();
 }
 
-void Networking::connectToNetwork(const Network &n) {
+void Networking::connectToNetwork(const Network n) {
   if (wifi->isKnownConnection(n.ssid)) {
     wifi->activateWifiConnection(n.ssid);
-    wifiWidget->refresh();
   } else if (n.security_type == SecurityType::OPEN) {
     wifi->connect(n);
   } else if (n.security_type == SecurityType::WPA) {
@@ -183,7 +182,7 @@ AdvancedNetworking::AdvancedNetworking(QWidget* parent, WifiManager* wifi): QWid
   // Set initial config
   wifi->updateGsmSettings(roamingEnabled, QString::fromStdString(params.get("GsmApn")), metered);
 
-  connect(uiState(), &UIState::primeTypeChanged, this, [=](int prime_type) {
+  connect(uiState(), &UIState::primeTypeChanged, this, [=](PrimeType prime_type) {
     bool gsmVisible = prime_type == PrimeType::NONE || prime_type == PrimeType::LITE;
     roamingToggle->setVisible(gsmVisible);
     editApnButton->setVisible(gsmVisible);
@@ -217,9 +216,9 @@ WifiUI::WifiUI(QWidget *parent, WifiManager* wifi) : QWidget(parent), wifi(wifi)
     QPixmap pix(ASSET_PATH + "/offroad/icon_wifi_strength_" + s + ".svg");
     strengths.push_back(pix.scaledToHeight(68, Qt::SmoothTransformation));
   }
-  lock = QPixmap(ASSET_PATH + "offroad/icon_lock_closed.svg").scaledToWidth(49, Qt::SmoothTransformation);
-  checkmark = QPixmap(ASSET_PATH + "offroad/icon_checkmark.svg").scaledToWidth(49, Qt::SmoothTransformation);
-  circled_slash = QPixmap(ASSET_PATH + "img_circled_slash.svg").scaledToWidth(49, Qt::SmoothTransformation);
+  lock = QPixmap(ASSET_PATH + "offroad/icon_lock_closed.svg").scaledToWidth(ICON_WIDTH, Qt::SmoothTransformation);
+  checkmark = QPixmap(ASSET_PATH + "offroad/icon_checkmark.svg").scaledToWidth(ICON_WIDTH, Qt::SmoothTransformation);
+  circled_slash = QPixmap(ASSET_PATH + "img_circled_slash.svg").scaledToWidth(ICON_WIDTH, Qt::SmoothTransformation);
 
   scanningLabel = new QLabel(tr("Scanning for networks..."));
   scanningLabel->setStyleSheet("font-size: 65px;");
@@ -309,7 +308,7 @@ WifiItem *WifiUI::getItem(int n) {
   auto item = n < wifi_items.size() ? wifi_items[n] : wifi_items.emplace_back(new WifiItem(tr("CONNECTING..."), tr("FORGET")));
   if (!item->parentWidget()) {
     QObject::connect(item, &WifiItem::connectToNetwork, this, &WifiUI::connectToNetwork);
-    QObject::connect(item, &WifiItem::forgotNetwork, [this](const Network &n) {
+    QObject::connect(item, &WifiItem::forgotNetwork, [this](const Network n) {
       if (ConfirmationDialog::confirm(tr("Forget Wi-Fi Network \"%1\"?").arg(QString::fromUtf8(n.ssid)), tr("Forget"), this))
         wifi->forgetConnection(n.ssid);
     });
@@ -335,6 +334,7 @@ WifiItem::WifiItem(const QString &connecting_text, const QString &forget_text, Q
   hlayout->addWidget(iconLabel = new QLabel(), 0, Qt::AlignRight);
   hlayout->addWidget(strengthLabel = new QLabel(), 0, Qt::AlignRight);
 
+  iconLabel->setFixedWidth(ICON_WIDTH);
   QObject::connect(forgetBtn, &QPushButton::clicked, [this]() { emit forgotNetwork(network); });
   QObject::connect(ssidLabel, &ElidedLabel::clicked, [this]() {
     if (network.connected == ConnectedType::DISCONNECTED) emit connectToNetwork(network);

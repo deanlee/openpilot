@@ -37,6 +37,10 @@ QDBusPendingCall asyncCall(const QString &path, const QString &interface, const 
   return nm.asyncCall(method, args...);
 }
 
+bool emptyPath(const QString &path) {
+  return path == "" || path == "/";
+}
+
 WifiManager::WifiManager(QObject *parent) : QObject(parent) {
   qDBusRegisterMetaType<Connection>();
   qDBusRegisterMetaType<IpConfig>();
@@ -99,15 +103,22 @@ void WifiManager::refreshFinished(QDBusPendingCallWatcher *watcher) {
     auto properties = replay.value();
 
     const QByteArray ssid = properties["Ssid"].toByteArray();
-    uint32_t strength = properties["Strength"].toUInt();
-    if (ssid.isEmpty() || (seenNetworks.contains(ssid) && strength <= seenNetworks[ssid].strength)) continue;
+    if (ssid.isEmpty()) continue;
 
-    SecurityType security = getSecurityType(properties);
-    ConnectedType ctype = ConnectedType::DISCONNECTED;
-    if (path.path() == activeAp) {
-      ctype = (ssid == connecting_to_network) ? ConnectedType::CONNECTING : ConnectedType::CONNECTED;
+    // May be multiple access points for each SSID.
+    // Use first for ssid and security type, then update connected status and strength using all
+    if (!seenNetworks.contains(ssid)) {
+      seenNetworks[ssid] = {ssid, 0U, ConnectedType::DISCONNECTED, getSecurityType(properties)};
     }
-    seenNetworks[ssid] = {ssid, strength, ctype, security};
+
+    if (path.path() == activeAp) {
+      seenNetworks[ssid].connected = (ssid == connecting_to_network) ? ConnectedType::CONNECTING : ConnectedType::CONNECTED;
+    }
+
+    uint32_t strength = properties["Strength"].toUInt();
+    if (seenNetworks[ssid].strength < strength) {
+      seenNetworks[ssid].strength = strength;
+    }
   }
 
   emit refreshSignal();
@@ -155,8 +166,7 @@ SecurityType WifiManager::getSecurityType(const QVariantMap &properties) {
 }
 
 void WifiManager::connect(const Network &n, const QString &password, const QString &username) {
-  connecting_to_network = n.ssid;
-  seenNetworks[n.ssid].connected = ConnectedType::CONNECTING;
+  setCurrentConnecting(n.ssid);
   forgetConnection(n.ssid);  // Clear all connections that may already exist to the network we are connecting
   Connection connection;
   connection["connection"]["type"] = "802-11-wireless";
@@ -183,7 +193,7 @@ void WifiManager::connect(const Network &n, const QString &password, const QStri
 void WifiManager::deactivateConnectionBySsid(const QString &ssid) {
   for (QDBusObjectPath active_connection : getActiveConnections()) {
     auto pth = call<QDBusObjectPath>(active_connection.path(), NM_DBUS_INTERFACE_PROPERTIES, "Get", NM_DBUS_INTERFACE_ACTIVE_CONNECTION, "SpecificObject");
-    if (pth.path() != "" && pth.path() != "/") {
+    if (!emptyPath(pth.path())) {
       QString Ssid = get_property(pth.path(), "Ssid");
       if (Ssid == ssid) {
         deactivateConnection(active_connection);
@@ -219,6 +229,14 @@ void WifiManager::forgetConnection(const QString &ssid) {
   if (!path.path().isEmpty()) {
     call(path.path(), NM_DBUS_INTERFACE_SETTINGS_CONNECTION, "Delete");
   }
+}
+
+void WifiManager::setCurrentConnecting(const QString &ssid) {
+  connecting_to_network = ssid;
+  for (auto &network : seenNetworks) {
+    network.connected = (network.ssid == ssid) ? ConnectedType::CONNECTING : ConnectedType::DISCONNECTED;
+  }
+  emit refreshSignal();
 }
 
 uint WifiManager::getAdapterType(const QDBusObjectPath &path) {
@@ -266,7 +284,7 @@ void WifiManager::propertyChange(const QString &interface, const QVariantMap &pr
 }
 
 void WifiManager::deviceAdded(const QDBusObjectPath &path) {
-  if (getAdapterType(path) == NM_DEVICE_TYPE_WIFI && (adapter.isEmpty() || adapter == "/")) {
+  if (getAdapterType(path) == NM_DEVICE_TYPE_WIFI && emptyPath(adapter)) {
     adapter = path.path();
     setup();
   }
@@ -309,7 +327,7 @@ void WifiManager::initConnections() {
 std::optional<QDBusPendingCall> WifiManager::activateWifiConnection(const QString &ssid) {
   const QDBusObjectPath &path = getConnectionPath(ssid);
   if (!path.path().isEmpty()) {
-    connecting_to_network = ssid;
+    setCurrentConnecting(ssid);
     return asyncCall(NM_DBUS_PATH, NM_DBUS_INTERFACE, "ActivateConnection", QVariant::fromValue(path), QVariant::fromValue(QDBusObjectPath(adapter)), QVariant::fromValue(QDBusObjectPath("/")));
   }
   return std::nullopt;
@@ -443,7 +461,7 @@ void WifiManager::setTetheringEnabled(bool enabled) {
 }
 
 bool WifiManager::isTetheringEnabled() {
-  if (activeAp != "" && activeAp != "/") {
+  if (!emptyPath(activeAp)) {
     return get_property(activeAp, "Ssid") == tethering_ssid;
   }
   return false;
