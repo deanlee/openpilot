@@ -37,7 +37,7 @@ void TrainingGuide::mouseReleaseEvent(QMouseEvent *e) {
   if (contains(boundingRect[currentIndex], e->pos())) {
     if (currentIndex == 9) {
       const QRect yes = QRect(707, 804, 531, 164);
-      Params().putBool("RecordFront", contains(yes, e->pos()));
+      params()->putBool("RecordFront", contains(yes, e->pos()));
     }
     currentIndex += 1;
   } else if (currentIndex == (boundingRect.size() - 2) && contains(boundingRect.last(), e->pos())) {
@@ -176,7 +176,7 @@ void DeclinePage::showEvent(QShowEvent *event) {
   uninstall_btn->setStyleSheet("background-color: #B73D3D");
   buttons->addWidget(uninstall_btn);
   QObject::connect(uninstall_btn, &QPushButton::clicked, [=]() {
-    Params().putBool("DoUninstall", true);
+    params()->putBool("DoUninstall", true);
   });
 }
 
@@ -199,7 +199,7 @@ OnboardingWindow::OnboardingWindow(QWidget *parent) : QStackedWidget(parent) {
   TermsPage* terms = new TermsPage(this);
   addWidget(terms);
   connect(terms, &TermsPage::acceptedTerms, [=]() {
-    Params().put("HasAcceptedTerms", current_terms_version);
+    params()->put("HasAcceptedTerms", current_terms_version);
     accepted_terms = true;
     updateActiveScreen();
   });
@@ -209,7 +209,7 @@ OnboardingWindow::OnboardingWindow(QWidget *parent) : QStackedWidget(parent) {
   addWidget(tr);
   connect(tr, &TrainingGuide::completedTraining, [=]() {
     training_done = true;
-    Params().put("CompletedTrainingVersion", current_training_version);
+    params()->put("CompletedTrainingVersion", current_training_version);
     updateActiveScreen();
   });
 

@@ -1,6 +1,6 @@
 #include "selfdrive/ui/qt/widgets/ssh_keys.h"
 
-#include "common/params.h"
+#include "common/params()->h"
 #include "selfdrive/ui/qt/api.h"
 #include "selfdrive/ui/qt/widgets/input.h"
 
@@ -17,8 +17,8 @@ SshControl::SshControl() :
         getUserKeys(username);
       }
     } else {
-      params.remove("GithubUsername");
-      params.remove("GithubSshKeys");
+      params()->remove("GithubUsername");
+      params()->remove("GithubSshKeys");
       refresh();
     }
   });
@@ -27,9 +27,9 @@ SshControl::SshControl() :
 }
 
 void SshControl::refresh() {
-  QString param = QString::fromStdString(params.get("GithubSshKeys"));
+  QString param = QString::fromStdString(params()->get("GithubSshKeys"));
   if (param.length()) {
-    setValue(QString::fromStdString(params.get("GithubUsername")));
+    setValue(QString::fromStdString(params()->get("GithubUsername")));
     setText(tr("REMOVE"));
   } else {
     setValue("");
@@ -43,8 +43,8 @@ void SshControl::getUserKeys(const QString &username) {
   QObject::connect(request, &HttpRequest::requestDone, [=](const QString &resp, bool success) {
     if (success) {
       if (!resp.isEmpty()) {
-        params.put("GithubUsername", username.toStdString());
-        params.put("GithubSshKeys", resp.toStdString());
+        params()->put("GithubUsername", username.toStdString());
+        params()->put("GithubSshKeys", resp.toStdString());
       } else {
         ConfirmationDialog::alert(tr("Username '%1' has no keys on GitHub").arg(username), this);
       }

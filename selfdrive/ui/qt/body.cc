@@ -73,7 +73,7 @@ BodyWindow::BodyWindow(QWidget *parent) : fuel_filter(1.0, 5., 1. / UI_FREQ), QW
   vlayout->addWidget(btn, 0, Qt::AlignBottom | Qt::AlignRight);
   QObject::connect(btn, &QPushButton::clicked, [=](bool checked) {
     btn->setEnabled(false);
-    Params().putBool("DisableLogging", !checked);
+    params()->putBool("DisableLogging", !checked);
     last_button = nanos_since_boot();
   });
   w->raise();
