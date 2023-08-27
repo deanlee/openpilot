@@ -30,8 +30,6 @@ private:
   void hideEvent(QHideEvent *event) override;
   void refresh();
 
-  Params params;
-
   QTimer* timer;
   ElidedLabel* version;
   QStackedLayout* center_layout;

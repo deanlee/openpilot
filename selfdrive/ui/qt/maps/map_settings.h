@@ -37,7 +37,6 @@ private:
   NavigationRequest(QObject *parent);
   void parseLocationsResponse(const QString &response, bool success);
 
-  Params params;
   QString prev_response;
   QJsonArray locations;
 };
@@ -55,7 +54,6 @@ private:
   void showEvent(QShowEvent *event) override;
   void refresh();
 
-  Params params;
   QJsonArray current_locations;
   QJsonObject current_destination;
   QVBoxLayout *destinations_layout;

@@ -102,7 +102,6 @@ public:
 private:
   void updateActiveScreen();
 
-  Params params;
   bool accepted_terms = false, training_done = false;
 
 signals:

@@ -229,6 +229,7 @@ public slots:
 };
 
 Device *device();
+Params *params();
 
 void ui_update_params(UIState *s);
 int get_path_length_idx(const cereal::XYZTData::Reader &line, const float path_height);

@@ -193,7 +193,6 @@ private:
   }
 
   std::string key;
-  Params params;
   QPixmap active_icon_pixmap;
   bool confirm = false;
   bool store_confirm = false;
@@ -254,7 +253,6 @@ public:
 
 private:
   std::string key;
-  Params params;
   QButtonGroup *button_group;
 };
 

@@ -244,7 +244,6 @@ UIState::UIState(QObject *parent) : QObject(parent) {
     "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan",
   });
 
-  Params params;
   language = QString::fromStdString(params.get("LanguageSetting"));
   auto prime_value = params.get("PrimeType");
   if (!prime_value.empty()) {
@@ -361,4 +360,9 @@ UIState *uiState() {
 Device *device() {
   static Device _device;
   return &_device;
+}
+
+Params *params() {
+  static Params params;
+  return &params;
 }

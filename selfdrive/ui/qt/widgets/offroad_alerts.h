@@ -17,7 +17,6 @@ protected:
 
   QPushButton *snooze_btn;
   QVBoxLayout *scrollable_layout;
-  Params params;
 
 signals:
   void dismiss();
