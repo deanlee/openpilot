@@ -60,7 +60,6 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   // setup stacking order
   alerts->raise();
 
-  setAttribute(Qt::WA_OpaquePaintEvent);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadWindow::updateState);
   QObject::connect(uiState(), &UIState::offroadTransition, this, &OnroadWindow::offroadTransition);
   QObject::connect(uiState(), &UIState::primeChanged, this, &OnroadWindow::primeChanged);

@@ -62,7 +62,6 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
       outline: none;
     }
   )");
-  setAttribute(Qt::WA_NoSystemBackground);
 }
 
 void MainWindow::openSettings(int index, const QString &param) {
