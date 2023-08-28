@@ -438,13 +438,10 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     SettingsWindow {
       background-color: black;
     }
-    
+    QStackedWidget {
+      background-color: red;
+      border:2px solid red;
+      border-radius: 30px;
+    }
   )");
-
-      QPalette pal = palette();
-    // assert(viewport()->parentWidget() == this);
-  pal.setColor(QPalette::Background, QColor(255, 0, 0));
-  panel_widget->setAutoFillBackground(true);
-  panel_widget->setPalette(pal);
-
 }
