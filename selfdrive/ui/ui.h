@@ -154,6 +154,7 @@ class UIState : public QObject {
 
 public:
   UIState(QObject* parent = 0);
+  ~UIState();
   void updateStatus();
   inline bool worldObjectsVisible() const {
     return sm->rcv_frame("liveCalibration") > scene.started_frame;
@@ -169,6 +170,7 @@ public:
   int fb_w = 0, fb_h = 0;
 
   std::unique_ptr<SubMaster> sm;
+  std::unique_ptr<SubMaster> onroad_sm;
 
   UIStatus status;
   UIScene scene = {};
@@ -179,17 +181,21 @@ public:
 
 signals:
   void uiUpdate(const UIState &s);
+  void updateOnroadState(const SubMaster &sm);
+  void smUpdateReady();
   void offroadTransition(bool offroad);
   void primeChanged(bool prime);
   void primeTypeChanged(PrimeType prime_type);
 
 private slots:
   void update();
+  void onroadUpdate();
 
 private:
   QTimer *timer;
   bool started_prev = false;
   PrimeType prime_type = PrimeType::UNKNOWN;
+  QThread *update_thread = nullptr;
 };
 
 UIState *uiState();

@@ -61,18 +61,15 @@ OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
   alerts->raise();
 
   setAttribute(Qt::WA_OpaquePaintEvent);
-  QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadWindow::updateState);
+  QObject::connect(uiState(), &UIState::updateOnroadState, this, &OnroadWindow::updateState);
   QObject::connect(uiState(), &UIState::offroadTransition, this, &OnroadWindow::offroadTransition);
   QObject::connect(uiState(), &UIState::primeChanged, this, &OnroadWindow::primeChanged);
 }
 
-void OnroadWindow::updateState(const UIState &s) {
-  if (!s.scene.started) {
-    return;
-  }
-
+void OnroadWindow::updateState(const SubMaster &sm) {
+  auto &s = *uiState();
   QColor bgColor = bg_colors[s.status];
-  Alert alert = Alert::get(*(s.sm), s.scene.started_frame);
+  Alert alert = Alert::get(sm, s.scene.started_frame);
   alerts->updateAlert(alert);
 
   if (s.scene.map_on_left) {
@@ -81,7 +78,7 @@ void OnroadWindow::updateState(const UIState &s) {
     split->setDirection(QBoxLayout::RightToLeft);
   }
 
-  nvg->updateState(s);
+  nvg->updateState(sm);
 
   if (bg != bgColor) {
     // repaint border
@@ -277,10 +274,9 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget* par
   dm_img = loadPixmap("../assets/img_driver_face.png", {img_size + 5, img_size + 5});
 }
 
-void AnnotatedCameraWidget::updateState(const UIState &s) {
+void AnnotatedCameraWidget::updateState(const SubMaster &sm) {
   const int SET_SPEED_NA = 255;
-  const SubMaster &sm = *(s.sm);
-
+  auto &s = *uiState();
   const bool cs_alive = sm.alive("controlsState");
   const bool nav_alive = sm.alive("navInstruction") && sm["navInstruction"].getValid();
   const auto cs = sm["controlsState"].getControlsState();
@@ -468,7 +464,7 @@ void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s) {
   painter.save();
 
   const UIScene &scene = s->scene;
-  SubMaster &sm = *(s->sm);
+  SubMaster &sm = *(s->onroad_sm);
 
   // lanelines
   for (int i = 0; i < std::size(scene.lane_line_vertices); ++i) {
@@ -602,7 +598,7 @@ void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::RadarState
 
 void AnnotatedCameraWidget::paintGL() {
   UIState *s = uiState();
-  SubMaster &sm = *(s->sm);
+  SubMaster &sm = *(s->onroad_sm);
   const double start_draw_t = millis_since_boot();
   const cereal::ModelDataV2::Reader &model = sm["modelV2"].getModelV2();
   const cereal::RadarState::Reader &radar_state = sm["radarState"].getRadarState();

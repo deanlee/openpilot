@@ -68,7 +68,7 @@ class AnnotatedCameraWidget : public CameraWidget {
 
 public:
   explicit AnnotatedCameraWidget(VisionStreamType type, QWidget* parent = 0);
-  void updateState(const UIState &s);
+  void updateState(const SubMaster &sm);
 
   MapSettingsButton *map_settings_btn;
 
@@ -138,5 +138,5 @@ private:
 private slots:
   void offroadTransition(bool offroad);
   void primeChanged(bool prime);
-  void updateState(const UIState &s);
+  void updateState(const SubMaster &sm);
 };

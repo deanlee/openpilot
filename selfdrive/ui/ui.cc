@@ -158,31 +158,6 @@ static void update_state(UIState *s) {
   SubMaster &sm = *(s->sm);
   UIScene &scene = s->scene;
 
-  if (sm.updated("liveCalibration")) {
-    auto live_calib = sm["liveCalibration"].getLiveCalibration();
-    auto rpy_list = live_calib.getRpyCalib();
-    auto wfde_list = live_calib.getWideFromDeviceEuler();
-    Eigen::Vector3d rpy;
-    Eigen::Vector3d wfde;
-    if (rpy_list.size() == 3) rpy << rpy_list[0], rpy_list[1], rpy_list[2];
-    if (wfde_list.size() == 3) wfde << wfde_list[0], wfde_list[1], wfde_list[2];
-    Eigen::Matrix3d device_from_calib = euler2rot(rpy);
-    Eigen::Matrix3d wide_from_device = euler2rot(wfde);
-    Eigen::Matrix3d view_from_device;
-    view_from_device << 0, 1, 0,
-                        0, 0, 1,
-                        1, 0, 0;
-    Eigen::Matrix3d view_from_calib = view_from_device * device_from_calib;
-    Eigen::Matrix3d view_from_wide_calib = view_from_device * wide_from_device * device_from_calib;
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        scene.view_from_calib.v[i*3 + j] = view_from_calib(i, j);
-        scene.view_from_wide_calib.v[i*3 + j] = view_from_wide_calib(i, j);
-      }
-    }
-    scene.calibration_valid = live_calib.getCalStatus() == cereal::LiveCalibrationData::Status::CALIBRATED;
-    scene.calibration_wide_valid = wfde_list.size() == 3;
-  }
   if (sm.updated("pandaStates")) {
     auto pandaStates = sm["pandaStates"].getPandaStates();
     if (pandaStates.size() > 0) {
@@ -197,9 +172,6 @@ static void update_state(UIState *s) {
     }
   } else if ((s->sm->frame - s->sm->rcv_frame("pandaStates")) > 5*UI_FREQ) {
     scene.pandaType = cereal::PandaState::PandaType::UNKNOWN;
-  }
-  if (sm.updated("carParams")) {
-    scene.longitudinal_control = sm["carParams"].getCarParams().getOpenpilotLongitudinalControl();
   }
   if (sm.updated("wideRoadCameraState")) {
     auto cam_state = sm["wideRoadCameraState"].getWideRoadCameraState();
@@ -239,10 +211,16 @@ void UIState::updateStatus() {
 
 UIState::UIState(QObject *parent) : QObject(parent) {
   sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
-    "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
-    "pandaStates", "carParams", "driverMonitoringState", "carState", "liveLocationKalman", "driverStateV2",
-    "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan",
+      "deviceState",
+      "roadCameraState",
+      "pandaStates",
+      "wideRoadCameraState",
+      "managerState",
   });
+
+  onroad_sm = std::make_unique<SubMaster>(std::vector{
+      "modelV2", "controlsState", "liveCalibration", "navRoute", "carParams", "radarState", "carState", "liveLocationKalman", "uiPlan", "navInstruction",
+      "driverMonitoringState", "driverStateV2"});
 
   Params params;
   language = QString::fromStdString(params.get("LanguageSetting"));
@@ -255,6 +233,60 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   timer = new QTimer(this);
   QObject::connect(timer, &QTimer::timeout, this, &UIState::update);
   timer->start(1000 / UI_FREQ);
+
+  update_thread = new QThread;
+  connect(update_thread, &QThread::started, [=]() {
+    SubMaster s({"uiPlan"});
+    while (!QThread::currentThread()->isInterruptionRequested()) {
+      s.update(1000);
+      if (s.updated("uiPlan")) {
+        emit smUpdateReady();
+      }
+    }
+  });
+
+  connect(update_thread, &QThread::finished, update_thread, &QObject::deleteLater);
+  QObject::connect(this, &UIState::smUpdateReady, this, &UIState::onroadUpdate, Qt::QueuedConnection);
+  update_thread->start();
+}
+
+UIState::~UIState() {
+  update_thread->requestInterruption();
+  update_thread->quit();
+  update_thread->wait();
+}
+
+void UIState::onroadUpdate() {
+  if (onroad_sm->updated("carParams")) {
+    scene.longitudinal_control = (*onroad_sm)["carParams"].getCarParams().getOpenpilotLongitudinalControl();
+  }
+
+  if (onroad_sm->updated("liveCalibration")) {
+    auto live_calib = (*onroad_sm)["liveCalibration"].getLiveCalibration();
+    auto rpy_list = live_calib.getRpyCalib();
+    auto wfde_list = live_calib.getWideFromDeviceEuler();
+    Eigen::Vector3d rpy;
+    Eigen::Vector3d wfde;
+    if (rpy_list.size() == 3) rpy << rpy_list[0], rpy_list[1], rpy_list[2];
+    if (wfde_list.size() == 3) wfde << wfde_list[0], wfde_list[1], wfde_list[2];
+    Eigen::Matrix3d device_from_calib = euler2rot(rpy);
+    Eigen::Matrix3d wide_from_device = euler2rot(wfde);
+    Eigen::Matrix3d view_from_device;
+    view_from_device << 0, 1, 0,
+                        0, 0, 1,
+                        1, 0, 0;
+    Eigen::Matrix3d view_from_calib = view_from_device * device_from_calib;
+    Eigen::Matrix3d view_from_wide_calib = view_from_device * wide_from_device * device_from_calib;
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 3; j++) {
+        scene.view_from_calib.v[i*3 + j] = view_from_calib(i, j);
+        scene.view_from_wide_calib.v[i*3 + j] = view_from_wide_calib(i, j);
+      }
+    }
+    scene.calibration_valid = live_calib.getCalStatus() == cereal::LiveCalibrationData::Status::CALIBRATED;
+    scene.calibration_wide_valid = wfde_list.size() == 3;
+  }
+  emit updateOnroadState(*onroad_sm);
 }
 
 void UIState::update() {

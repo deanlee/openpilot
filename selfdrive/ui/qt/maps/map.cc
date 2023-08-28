@@ -119,7 +119,7 @@ void MapWindow::updateState(const UIState &s) {
   if (!uiState()->scene.started) {
     return;
   }
-  const SubMaster &sm = *(s.sm);
+  const SubMaster &sm = *(s.onroad_sm);
   update();
 
   if (sm.updated("modelV2")) {
