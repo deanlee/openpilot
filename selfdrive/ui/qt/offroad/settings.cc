@@ -439,8 +439,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
       background-color: black;
     }
     QStackedWidget {
-      background-color: red;
-      border:2px solid red;
+      background-color: #292929;
       border-radius: 30px;
     }
   )");
