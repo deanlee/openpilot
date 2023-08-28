@@ -10,8 +10,12 @@ ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
   setWidgetResizable(true);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  setFrameShape(QFrame::NoFrame);
-  // setBackgroundRole(QPalette::NoRole);
+  // setFrameShape(QFrame::NoFrame);
+  setBackgroundRole(QPalette::NoRole);
+  //   QPalette pal = palette();
+  // pal.setColor(QPalette::Background, QColor(0, 0, 0, 150));
+  // setAutoFillBackground(true);
+  // setPalette(pal);
 
 
   QString style = R"(
