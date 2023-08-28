@@ -45,7 +45,6 @@ HomeWindow::HomeWindow(QWidget* parent) : QWidget(parent) {
     showDriverView(false);
   });
   slayout->addWidget(driver_view);
-  setAttribute(Qt::WA_NoSystemBackground);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &HomeWindow::updateState);
   QObject::connect(uiState(), &UIState::offroadTransition, this, &HomeWindow::offroadTransition);
   QObject::connect(uiState(), &UIState::offroadTransition, sidebar, &Sidebar::offroadTransition);

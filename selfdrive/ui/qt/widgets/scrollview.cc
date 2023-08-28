@@ -10,10 +10,9 @@ ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
   setWidgetResizable(true);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-  // setFrameShape(QFrame::NoFrame);
+  setFrameShape(QFrame::NoFrame);
   // setBackgroundRole(QPalette::NoRole);
 
-  setStyleSheet("ListWidget{background-color: red; border:5px solid red;}");
 
   QString style = R"(
     QScrollBar:vertical {
