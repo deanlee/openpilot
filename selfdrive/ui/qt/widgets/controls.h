@@ -264,6 +264,7 @@ class ListWidget : public QWidget {
  public:
   explicit ListWidget(QWidget *parent = 0) : QWidget(parent), outer_layout(this) {
     // setAttribute(Qt::WA_OpaquePaintEvent);
+    // setStyleSheet("background:transparent;");
     outer_layout.setMargin(0);
     outer_layout.setSpacing(0);
     outer_layout.addLayout(&inner_layout);
