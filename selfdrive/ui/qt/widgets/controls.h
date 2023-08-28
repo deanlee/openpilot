@@ -260,8 +260,10 @@ private:
 
 class ListWidget : public QWidget {
   Q_OBJECT
+
  public:
   explicit ListWidget(QWidget *parent = 0) : QWidget(parent), outer_layout(this) {
+    // setAttribute(Qt::WA_OpaquePaintEvent);
     outer_layout.setMargin(0);
     outer_layout.setSpacing(0);
     outer_layout.addLayout(&inner_layout);
