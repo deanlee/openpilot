@@ -262,6 +262,8 @@ class ListWidget : public QWidget {
   Q_OBJECT
  public:
   explicit ListWidget(QWidget *parent = 0) : QWidget(parent), outer_layout(this) {
+    // setAttribute(Qt::WA_NoSystemBackground, true);
+  // setAttribute(Qt::WA_TranslucentBackground, true);
     outer_layout.setMargin(0);
     outer_layout.setSpacing(0);
     outer_layout.addLayout(&inner_layout);
@@ -274,18 +276,18 @@ class ListWidget : public QWidget {
   inline void setSpacing(int spacing) { inner_layout.setSpacing(spacing); }
 
 private:
-  void paintEvent(QPaintEvent *) override {
-    QPainter p(this);
-    p.setPen(Qt::gray);
-    for (int i = 0; i < inner_layout.count() - 1; ++i) {
-      QWidget *widget = inner_layout.itemAt(i)->widget();
-      if (widget == nullptr || widget->isVisible()) {
-        QRect r = inner_layout.itemAt(i)->geometry();
-        int bottom = r.bottom() + inner_layout.spacing() / 2;
-        p.drawLine(r.left() + 40, bottom, r.right() - 40, bottom);
-      }
-    }
-  }
+  // void paintEvent(QPaintEvent *) override {
+  //   QPainter p(this);
+  //   p.setPen(Qt::gray);
+  //   for (int i = 0; i < inner_layout.count() - 1; ++i) {
+  //     QWidget *widget = inner_layout.itemAt(i)->widget();
+  //     if (widget == nullptr || widget->isVisible()) {
+  //       QRect r = inner_layout.itemAt(i)->geometry();
+  //       int bottom = r.bottom() + inner_layout.spacing() / 2;
+  //       p.drawLine(r.left() + 40, bottom, r.right() - 40, bottom);
+  //     }
+  //   }
+  // }
   QVBoxLayout outer_layout;
   QVBoxLayout inner_layout;
 };

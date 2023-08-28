@@ -438,9 +438,11 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     SettingsWindow {
       background-color: black;
     }
-    QStackedWidget, ScrollView {
-      background-color: #292929;
+    QStackedWidget, {
+      background-color: red;
+      border:2px solid red;
       border-radius: 30px;
     }
+ 
   )");
 }
