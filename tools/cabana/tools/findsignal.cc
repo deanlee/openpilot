@@ -8,6 +8,8 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
+#include "tools/cabana/common/validators.h"
+
 // FindSignalModel
 
 QVariant FindSignalModel::headerData(int section, Qt::Orientation orientation, int role) const {

@@ -1,5 +1,6 @@
 #include "tools/cabana/streams/socketcanstream.h"
 
+#include <QApplication>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>

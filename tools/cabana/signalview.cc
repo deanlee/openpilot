@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include <QApplication>
 #include <QCompleter>
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
@@ -15,6 +16,8 @@
 #include <QVBoxLayout>
 
 #include "tools/cabana/commands.h"
+#include "tools/cabana/common/validators.h"
+#include "tools/cabana/common/util.h"
 
 // SignalModel
 
@@ -158,7 +161,7 @@ QVariant SignalModel::data(const QModelIndex &index, int role) const {
     } else if (role == Qt::DecorationRole && index.column() == 0 && item->type == Item::ExtraInfo) {
       return utils::icon(item->parent->extra_expanded ? "chevron-compact-down" : "chevron-compact-up");
     } else if (role == Qt::ToolTipRole && item->type == Item::Sig) {
-      return (index.column() == 0) ? signalToolTip(item->sig) : QString();
+      return (index.column() == 0) ? utils::signalToolTip(item->sig) : QString();
     }
   }
   return {};

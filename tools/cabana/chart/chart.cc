@@ -20,6 +20,7 @@
 #include <QWindow>
 
 #include "tools/cabana/chart/chartswidget.h"
+#include "tools/cabana/common/util.h"
 
 // ChartAxisElement's padding is 4 (https://codebrowser.dev/qt5/qtcharts/src/charts/axis/chartaxiselement_p.h.html)
 const int AXIS_X_TOP_MARGIN = 4;
@@ -573,7 +574,7 @@ void ChartView::showTip(double sec) {
   }
   QPoint pt(x, chart()->plotArea().top());
   text_list.push_front(QString::number(chart()->mapToValue({x, 0}).x(), 'f', 3));
-  QString text = "<p style='white-space:pre'>" % text_list.join("<br />") % "</p>";
+  QString text = "<p style='white-space:pre'>" + text_list.join("<br />") + "</p>";
   tip_label.showText(pt, text, this, visible_rect);
   viewport()->update();
 }

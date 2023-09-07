@@ -10,6 +10,7 @@
 #include <QtConcurrent>
 
 #include "tools/cabana/chart/chart.h"
+#include "tools/cabana/common/util.h"
 
 const int MAX_COLUMN_COUNT = 4;
 const int CHART_SPACING = 10;

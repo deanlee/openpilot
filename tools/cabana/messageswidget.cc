@@ -12,6 +12,8 @@
 #include <QVBoxLayout>
 
 #include "tools/cabana/commands.h"
+#include "tools/cabana/common/bytesdelegate.h"
+#include "tools/cabana/common/util.h"
 
 MessagesWidget::MessagesWidget(QWidget *parent) : QWidget(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
@@ -187,7 +189,7 @@ QVariant MessageListModel::data(const QModelIndex &index, int role) const {
       case Column::ADDRESS: return QString::number(id.address, 16);
       case Column::FREQ: return id.source != INVALID_SOURCE ? getFreq(can_data) : "N/A";
       case Column::COUNT: return id.source != INVALID_SOURCE ? QString::number(can_data.count) : "N/A";
-      case Column::DATA: return id.source != INVALID_SOURCE ? toHex(can_data.dat) : "N/A";
+      case Column::DATA: return id.source != INVALID_SOURCE ? utils::toHex(can_data.dat) : "N/A";
     }
   } else if (role == ColorsRole) {
     QVector<QColor> colors = can_data.colors;

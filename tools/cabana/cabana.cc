@@ -2,6 +2,8 @@
 #include <QCommandLineParser>
 
 #include "selfdrive/ui/qt/util.h"
+#include "tools/cabana/common/unixsignalhandler.h"
+#include "tools/cabana/common/util.h"
 #include "tools/cabana/mainwin.h"
 #include "tools/cabana/streamselector.h"
 #include "tools/cabana/streams/devicestream.h"

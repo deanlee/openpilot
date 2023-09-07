@@ -7,6 +7,9 @@
 #include <QVBoxLayout>
 
 #include "tools/cabana/commands.h"
+#include "tools/cabana/common/validators.h"
+#include "tools/cabana/common/util.h"
+
 // HistoryLogModel
 
 QVariant HistoryLogModel::data(const QModelIndex &index, int role) const {
@@ -17,7 +20,7 @@ QVariant HistoryLogModel::data(const QModelIndex &index, int role) const {
       return QString::number((m.mono_time / (double)1e9) - can->routeStartTime(), 'f', 2);
     }
     int i = index.column() - 1;
-    return show_signals ? QString::number(m.sig_values[i], 'f', sigs[i]->precision) : toHex(m.data);
+    return show_signals ? QString::number(m.sig_values[i], 'f', sigs[i]->precision) : utils::toHex(m.data);
   } else if (role == ColorsRole) {
     return QVariant::fromValue(m.colors);
   } else if (role == BytesRole) {

@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 
+#include <QApplication>
 #include <QButtonGroup>
 #include <QFormLayout>
 #include <QRadioButton>

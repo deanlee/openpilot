@@ -9,9 +9,9 @@
 #include <QLineEdit>
 #include <QTableView>
 
+#include "tools/cabana/common/bytesdelegate.h"
 #include "tools/cabana/dbc/dbcmanager.h"
 #include "tools/cabana/streams/abstractstream.h"
-#include "tools/cabana/util.h"
 
 class HeaderView : public QHeaderView {
 public:

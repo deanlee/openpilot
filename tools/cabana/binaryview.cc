@@ -11,6 +11,7 @@
 #include <QToolTip>
 
 #include "tools/cabana/commands.h"
+#include "tools/cabana/common/util.h"
 
 // BinaryView
 
@@ -317,7 +318,7 @@ void BinaryViewModel::updateState() {
       color.setAlpha(alpha);
       updateItem(i, j, val, color);
     }
-    updateItem(i, 8, toHex(binary[i]), last_msg.colors[i]);
+    updateItem(i, 8, utils::toHex(binary[i]), last_msg.colors[i]);
   }
 }
 
@@ -336,7 +337,7 @@ QVariant BinaryViewModel::data(const QModelIndex &index, int role) const {
   if (role == Qt::ToolTipRole) {
     auto item = (const BinaryViewModel::Item *)index.internalPointer();
     if (item && !item->sigs.empty()) {
-      return signalToolTip(item->sigs.back());
+      return utils::signalToolTip(item->sigs.back());
     }
   }
   return {};

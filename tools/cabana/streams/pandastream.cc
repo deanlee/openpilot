@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include <QApplication>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>

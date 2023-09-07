@@ -11,6 +11,9 @@
 #include <QUndoStack>
 
 #include "tools/cabana/chart/signalselector.h"
+#include "tools/cabana/common/logslider.h"
+#include "tools/cabana/common/tabbar.h"
+#include "tools/cabana/common/toolbutton.h"
 #include "tools/cabana/dbc/dbcmanager.h"
 #include "tools/cabana/streams/abstractstream.h"
 

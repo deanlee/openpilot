@@ -12,9 +12,9 @@
 #include <QHash>
 
 #include "common/timing.h"
+#include "tools/cabana/common/monotonicbuffer.h"
 #include "tools/cabana/dbc/dbcmanager.h"
 #include "tools/cabana/settings.h"
-#include "tools/cabana/util.h"
 #include "tools/replay/replay.h"
 
 struct CanData {

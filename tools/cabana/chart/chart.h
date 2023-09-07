@@ -13,6 +13,7 @@
 using namespace QtCharts;
 
 #include "tools/cabana/chart/tiplabel.h"
+#include "tools/cabana/common/segmenttree.h"
 #include "tools/cabana/dbc/dbcmanager.h"
 #include "tools/cabana/streams/abstractstream.h"
 

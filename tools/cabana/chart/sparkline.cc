@@ -1,6 +1,7 @@
 #include "tools/cabana/chart/sparkline.h"
 
 #include <limits>
+#include <QApplication>
 #include <QPainter>
 
 #include "tools/cabana/streams/abstractstream.h"

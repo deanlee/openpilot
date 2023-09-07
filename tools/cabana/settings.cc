@@ -9,7 +9,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 
-#include "tools/cabana/util.h"
+#include "tools/cabana/common/util.h"
 
 Settings settings;
 

@@ -8,6 +8,7 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
+#include "tools/cabana/common/util.h"
 #include "tools/cabana/streams/abstractstream.h"
 
 SignalSelector::SignalSelector(QString title, QWidget *parent) : QDialog(parent) {

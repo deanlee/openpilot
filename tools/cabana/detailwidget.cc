@@ -5,6 +5,8 @@
 #include <QMessageBox>
 
 #include "tools/cabana/commands.h"
+#include "tools/cabana/common/util.h"
+#include "tools/cabana/common/validators.h"
 #include "tools/cabana/mainwin.h"
 
 // DetailWidget
