@@ -2,12 +2,11 @@
 
 #include <future>
 #include <map>
+#include <mutex>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
-
-#include "common/queue.h"
 
 enum ParamKeyType {
   PERSISTENT = 0x02,
@@ -65,5 +64,6 @@ private:
 
   // for nonblocking write
   std::future<void> future;
-  SafeQueue<std::pair<std::string, std::string>> queue;
+  std::mutex async_lock;
+  std::map<std::string, std::string> async_param_map;
 };

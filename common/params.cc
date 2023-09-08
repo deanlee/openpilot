@@ -338,7 +338,8 @@ void Params::clearAll(ParamKeyType key_type) {
 }
 
 void Params::putNonBlocking(const std::string &key, const std::string &val) {
-   queue.push(std::make_pair(key, val));
+  std::lock_guard lk(async_lock);
+  async_param_map[key] = val;
   // start thread on demand
   if (!future.valid() || future.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
     future = std::async(std::launch::async, &Params::asyncWriteThread, this);
@@ -346,10 +347,16 @@ void Params::putNonBlocking(const std::string &key, const std::string &val) {
 }
 
 void Params::asyncWriteThread() {
-  // TODO: write the latest one if a key has multiple values in the queue.
-  std::pair<std::string, std::string> p;
-  while (queue.try_pop(p, 0)) {
-    // Params::put is Thread-Safe
-    put(p.first, p.second);
-  }
+  std::map<std::string, std::string> param_map;
+  do {
+    {
+      std::lock_guard lk(async_lock);
+      param_map = async_param_map;
+      async_param_map.clear();
+    }
+    for (const auto &[key, val] : param_map) {
+      // put is Thread-Safe
+      put(key, val);
+    }
+  } while (!param_map.empty());
 }
