@@ -91,29 +91,15 @@ void HistoryLogModel::setFilter(int sig_idx, const QString &value, std::function
 
 void HistoryLogModel::updateState() {
   uint64_t current_time = (can->lastMessage(msg_id).ts + can->routeStartTime()) * 1e9 + 1;
-  auto new_msgs = fetchData(current_time, last_fetch_time);
-  if (!new_msgs.empty()) {
-    beginInsertRows({}, 0, new_msgs.size() - 1);
-    messages.insert(messages.begin(), std::move_iterator(new_msgs.begin()), std::move_iterator(new_msgs.end()));
-    endInsertRows();
-  }
-  has_more_data = new_msgs.size() >= batch_size;
+  fetchData(current_time, last_fetch_time);
   last_fetch_time = current_time;
 }
 
 void HistoryLogModel::fetchMore(const QModelIndex &parent) {
-  if (!messages.empty()) {
-    auto new_msgs = fetchData(messages.back().mono_time);
-    if (!new_msgs.empty()) {
-      beginInsertRows({}, messages.size(), messages.size() + new_msgs.size() - 1);
-      messages.insert(messages.end(), std::move_iterator(new_msgs.begin()), std::move_iterator(new_msgs.end()));
-      endInsertRows();
-    }
-    has_more_data = new_msgs.size() >= batch_size;
-  }
+  if (!messages.empty()) fetchData(messages.back().mono_time);
 }
 
-std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
+void HistoryLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
   const auto &events = can->events(msg_id);
   const auto freq = can->lastMessage(msg_id).freq;
   const auto speed = can->getSpeed();
@@ -124,7 +110,7 @@ std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(uint64_t from_ti
 
   std::deque<HistoryLogModel::Message> msgs;
   QVector<double> values(sigs.size());
-  for (; first != last && (*first)->mono_time > min_time; ++first) {
+  for (; first != events.rend() && (*first)->mono_time > min_time; ++first) {
     const CanEvent *e = *first;
     for (int i = 0; i < sigs.size(); ++i) {
       sigs[i]->getValue(e->dat, e->size, &values[i]);
@@ -135,10 +121,15 @@ std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(uint64_t from_ti
       m.data = QByteArray((const char *)e->dat, e->size);
       m.sig_values = values;
       if (msgs.size() >= batch_size && min_time == 0) {
-        return msgs;
+        break;
       }
     }
   }
+  bool fetch_more = min_time == 0;
+  int insert_at = fetch_more ? messages.size() : 0;
+  beginInsertRows({}, insert_at, insert_at + msgs.size() - 1);
+  messages.insert(fetch_more ? messages.end() : messages.begin(), std::move_iterator(msgs.begin()), std::move_iterator(msgs.end()));
+  endInsertRows();
 
   if (!display_signals_mode || sigs.empty()) {
     for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
@@ -146,7 +137,7 @@ std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(uint64_t from_ti
       it->colors = hex_colors.colors;
     }
   }
-  return msgs;
+  has_more_data = msgs.size() >= batch_size;
 }
 
 // HeaderView
