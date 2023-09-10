@@ -74,10 +74,8 @@ void Replay::stop() {
   rInfo("shutdown: done");
 }
 
-bool Replay::load() {
-  if (!route_->load()) {
-    qCritical() << "failed to load route" << route_->name()
-                << "from" << (route_->dir().isEmpty() ? "server" : route_->dir());
+bool Replay::load(QString *error) {
+  if (!route_->load(error)) {
     return false;
   }
 
@@ -89,7 +87,9 @@ bool Replay::load() {
     }
   }
   if (segments_.empty()) {
-    qCritical() << "no valid segments in route" << route_->name();
+    if (error) {
+      *error = "no valid segments in route " + route_->name();
+    }
     return false;
   }
   rInfo("load route %s with %zu valid segments", qPrintable(route_->name()), segments_.size());

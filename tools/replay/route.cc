@@ -28,24 +28,39 @@ RouteIdentifier Route::parseRoute(const QString &str) {
   return {.dongle_id = list[1], .timestamp = list[3], .segment_id = list[5].toInt(), .str = list[1] + "|" + list[3]};
 }
 
-bool Route::load() {
+bool Route::load(QString *error) {
   if (route_.str.isEmpty() || (data_dir_.isEmpty() && route_.dongle_id.isEmpty())) {
-    rInfo("invalid route format");
+    if (error) *error = "invalid route format";
     return false;
   }
   date_time_ = QDateTime::fromString(route_.timestamp, "yyyy-MM-dd--HH-mm-ss");
-  return data_dir_.isEmpty() ? loadFromServer() : loadFromLocal();
+  return data_dir_.isEmpty() ? loadFromServer(error) : loadFromLocal(error);
 }
 
-bool Route::loadFromServer() {
+bool Route::loadFromServer(QString *error) {
   QEventLoop loop;
   HttpRequest http(nullptr, !Hardware::PC());
-  QObject::connect(&http, &HttpRequest::requestDone, [&](const QString &json, bool success, QNetworkReply::NetworkError error) {
-    if (error == QNetworkReply::ContentAccessDenied || error == QNetworkReply::AuthenticationRequiredError) {
-      qWarning() << ">>  Unauthorized. Authenticate with tools/lib/auth.py  <<";
+  QObject::connect(&http, &HttpRequest::requestDone, [&](const QString &json, bool success, QNetworkReply::NetworkError network_error) {
+    if (!success) {
+      if (error) {
+        if (network_error == QNetworkReply::ContentAccessDenied || network_error == QNetworkReply::AuthenticationRequiredError) {
+          *error = "Unauthorized. Authenticate with tools/lib/auth.py";
+        } else if (network_error == QNetworkReply::TimeoutError) {
+          *error = "the connection to the remote server timed out";
+        } else if (network_error == QNetworkReply::ContentNotFoundError) {
+          *error = "the route was not found at the server";
+        } else {
+          *error = "network error";
+        }
+      }
+    } else {
+      success = loadFromJson(json);
+      if (!success && error) {
+        *error = "failed to parse json from server";
+      }
     }
 
-    loop.exit(success ? loadFromJson(json) : 0);
+    loop.exit(success);
   });
   http.sendRequest("https://api.commadotai.com/v1/route/" + route_.str + "/files");
   return loop.exec();
@@ -64,7 +79,7 @@ bool Route::loadFromJson(const QString &json) {
   return !segments_.empty();
 }
 
-bool Route::loadFromLocal() {
+bool Route::loadFromLocal(QString *error) {
   QDir log_dir(data_dir_);
   for (const auto &folder : log_dir.entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot, QDir::NoSort)) {
     int pos = folder.lastIndexOf("--");
@@ -76,7 +91,11 @@ bool Route::loadFromLocal() {
       }
     }
   }
-  return !segments_.empty();
+  if (segments_.empty()) {
+    if (error) *error = "not a valid segment path";
+    return false;
+  }
+  return true;
 }
 
 void Route::addFileToSegment(int n, const QString &file) {
