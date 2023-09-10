@@ -3,7 +3,6 @@
 #include <deque>
 #include <vector>
 
-#include <QCheckBox>
 #include <QComboBox>
 #include <QHeaderView>
 #include <QLineEdit>
@@ -40,7 +39,6 @@ public:
 
 public slots:
   void setDisplayType(int type);
-  void setDynamicMode(int state);
   void segmentsMerged();
 
 public:
@@ -51,9 +49,7 @@ public:
     QVector<QColor> colors;
   };
 
-  template <class InputIt>
-  std::deque<HistoryLogModel::Message> fetchData(InputIt first, InputIt last, uint64_t min_time);
-  std::deque<Message> fetchData(uint64_t from_time, uint64_t min_time = 0);
+  void fetchData(uint64_t from_time, uint64_t min_time = 0);
 
   MessageId msg_id;
   CanData hex_colors;
@@ -65,7 +61,6 @@ public:
   std::function<bool(double, double)> filter_cmp = nullptr;
   std::deque<Message> messages;
   std::vector<cabana::Signal *> sigs;
-  bool dynamic_mode = true;
   bool display_signals_mode = true;
 };
 
@@ -86,7 +81,6 @@ private:
 
   QTableView *logs;
   HistoryLogModel *model;
-  QCheckBox *dynamic_mode;
   QComboBox *signals_cb, *comp_box, *display_type_cb;
   QLineEdit *value_edit;
   QWidget *filters_widget;

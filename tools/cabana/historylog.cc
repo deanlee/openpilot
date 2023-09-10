@@ -74,20 +74,13 @@ QVariant HistoryLogModel::headerData(int section, Qt::Orientation orientation, i
   return {};
 }
 
-void HistoryLogModel::setDynamicMode(int state) {
-  dynamic_mode = state != 0;
-  refresh();
-}
-
 void HistoryLogModel::setDisplayType(int type) {
   display_signals_mode = type == 0;
   refresh();
 }
 
 void HistoryLogModel::segmentsMerged() {
-  if (!dynamic_mode) {
-    has_more_data = true;
-  }
+  has_more_data = true;
 }
 
 void HistoryLogModel::setFilter(int sig_idx, const QString &value, std::function<bool(double, double)> cmp) {
@@ -98,7 +91,7 @@ void HistoryLogModel::setFilter(int sig_idx, const QString &value, std::function
 
 void HistoryLogModel::updateState() {
   uint64_t current_time = (can->lastMessage(msg_id).ts + can->routeStartTime()) * 1e9 + 1;
-  auto new_msgs = dynamic_mode ? fetchData(current_time, last_fetch_time) : fetchData(0);
+  auto new_msgs = fetchData(current_time, last_fetch_time);
   if (!new_msgs.empty()) {
     beginInsertRows({}, 0, new_msgs.size() - 1);
     messages.insert(messages.begin(), std::move_iterator(new_msgs.begin()), std::move_iterator(new_msgs.end()));
@@ -120,8 +113,15 @@ void HistoryLogModel::fetchMore(const QModelIndex &parent) {
   }
 }
 
-template <class InputIt>
-std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(InputIt first, InputIt last, uint64_t min_time) {
+std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
+  const auto &events = can->events(msg_id);
+  const auto freq = can->lastMessage(msg_id).freq;
+  const auto speed = can->getSpeed();
+
+  auto first = std::upper_bound(events.rbegin(), events.rend(), from_time, [](uint64_t ts, auto e) {
+    return ts > e->mono_time;
+  });
+
   std::deque<HistoryLogModel::Message> msgs;
   QVector<double> values(sigs.size());
   for (; first != last && (*first)->mono_time > min_time; ++first) {
@@ -139,39 +139,14 @@ std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(InputIt first, I
       }
     }
   }
-  return msgs;
-}
 
-std::deque<HistoryLogModel::Message> HistoryLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
-  const auto &events = can->events(msg_id);
-  const auto freq = can->lastMessage(msg_id).freq;
-  const bool update_colors = !display_signals_mode || sigs.empty();
-
-  const auto speed = can->getSpeed();
-  if (dynamic_mode) {
-    auto first = std::upper_bound(events.rbegin(), events.rend(), from_time, [](uint64_t ts, auto e) {
-      return ts > e->mono_time;
-    });
-    auto msgs = fetchData(first, events.rend(), min_time);
-    if (update_colors && (min_time > 0 || messages.empty())) {
-      for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
-        hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time / (double)1e9, speed, nullptr, freq);
-        it->colors = hex_colors.colors;
-      }
+  if (!display_signals_mode || sigs.empty()) {
+    for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
+      hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time / (double)1e9, speed, nullptr, freq);
+      it->colors = hex_colors.colors;
     }
-    return msgs;
-  } else {
-    assert(min_time == 0);
-    auto first = std::upper_bound(events.cbegin(), events.cend(), from_time, CompareCanEvent());
-    auto msgs = fetchData(first, events.cend(), 0);
-    if (update_colors) {
-      for (auto it = msgs.begin(); it != msgs.end(); ++it) {
-        hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time / (double)1e9, speed, nullptr, freq);
-        it->colors = hex_colors.colors;
-      }
-    }
-    return msgs;
   }
+  return msgs;
 }
 
 // HeaderView
@@ -220,15 +195,12 @@ LogsWidget::LogsWidget(QWidget *parent) : QFrame(parent) {
   filter_layout->addWidget(value_edit = new QLineEdit(this));
   h->addWidget(filters_widget);
   h->addStretch(0);
-  h->addWidget(dynamic_mode = new QCheckBox(tr("Dynamic")), 0, Qt::AlignRight);
 
   display_type_cb->addItems({"Signal", "Hex"});
   display_type_cb->setToolTip(tr("Display signal value or raw hex value"));
   comp_box->addItems({">", "=", "!=", "<"});
   value_edit->setClearButtonEnabled(true);
   value_edit->setValidator(new DoubleValidator(this));
-  dynamic_mode->setChecked(true);
-  dynamic_mode->setEnabled(!can->liveStreaming());
 
   main_layout->addWidget(toolbar);
   QFrame *line = new QFrame(this);
@@ -248,7 +220,6 @@ LogsWidget::LogsWidget(QWidget *parent) : QFrame(parent) {
     logs->setItemDelegateForColumn(1, index == 1 ? delegate : nullptr);
     model->setDisplayType(index);
   });
-  QObject::connect(dynamic_mode, &QCheckBox::stateChanged, model, &HistoryLogModel::setDynamicMode);
   QObject::connect(signals_cb, SIGNAL(activated(int)), this, SLOT(setFilter()));
   QObject::connect(comp_box, SIGNAL(activated(int)), this, SLOT(setFilter()));
   QObject::connect(value_edit, &QLineEdit::textChanged, this, &LogsWidget::setFilter);
@@ -294,13 +265,13 @@ void LogsWidget::setFilter() {
 }
 
 void LogsWidget::updateState() {
-  if (isVisible() && dynamic_mode->isChecked()) {
+  if (isVisible()) {
     model->updateState();
   }
 }
 
 void LogsWidget::showEvent(QShowEvent *event) {
-  if (dynamic_mode->isChecked() || model->canFetchMore({}) && model->rowCount() == 0) {
+  if (model->canFetchMore({}) && model->rowCount() == 0) {
     model->refresh();
   }
 }
