@@ -125,11 +125,6 @@ void HistoryLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
       }
     }
   }
-  bool fetch_more = min_time == 0;
-  int insert_at = fetch_more ? messages.size() : 0;
-  beginInsertRows({}, insert_at, insert_at + msgs.size() - 1);
-  messages.insert(fetch_more ? messages.end() : messages.begin(), std::move_iterator(msgs.begin()), std::move_iterator(msgs.end()));
-  endInsertRows();
 
   if (!display_signals_mode || sigs.empty()) {
     for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
@@ -137,6 +132,12 @@ void HistoryLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
       it->colors = hex_colors.colors;
     }
   }
+
+  bool fetch_more = min_time == 0;
+  int insert_at = fetch_more ? messages.size() : 0;
+  beginInsertRows({}, insert_at, insert_at + msgs.size() - 1);
+  messages.insert(fetch_more ? messages.end() : messages.begin(), std::move_iterator(msgs.begin()), std::move_iterator(msgs.end()));
+  endInsertRows();
   has_more_data = msgs.size() >= batch_size;
 }
 
