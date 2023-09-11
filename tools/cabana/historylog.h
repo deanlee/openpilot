@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <deque>
+#include <map>
 #include <vector>
 
 #include <QComboBox>
@@ -42,12 +44,21 @@ public slots:
   void segmentsMerged();
 
 public:
+
+   struct MsgSignal {
+    MessageId msg_id;
+    const cabana::Signal *sig;
+  };
+
   struct Message {
-    uint64_t mono_time = 0;
     QVector<double> sig_values;
     QByteArray data;
     QVector<QColor> colors;
+    std::array<double, 20> vals;
   };
+
+  //todo use deque
+  std::map<uint64_t, Message> messages;
 
   void fetchData(uint64_t from_time, uint64_t min_time = 0);
 
@@ -59,8 +70,8 @@ public:
   double filter_value = 0;
   uint64_t last_fetch_time = 0;
   std::function<bool(double, double)> filter_cmp = nullptr;
-  std::deque<Message> messages;
-  std::vector<cabana::Signal *> sigs;
+
+  std::vector<MsgSignal> sigs;
   bool display_signals_mode = true;
 };
 

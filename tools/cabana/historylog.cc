@@ -10,18 +10,20 @@
 // HistoryLogModel
 
 QVariant HistoryLogModel::data(const QModelIndex &index, int role) const {
+  // return {};
   const bool show_signals = display_signals_mode && sigs.size() > 0;
-  const auto &m = messages[index.row()];
+   auto it = messages.crbegin();
+  std::advance(it, index.row());
   if (role == Qt::DisplayRole) {
     if (index.column() == 0) {
-      return QString::number((m.mono_time / (double)1e9) - can->routeStartTime(), 'f', 2);
+      return QString::number((it->first / (double)1e9) - can->routeStartTime(), 'f', 2);
     }
     int i = index.column() - 1;
-    return show_signals ? QString::number(m.sig_values[i], 'f', sigs[i]->precision) : toHex(m.data);
+    return show_signals ? QString::number(it->second.sig_values[i], 'f', sigs[i].sig->precision) : toHex(it->second.data);
   } else if (role == ColorsRole) {
-    return QVariant::fromValue(m.colors);
+    return QVariant::fromValue(it->second.colors);
   } else if (role == BytesRole) {
-    return m.data;
+    return it->second.data;
   } else if (role == Qt::TextAlignmentRole) {
     return (uint32_t)(Qt::AlignRight | Qt::AlignVCenter);
   }
@@ -36,7 +38,9 @@ void HistoryLogModel::refresh(bool fetch_message) {
   beginResetModel();
   sigs.clear();
   if (auto dbc_msg = dbc()->msg(msg_id)) {
-    sigs = dbc_msg->getSignals();
+    for (auto s : dbc_msg->getSignals()) {
+      sigs.push_back({msg_id, s});
+    }
   }
   last_fetch_time = 0;
   has_more_data = true;
@@ -56,9 +60,9 @@ QVariant HistoryLogModel::headerData(int section, Qt::Orientation orientation, i
         return "Time";
       }
       if (show_signals) {
-        QString name = sigs[section - 1]->name;
-        if (!sigs[section - 1]->unit.isEmpty()) {
-          name += QString(" (%1)").arg(sigs[section - 1]->unit);
+        QString name = sigs[section - 1].sig->name;
+        if (!sigs[section - 1].sig->unit.isEmpty()) {
+          name += QString(" (%1)").arg(sigs[section - 1].sig->unit);
         }
         return name;
       } else {
@@ -66,7 +70,7 @@ QVariant HistoryLogModel::headerData(int section, Qt::Orientation orientation, i
       }
     } else if (role == Qt::BackgroundRole && section > 0 && show_signals) {
       // Alpha-blend the signal color with the background to ensure contrast
-      QColor sigColor = sigs[section - 1]->color;
+      QColor sigColor = sigs[section - 1].sig->color;
       sigColor.setAlpha(128);
       return QBrush(sigColor);
     }
@@ -96,49 +100,53 @@ void HistoryLogModel::updateState() {
 }
 
 void HistoryLogModel::fetchMore(const QModelIndex &parent) {
-  if (!messages.empty()) fetchData(messages.back().mono_time);
+  if (!messages.empty()) fetchData(messages.rbegin()->first);
 }
 
 void HistoryLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
-  const auto &events = can->events(msg_id);
-  const auto freq = can->lastMessage(msg_id).freq;
-  const auto speed = can->getSpeed();
+  // const auto freq = can->lastMessage(msg_id).freq;
+  // const auto speed = can->getSpeed();
 
-  auto first = std::upper_bound(events.rbegin(), events.rend(), from_time, [](uint64_t ts, auto e) {
-    return ts > e->mono_time;
-  });
+  
+  size_t prev_count = messages.size();
 
-  std::deque<HistoryLogModel::Message> msgs;
-  QVector<double> values(sigs.size());
-  for (; first != events.rend() && (*first)->mono_time > min_time; ++first) {
-    const CanEvent *e = *first;
-    for (int i = 0; i < sigs.size(); ++i) {
-      sigs[i]->getValue(e->dat, e->size, &values[i]);
-    }
-    if (!filter_cmp || filter_cmp(values[filter_sig_idx], filter_value)) {
-      auto &m = msgs.emplace_back();
-      m.mono_time = e->mono_time;
-      m.data = QByteArray((const char *)e->dat, e->size);
-      m.sig_values = values;
-      if (msgs.size() >= batch_size && min_time == 0) {
-        break;
+  for (int i = 0; i < sigs.size(); ++i) {
+    const auto &s = sigs[i];
+    const auto &events = can->events(s.msg_id);
+    auto first = std::upper_bound(events.rbegin(), events.rend(), from_time, [](uint64_t ts, auto e) {
+      return ts > e->mono_time;
+    });
+
+    for (; first != events.rend() && (*first)->mono_time > min_time; ++first) {
+      const CanEvent *e = *first;
+      double value = 0;
+      if (s.sig->getValue(e->dat, e->size, &value)) {
+        // if (!filter_cmp || filter_cmp(values[filter_sig_idx], filter_value)) {
+          auto &m = messages[e->mono_time];
+          // m.data = QByteArray((const char *)e->dat, e->size);
+          m.sig_values[i]  = value;
+        // }
       }
     }
-  }
-
-  if (!display_signals_mode || sigs.empty()) {
-    for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
-      hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time / (double)1e9, speed, nullptr, freq);
-      it->colors = hex_colors.colors;
+    if ((messages.size() - prev_count) >= batch_size) {
+      break;
     }
   }
 
-  bool fetch_more = min_time == 0;
-  int insert_at = fetch_more ? messages.size() : 0;
-  beginInsertRows({}, insert_at, insert_at + msgs.size() - 1);
-  messages.insert(fetch_more ? messages.end() : messages.begin(), std::move_iterator(msgs.begin()), std::move_iterator(msgs.end()));
-  endInsertRows();
-  has_more_data = msgs.size() >= batch_size;
+  // if (!display_signals_mode || sigs.empty()) {
+  //   for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
+  //     hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time / (double)1e9, speed, nullptr, freq);
+  //     it->colors = hex_colors.colors;
+  //   }
+  // }
+  int new_count = messages.size() - prev_count;
+  if (new_count > 0) {
+    bool fetch_more = min_time == 0;
+    int insert_at = fetch_more ? prev_count : 0;
+    beginInsertRows({}, insert_at, insert_at + new_count - 1);
+    endInsertRows();
+  }
+  has_more_data = new_count >= batch_size;
 }
 
 // HeaderView
@@ -232,8 +240,8 @@ void LogsWidget::refresh() {
   bool has_signal = model->sigs.size();
   if (has_signal) {
     signals_cb->clear();
-    for (auto s : model->sigs) {
-      signals_cb->addItem(s->name);
+    for (const auto &s : model->sigs) {
+      signals_cb->addItem(s.sig->name);
     }
   }
   logs->setItemDelegateForColumn(1, !has_signal || display_type_cb->currentIndex() == 1 ? delegate : nullptr);
