@@ -121,7 +121,7 @@ QWidget *VideoWidget::createCameraWidget() {
   QObject::connect(slider, &QSlider::valueChanged, [=](int value) { time_label->setText(utils::formatSeconds(slider->currentSecond())); });
   QObject::connect(slider, &Slider::updateMaximumTime, this, &VideoWidget::setMaximumTime, Qt::QueuedConnection);
   QObject::connect(cam_widget, &CameraWidget::clicked, []() { can->pause(!can->isPaused()); });
-  QObject::connect(can, &AbstractStream::updated, this, &VideoWidget::updateState);
+  QObject::connect(can, &AbstractStream::msgsReceived, this, &VideoWidget::updateState);
   return w;
 }
 
