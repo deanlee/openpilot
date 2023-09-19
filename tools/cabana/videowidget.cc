@@ -127,22 +127,21 @@ QWidget *VideoWidget::createCameraWidget() {
 
 void VideoWidget::setMaximumTime(double sec) {
   maximum_time = sec;
-  end_time_label->setText(utils::formatSeconds(sec));
-  slider->setTimeRange(0, sec);
+  if (!zoomed) setTimeRange(0, maximum_time);
 }
 
-void VideoWidget::updateTimeRange(double min, double max, bool is_zoomed) {
-  if (can->liveStreaming()) {
-    skip_to_end_btn->setEnabled(!is_zoomed);
-    return;
-  }
-
-  if (!is_zoomed) {
-    min = 0;
-    max = maximum_time;
-  }
+void VideoWidget::setTimeRange(double min, double max) {
   end_time_label->setText(utils::formatSeconds(max));
   slider->setTimeRange(min, max);
+}
+
+void VideoWidget::zoomChanged(double min, double max, bool is_zoomed) {
+  zoomed = is_zommed;
+  if (can->liveStreaming()) {
+    skip_to_end_btn->setEnabled(!zommed);
+    return;
+  }
+  zommed ? setTimeRange(min, max) : setTimeRange(0, maximum_time);
 }
 
 void VideoWidget::updateState() {
