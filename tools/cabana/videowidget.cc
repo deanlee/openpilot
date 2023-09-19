@@ -127,7 +127,9 @@ QWidget *VideoWidget::createCameraWidget() {
 
 void VideoWidget::setMaximumTime(double sec) {
   maximum_time = sec;
-  if (!zoomed) setTimeRange(0, maximum_time);
+  if (!zoomed) {
+    setTimeRange(0, maximum_time);
+  }
 }
 
 void VideoWidget::setTimeRange(double min, double max) {
