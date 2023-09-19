@@ -128,7 +128,7 @@ QWidget *VideoWidget::createCameraWidget() {
 void VideoWidget::setMaximumTime(double sec) {
   maximum_time = sec;
   end_time_label->setText(utils::formatSeconds(maximum_time));
-  slider->setTimeRange(min, maximum_time);
+  slider->setTimeRange(0, maximum_time);
 }
 
 void VideoWidget::zoomChanged(double min, double max, bool is_zoomed) {
@@ -239,10 +239,14 @@ void Slider::paintEvent(QPaintEvent *ev) {
   double min = minimum() / factor;
   double max = maximum() / factor;
 
-  if (zoom_range == {0, 0} || zoom_range == {min, max}) {
+  if (zoom_range == std::pair{0., 0.} || zoom_range == std::pair{min, max}) {
     p.fillRect(r, timeline_colors[(int)TimelineType::None]);
   } else {
-    // for ()
+    p.fillRect(r, QBrush(timeline_colors[(int)TimelineType::None], Qt::Dense7Pattern));
+    QRect zoom_rect = r;
+    zoom_rect.setLeft((zoom_range.first / (max - min)) * width());
+    zoom_rect.setRight((zoom_range.second / (max - min)) * width());
+    p.fillRect(zoom_rect, timeline_colors[(int)TimelineType::None]);
   }
 
   for (auto [begin, end, type] : timeline) {
@@ -250,7 +254,9 @@ void Slider::paintEvent(QPaintEvent *ev) {
       continue;
     r.setLeft(((std::max(min, begin) - min) / (max - min)) * width());
     r.setRight(((std::min(max, end) - min) / (max - min)) * width());
-    p.fillRect(r, timeline_colors[(int)type]);
+    QColor color = timeline_colors[(int)type];
+    color.setAlpha(100);
+    p.fillRect(r, color);
   }
 
   QStyleOptionSlider opt;

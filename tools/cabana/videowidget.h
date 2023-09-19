@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <QFuture>
@@ -55,6 +56,7 @@ private:
   void parseQLog();
 
   const double factor = 1000.0;
+  std::pair<double, double> zoom_range;
   std::vector<std::tuple<double, double, TimelineType>> timeline;
   std::mutex thumbnail_lock;
   std::atomic<bool> abort_parse_qlog = false;
