@@ -68,7 +68,7 @@ class VideoWidget : public QFrame {
 
 public:
   VideoWidget(QWidget *parnet = nullptr);
-  void updateTimeRange(double min, double max, bool is_zommed);
+  void zoomChanged(double min, double max, bool is_zommed);
   void setMaximumTime(double sec);
 
 protected:
