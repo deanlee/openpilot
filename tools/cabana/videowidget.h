@@ -40,6 +40,7 @@ public:
   double currentSecond() const { return value() / factor; }
   void setCurrentSecond(double sec) { setValue(sec * factor); }
   void setTimeRange(double min, double max);
+  void setZoomRange(double min, double max);
   AlertInfo alertInfo(double sec);
   QPixmap thumbnail(double sec);
 
@@ -78,7 +79,6 @@ protected:
   QWidget *createCameraWidget();
 
   CameraWidget *cam_widget;
-  bool zoomed = false;
   double maximum_time = 0;
   QLabel *end_time_label;
   QLabel *time_label;

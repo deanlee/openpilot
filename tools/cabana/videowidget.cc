@@ -127,23 +127,16 @@ QWidget *VideoWidget::createCameraWidget() {
 
 void VideoWidget::setMaximumTime(double sec) {
   maximum_time = sec;
-  if (!zoomed) {
-    setTimeRange(0, maximum_time);
-  }
-}
-
-void VideoWidget::setTimeRange(double min, double max) {
-  end_time_label->setText(utils::formatSeconds(max));
-  slider->setTimeRange(min, max);
+  end_time_label->setText(utils::formatSeconds(maximum_time));
+  slider->setTimeRange(min, maximum_time);
 }
 
 void VideoWidget::zoomChanged(double min, double max, bool is_zoomed) {
-  zoomed = is_zommed;
   if (can->liveStreaming()) {
-    skip_to_end_btn->setEnabled(!zommed);
-    return;
+    skip_to_end_btn->setEnabled(!is_zoomed);
+  } else {
+    is_zoomed ? slider->setZoomRange(min, max) : slider->setZoomRange(0, maximum_time);
   }
-  zommed ? setTimeRange(min, max) : setTimeRange(0, maximum_time);
 }
 
 void VideoWidget::updateState() {
@@ -203,6 +196,11 @@ void Slider::setTimeRange(double min, double max) {
   setRange(min * factor, max * factor);
 }
 
+void Slider::setZoomRange(double min, double max) {
+  zoom_range = std::make_pair(min, max);
+  update();
+}
+
 void Slider::parseQLog() {
   const auto &segments = can->route()->segments();
   for (auto it = segments.rbegin(); it != segments.rend() && !abort_parse_qlog; ++it) {
@@ -238,9 +236,14 @@ void Slider::parseQLog() {
 void Slider::paintEvent(QPaintEvent *ev) {
   QPainter p(this);
   QRect r = rect().adjusted(0, 4, 0, -4);
-  p.fillRect(r, timeline_colors[(int)TimelineType::None]);
   double min = minimum() / factor;
   double max = maximum() / factor;
+
+  if (zoom_range == {0, 0} || zoom_range == {min, max}) {
+    p.fillRect(r, timeline_colors[(int)TimelineType::None]);
+  } else {
+    // for ()
+  }
 
   for (auto [begin, end, type] : timeline) {
     if (begin > max || end < min)
