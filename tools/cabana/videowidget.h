@@ -34,7 +34,7 @@ public:
   Slider(QWidget *parent);
   double currentSecond() const { return value() / factor; }
   void setCurrentSecond(double sec) { setValue(sec * factor); }
-  void setTimeRange(double min, double max);
+  void setTimeRange(double min, double max) { setRange(min * factor, max * factor); }
   AlertInfo alertInfo(double sec);
   QPixmap thumbnail(double sec);
 
@@ -63,6 +63,7 @@ public:
   void setMaximumTime(double sec);
 
 protected:
+  void setTimeRange(double min, double max);
   void updateState();
   void updatePlayBtnState();
   QWidget *createCameraWidget();
