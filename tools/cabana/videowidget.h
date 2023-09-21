@@ -1,13 +1,8 @@
 #pragma once
 
-#include <atomic>
 #include <map>
 #include <memory>
-#include <mutex>
-#include <tuple>
-#include <vector>
 
-#include <QFuture>
 #include <QLabel>
 #include <QPushButton>
 #include <QSlider>
@@ -47,19 +42,15 @@ signals:
   void updateMaximumTime(double);
 
 private:
+  void parseQLog(int segnum, std::shared_ptr<LogReader> qlog);
   void mousePressEvent(QMouseEvent *e) override;
   void mouseMoveEvent(QMouseEvent *e) override;
   bool event(QEvent *event) override;
   void paintEvent(QPaintEvent *ev) override;
-  void parseQLog();
 
   const double factor = 1000.0;
-  std::vector<std::tuple<double, double, TimelineType>> timeline;
-  std::mutex thumbnail_lock;
-  std::atomic<bool> abort_parse_qlog = false;
   QMap<uint64_t, QPixmap> thumbnails;
   std::map<uint64_t, AlertInfo> alerts;
-  std::unique_ptr<QFuture<void>> qlog_future;
   InfoLabel thumbnail_label;
 };
 
@@ -84,4 +75,5 @@ protected:
   QPushButton *skip_to_end_btn = nullptr;
   InfoLabel *alert_label;
   Slider *slider;
+  bool zoomed = false;
 };
