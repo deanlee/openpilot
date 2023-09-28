@@ -85,7 +85,7 @@ void HistoryLogModel::setFilter(int sig_idx, const QString &value, std::function
 }
 
 void HistoryLogModel::updateState() {
-  uint64_t current_time = can->toMonoTime(can->currentSec()) + 1;
+  uint64_t current_time = can->currentMonoTime() + 1;
   dynamic_mode ? fetchData(messages.begin(), current_time, last_fetch_time) : fetchData(messages.begin(), 0);
   last_fetch_time = current_time;
 }
@@ -128,7 +128,7 @@ size_t HistoryLogModel::fetchData(std::deque<HistoryLogModel::Message>::iterator
     msgs = fetchData(first, events.rend(), min_time);
     if ((min_time > 0 || messages.empty())) {
       for (auto it = msgs.rbegin(); it != msgs.rend(); ++it) {
-        hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time / (double)1e9, speed);
+        hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time, speed);
         it->colors = hex_colors.colors;
       }
     }
@@ -136,7 +136,7 @@ size_t HistoryLogModel::fetchData(std::deque<HistoryLogModel::Message>::iterator
     auto first = std::upper_bound(events.cbegin(), events.cend(), from_time, CompareCanEvent());
     msgs = fetchData(first, events.cend(), 0);
     for (auto it = msgs.begin(); it != msgs.end(); ++it) {
-      hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time / (double)1e9, speed);
+      hex_colors.compute(msg_id, it->data.data(), it->data.size(), it->mono_time, speed);
       it->colors = hex_colors.colors;
     }
   }

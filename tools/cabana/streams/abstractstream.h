@@ -17,20 +17,20 @@
 #include "tools/replay/replay.h"
 
 struct CanData {
-  void compute(const MessageId &msg_id, const uint8_t *dat, const int size, double current_sec,
+  void compute(const MessageId &msg_id, const uint8_t *dat, const int size, uint64_t current_ts,
                double playback_speed, const std::vector<uint8_t> *mask = nullptr);
 
-  double ts = 0.;
+  uint64_t mono_time = 0.;
   uint32_t count = 0;
   double freq = 0;
   std::vector<uint8_t> dat;
   std::vector<QColor> colors;
 
   struct ByteLastChange {
-    double ts;
-    int delta;
-    int same_delta_counter;
-    bool suppressed;
+    uint64_t mono_time = 0;
+    int delta = 0;
+    int same_delta_counter = 0;
+    bool suppressed = false;
     std::array<uint32_t, 8> bit_change_counts;
   };
 
@@ -67,14 +67,15 @@ public:
   virtual ~AbstractStream() {}
   virtual void start() = 0;
   inline bool liveStreaming() const { return route() == nullptr; }
-  virtual void seekTo(double ts) {}
+  virtual void seekTo(double sec) {}
   virtual QString name() const = 0;
   virtual QString carFingerprint() const { return ""; }
-  virtual double routeStartTime() const { return 0; }
-  virtual double currentSec() const = 0;
+  virtual uint64_t beginMonoTime() const { return 0; }
+  virtual uint64_t currentMonoTime() const { return 0; }
+  inline double currentSec() const { return (currentMonoTime() - beginMonoTime()) / 1e9; }
   virtual double totalSeconds() const = 0;
-  inline double toSeconds(uint64_t mono_time) const { return std::max<double>(0.0, mono_time / 1e9 - routeStartTime()); }
-  inline uint64_t toMonoTime(double sec) const { return (sec + routeStartTime()) * 1e9; }
+  inline double toSeconds(uint64_t mono_time) const { return (mono_time - beginMonoTime()) / 1e9; }
+  inline uint64_t toMonoTime(double sec) const { return sec * 1e9 + beginMonoTime(); }
   const CanData &lastMessage(const MessageId &id);
   virtual VisionStreamType visionStreamType() const { return VISION_STREAM_ROAD; }
   virtual const Route *route() const { return nullptr; }
@@ -106,7 +107,7 @@ signals:
 protected:
   void mergeEvents(const std::vector<const CanEvent *> &events);
   const CanEvent *newEvent(uint64_t mono_time, const cereal::CanData::Reader &c);
-  void updateEvent(const MessageId &id, double sec, const uint8_t *data, uint8_t size);
+  void updateEvent(const MessageId &id, uint64_t current_ts, const uint8_t *data, uint8_t size);
   void updateLastMessages();
   void updateMasks();
   void updateLastMsgsTo(double sec);
@@ -140,7 +141,6 @@ public:
   DummyStream(QObject *parent) : AbstractStream(parent) {}
   QString name() const override { return tr("No Stream"); }
   void start() override { emit streamStarted(); }
-  double currentSec() const override { return 0; }
   double totalSeconds() const override { return 0; }
 };
 

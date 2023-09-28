@@ -56,26 +56,26 @@ void ReplayStream::start() {
   replay->start();
 }
 
-void ReplayStream::seekTo(double ts) {
-  current_sec_ = ts;
-  replay->seekTo(ts, false);
+void ReplayStream::seekTo(double sec) {
+  current_mono_time_ = toMonoTime(sec);
+  replay->seekTo(sec, false);
 }
 
 bool ReplayStream::eventFilter(const Event *event) {
   static double prev_update_ts = 0;
-  double sec = 0;
+  uint64_t mono_time = 0;
   if (event->which == cereal::Event::Which::CAN) {
-    sec = toSeconds(event->mono_time);
+    mono_time = event->mono_time;
     for (const auto &c : event->event.getCan()) {
       MessageId id{.source = c.getSrc(), .address = c.getAddress()};
       const auto dat = c.getDat();
-      updateEvent(id, sec, (const uint8_t*)dat.begin(), dat.size());
+      updateEvent(id, mono_time, (const uint8_t*)dat.begin(), dat.size());
     }
   }
 
   double ts = millis_since_boot();
-  if (sec > 0 && (ts - prev_update_ts) > (1000.0 / settings.fps)) {
-    current_sec_ = sec;
+  if (mono_time > 0 && (ts - prev_update_ts) > (1000.0 / settings.fps)) {
+    current_mono_time_ = mono_time;
     emit lastMsgsChanged();
     prev_update_ts = ts;
   }
