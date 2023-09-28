@@ -68,7 +68,7 @@ public:
   virtual void start() = 0;
   inline bool liveStreaming() const { return route() == nullptr; }
   virtual void seekTo(double ts) {}
-  virtual QString routeName() const = 0;
+  virtual QString name() const = 0;
   virtual QString carFingerprint() const { return ""; }
   virtual double routeStartTime() const { return 0; }
   virtual double currentSec() const = 0;
@@ -138,7 +138,7 @@ class DummyStream : public AbstractStream {
   Q_OBJECT
 public:
   DummyStream(QObject *parent) : AbstractStream(parent) {}
-  QString routeName() const override { return tr("No Stream"); }
+  QString name() const override { return tr("No Stream"); }
   void start() override { emit streamStarted(); }
   double currentSec() const override { return 0; }
   double totalSeconds() const override { return 0; }
