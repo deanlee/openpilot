@@ -446,7 +446,7 @@ SignalView::SignalView(ChartsWidget *charts, QWidget *parent) : charts(charts), 
   QRegularExpression re("\\S+");
   filter_edit->setValidator(new QRegularExpressionValidator(re, this));
   filter_edit->setClearButtonEnabled(true);
-  filter_edit->setPlaceholderText(tr("filter signals"));
+  filter_edit->setPlaceholderText(tr("Filter Signal"));
   hl->addWidget(filter_edit);
   hl->addStretch(1);
 
