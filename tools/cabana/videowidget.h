@@ -9,6 +9,7 @@
 
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 #include "tools/cabana/streams/abstractstream.h"
+#include "tools/cabana/streams/replaystream.h"
 
 struct AlertInfo {
   cereal::ControlsState::AlertStatus status;

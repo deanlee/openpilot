@@ -101,7 +101,7 @@ QWidget *VideoWidget::createCameraWidget() {
 
   QStackedLayout *stacked = new QStackedLayout();
   stacked->setStackingMode(QStackedLayout::StackAll);
-  stacked->addWidget(cam_widget = new CameraWidget("camerad", can->visionStreamType(), false));
+  stacked->addWidget(cam_widget = new CameraWidget("camerad", qobject_cast<ReplayStream*>(can)->visionStreamType(), false));
   cam_widget->setMinimumHeight(MIN_VIDEO_HEIGHT);
   cam_widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding);
   stacked->addWidget(alert_label = new InfoLabel(this));
@@ -159,7 +159,7 @@ void VideoWidget::updatePlayBtnState() {
 
 Slider::Slider(QWidget *parent) : thumbnail_label(parent), QSlider(Qt::Horizontal, parent) {
   setMouseTracking(true);
-  QObject::connect(can, &AbstractStream::qLogLoaded, this, &Slider::parseQLog);
+  QObject::connect(qobject_cast<ReplayStream*>(can), &ReplayStream::qLogLoaded, this, &Slider::parseQLog);
 }
 
 AlertInfo Slider::alertInfo(double seconds) {
@@ -175,7 +175,7 @@ QPixmap Slider::thumbnail(double seconds)  {
 }
 
 void Slider::parseQLog(int segnum, std::shared_ptr<LogReader> qlog) {
-  const auto &segments = can->route()->segments();
+  const auto &segments = qobject_cast<ReplayStream*>(can)->route()->segments();
   if (segments.size() > 0 && segnum == segments.rbegin()->first && !qlog->events.empty()) {
     emit updateMaximumTime(can->toSeconds(qlog->events.back()->mono_time));
   }
@@ -209,7 +209,7 @@ void Slider::paintEvent(QPaintEvent *ev) {
   double min = minimum() / factor;
   double max = maximum() / factor;
 
-  for (auto [begin, end, type] : can->getTimeline()) {
+  for (auto [begin, end, type] : qobject_cast<ReplayStream*>(can)->getTimeline()) {
     if (begin > max || end < min)
       continue;
     r.setLeft(((std::max(min, begin) - min) / (max - min)) * width());
