@@ -572,7 +572,10 @@ void MainWindow::closeEvent(QCloseEvent *event) {
   cleanupAutoSaveFile();
   remindSaveChanges();
 
+  installMessageHandler(nullptr);
+  qInstallMessageHandler(nullptr);
   main_win = nullptr;
+
   // save states
   settings.geometry = saveGeometry();
   settings.window_state = saveState();
