@@ -22,12 +22,6 @@
 #include "tools/cabana/streamselector.h"
 #include "tools/cabana/tools/findsignal.h"
 
-static MainWindow *main_win = nullptr;
-void qLogMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
-  if (type == QtDebugMsg) std::cout << msg.toStdString() << std::endl;
-  if (main_win) emit main_win->showMessage(msg, 2000);
-}
-
 MainWindow::MainWindow() : QMainWindow() {
   createDockWindows();
   setCentralWidget(center_widget = new CenterWidget(this));
@@ -45,20 +39,24 @@ MainWindow::MainWindow() : QMainWindow() {
   }
   restoreState(settings.window_state);
 
+  // install handlers
+  static auto static_main_win = this;
   qRegisterMetaType<uint64_t>("uint64_t");
   qRegisterMetaType<SourceSet>("SourceSet");
   qRegisterMetaType<ReplyMsgType>("ReplyMsgType");
-  installMessageHandler([this](ReplyMsgType type, const std::string msg) {
-    // use queued connection to recv the log messages from replay.
-    emit showMessage(QString::fromStdString(msg), 2000);
-  });
-  installDownloadProgressHandler([this](uint64_t cur, uint64_t total, bool success) {
-    emit updateProgressBar(cur, total, success);
+  installDownloadProgressHandler([](uint64_t cur, uint64_t total, bool success) {
+    emit static_main_win->updateProgressBar(cur, total, success);
   });
 
-  main_win = this;
-  qInstallMessageHandler(qLogMessageHandler);
+  qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+    if (type == QtDebugMsg) std::cout << msg.toStdString() << std::endl;
+    emit static_main_win->showMessage(msg, 2000);
+  });
+  installMessageHandler([](ReplyMsgType type, const std::string msg) {
+    qInfo() << QString::fromStdString(msg);
+  });
 
+  // load fingerprints
   QFile json_file(QApplication::applicationDirPath() + "/dbc/car_fingerprint_to_dbc.json");
   if (json_file.open(QIODevice::ReadOnly)) {
     fingerprint_to_dbc = QJsonDocument::fromJson(json_file.readAll());
@@ -87,8 +85,8 @@ void MainWindow::createActions() {
   close_stream_act->setEnabled(false);
   file_menu->addSeparator();
 
-  file_menu->addAction(tr("New DBC File"), [this]() { newFile(); })->setShortcuts(QKeySequence::New);
-  file_menu->addAction(tr("Open DBC File..."), [this]() { openFile(); })->setShortcuts(QKeySequence::Open);
+  file_menu->addAction(tr("New DBC File"), [this]() { newFile(); }, QKeySequence::New);
+  file_menu->addAction(tr("Open DBC File..."), [this]() { openFile(); }, QKeySequence::Open);
 
   manage_dbcs_menu = file_menu->addMenu(tr("Manage &DBC Files"));
 
@@ -114,19 +112,15 @@ void MainWindow::createActions() {
   file_menu->addAction(tr("Load DBC From Clipboard"), [=]() { loadFromClipboard(); });
 
   file_menu->addSeparator();
-  save_dbc = file_menu->addAction(tr("Save DBC..."), this, &MainWindow::save);
-  save_dbc->setShortcuts(QKeySequence::Save);
-
-  save_dbc_as = file_menu->addAction(tr("Save DBC As..."), this, &MainWindow::saveAs);
-  save_dbc_as->setShortcuts(QKeySequence::SaveAs);
-
+  save_dbc = file_menu->addAction(tr("Save DBC..."), this, &MainWindow::save, QKeySequence::Save);
+  save_dbc_as = file_menu->addAction(tr("Save DBC As..."), this, &MainWindow::saveAs, QKeySequence::SaveAs);
   copy_dbc_to_clipboard = file_menu->addAction(tr("Copy DBC To Clipboard"), this, &MainWindow::saveToClipboard);
 
   file_menu->addSeparator();
-  file_menu->addAction(tr("Settings..."), this, &MainWindow::setOption)->setShortcuts(QKeySequence::Preferences);
+  file_menu->addAction(tr("Settings..."), this, &MainWindow::setOption, QKeySequence::Preferences);
 
   file_menu->addSeparator();
-  file_menu->addAction(tr("E&xit"), qApp, &QApplication::closeAllWindows)->setShortcuts(QKeySequence::Quit);
+  file_menu->addAction(tr("E&xit"), qApp, &QApplication::closeAllWindows, QKeySequence::Quit);
 
   // Edit Menu
   QMenu *edit_menu = menuBar()->addMenu(tr("&Edit"));
@@ -160,7 +154,7 @@ void MainWindow::createActions() {
 
   // Help Menu
   QMenu *help_menu = menuBar()->addMenu(tr("&Help"));
-  help_menu->addAction(tr("Help"), this, &MainWindow::onlineHelp)->setShortcuts(QKeySequence::HelpContents);
+  help_menu->addAction(tr("Help"), this, &MainWindow::onlineHelp, QKeySequence::HelpContents);
   help_menu->addAction(tr("About &Qt"), qApp, &QApplication::aboutQt);
 }
 
@@ -304,7 +298,8 @@ void MainWindow::loadFile(const QString &fn, SourceSet s) {
       updateRecentFiles(fn);
       statusBar()->showMessage(tr("DBC File %1 loaded").arg(fn), 2000);
     } else {
-      QMessageBox msg_box(QMessageBox::Warning, tr("Failed to load DBC file"), tr("Failed to parse DBC file %1").arg(fn));
+      QMessageBox msg_box(QMessageBox::Warning, tr("Failed to load DBC file"),
+                          tr("Failed to parse DBC file %1").arg(fn));
       msg_box.setDetailedText(error);
       msg_box.exec();
     }
@@ -572,9 +567,8 @@ void MainWindow::closeEvent(QCloseEvent *event) {
   cleanupAutoSaveFile();
   remindSaveChanges();
 
-  installMessageHandler(nullptr);
+  installDownloadProgressHandler(nullptr);
   qInstallMessageHandler(nullptr);
-  main_win = nullptr;
 
   // save states
   settings.geometry = saveGeometry();
@@ -664,10 +658,8 @@ void HelpOverlay::drawHelpForWidget(QPainter &painter, QWidget *w) {
 }
 
 bool HelpOverlay::eventFilter(QObject *obj, QEvent *event) {
-  if (obj == parentWidget() && event->type() == QEvent::Resize) {
-    QResizeEvent *resize_event = (QResizeEvent *)(event);
-    setGeometry(QRect{QPoint(0, 0), resize_event->size()});
-  }
+  if (obj == parentWidget() && event->type() == QEvent::Resize)
+    setGeometry(QRect{QPoint(0, 0), static_cast<QResizeEvent *>(event)->size()});
   return false;
 }
 
