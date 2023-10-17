@@ -71,7 +71,7 @@ private:
   QDBusObjectPath lteConnectionPath;
 
   void asyncCall(const QString &path, const QString &interface, const QString &method, const QList<QVariant> &args,
-                 std::function<void(const QDBusMessage &)> functor = nullptr);
+                 std::function<void(const QDBusPendingCall &)> functor = nullptr);
   QString getAdapter(const uint = NM_DEVICE_TYPE_WIFI);
   uint getAdapterType(const QDBusObjectPath &path);
   QString getIp4Address();
@@ -99,6 +99,6 @@ private slots:
   void deviceAdded(const QDBusObjectPath &path);
   void connectionRemoved(const QDBusObjectPath &path);
   void newConnection(const QDBusObjectPath &path);
-  void refreshFinished(const QDBusMessage &m);
+  void refreshFinished(const QDBusPendingCall &call);
   void tetheringActivated();
 };

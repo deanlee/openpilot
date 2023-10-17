@@ -56,14 +56,18 @@ WifiManager::WifiManager(QObject *parent) : QObject(parent) {
 }
 
 void WifiManager::asyncCall(const QString &path, const QString &interface, const QString &method, const QList<QVariant> &args,
-                            std::function<void(const QDBusMessage &)> functor) {
+                            std::function<void(const QDBusPendingCall &)> functor) {
   QDBusInterface nm = QDBusInterface(NM_DBUS_SERVICE, path, interface, QDBusConnection::systemBus());
   QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(nm.asyncCallWithArgumentList(method, args));
   QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [f = std::move(functor)](QDBusPendingCallWatcher *w) {
-    QDBusPendingReply<QString, QByteArray> reply = *w;
+    QDBusPendingCall call = *w;
+    QDBusPendingReply r = call;
+    if (r.isError()) {
+      qWarning() << r.error().message();
+    }
     // QDBusMessage m = *w;
     // if (m.)
-    if (f) f(replay.replay());
+    if (f) f(call);
     w->deleteLater();
   });
 }
@@ -97,11 +101,11 @@ void WifiManager::refreshNetworks() {
   asyncCall(adapter, NM_DBUS_INTERFACE_DEVICE_WIRELESS, "GetAllAccessPoints", {}, [this](auto &m) { refreshFinished(m); });
 }
 
-void WifiManager::refreshFinished(const QDBusMessage &m) {
+void WifiManager::refreshFinished(const QDBusPendingCall &w) {
   ipv4_address = getIp4Address();
   seenNetworks.clear();
 
-  const QDBusReply<QList<QDBusObjectPath>> wather_reply = m;
+  const QDBusReply<QList<QDBusObjectPath>> wather_reply = w;
   for (const QDBusObjectPath &path : wather_reply.value()) {
     QDBusReply<QVariantMap> replay = call(path.path(), NM_DBUS_INTERFACE_PROPERTIES, "GetAll", NM_DBUS_INTERFACE_ACCESS_POINT);
     auto properties = replay.value();
