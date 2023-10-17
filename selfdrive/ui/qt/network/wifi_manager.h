@@ -49,7 +49,7 @@ public:
   void requestScan();
   void forgetConnection(const QString &ssid);
   bool isKnownConnection(const QString &ssid);
-  std::optional<QDBusPendingCall> activateWifiConnection(const QString &ssid);
+  void activateWifiConnection(const QString &ssid);
   NetworkType currentNetworkType();
   void updateGsmSettings(bool roaming, QString apn, bool metered);
   void connect(const Network &ssid, const QString &password = {}, const QString &username = {});
@@ -70,6 +70,8 @@ private:
   QString activeAp;
   QDBusObjectPath lteConnectionPath;
 
+  void asyncCall(const QString &path, const QString &interface, const QString &method, const QList<QVariant> &args,
+                 std::function<void(const QDBusMessage &)> functor = nullptr);
   QString getAdapter(const uint = NM_DEVICE_TYPE_WIFI);
   uint getAdapterType(const QDBusObjectPath &path);
   QString getIp4Address();
@@ -97,6 +99,6 @@ private slots:
   void deviceAdded(const QDBusObjectPath &path);
   void connectionRemoved(const QDBusObjectPath &path);
   void newConnection(const QDBusObjectPath &path);
-  void refreshFinished(QDBusPendingCallWatcher *call);
-  void tetheringActivated(QDBusPendingCallWatcher *call);
+  void refreshFinished(const QDBusMessage &m);
+  void tetheringActivated();
 };

@@ -31,12 +31,6 @@ T call(const QString &path, const QString &interface, const QString &method, Arg
   return T();
 }
 
-template <typename... Args>
-QDBusPendingCall asyncCall(const QString &path, const QString &interface, const QString &method, Args &&...args) {
-  QDBusInterface nm = QDBusInterface(NM_DBUS_SERVICE, path, interface, QDBusConnection::systemBus());
-  return nm.asyncCall(method, args...);
-}
-
 bool emptyPath(const QString &path) {
   return path == "" || path == "/";
 }
@@ -59,6 +53,19 @@ WifiManager::WifiManager(QObject *parent) : QObject(parent) {
   }
 
   timer.callOnTimeout(this, &WifiManager::requestScan);
+}
+
+void WifiManager::asyncCall(const QString &path, const QString &interface, const QString &method, const QList<QVariant> &args,
+                            std::function<void(const QDBusMessage &)> functor) {
+  QDBusInterface nm = QDBusInterface(NM_DBUS_SERVICE, path, interface, QDBusConnection::systemBus());
+  QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(nm.asyncCallWithArgumentList(method, args));
+  QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [f = std::move(functor)](QDBusPendingCallWatcher *w) {
+    QDBusPendingReply<QString, QByteArray> reply = *w;
+    // QDBusMessage m = *w;
+    // if (m.)
+    if (f) f(replay.replay());
+    w->deleteLater();
+  });
 }
 
 void WifiManager::setup() {
@@ -87,17 +94,14 @@ void WifiManager::stop() {
 
 void WifiManager::refreshNetworks() {
   if (adapter.isEmpty() || !timer.isActive()) return;
-
-  QDBusPendingCall pending_call = asyncCall(adapter, NM_DBUS_INTERFACE_DEVICE_WIRELESS, "GetAllAccessPoints");
-  QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pending_call);
-  QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, &WifiManager::refreshFinished);
+  asyncCall(adapter, NM_DBUS_INTERFACE_DEVICE_WIRELESS, "GetAllAccessPoints", {}, [this](auto &m) { refreshFinished(m); });
 }
 
-void WifiManager::refreshFinished(QDBusPendingCallWatcher *watcher) {
+void WifiManager::refreshFinished(const QDBusMessage &m) {
   ipv4_address = getIp4Address();
   seenNetworks.clear();
 
-  const QDBusReply<QList<QDBusObjectPath>> wather_reply = *watcher;
+  const QDBusReply<QList<QDBusObjectPath>> wather_reply = m;
   for (const QDBusObjectPath &path : wather_reply.value()) {
     QDBusReply<QVariantMap> replay = call(path.path(), NM_DBUS_INTERFACE_PROPERTIES, "GetAll", NM_DBUS_INTERFACE_ACCESS_POINT);
     auto properties = replay.value();
@@ -122,7 +126,6 @@ void WifiManager::refreshFinished(QDBusPendingCallWatcher *watcher) {
   }
 
   emit refreshSignal();
-  watcher->deleteLater();
 }
 
 QString WifiManager::getIp4Address() {
@@ -204,7 +207,7 @@ void WifiManager::deactivateConnectionBySsid(const QString &ssid) {
 }
 
 void WifiManager::deactivateConnection(const QDBusObjectPath &path) {
-  asyncCall(NM_DBUS_PATH, NM_DBUS_INTERFACE, "DeactivateConnection", QVariant::fromValue(path));
+  asyncCall(NM_DBUS_PATH, NM_DBUS_INTERFACE, "DeactivateConnection", {QVariant::fromValue(path)});
 }
 
 QVector<QDBusObjectPath> WifiManager::getActiveConnections() {
@@ -245,7 +248,7 @@ uint WifiManager::getAdapterType(const QDBusObjectPath &path) {
 
 void WifiManager::requestScan() {
   if (!adapter.isEmpty()) {
-    asyncCall(adapter, NM_DBUS_INTERFACE_DEVICE_WIRELESS, "RequestScan", QVariantMap());
+    asyncCall(adapter, NM_DBUS_INTERFACE_DEVICE_WIRELESS, "RequestScan", {QVariantMap()});
   }
 }
 
@@ -324,19 +327,21 @@ void WifiManager::initConnections() {
   }
 }
 
-std::optional<QDBusPendingCall> WifiManager::activateWifiConnection(const QString &ssid) {
+void  WifiManager::activateWifiConnection(const QString &ssid) {
   const QDBusObjectPath &path = getConnectionPath(ssid);
   if (!path.path().isEmpty()) {
     setCurrentConnecting(ssid);
-    return asyncCall(NM_DBUS_PATH, NM_DBUS_INTERFACE, "ActivateConnection", QVariant::fromValue(path), QVariant::fromValue(QDBusObjectPath(adapter)), QVariant::fromValue(QDBusObjectPath("/")));
+    asyncCall(NM_DBUS_PATH, NM_DBUS_INTERFACE, "ActivateConnection",
+              {QVariant::fromValue(path), QVariant::fromValue(QDBusObjectPath(adapter)), QVariant::fromValue(QDBusObjectPath("/"))},
+              [this, &ssid](auto &m) { if (ssid == tethering_ssid)  tetheringActivated(); });
   }
-  return std::nullopt;
 }
 
 void WifiManager::activateModemConnection(const QDBusObjectPath &path) {
   QString modem = getAdapter(NM_DEVICE_TYPE_MODEM);
   if (!path.path().isEmpty() && !modem.isEmpty()) {
-    asyncCall(NM_DBUS_PATH, NM_DBUS_INTERFACE, "ActivateConnection", QVariant::fromValue(path), QVariant::fromValue(QDBusObjectPath(modem)), QVariant::fromValue(QDBusObjectPath("/")));
+    asyncCall(NM_DBUS_PATH, NM_DBUS_INTERFACE, "ActivateConnection",
+              {QVariant::fromValue(path), QVariant::fromValue(QDBusObjectPath(modem)), QVariant::fromValue(QDBusObjectPath("/"))});
   }
 }
 
@@ -429,7 +434,7 @@ void WifiManager::addTetheringConnection() {
   call(NM_DBUS_PATH_SETTINGS, NM_DBUS_INTERFACE_SETTINGS, "AddConnection", QVariant::fromValue(connection));
 }
 
-void WifiManager::tetheringActivated(QDBusPendingCallWatcher *call) {
+void WifiManager::tetheringActivated() {
   int prime_type = uiState()->primeType();
   int ipv4_forward = (prime_type == PrimeType::NONE || prime_type == PrimeType::LITE);
 
@@ -439,7 +444,6 @@ void WifiManager::tetheringActivated(QDBusPendingCallWatcher *call) {
       std::system("sudo sysctl net.ipv4.ip_forward=0");
     });
   }
-  call->deleteLater();
 }
 
 void WifiManager::setTetheringEnabled(bool enabled) {
@@ -447,14 +451,7 @@ void WifiManager::setTetheringEnabled(bool enabled) {
     if (!isKnownConnection(tethering_ssid)) {
       addTetheringConnection();
     }
-
-    auto pending_call = activateWifiConnection(tethering_ssid);
-
-    if (pending_call) {
-      QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(*pending_call);
-      QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, &WifiManager::tetheringActivated);
-    }
-
+    activateWifiConnection(tethering_ssid);
   } else {
     deactivateConnectionBySsid(tethering_ssid);
   }
