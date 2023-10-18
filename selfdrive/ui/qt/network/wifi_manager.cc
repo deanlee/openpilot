@@ -59,15 +59,13 @@ void WifiManager::asyncCall(const QString &path, const QString &interface, const
                             std::function<void(const QDBusPendingCall &)> functor) {
   QDBusInterface nm = QDBusInterface(NM_DBUS_SERVICE, path, interface, QDBusConnection::systemBus());
   QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(nm.asyncCallWithArgumentList(method, args));
-  QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [f = std::move(functor)](QDBusPendingCallWatcher *w) {
+  QObject::connect(watcher, &QDBusPendingCallWatcher::finished, this, [method, f = std::move(functor)](QDBusPendingCallWatcher *w) {
     QDBusPendingCall call = *w;
-    QDBusPendingReply r = call;
-    if (r.isError()) {
-      qWarning() << r.error().message();
+    if (call.isError()) {
+      qWarning() << method << ":" << call.error().message();
+    } else if (f) {
+      f(call);
     }
-    // QDBusMessage m = *w;
-    // if (m.)
-    if (f) f(call);
     w->deleteLater();
   });
 }
