@@ -182,14 +182,14 @@ void MainWindow::createDockWidgets() {
   charts_layout->addWidget(charts_widget = new ChartsWidget(this));
 
   video_splitter = new QSplitter(Qt::Vertical, this);
-  video_splitter->addWidget(video_widget = new VideoWidget(this));
+  video_splitter->addWidget(controls_view = new ControlsView(this));
   video_splitter->addWidget(charts_container);
   video_splitter->setStretchFactor(1, 1);
   video_splitter->restoreState(settings.video_splitter_state);
   video_splitter->handle(1)->setEnabled(!can->liveStreaming());
   video_dock->setWidget(video_splitter);
 
-  QObject::connect(charts_widget, &ChartsWidget::zoomChanged, video_widget, &VideoWidget::zoomChanged);
+  QObject::connect(charts_widget, &ChartsWidget::zoomChanged, controls_view, &ControlsView::zoomChanged);
   QObject::connect(messages_widget, &MessagesWidget::titleChanged, messages_dock, &QDockWidget::setWindowTitle);
 }
 

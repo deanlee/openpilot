@@ -25,11 +25,11 @@ static const QColor timeline_colors[] = {
   [(int)TimelineType::AlertCritical] = QColor(199, 0, 57),
 };
 
-VideoWidget::VideoWidget(QWidget *parent) : QFrame(parent) {
+ControlsView::ControlsView(QWidget *parent) : QFrame(parent) {
   setFrameStyle(QFrame::StyledPanel | QFrame::Plain);
   auto main_layout = new QVBoxLayout(this);
   if (!can->liveStreaming()) {
-    main_layout->addWidget(createCameraWidget());
+    main_layout->addWidget(video = new VideoWidget(this));
   }
 
   // btn controls
@@ -67,9 +67,9 @@ VideoWidget::VideoWidget(QWidget *parent) : QFrame(parent) {
   setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 
   QObject::connect(play_btn, &QToolButton::clicked, []() { can->pause(!can->isPaused()); });
-  QObject::connect(can, &AbstractStream::paused, this, &VideoWidget::updatePlayBtnState);
-  QObject::connect(can, &AbstractStream::resume, this, &VideoWidget::updatePlayBtnState);
-  QObject::connect(&settings, &Settings::changed, this, &VideoWidget::updatePlayBtnState);
+  QObject::connect(can, &AbstractStream::paused, this, &ControlsView::updatePlayBtnState);
+  QObject::connect(can, &AbstractStream::resume, this, &ControlsView::updatePlayBtnState);
+  QObject::connect(&settings, &Settings::changed, this, &ControlsView::updatePlayBtnState);
   updatePlayBtnState();
 
   setWhatsThis(tr(R"(
@@ -94,9 +94,23 @@ VideoWidget::VideoWidget(QWidget *parent) : QFrame(parent) {
           timeline_colors[(int)TimelineType::AlertCritical].name()));
 }
 
-QWidget *VideoWidget::createCameraWidget() {
-  QWidget *w = new QWidget(this);
-  QVBoxLayout *l = new QVBoxLayout(w);
+void ControlsView::updatePlayBtnState() {
+  play_btn->setIcon(utils::icon(can->isPaused() ? "play" : "pause"));
+  play_btn->setToolTip(can->isPaused() ? tr("Play") : tr("Pause"));
+}
+
+void ControlsView::zoomChanged(double min, double max, bool is_zoomed) {
+  if (can->liveStreaming()) {
+    skip_to_end_btn->setEnabled(!is_zoomed);
+  } else if (video) {
+    video->zoomChanged(min, max, is_zoomed);
+  }
+}
+
+// VideoWidget
+
+VideoWidget::VideoWidget(QWidget *parent) : thumbnail_label(parent), QWidget(parent) {
+  QVBoxLayout *l = new QVBoxLayout(this);
   l->setContentsMargins(0, 0, 0, 0);
 
   QStackedLayout *stacked = new QStackedLayout();
@@ -104,7 +118,8 @@ QWidget *VideoWidget::createCameraWidget() {
   stacked->addWidget(cam_widget = new CameraWidget("camerad", qobject_cast<ReplayStream*>(can)->visionStreamType(), false));
   cam_widget->setMinimumHeight(MIN_VIDEO_HEIGHT);
   cam_widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding);
-  stacked->addWidget(alert_label = new InfoLabel(this));
+  stacked->addWidget(alert_label = new InfoLabel(parent));
+  alert_label->raise();
   l->addLayout(stacked);
 
   // slider controls
@@ -116,13 +131,14 @@ QWidget *VideoWidget::createCameraWidget() {
   slider_layout->addWidget(end_time_label = new QLabel(this));
   l->addLayout(slider_layout);
 
+  slider->installEventFilter(this);
   setMaximumTime(can->totalSeconds());
   QObject::connect(slider, &QSlider::sliderReleased, [this]() { can->seekTo(slider->currentSecond()); });
   QObject::connect(slider, &QSlider::valueChanged, [=](int value) { time_label->setText(utils::formatSeconds(slider->currentSecond())); });
-  QObject::connect(slider, &Slider::updateMaximumTime, this, &VideoWidget::setMaximumTime);
+  QObject::connect(this, &VideoWidget::updateMaximumTime, this, &VideoWidget::setMaximumTime);
   QObject::connect(cam_widget, &CameraWidget::clicked, []() { can->pause(!can->isPaused()); });
   QObject::connect(can, &AbstractStream::msgsReceived, this, &VideoWidget::updateState);
-  return w;
+  QObject::connect(qobject_cast<ReplayStream*>(can), &ReplayStream::qLogLoaded, this, &VideoWidget::parseQLog);
 }
 
 void VideoWidget::setMaximumTime(double sec) {
@@ -132,10 +148,6 @@ void VideoWidget::setMaximumTime(double sec) {
 
 void VideoWidget::zoomChanged(double min, double max, bool is_zoomed) {
   zoomed = is_zoomed;
-  if (can->liveStreaming()) {
-    skip_to_end_btn->setEnabled(!is_zoomed);
-    return;
-  }
   zoomed ? setTimeRange(min, max) : setTimeRange(0, maximum_time);
 }
 
@@ -147,34 +159,45 @@ void VideoWidget::setTimeRange(double min, double max) {
 void VideoWidget::updateState() {
   if (!slider->isSliderDown())
     slider->setCurrentSecond(can->currentSec());
-  alert_label->showAlert(slider->alertInfo(can->currentSec()));
+  alert_label->showAlert(alertInfo(can->currentSec()));
 }
 
-void VideoWidget::updatePlayBtnState() {
-  play_btn->setIcon(utils::icon(can->isPaused() ? "play" : "pause"));
-  play_btn->setToolTip(can->isPaused() ? tr("Play") : tr("Pause"));
+bool VideoWidget::eventFilter(QObject *obj, QEvent *event) {
+  if (obj == slider) {
+    switch (event->type()) {
+      case QEvent::WindowActivate:
+      case QEvent::WindowDeactivate:
+      case QEvent::FocusIn:
+      case QEvent::FocusOut:
+      case QEvent::Leave:
+        thumbnail_label.hide();
+        break;
+      case QEvent::MouseMove: {
+        int pos = std::clamp(static_cast<QMouseEvent*>(event)->pos().x(), 0, slider->width());
+        double seconds = (slider->minimum() + pos * ((slider->maximum() - slider->minimum()) / (double)slider->width())) / slider->factor;
+        showTip(seconds);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  return false;
 }
 
-// Slider
-
-Slider::Slider(QWidget *parent) : thumbnail_label(parent), QSlider(Qt::Horizontal, parent) {
-  setMouseTracking(true);
-  QObject::connect(qobject_cast<ReplayStream*>(can), &ReplayStream::qLogLoaded, this, &Slider::parseQLog);
-}
-
-AlertInfo Slider::alertInfo(double seconds) {
+AlertInfo VideoWidget::alertInfo(double seconds) {
   uint64_t mono_time = can->toMonoTime(seconds);
   auto alert_it = alerts.lower_bound(mono_time);
   bool has_alert = (alert_it != alerts.end()) && ((alert_it->first - mono_time) <= 1e8);
   return has_alert ? alert_it->second : AlertInfo{};
 }
 
-QPixmap Slider::thumbnail(double seconds)  {
+QPixmap VideoWidget::thumbnail(double seconds)  {
   auto it = thumbnails.lowerBound(can->toMonoTime(seconds));
   return it != thumbnails.end() ? it.value() : QPixmap();
 }
 
-void Slider::parseQLog(int segnum, std::shared_ptr<LogReader> qlog) {
+void VideoWidget::parseQLog(int segnum, std::shared_ptr<LogReader> qlog) {
   const auto &segments = qobject_cast<ReplayStream*>(can)->route()->segments();
   if (segments.size() > 0 && segnum == segments.rbegin()->first && !qlog->events.empty()) {
     emit updateMaximumTime(can->toSeconds(qlog->events.back()->mono_time));
@@ -199,7 +222,13 @@ void Slider::parseQLog(int segnum, std::shared_ptr<LogReader> qlog) {
       }
     }
   });
-  update();
+  slider->update();
+}
+
+// Slider
+
+Slider::Slider(QWidget *parent) : QSlider(Qt::Horizontal, parent) {
+  setMouseTracking(true);
 }
 
 void Slider::paintEvent(QPaintEvent *ev) {
@@ -234,33 +263,16 @@ void Slider::mousePressEvent(QMouseEvent *e) {
   }
 }
 
-void Slider::mouseMoveEvent(QMouseEvent *e) {
-  int pos = std::clamp(e->pos().x(), 0, width());
-  double seconds = (minimum() + pos * ((maximum() - minimum()) / (double)width())) / factor;
-  QPixmap thumb = thumbnail(seconds);
+void VideoWidget::showTip(double sec) {
+  QPixmap thumb = thumbnail(sec);
   if (!thumb.isNull()) {
+    int pos = slider->rect().width() * ((sec * slider->factor) / slider->maximum());
     int x = std::clamp(pos - thumb.width() / 2, THUMBNAIL_MARGIN, rect().right() - thumb.width() - THUMBNAIL_MARGIN);
     int y = -thumb.height();
-    thumbnail_label.showPixmap(mapToParent({x, y}), utils::formatSeconds(seconds), thumb, alertInfo(seconds));
+    thumbnail_label.showPixmap(slider->mapToParent({x, y}), utils::formatSeconds(sec), thumb, alertInfo(sec));
   } else {
     thumbnail_label.hide();
   }
-  QSlider::mouseMoveEvent(e);
-}
-
-bool Slider::event(QEvent *event) {
-  switch (event->type()) {
-    case QEvent::WindowActivate:
-    case QEvent::WindowDeactivate:
-    case QEvent::FocusIn:
-    case QEvent::FocusOut:
-    case QEvent::Leave:
-      thumbnail_label.hide();
-      break;
-    default:
-      break;
-  }
-  return QSlider::event(event);
 }
 
 // InfoLabel

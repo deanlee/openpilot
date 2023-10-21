@@ -72,7 +72,7 @@ protected:
   void createDockWidgets();
   void eventsMerged();
 
-  VideoWidget *video_widget = nullptr;
+  ControlsView *controls_view = nullptr;
   QDockWidget *video_dock;
   QDockWidget *messages_dock;
   MessagesWidget *messages_widget = nullptr;
