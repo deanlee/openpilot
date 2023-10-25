@@ -49,7 +49,6 @@ void SocketCanStream::streamThread() {
     auto evt = msg.initEvent();
     auto canData = evt.initCan(frames.size());
 
-
     for (uint i = 0; i < frames.size(); i++) {
       if (!frames[i].isValid()) continue;
 
@@ -60,8 +59,7 @@ void SocketCanStream::streamThread() {
       canData[i].setDat(kj::arrayPtr((uint8_t*)payload.data(), payload.size()));
     }
 
-    auto bytes = msg.toBytes();
-    handleEvent((const char*)bytes.begin(), bytes.size());
+    handleEvent(capnp::messageToFlatArray(msg));
   }
 }
 

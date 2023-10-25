@@ -2,7 +2,6 @@
 
 #include <array>
 #include <atomic>
-#include <deque>
 #include <memory>
 #include <tuple>
 #include <unordered_map>
@@ -52,6 +51,8 @@ struct BusConfig {
   bool can_fd = false;
 };
 
+typedef std::unordered_map<MessageId, std::vector<const CanEvent *>> CanEventsMap;
+
 class AbstractStream : public QObject {
   Q_OBJECT
 
@@ -92,7 +93,8 @@ public:
   SourceSet sources;
 
 protected:
-  void mergeEvents(std::vector<Event *>::const_iterator first, std::vector<Event *>::const_iterator last);
+  void mergeEvents(const std::vector<const CanEvent *> &events);
+  const CanEvent *newEvent(uint64_t mono_time, const cereal::CanData::Reader &c);
   bool postEvents();
   uint64_t lastEventMonoTime() const { return lastest_event_ts; }
   void updateEvent(const MessageId &id, double sec, const uint8_t *data, uint8_t size);
@@ -104,7 +106,7 @@ protected:
   std::atomic<bool> processing = false;
   std::unique_ptr<QHash<MessageId, CanData>> new_msgs;
   QHash<MessageId, CanData> all_msgs;
-  std::unordered_map<MessageId, std::vector<const CanEvent *>> events_;
+  CanEventsMap events_;
   std::vector<const CanEvent *> all_events_;
   std::unique_ptr<MonotonicBuffer> event_buffer;
   std::mutex mutex;

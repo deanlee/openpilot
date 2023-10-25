@@ -97,9 +97,7 @@ void PandaStream::streamThread() {
       canData[i].setSrc(raw_can_data[i].src);
     }
 
-    auto bytes = msg.toBytes();
-    handleEvent((const char*)bytes.begin(), bytes.size());
-
+    handleEvent(capnp::messageToFlatArray(msg));
     panda->send_heartbeat(false);
   }
 }

@@ -138,43 +138,38 @@ void AbstractStream::updateLastMsgsTo(double sec) {
   });
 }
 
-void AbstractStream::mergeEvents(std::vector<Event *>::const_iterator first, std::vector<Event *>::const_iterator last) {
-  static std::unordered_map<MessageId, std::deque<const CanEvent *>> new_events_map;
-  static  std::vector<const CanEvent *> new_events;
-  new_events_map.clear();
-  new_events.clear();
+const CanEvent *AbstractStream::newEvent(uint64_t mono_time, const cereal::CanData::Reader &c) {
+  auto dat = c.getDat();
+  CanEvent *e = (CanEvent *)event_buffer->allocate(sizeof(CanEvent) + sizeof(uint8_t) * dat.size());
+  e->src = c.getSrc();
+  e->address = c.getAddress();
+  e->mono_time = mono_time;
+  e->size = dat.size();
+  memcpy(e->dat, (uint8_t *)dat.begin(), e->size);
+  return e;
+}
 
-  for (auto it = first; it != last; ++it) {
-    if ((*it)->which == cereal::Event::Which::CAN) {
-      uint64_t ts = (*it)->mono_time;
-      for (const auto &c : (*it)->event.getCan()) {
-        auto dat = c.getDat();
-        CanEvent *e = (CanEvent *)event_buffer->allocate(sizeof(CanEvent) + sizeof(uint8_t) * dat.size());
-        e->src = c.getSrc();
-        e->address = c.getAddress();
-        e->mono_time = ts;
-        e->size = dat.size();
-        memcpy(e->dat, (uint8_t *)dat.begin(), e->size);
+void AbstractStream::mergeEvents(const std::vector<const CanEvent *> &events) {
+  static CanEventsMap events_map;
+  std::for_each(events_map.begin(), events_map.end(), [](auto &e) { e.second.clear(); });
+  for (auto e : events) {
+    events_map[{.source = e->src, .address = e->address}].push_back(e);
+  }
 
-        new_events_map[{.source = e->src, .address = e->address}].push_back(e);
-        new_events.push_back(e);
+  if (!events.empty()) {
+    for (auto &[id, new_e] : events_map) {
+      if (!new_e.empty()) {
+        auto &e = events_[id];
+        auto insert_pos = std::upper_bound(e.begin(), e.end(), new_e.front()->mono_time, CompareCanEvent());
+        e.insert(insert_pos, new_e.begin(), new_e.end());
       }
     }
-  }
+    auto insert_pos = std::upper_bound(all_events_.begin(), all_events_.end(), events.front()->mono_time, CompareCanEvent());
+    all_events_.insert(insert_pos, events.begin(), events.end());
 
-  for (auto &[id, new_e] : new_events_map) {
-    auto &e = events_[id];
-    auto insert_pos = std::upper_bound(e.cbegin(), e.cend(), new_e.front()->mono_time, CompareCanEvent());
-    e.insert(insert_pos, new_e.cbegin(), new_e.cend());
+    emit eventsMerged();
   }
-
-  if (!new_events.empty()) {
-    auto insert_pos = std::upper_bound(all_events_.cbegin(), all_events_.cend(), new_events.front()->mono_time, CompareCanEvent());
-    all_events_.insert(insert_pos, new_events.cbegin(), new_events.cend());
-  }
-
   lastest_event_ts = all_events_.empty() ? 0 : all_events_.back()->mono_time;
-  emit eventsMerged();
 }
 
 // CanData
