@@ -28,20 +28,22 @@ RouteIdentifier Route::parseRoute(const QString &str) {
   return {.dongle_id = list[1], .timestamp = list[3], .segment_id = list[5].toInt(), .str = list[1] + "|" + list[3]};
 }
 
-bool Route::load() {
+bool Route::load(QString *error) {
   if (route_.str.isEmpty() || (data_dir_.isEmpty() && route_.dongle_id.isEmpty())) {
+    if (error) *error = "invalid route format";
     rInfo("invalid route format");
     return false;
   }
   date_time_ = QDateTime::fromString(route_.timestamp, "yyyy-MM-dd--HH-mm-ss");
-  return data_dir_.isEmpty() ? loadFromServer() : loadFromLocal();
+  return data_dir_.isEmpty() ? loadFromServer(error) : loadFromLocal(error);
 }
 
-bool Route::loadFromServer() {
+bool Route::loadFromServer(QString *error_str) {
   QEventLoop loop;
   HttpRequest http(nullptr, !Hardware::PC());
   QObject::connect(&http, &HttpRequest::requestDone, [&](const QString &json, bool success, QNetworkReply::NetworkError error) {
     if (error == QNetworkReply::ContentAccessDenied || error == QNetworkReply::AuthenticationRequiredError) {
+      if (error_str) *error_str = "Unauthorized. Authenticate with tools/lib/auth.py";
       qWarning() << ">>  Unauthorized. Authenticate with tools/lib/auth.py  <<";
     }
 
@@ -64,7 +66,7 @@ bool Route::loadFromJson(const QString &json) {
   return !segments_.empty();
 }
 
-bool Route::loadFromLocal() {
+bool Route::loadFromLocal(QString *error_str) {
   QDir log_dir(data_dir_);
   for (const auto &folder : log_dir.entryList(QDir::Dirs | QDir::NoDot | QDir::NoDotDot, QDir::NoSort)) {
     int pos = folder.lastIndexOf("--");

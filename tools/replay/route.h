@@ -31,7 +31,7 @@ struct SegmentFile {
 class Route {
 public:
   Route(const QString &route, const QString &data_dir = {});
-  bool load();
+  bool load(QString *error = nullptr);
   inline const QString &name() const { return route_.str; }
   inline const QDateTime datetime() const { return date_time_; }
   inline const QString &dir() const { return data_dir_; }
@@ -41,8 +41,8 @@ public:
   static RouteIdentifier parseRoute(const QString &str);
 
 protected:
-  bool loadFromLocal();
-  bool loadFromServer();
+  bool loadFromLocal(QString *error_str);
+  bool loadFromServer(QString *error_str);
   bool loadFromJson(const QString &json);
   void addFileToSegment(int seg_num, const QString &file);
   RouteIdentifier route_ = {};
