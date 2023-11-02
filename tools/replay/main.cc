@@ -68,7 +68,11 @@ int main(int argc, char *argv[]) {
   if (!parser.value("c").isEmpty()) {
     replay->setSegmentCacheLimit(parser.value("c").toInt());
   }
-  if (!replay->load()) {
+
+  QString error;
+  if (!replay->load(&error)) {
+    qCritical() << "Failed to load route" << route
+                << ": " << error;
     return 0;
   }
 
