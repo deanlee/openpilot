@@ -74,10 +74,13 @@ void Replay::stop() {
   rInfo("shutdown: done");
 }
 
-bool Replay::load() {
-  if (!route_->load()) {
+bool Replay::load(QString *error) {
+  QString err_str;
+  if (!route_->load(&err_str)) {
     qCritical() << "failed to load route" << route_->name()
-                << "from" << (route_->dir().isEmpty() ? "server" : route_->dir());
+                << "from" << (route_->dir().isEmpty() ? "server" : route_->dir())
+                << ": " << err_str;
+    if (error) *error = err_str;
     return false;
   }
 

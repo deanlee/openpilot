@@ -31,7 +31,6 @@ RouteIdentifier Route::parseRoute(const QString &str) {
 bool Route::load(QString *error) {
   if (route_.str.isEmpty() || (data_dir_.isEmpty() && route_.dongle_id.isEmpty())) {
     if (error) *error = "invalid route format";
-    rInfo("invalid route format");
     return false;
   }
   date_time_ = QDateTime::fromString(route_.timestamp, "yyyy-MM-dd--HH-mm-ss");
@@ -44,7 +43,6 @@ bool Route::loadFromServer(QString *error_str) {
   QObject::connect(&http, &HttpRequest::requestDone, [&](const QString &json, bool success, QNetworkReply::NetworkError error) {
     if (error == QNetworkReply::ContentAccessDenied || error == QNetworkReply::AuthenticationRequiredError) {
       if (error_str) *error_str = "Unauthorized. Authenticate with tools/lib/auth.py";
-      qWarning() << ">>  Unauthorized. Authenticate with tools/lib/auth.py  <<";
     }
 
     loop.exit(success ? loadFromJson(json) : 0);
