@@ -120,7 +120,7 @@ void MainWindow::createActions() {
   file_menu->addAction(tr("Settings..."), this, &MainWindow::setOption, QKeySequence::Preferences);
 
   file_menu->addSeparator();
-  file_menu->addAction(tr("E&xit"), qApp, &QApplication::closeAllWindows, QKeySequence::Quit);
+  file_menu->addAction(tr("E&xit"), this, &QMainWindow::close, QKeySequence::Quit);
 
   // Edit Menu
   QMenu *edit_menu = menuBar()->addMenu(tr("&Edit"));
