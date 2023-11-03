@@ -139,7 +139,7 @@ UnixSignalHandler::UnixSignalHandler(QObject *parent) : QObject(nullptr) {
   }
 
   sn = new QSocketNotifier(sig_fd[1], QSocketNotifier::Read, this);
-  connect(sn, &QSocketNotifier::activated, this, &UnixSignalHandler::handleSigTerm);
+  connect(sn, &QSocketNotifier::activated, this, &UnixSignalHandler::handleSigTerm, Qt::QueuedConnection);
   std::signal(SIGINT, signalHandler);
   std::signal(SIGTERM, UnixSignalHandler::signalHandler);
 }
@@ -159,8 +159,7 @@ void UnixSignalHandler::handleSigTerm() {
   ::read(sig_fd[1], &tmp, sizeof(tmp));
 
   printf("\nexiting...\n");
-  qApp->closeAllWindows();
-  qApp->exit();
+  QApplication::quit();
 }
 
 // NameValidator
