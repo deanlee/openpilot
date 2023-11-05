@@ -7,6 +7,7 @@ class ScrollView : public QScrollArea {
 
 public:
   explicit ScrollView(QWidget *w = nullptr, QWidget *parent = nullptr);
+  ~ScrollView();
 protected:
   void hideEvent(QHideEvent *e) override;
 };
