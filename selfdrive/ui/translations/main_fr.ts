@@ -278,7 +278,14 @@
     <name>DriverViewScene</name>
     <message>
         <source>camera starting</source>
-        <translation>démarrage de la caméra</translation>
+        <translation type="vanished">démarrage de la caméra</translation>
+    </message>
+</context>
+<context>
+    <name>DriverViewWindow</name>
+    <message>
+        <source>camera starting</source>
+        <translation type="unfinished">démarrage de la caméra</translation>
     </message>
 </context>
 <context>

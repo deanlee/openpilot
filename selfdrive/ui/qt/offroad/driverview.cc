@@ -48,10 +48,8 @@ void DriverViewWindow::paintGL() {
 
   const auto &sm = *(uiState()->sm);
   cereal::DriverStateV2::Reader driver_state = sm["driverStateV2"].getDriverStateV2();
-  cereal::DriverStateV2::DriverData::Reader driver_data;
-
   bool is_rhd = driver_state.getWheelOnRightProb() > 0.5;
-  driver_data = is_rhd ? driver_state.getRightDriverData() : driver_state.getLeftDriverData();
+  auto driver_data = is_rhd ? driver_state.getRightDriverData() : driver_state.getLeftDriverData();
 
   bool face_detected = driver_data.getFaceProb() > 0.7;
   if (face_detected) {

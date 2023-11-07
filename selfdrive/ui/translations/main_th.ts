@@ -278,7 +278,14 @@
     <name>DriverViewScene</name>
     <message>
         <source>camera starting</source>
-        <translation>กำลังเปิดกล้อง</translation>
+        <translation type="vanished">กำลังเปิดกล้อง</translation>
+    </message>
+</context>
+<context>
+    <name>DriverViewWindow</name>
+    <message>
+        <source>camera starting</source>
+        <translation type="unfinished">กำลังเปิดกล้อง</translation>
     </message>
 </context>
 <context>
