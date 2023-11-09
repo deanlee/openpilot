@@ -233,30 +233,17 @@ void Replay::segmentLoadFinished(bool success) {
 }
 
 void Replay::queueSegment() {
-  if (segments_.empty()) return;
+  auto cur = segments_.lower_bound(current_segment_.load());
+  if (cur == segments_.end()) return;
 
-  SegmentMap::iterator begin, cur;
-  begin = cur = segments_.lower_bound(std::min(current_segment_.load(), segments_.rbegin()->first));
-  int distance = std::max<int>(std::ceil(segment_cache_limit / 2.0) - 1, segment_cache_limit - std::distance(cur, segments_.end()));
-  for (int i = 0; begin != segments_.begin() && i < distance; ++i) {
-    --begin;
-  }
-  auto end = begin;
-  for (int i = 0; end != segments_.end() && i < segment_cache_limit; ++i) {
-    ++end;
-  }
-
+  auto begin = std::prev(cur, std::min<int>(segment_cache_limit / 2, std::distance(segments_.begin(), cur)));
+  auto end = std::next(begin, std::min<int>(segment_cache_limit, segments_.size()));
   // load one segment at a time
-  for (auto it = cur; it != end; ++it) {
-    auto &[n, seg] = *it;
-    if ((seg && !seg->isLoaded()) || !seg) {
-      if (!seg) {
-        rDebug("loading segment %d...", n);
-        seg = std::make_unique<Segment>(n, route_->at(n), flags_, allow_list);
-        QObject::connect(seg.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
-      }
-      break;
-    }
+  auto it = std::find_if(cur, end, [](auto &it) { return !it.second || !it.second->isLoaded(); });
+  if (it != end && !it->second) {
+    rDebug("loading segment %d...", it->first);
+    it->second = std::make_unique<Segment>(it->first, route_->at(it->first), flags_, allow_list);
+    QObject::connect(it->second.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
   }
 
   mergeSegments(begin, end);
@@ -425,16 +412,13 @@ void Replay::stream() {
           evt_start_ts = cur_mono_time_;
           loop_start_ts = nanos_since_boot();
           prev_replay_speed = speed_;
-        } else if (behind_ns > 0 && !hasFlag(REPLAY_FLAG_FULL_SPEED)) {
+        } else if (behind_ns > 0) {
           precise_nano_sleep(behind_ns);
         }
 
         if (!evt->frame) {
           publishMessage(evt);
         } else if (camera_server_) {
-          if (hasFlag(REPLAY_FLAG_FULL_SPEED)) {
-            camera_server_->waitForSent();
-          }
           publishFrame(evt);
         }
       }

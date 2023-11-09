@@ -1,7 +1,6 @@
 #include "tools/replay/camera.h"
 
 #include <cassert>
-#include <tuple>
 
 #include "third_party/linux/include/msm_media_info.h"
 #include "tools/replay/util.h"
@@ -79,7 +78,9 @@ void CameraServer::cameraThread(Camera &cam) {
     cam.cached_seg = eidx.getSegmentNum();
     cam.cached_buf = read_frame(fr, cam.cached_id);
 
-    --publishing_;
+    std::unique_lock lk(mutex);
+    cam.publishing = false;
+    cv.notify_all();
   }
 }
 
@@ -92,12 +93,15 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const cereal::Enc
     startVipcServer();
   }
 
-  ++publishing_;
+  std::unique_lock lk(mutex);
+  cv.wait(lk, [&cam] { return cam.publishing == false; });
+  cam.publishing = true;
   cam.queue.push({fr, eidx});
 }
 
 void CameraServer::waitForSent() {
-  while (publishing_ > 0) {
-    std::this_thread::yield();
-  }
+  std::unique_lock lk(mutex);
+  cv.wait(lk, [this]() {
+    return std::all_of(std::begin(cameras_), std::end(cameras_), [](auto &c) { return !c.publishing; });
+  });
 }

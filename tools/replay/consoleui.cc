@@ -332,11 +332,11 @@ void ConsoleUI::handleKey(char c) {
     getch_timer.start(1000, this);
 
   } else if (c == 'x') {
-    if (replay->hasFlag(REPLAY_FLAG_FULL_SPEED)) {
-      replay->removeFlag(REPLAY_FLAG_FULL_SPEED);
+    if (replay->getSpeed() == 1) {
+      replay->setSpeed(5);
       rWarning("replay at normal speed");
     } else {
-      replay->addFlag(REPLAY_FLAG_FULL_SPEED);
+      replay->setSpeed(1);
       rWarning("replay at full speed");
     }
   } else if (c == 'e') {
