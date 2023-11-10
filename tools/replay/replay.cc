@@ -239,16 +239,9 @@ void Replay::segmentLoadFinished(bool success) {
 void Replay::queueSegment() {
   if (segments_.empty()) return;
 
-  SegmentMap::iterator begin, cur;
-  begin = cur = segments_.lower_bound(std::min(current_segment_.load(), segments_.rbegin()->first));
-  int distance = std::max<int>(std::ceil(segment_cache_limit / 2.0) - 1, segment_cache_limit - std::distance(cur, segments_.end()));
-  for (int i = 0; begin != segments_.begin() && i < distance; ++i) {
-    --begin;
-  }
-  auto end = begin;
-  for (int i = 0; end != segments_.end() && i < segment_cache_limit; ++i) {
-    ++end;
-  }
+  auto cur = segments_.lower_bound(std::min(current_segment_.load(), segments_.rbegin()->first));
+  auto end = std::next(cur, std::min(segment_cache_limit / 2.0, std::distance(cur, segments_.end())));
+  auto begin = std::prev(end - std::min(segment_cache_limit, segments_.size()));
 
   // load one segment at a time
   for (auto it = cur; it != end; ++it) {
