@@ -247,8 +247,8 @@ void Replay::queueSegment() {
                          [](auto &it) { return (it.second && !it.second->isLoaded()) || !it.second; });
   if (it != end && !it->second) {
     rDebug("loading segment %d...", n);
-    seg = std::make_unique<Segment>(n, route_->at(n), flags_, allow_list);
-    QObject::connect(seg.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
+    it->second = std::make_unique<Segment>(n, route_->at(n), flags_, allow_list);
+    QObject::connect(it->second.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
   }
 
   mergeSegments(begin, end);
