@@ -241,13 +241,15 @@ void Replay::queueSegment() {
 
   auto cur = segments_.lower_bound(std::min(current_segment_.load(), segments_.rbegin()->first));
   auto end = std::next(cur, std::min<int>(segment_cache_limit / 2 + 1, std::distance(cur, segments_.end())));
+  assert(end == segments_.end());
   auto begin = std::prev(end, std::min<int>(segment_cache_limit, segments_.size()));
+  assert(begin == segments_.begin());
   // load one segment at a time
   auto it = std::find_if(cur, end,
                          [](auto &it) { return (it.second && !it.second->isLoaded()) || !it.second; });
   if (it != end && !it->second) {
-    rDebug("loading segment %d...", n);
-    it->second = std::make_unique<Segment>(n, route_->at(n), flags_, allow_list);
+    rDebug("loading segment %d...", it->first);
+    it->second = std::make_unique<Segment>(it->first, route_->at(it->first), flags_, allow_list);
     QObject::connect(it->second.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
   }
 
