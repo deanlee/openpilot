@@ -241,8 +241,8 @@ void Replay::queueSegment() {
   if (cur == segments_.end()) {
     return;
   }
-  auto end = std::next(cur, std::min<int>(segment_cache_limit / 2 + 1, std::distance(cur, segments_.end())));
-  auto begin = std::prev(end, std::min<int>(segment_cache_limit, segments_.size()));
+  auto begin = std::prev(cur, std::min(segment_cache_limit / 2, std::distance(segments_.begin(), cur)));
+  auto end = std::next(begin, std::min(segment_cache_limit, segments_.size()));
   // load one segment at a time
   auto it = std::find_if(cur, end, [](auto &it) { return (it.second && !it.second->isLoaded()) || !it.second; });
   if (it != end && !it->second) {
