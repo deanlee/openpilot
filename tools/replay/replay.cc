@@ -109,15 +109,15 @@ void Replay::updateEvents(const std::function<bool()> &lambda) {
 
 void Replay::seekTo(double seconds, bool relative) {
   seconds = relative ? seconds + currentSeconds() : seconds;
-  seconds = std::max(0.f, seconds);
-  int seg = (int)seconds / 60;
-  if (segments_.find(seg) == segments_.end()) {
-    rWarning("can't seek to %d s segment %d is invalid", seconds, seg);
-    return;
-  }
-
-  rInfo("seeking to %d s, segment %d", (int)seconds, seg);
   updateEvents([&]() {
+    seconds = std::max(double(0.0), seconds);
+    int seg = (int)seconds / 60;
+    if (segments_.find(seg) == segments_.end()) {
+      rWarning("can't seek to %d s segment %d is invalid", seconds, seg);
+      return true;
+    }
+
+    rInfo("seeking to %d s, segment %d", (int)seconds, seg);
     current_segment_ = seg;
     cur_mono_time_ = route_start_ts_ + seconds * 1e9;
     emit seekedTo(seconds);
