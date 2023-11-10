@@ -281,8 +281,7 @@ void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::
     new_events_->clear();
     new_events_->reserve(new_events_size);
     for (int n : segments_need_merge) {
-      const auto &e = segments_[n]->log->events;
-      if (e.size() > 0) {
+      if (const auto &e = segments_[n]->log->events; e.size() > 0) {
         auto insert_from = e.begin();
         if (new_events_->size() > 0 && (*insert_from)->which == cereal::Event::Which::INIT_DATA) ++insert_from;
         auto middle = new_events_->insert(new_events_->end(), insert_from, e.end());
