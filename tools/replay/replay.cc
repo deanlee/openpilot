@@ -240,20 +240,15 @@ void Replay::queueSegment() {
   if (segments_.empty()) return;
 
   auto cur = segments_.lower_bound(std::min(current_segment_.load(), segments_.rbegin()->first));
-  auto end = std::next(cur, std::min(segment_cache_limit / 2.0, std::distance(cur, segments_.end())));
-  auto begin = std::prev(end - std::min(segment_cache_limit, segments_.size()));
-
+  auto end = std::next(cur, std::min<int>(segment_cache_limit / 2 + 1, std::distance(cur, segments_.end())));
+  auto begin = std::prev(end, std::min<int>(segment_cache_limit, segments_.size()));
   // load one segment at a time
-  for (auto it = cur; it != end; ++it) {
-    auto &[n, seg] = *it;
-    if ((seg && !seg->isLoaded()) || !seg) {
-      if (!seg) {
-        rDebug("loading segment %d...", n);
-        seg = std::make_unique<Segment>(n, route_->at(n), flags_, allow_list);
-        QObject::connect(seg.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
-      }
-      break;
-    }
+  auto it = std::find_if(cur, end,
+                         [](auto &it) { return (it.second && !it.second->isLoaded()) || !it.second; });
+  if (it != end && !it->second) {
+    rDebug("loading segment %d...", n);
+    seg = std::make_unique<Segment>(n, route_->at(n), flags_, allow_list);
+    QObject::connect(seg.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
   }
 
   mergeSegments(begin, end);
