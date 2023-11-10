@@ -7,7 +7,7 @@
 #include "cereal/services.h"
 #include "common/params.h"
 #include "common/timing.h"
-#include "system/hardware/hw.h"
+// #include "system/hardware/hw.h"
 #include "tools/replay/util.h"
 
 Replay::Replay(QString route, QStringList allow, QStringList block, QStringList base_blacklist, SubMaster *sm_, uint32_t flags, QString data_dir, QObject *parent)
@@ -266,20 +266,18 @@ void Replay::queueSegment() {
 
 void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::iterator &end) {
   std::vector<int> segments_need_merge;
-  size_t new_events_size = 0;
   for (auto it = begin; it != end; ++it) {
-    if (it->second && it->second->isLoaded()) {
+    if (it->second && it->second->isLoaded())
       segments_need_merge.push_back(it->first);
-      new_events_size += it->second->log->events.size();
-    }
   }
 
   if (segments_need_merge != segments_merged_) {
-    auto str = std::accumulate(segments_need_merge.begin() + 1, segments_need_merge.end(),
+    auto str = std::accumulate(segments_need_merge.begin() + 1, segments_need_merge.end(), std::to_string(segments_need_merge.front()), 
                                [](auto &s, auto &n) { return s + ", " + std::to_string(n); });
     rDebug("merge segments %s", str.c_str());
     new_events_->clear();
-    new_events_->reserve(new_events_size);
+    size_t size = std::accumulate(segments_need_merge.begin(), segments_need_merge.end(), 0, [this](int s, int n) { return s+segments_[n]->log->events.size();});
+    new_events_->reserve(size);
     for (int n : segments_need_merge) {
       if (const auto &e = segments_[n]->log->events; e.size() > 0) {
         auto insert_from = e.begin();
