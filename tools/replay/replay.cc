@@ -271,11 +271,8 @@ void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::
   }
 
   if (segments_need_merge != segments_merged_) {
-    std::string s;
-    for (int i = 0; i < segments_need_merge.size(); ++i) {
-      s += std::to_string(segments_need_merge[i]);
-      if (i != segments_need_merge.size() - 1) s += ", ";
-    }
+    std::string s = std::accumulate(segments_need_merge.begin(), segments_need_merge.end(), std::string{},
+                                    [](std::string r, int n) { return std::move(r) + (r.empty() ? ", " : "") + std::to_string(n); });
     rDebug("merge segments %s", s.c_str());
     new_events_->clear();
     new_events_->reserve(new_events_size);
