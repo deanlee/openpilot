@@ -47,5 +47,4 @@ private:
   AVPixelFormat hw_pix_fmt = AV_PIX_FMT_NONE;
   AVBufferRef *hw_device_ctx = nullptr;
   int prev_idx = -1;
-  inline static std::atomic<bool> has_hw_decoder = true;
 };

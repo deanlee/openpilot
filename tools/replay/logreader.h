@@ -20,12 +20,13 @@ const int DEFAULT_EVENT_MEMORY_POOL_BLOCK_SIZE = 65000;
 
 class Event {
 public:
+  Event(const kj::ArrayPtr<const capnp::word> &amsg);
+  Event(const kj::ArrayPtr<const capnp::word> &amsg, const cereal::EncodeIndex::Reader &reader);
   Event(cereal::Event::Which which, uint64_t mono_time) : reader(kj::ArrayPtr<capnp::word>{}) {
     // construct a dummy Event for binary search, e.g std::upper_bound
     this->which = which;
     this->mono_time = mono_time;
   }
-  Event(const kj::ArrayPtr<const capnp::word> &amsg, bool frame = false);
   inline kj::ArrayPtr<const capnp::byte> bytes() const { return words.asBytes(); }
 
   struct lessThan {
@@ -48,7 +49,7 @@ public:
   cereal::Event::Reader event;
   capnp::FlatArrayMessageReader reader;
   kj::ArrayPtr<const capnp::word> words;
-  bool frame;
+  std::unique_ptr<cereal::EncodeIndex::Reader> eidx;
 };
 
 class LogReader {

@@ -3,25 +3,19 @@
 #include <algorithm>
 #include "tools/replay/util.h"
 
-Event::Event(const kj::ArrayPtr<const capnp::word> &amsg, bool frame) : reader(amsg), frame(frame) {
+Event::Event(const kj::ArrayPtr<const capnp::word> &amsg) : reader(amsg) {
   words = kj::ArrayPtr<const capnp::word>(amsg.begin(), reader.getEnd());
   event = reader.getRoot<cereal::Event>();
   which = event.which();
   mono_time = event.getLogMonoTime();
+}
 
+Event::Event(const kj::ArrayPtr<const capnp::word> &amsg, const cereal::EncodeIndex::Reader &reader) : Event(amsg) {
   // 1) Send video data at t=timestampEof/timestampSof
   // 2) Send encodeIndex packet at t=logMonoTime
-  if (frame) {
-    auto idx = capnp::AnyStruct::Reader(event).getPointerSection()[0].getAs<cereal::EncodeIndex>();
-    // C2 only has eof set, and some older routes have neither
-    uint64_t sof = idx.getTimestampSof();
-    uint64_t eof = idx.getTimestampEof();
-    if (sof > 0) {
-      mono_time = sof;
-    } else if (eof > 0) {
-      mono_time = eof;
-    }
-  }
+  eidx = std::make_unique<cereal::EncodeIndex::Reader>(reader);
+  uint64_t sof = eidx->getTimestampSof();
+  if (sof > 0) mono_time = sof;
 }
 
 // class LogReader
@@ -77,14 +71,16 @@ bool LogReader::parse(const std::set<cereal::Event::Which> &allow, std::atomic<b
       if (evt->which == cereal::Event::ROAD_ENCODE_IDX ||
           evt->which == cereal::Event::DRIVER_ENCODE_IDX ||
           evt->which == cereal::Event::WIDE_ROAD_ENCODE_IDX) {
-
+        auto idx = capnp::AnyStruct::Reader(evt->event).getPointerSection()[0].getAs<cereal::EncodeIndex>();
+        if (idx.getType() == cereal::EncodeIndex::Type::FULL_H_E_V_C) {
 #ifdef HAS_MEMORY_RESOURCE
-        Event *frame_evt = new (mbr_.get()) Event(words, true);
+          Event *frame_evt = new (mbr_.get()) Event(words, idx);
 #else
-        Event *frame_evt = new Event(words, true);
+          Event *frame_evt = new Event(words, idx);
 #endif
 
-        events.push_back(frame_evt);
+          events.push_back(frame_evt);
+        }
       }
 
       words = kj::arrayPtr(evt->reader.getEnd(), words.end());

@@ -15,6 +15,8 @@
 
 namespace {
 
+static std::atomic<bool> has_hw_decoder = true;
+
 struct buffer_data {
   const uint8_t *data;
   int64_t offset;
@@ -38,15 +40,15 @@ enum AVPixelFormat get_hw_format(AVCodecContext *ctx, const enum AVPixelFormat *
     if (*p == *hw_pix_fmt) return *p;
   }
   rWarning("Please run replay with the --no-hw-decoder flag!");
-  // fallback to YUV420p
+  has_hw_decoder = false;
   *hw_pix_fmt = AV_PIX_FMT_NONE;
-  return AV_PIX_FMT_YUV420P;
+  return AV_PIX_FMT_NONE;
 }
 
 }  // namespace
 
 FrameReader::FrameReader() {
-  av_log_set_level(AV_LOG_QUIET);
+  av_log_set_level(AV_LOG_VERBOSE);
 }
 
 FrameReader::~FrameReader() {
@@ -117,6 +119,15 @@ bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, s
 
   width = (decoder_ctx->width + 3) & ~3;
   height = decoder_ctx->height;
+
+  // set codec to automatically determine how many threads suits best for the decoding job
+  decoder_ctx->thread_count = 0;
+  if (decoder->capabilities & AV_CODEC_CAP_FRAME_THREADS)
+    decoder_ctx->thread_type = FF_THREAD_FRAME;
+  else if (decoder->capabilities & AV_CODEC_CAP_SLICE_THREADS)
+    decoder_ctx->thread_type = FF_THREAD_SLICE;
+  else
+    decoder_ctx->thread_count = 1;  // don't use multithreading
 
   if (has_hw_decoder && !no_hw_decoder) {
     if (!initHardwareDecoder(HW_DEVICE_TYPE)) {

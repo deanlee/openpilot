@@ -377,14 +377,11 @@ void Replay::publishFrame(const Event *e) {
       {cereal::Event::DRIVER_ENCODE_IDX, DriverCam},
       {cereal::Event::WIDE_ROAD_ENCODE_IDX, WideRoadCam},
   };
-  if ((e->which == cereal::Event::DRIVER_ENCODE_IDX && !hasFlag(REPLAY_FLAG_DCAM)) ||
-      (e->which == cereal::Event::WIDE_ROAD_ENCODE_IDX && !hasFlag(REPLAY_FLAG_ECAM))) {
-    return;
-  }
-  auto eidx = capnp::AnyStruct::Reader(e->event).getPointerSection()[0].getAs<cereal::EncodeIndex>();
-  if (eidx.getType() == cereal::EncodeIndex::Type::FULL_H_E_V_C && isSegmentMerged(eidx.getSegmentNum())) {
+  bool no_publish = (e->which == cereal::Event::DRIVER_ENCODE_IDX && !hasFlag(REPLAY_FLAG_DCAM)) ||
+                    (e->which == cereal::Event::WIDE_ROAD_ENCODE_IDX && !hasFlag(REPLAY_FLAG_ECAM));
+  if (!no_publish && isSegmentMerged(e->eidx->getSegmentNum())) {
     CameraType cam = cam_types.at(e->which);
-    camera_server_->pushFrame(cam, segments_[eidx.getSegmentNum()]->frames[cam].get(), eidx);
+    camera_server_->pushFrame(cam, segments_[e->eidx->getSegmentNum()]->frames[cam].get(), *(e->eidx));
   }
 }
 
@@ -425,16 +422,13 @@ void Replay::stream() {
           evt_start_ts = cur_mono_time_;
           loop_start_ts = nanos_since_boot();
           prev_replay_speed = speed_;
-        } else if (behind_ns > 0 && !hasFlag(REPLAY_FLAG_FULL_SPEED)) {
+        } else if (behind_ns > 0) {
           precise_nano_sleep(behind_ns);
         }
 
-        if (!evt->frame) {
+        if (!evt->eidx) {
           publishMessage(evt);
         } else if (camera_server_) {
-          if (hasFlag(REPLAY_FLAG_FULL_SPEED)) {
-            camera_server_->waitForSent();
-          }
           publishFrame(evt);
         }
       }

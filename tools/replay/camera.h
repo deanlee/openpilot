@@ -1,7 +1,5 @@
 #pragma once
 
-#include <unistd.h>
-
 #include <memory>
 #include <tuple>
 #include <utility>
@@ -28,9 +26,7 @@ protected:
     int height;
     std::thread thread;
     SafeQueue<std::pair<FrameReader*, const cereal::EncodeIndex::Reader>> queue;
-    int cached_id = -1;
-    int cached_seg = -1;
-    VisionBuf * cached_buf;
+    bool publishing = false;
   };
   void startVipcServer();
   void cameraThread(Camera &cam);
@@ -40,6 +36,7 @@ protected:
       {.type = DriverCam, .stream_type = VISION_STREAM_DRIVER},
       {.type = WideRoadCam, .stream_type = VISION_STREAM_WIDE_ROAD},
   };
-  std::atomic<int> publishing_ = 0;
   std::unique_ptr<VisionIpcServer> vipc_server_;
+  std::mutex mutex_;
+  std::condition_variable cv_;
 };

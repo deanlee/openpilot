@@ -1,8 +1,6 @@
 #include "tools/replay/camera.h"
 
 #include <cassert>
-#include <tuple>
-
 #include "third_party/linux/include/msm_media_info.h"
 #include "tools/replay/util.h"
 
@@ -49,37 +47,26 @@ void CameraServer::startVipcServer() {
 }
 
 void CameraServer::cameraThread(Camera &cam) {
-  auto read_frame = [&](FrameReader *fr, int frame_id) {
-    VisionBuf *yuv_buf = vipc_server_->get_buffer(cam.stream_type);
-    assert(yuv_buf);
-    bool ret = fr->get(frame_id, yuv_buf);
-    return ret ? yuv_buf : nullptr;
-  };
-
   while (true) {
     const auto [fr, eidx] = cam.queue.pop();
     if (!fr) break;
 
-    const int id = eidx.getSegmentId();
-    bool prefetched = (id == cam.cached_id && eidx.getSegmentNum() == cam.cached_seg);
-    auto yuv = prefetched ? cam.cached_buf : read_frame(fr, id);
-    if (yuv) {
+    VisionBuf *buffer = vipc_server_->get_buffer(cam.stream_type);
+    if (fr->get(eidx.getSegmentId(), buffer)) {
       VisionIpcBufExtra extra = {
           .frame_id = eidx.getFrameId(),
           .timestamp_sof = eidx.getTimestampSof(),
           .timestamp_eof = eidx.getTimestampEof(),
       };
-      yuv->set_frame_id(eidx.getFrameId());
-      vipc_server_->send(yuv, &extra);
+      buffer->set_frame_id(eidx.getFrameId());
+      vipc_server_->send(buffer, &extra);
     } else {
       rError("camera[%d] failed to get frame: %lu", cam.type, eidx.getSegmentId());
     }
 
-    cam.cached_id = id + 1;
-    cam.cached_seg = eidx.getSegmentNum();
-    cam.cached_buf = read_frame(fr, cam.cached_id);
-
-    --publishing_;
+    std::unique_lock lk(mutex_);
+    cam.publishing = false;
+    cv_.notify_all();
   }
 }
 
@@ -92,12 +79,16 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const cereal::Enc
     startVipcServer();
   }
 
-  ++publishing_;
+  std::unique_lock lk(mutex_);
+  cv_.wait(lk, [&cam]() { return cam.publishing == false; });
+  cam.publishing = true;
   cam.queue.push({fr, eidx});
 }
 
 void CameraServer::waitForSent() {
-  while (publishing_ > 0) {
-    std::this_thread::yield();
-  }
+  std::unique_lock lk(mutex_);
+  cv_.wait(lk, [this]() {
+    return std::all_of(std::begin(cameras_), std::end(cameras_),
+                       [](const auto &c) { return c.publishing == false; });
+  });
 }
