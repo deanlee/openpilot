@@ -109,6 +109,5 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const cereal::Enc
 void CameraServer::waitForSent() {
   for (auto &cam : cameras_) {
     std::unique_lock lk(cam.mutex);
-    // cam.cv.wait(lk, [&cam]() { return cam.queue.empty(); });
   }
 }
