@@ -20,11 +20,15 @@ CameraServer::CameraServer(std::pair<int, int> camera_size[MAX_CAMERAS]) {
   }
   startVipcServer();
 }
-
+#include <QDebug>
 CameraServer::~CameraServer() {
   for (auto &cam : cameras_) {
     if (cam.thread.joinable()) {
-      cam.queue.push({});
+      {
+        std::unique_lock lk(cam.mutex);
+        cam.queue.push({});
+        cam.cv.notify_one();
+      }
       cam.thread.join();
     }
   }
@@ -55,9 +59,15 @@ void CameraServer::cameraThread(Camera &cam) {
     return ret ? yuv_buf : nullptr;
   };
 
+  std::unique_lock lk(cam.mutex);
   while (true) {
-    const auto [fr, eidx] = cam.queue.pop();
-    if (!fr) break;
+    cam.cv.wait(lk, [&cam]() { return !cam.queue.empty(); });
+    const auto [fr, eidx] = cam.queue.front();
+    if (!fr) {
+      // cam.queue.pop();
+    // cam.cv.notify_one();
+      break;
+    }
 
     const int id = eidx.getSegmentId();
     bool prefetched = (id == cam.cached_id && eidx.getSegmentNum() == cam.cached_seg);
@@ -78,9 +88,7 @@ void CameraServer::cameraThread(Camera &cam) {
     cam.cached_seg = eidx.getSegmentNum();
     cam.cached_buf = read_frame(fr, cam.cached_id);
 
-    std::unique_lock lk(mutex);
-    cam.publishing = false;
-    cv.notify_all();
+    cam.queue.pop();
   }
 }
 
@@ -93,15 +101,14 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const cereal::Enc
     startVipcServer();
   }
 
-  std::unique_lock lk(mutex);
-  cv.wait(lk, [&cam] { return cam.publishing == false; });
-  cam.publishing = true;
+  std::unique_lock lk(cam.mutex);
   cam.queue.push({fr, eidx});
+  cam.cv.notify_one();
 }
 
 void CameraServer::waitForSent() {
-  std::unique_lock lk(mutex);
-  cv.wait(lk, [this]() {
-    return std::all_of(std::begin(cameras_), std::end(cameras_), [](auto &c) { return !c.publishing; });
-  });
+  for (auto &cam : cameras_) {
+    std::unique_lock lk(cam.mutex);
+    // cam.cv.wait(lk, [&cam]() { return cam.queue.empty(); });
+  }
 }

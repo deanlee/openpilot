@@ -2,11 +2,11 @@
 
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <tuple>
 #include <utility>
 
 #include "cereal/visionipc/visionipc_server.h"
-#include "common/queue.h"
 #include "tools/replay/framereader.h"
 #include "tools/replay/logreader.h"
 
@@ -26,11 +26,13 @@ protected:
     int width;
     int height;
     std::thread thread;
-    SafeQueue<std::pair<FrameReader*, const cereal::EncodeIndex::Reader>> queue;
     int cached_id = -1;
     int cached_seg = -1;
     bool publishing = false;
     VisionBuf * cached_buf;
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::queue<std::pair<FrameReader*, const cereal::EncodeIndex::Reader>> queue;
   };
   void startVipcServer();
   void cameraThread(Camera &cam);
@@ -40,7 +42,5 @@ protected:
       {.type = DriverCam, .stream_type = VISION_STREAM_DRIVER},
       {.type = WideRoadCam, .stream_type = VISION_STREAM_WIDE_ROAD},
   };
-  std::mutex mutex;
-  std::condition_variable cv;
   std::unique_ptr<VisionIpcServer> vipc_server_;
 };
