@@ -11,6 +11,7 @@
 
 Replay::Replay(QString route, QStringList allow, QStringList block, QStringList base_blacklist, SubMaster *sm_, uint32_t flags, QString data_dir, QObject *parent)
     : sm(sm_), flags_(flags), QObject(parent) {
+  std::vector<const char *> s;
   auto event_struct = capnp::Schema::from<cereal::Event>().asStruct();
   sockets_.resize(event_struct.getUnionFields().size());
   for (const auto &it : services) {
@@ -27,6 +28,7 @@ Replay::Replay(QString route, QStringList allow, QStringList block, QStringList 
       if (!allow.empty() || !block.empty()) {
         allow_list.insert((cereal::Event::Which)which);
       }
+      s.push_back(name);
     }
   }
 
@@ -36,8 +38,6 @@ Replay::Replay(QString route, QStringList allow, QStringList block, QStringList 
     allow_list.insert(cereal::Event::Which::CAR_PARAMS);
   }
 
-  std::vector<const char *> s;
-  std::copy_if(sockets_.begin(), sockets_.end(), std::back_inserter(s), [](const char *name) { return name != nullptr; });
   qDebug() << "services " << s;
   qDebug() << "loading route " << route;
 
@@ -233,17 +233,30 @@ void Replay::segmentLoadFinished(bool success) {
 }
 
 void Replay::queueSegment() {
-  auto cur = segments_.lower_bound(current_segment_.load());
-  if (cur == segments_.end()) return;
+  if (segments_.empty()) return;
 
-  auto begin = std::prev(cur, std::min<int>(segment_cache_limit / 2, std::distance(segments_.begin(), cur)));
-  auto end = std::next(begin, std::min<int>(segment_cache_limit, segments_.size()));
+  SegmentMap::iterator begin, cur;
+  begin = cur = segments_.lower_bound(std::min(current_segment_.load(), segments_.rbegin()->first));
+  int distance = std::max<int>(std::ceil(segment_cache_limit / 2.0) - 1, segment_cache_limit - std::distance(cur, segments_.end()));
+  for (int i = 0; begin != segments_.begin() && i < distance; ++i) {
+    --begin;
+  }
+  auto end = begin;
+  for (int i = 0; end != segments_.end() && i < segment_cache_limit; ++i) {
+    ++end;
+  }
+
   // load one segment at a time
-  auto it = std::find_if(cur, end, [](auto &it) { return !it.second || !it.second->isLoaded(); });
-  if (it != end && !it->second) {
-    rDebug("loading segment %d...", it->first);
-    it->second = std::make_unique<Segment>(it->first, route_->at(it->first), flags_, allow_list);
-    QObject::connect(it->second.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
+  for (auto it = cur; it != end; ++it) {
+    auto &[n, seg] = *it;
+    if ((seg && !seg->isLoaded()) || !seg) {
+      if (!seg) {
+        rDebug("loading segment %d...", n);
+        seg = std::make_unique<Segment>(n, route_->at(n), flags_, allow_list);
+        QObject::connect(seg.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
+      }
+      break;
+    }
   }
 
   mergeSegments(begin, end);
@@ -261,22 +274,25 @@ void Replay::queueSegment() {
 }
 
 void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::iterator &end) {
-  std::vector<int> segments;
+  std::vector<int> segments_need_merge;
   size_t new_events_size = 0;
   for (auto it = begin; it != end; ++it) {
     if (it->second && it->second->isLoaded()) {
-      segments.push_back(it->first);
+      segments_need_merge.push_back(it->first);
       new_events_size += it->second->log->events.size();
     }
   }
 
-  if (segments != segments_merged_) {
-    if (!segments.empty())
-      rDebug("merge segments %s", std::accumulate(std::next(segments.begin()), segments.end(), std::to_string(segments[0]), 
-                                      [](std::string &r, int n) { return r + ", " + std::to_string(n); }).c_str());
+  if (segments_need_merge != segments_merged_) {
+    std::string s;
+    for (int i = 0; i < segments_need_merge.size(); ++i) {
+      s += std::to_string(segments_need_merge[i]);
+      if (i != segments_need_merge.size() - 1) s += ", ";
+    }
+    rDebug("merge segments %s", s.c_str());
     new_events_->clear();
     new_events_->reserve(new_events_size);
-    for (int n : segments) {
+    for (int n : segments_need_merge) {
       const auto &e = segments_[n]->log->events;
       if (e.size() > 0) {
         auto insert_from = e.begin();
@@ -291,7 +307,7 @@ void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::
     }
     updateEvents([&]() {
       events_.swap(new_events_);
-      segments_merged_ = segments;
+      segments_merged_ = segments_need_merge;
       // Do not wake up the stream thread if the current segment has not been merged.
       return isSegmentMerged(current_segment_) || (segments_.count(current_segment_) == 0);
     });
