@@ -20,9 +20,9 @@ class FrameReader {
 public:
   FrameReader();
   ~FrameReader();
-  bool load(const std::string &url, bool no_hw_decoder = false, std::atomic<bool> *abort = nullptr, bool local_cache = false,
+  bool load(const std::string &url, std::atomic<bool> *abort = nullptr, bool local_cache = false,
             int chunk_size = -1, int retries = 0);
-  bool load(const std::byte *data, size_t size, bool no_hw_decoder = false, std::atomic<bool> *abort = nullptr);
+  bool load(const std::byte *data, size_t size, std::atomic<bool> *abort = nullptr);
   bool get(int idx, VisionBuf *buf);
   int getYUVSize() const { return width * height * 3 / 2; }
   size_t getFrameCount() const { return packets.size(); }
@@ -31,7 +31,7 @@ public:
   int width = 0, height = 0;
 
 private:
-  bool initHardwareDecoder(AVHWDeviceType hw_device_type);
+  bool initHardwareDecoder();
   bool decode(int idx, VisionBuf *buf);
   AVFrame * decodeFrame(AVPacket *pkt);
   bool copyBuffers(AVFrame *f, VisionBuf *buf);
@@ -47,5 +47,4 @@ private:
   AVPixelFormat hw_pix_fmt = AV_PIX_FMT_NONE;
   AVBufferRef *hw_device_ctx = nullptr;
   int prev_idx = -1;
-  inline static std::atomic<bool> has_hw_decoder = true;
 };

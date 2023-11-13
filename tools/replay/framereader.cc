@@ -5,15 +5,9 @@
 #include <algorithm>
 #include "third_party/libyuv/include/libyuv.h"
 
-#ifdef __APPLE__
-#define HW_DEVICE_TYPE AV_HWDEVICE_TYPE_VIDEOTOOLBOX
-#define HW_PIX_FMT AV_PIX_FMT_VIDEOTOOLBOX
-#else
-#define HW_DEVICE_TYPE AV_HWDEVICE_TYPE_CUDA
-#define HW_PIX_FMT AV_PIX_FMT_CUDA
-#endif
-
 namespace {
+
+std::atomic<bool> HAS_HW_DECODER = true;
 
 struct buffer_data {
   const uint8_t *data;
@@ -37,10 +31,10 @@ enum AVPixelFormat get_hw_format(AVCodecContext *ctx, const enum AVPixelFormat *
   for (const enum AVPixelFormat *p = pix_fmts; *p != -1; p++) {
     if (*p == *hw_pix_fmt) return *p;
   }
-  rWarning("Please run replay with the --no-hw-decoder flag!");
-  // fallback to YUV420p
+  rWarning("Hardware is lacking required capabilities, switch to CPU decoding");
+  HAS_HW_DECODER = false;
   *hw_pix_fmt = AV_PIX_FMT_NONE;
-  return AV_PIX_FMT_YUV420P;
+  return AV_PIX_FMT_NONE;
 }
 
 }  // namespace
@@ -64,7 +58,7 @@ FrameReader::~FrameReader() {
   }
 }
 
-bool FrameReader::load(const std::string &url, bool no_hw_decoder, std::atomic<bool> *abort, bool local_cache, int chunk_size, int retries) {
+bool FrameReader::load(const std::string &url, std::atomic<bool> *abort, bool local_cache, int chunk_size, int retries) {
   FileReader f(local_cache, chunk_size, retries);
   std::string data = f.read(url, abort);
   if (data.empty()) {
@@ -72,10 +66,10 @@ bool FrameReader::load(const std::string &url, bool no_hw_decoder, std::atomic<b
     return false;
   }
 
-  return load((std::byte *)data.data(), data.size(), no_hw_decoder, abort);
+  return load((std::byte *)data.data(), data.size(), abort);
 }
 
-bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, std::atomic<bool> *abort) {
+bool FrameReader::load(const std::byte *data, size_t size, std::atomic<bool> *abort) {
   input_ctx = avformat_alloc_context();
   if (!input_ctx) {
     rError("Error calling avformat_alloc_context");
@@ -118,10 +112,8 @@ bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, s
   width = (decoder_ctx->width + 3) & ~3;
   height = decoder_ctx->height;
 
-  if (has_hw_decoder && !no_hw_decoder) {
-    if (!initHardwareDecoder(HW_DEVICE_TYPE)) {
-      rWarning("No device with hardware decoder found. fallback to CPU decoding.");
-    }
+  if (HAS_HW_DECODER) {
+    initHardwareDecoder();
   }
 
   ret = avcodec_open2(decoder_ctx, decoder, nullptr);
@@ -147,32 +139,26 @@ bool FrameReader::load(const std::byte *data, size_t size, bool no_hw_decoder, s
   return valid_;
 }
 
-bool FrameReader::initHardwareDecoder(AVHWDeviceType hw_device_type) {
+bool FrameReader::initHardwareDecoder() {
   for (int i = 0;; i++) {
     const AVCodecHWConfig *config = avcodec_get_hw_config(decoder_ctx->codec, i);
-    if (!config) {
-      rWarning("decoder %s does not support hw device type %s.", decoder_ctx->codec->name,
-               av_hwdevice_get_type_name(hw_device_type));
-      return false;
-    }
-    if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX && config->device_type == hw_device_type) {
-      hw_pix_fmt = config->pix_fmt;
-      break;
+    if (!config) break;
+
+    if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) {
+      int ret = av_hwdevice_ctx_create(&hw_device_ctx, config->device_type, nullptr, nullptr, 0);
+      if (ret == 0) {
+        hw_pix_fmt = config->pix_fmt;
+        decoder_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
+        decoder_ctx->opaque = &hw_pix_fmt;
+        decoder_ctx->get_format = get_hw_format;
+        rInfo("Using auto hwaccel type %s", av_hwdevice_get_type_name(config->device_type));
+        return true;
+      }
     }
   }
-
-  int ret = av_hwdevice_ctx_create(&hw_device_ctx, hw_device_type, nullptr, nullptr, 0);
-  if (ret < 0) {
-    hw_pix_fmt = AV_PIX_FMT_NONE;
-    has_hw_decoder = false;
-    rWarning("Failed to create specified HW device %d.", ret);
-    return false;
-  }
-
-  decoder_ctx->hw_device_ctx = av_buffer_ref(hw_device_ctx);
-  decoder_ctx->opaque = &hw_pix_fmt;
-  decoder_ctx->get_format = get_hw_format;
-  return true;
+  HAS_HW_DECODER = false;
+  rWarning("Auto hwaccel disabled: no device found.");
+  return false;
 }
 
 bool FrameReader::get(int idx, VisionBuf *buf) {
@@ -233,7 +219,7 @@ AVFrame *FrameReader::decodeFrame(AVPacket *pkt) {
 
 bool FrameReader::copyBuffers(AVFrame *f, VisionBuf *buf) {
   assert(f != nullptr && buf != nullptr);
-  if (hw_pix_fmt == HW_PIX_FMT) {
+  if (hw_pix_fmt != AV_PIX_FMT_NONE) {
     for (int i = 0; i < height/2; i++) {
       memcpy(buf->y + (i*2 + 0)*buf->stride, f->data[0] + (i*2 + 0)*f->linesize[0], width);
       memcpy(buf->y + (i*2 + 1)*buf->stride, f->data[0] + (i*2 + 1)*f->linesize[0], width);
