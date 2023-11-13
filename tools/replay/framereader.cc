@@ -39,7 +39,7 @@ enum AVPixelFormat get_hw_format(AVCodecContext *ctx, const enum AVPixelFormat *
   for (const enum AVPixelFormat *p = pix_fmts; *p != -1; p++) {
     if (*p == *hw_pix_fmt) return *p;
   }
-  rWarning("Please run replay with the --no-hw-decoder flag!");
+  rWarning("Hardware is lacking required capabilities, Please run replay with the --no-hw-decoder flag!");
   has_hw_decoder = false;
   *hw_pix_fmt = AV_PIX_FMT_NONE;
   return AV_PIX_FMT_NONE;
