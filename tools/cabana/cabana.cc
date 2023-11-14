@@ -16,6 +16,7 @@ int main(int argc, char *argv[]) {
   QApplication app(argc, argv);
   app.setApplicationDisplayName("Cabana");
   app.setWindowIcon(QIcon(":cabana-icon.png"));
+  app.setStyle("Fusion");
 
   UnixSignalHandler signalHandler;
   utils::setTheme(settings.theme);

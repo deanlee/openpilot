@@ -206,23 +206,25 @@ void setTheme(int theme) {
     QPalette new_palette;
     if (theme == DARK_THEME) {
       // "Darcula" like dark theme
-      new_palette.setColor(QPalette::Window, QColor("#353535"));
-      new_palette.setColor(QPalette::WindowText, QColor("#bbbbbb"));
-      new_palette.setColor(QPalette::Base, QColor("#3c3f41"));
-      new_palette.setColor(QPalette::AlternateBase, QColor("#3c3f41"));
-      new_palette.setColor(QPalette::ToolTipBase, QColor("#3c3f41"));
+
+      new_palette.setColor(QPalette::Window, QColor("#454545"));
+      new_palette.setColor(QPalette::WindowText, QColor("#c2c2c2"));
+      new_palette.setColor(QPalette::Base, QColor("#303030"));
+      new_palette.setColor(QPalette::AlternateBase, QColor("#303030"));
+      new_palette.setColor(QPalette::ToolTipBase, QColor("#303030"));
       new_palette.setColor(QPalette::ToolTipText, QColor("#bbb"));
-      new_palette.setColor(QPalette::Text, QColor("#bbbbbb"));
+      new_palette.setColor(QPalette::Text, QColor("#c2c2c2"));
       new_palette.setColor(QPalette::Button, QColor("#3c3f41"));
-      new_palette.setColor(QPalette::ButtonText, QColor("#bbbbbb"));
+      new_palette.setColor(QPalette::ButtonText, QColor("#c2c2c2"));
       new_palette.setColor(QPalette::Highlight, QColor("#2f65ca"));
-      new_palette.setColor(QPalette::HighlightedText, QColor("#bbbbbb"));
+      new_palette.setColor(QPalette::HighlightedText, QColor("#c2c2c2"));
       new_palette.setColor(QPalette::BrightText, QColor("#f0f0f0"));
       new_palette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#777777"));
       new_palette.setColor(QPalette::Disabled, QPalette::WindowText, QColor("#777777"));
       new_palette.setColor(QPalette::Disabled, QPalette::Text, QColor("#777777"));
       new_palette.setColor(QPalette::Light, QColor("#777777"));
-      new_palette.setColor(QPalette::Dark, QColor("#353535"));
+      new_palette.setColor(QPalette::Dark, QColor("#454545"));
+
     } else {
       new_palette = style->standardPalette();
     }
