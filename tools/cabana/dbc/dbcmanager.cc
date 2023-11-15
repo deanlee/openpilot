@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <numeric>
 
+DBCManager::DBCManager(QObject *parent) : QObject(parent) {
+  QObject::connect(this, &DBCManager::DBCFileChanged, this, &DBCManager::changed);
+}
+
 bool DBCManager::open(const SourceSet &sources, const QString &dbc_file_name, QString *error) {
   try {
     auto it = std::find_if(dbc_files.begin(), dbc_files.end(),
@@ -58,7 +62,7 @@ void DBCManager::addSignal(const MessageId &id, const cabana::Signal &sig) {
   if (auto m = msg(id)) {
     if (auto s = m->addSignal(sig)) {
       emit signalAdded(id, s);
-      emit maskUpdated();
+      emit changed();
     }
   }
 }
@@ -67,7 +71,7 @@ void DBCManager::updateSignal(const MessageId &id, const QString &sig_name, cons
   if (auto m = msg(id)) {
     if (auto s = m->updateSignal(sig_name, sig)) {
       emit signalUpdated(s);
-      emit maskUpdated();
+      emit changed();
     }
   }
 }
@@ -77,7 +81,7 @@ void DBCManager::removeSignal(const MessageId &id, const QString &sig_name) {
     if (auto s = m->sig(sig_name)) {
       emit signalRemoved(s);
       m->removeSignal(sig_name);
-      emit maskUpdated();
+      emit changed();
     }
   }
 }
@@ -87,6 +91,7 @@ void DBCManager::updateMsg(const MessageId &id, const QString &name, uint32_t si
   assert(dbc_file);  // This should be impossible
   dbc_file->updateMsg(id, name, size, node, comment);
   emit msgUpdated(id);
+  emit changed();
 }
 
 void DBCManager::removeMsg(const MessageId &id) {
@@ -94,22 +99,7 @@ void DBCManager::removeMsg(const MessageId &id) {
   assert(dbc_file);  // This should be impossible
   dbc_file->removeMsg(id);
   emit msgRemoved(id);
-  emit maskUpdated();
-}
-
-QString DBCManager::newMsgName(const MessageId &id) {
-  return QString("NEW_MSG_") + QString::number(id.address, 16).toUpper();
-}
-
-QString DBCManager::newSignalName(const MessageId &id) {
-  auto m = msg(id);
-  return m ? m->newSignalName() : "";
-}
-
-const std::vector<uint8_t> &DBCManager::mask(const MessageId &id) {
-  static std::vector<uint8_t> empty_mask;
-  auto m = msg(id);
-  return m ? m->mask : empty_mask;
+  emit changed();
 }
 
 const std::map<uint32_t, cabana::Msg> &DBCManager::getMessages(uint8_t source) {
@@ -141,25 +131,6 @@ QStringList DBCManager::signalNames() {
   ret.sort();
   ret.removeDuplicates();
   return ret;
-}
-
-int DBCManager::signalCount(const MessageId &id) {
-  auto m = msg(id);
-  return m ? m->sigs.size() : 0;
-}
-
-int DBCManager::signalCount() {
-  auto files = allDBCFiles();
-  return std::accumulate(files.cbegin(), files.cend(), 0, [](int &n, auto &f) { return n + f->signalCount(); });
-}
-
-int DBCManager::msgCount() {
-  auto files = allDBCFiles();
-  return std::accumulate(files.cbegin(), files.cend(), 0, [](int &n, auto &f) { return n + f->msgCount(); });
-}
-
-int DBCManager::dbcCount() {
-  return allDBCFiles().size();
 }
 
 int DBCManager::nonEmptyDBCCount() {

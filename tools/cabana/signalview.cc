@@ -677,7 +677,6 @@ ValueDescriptionDlg::ValueDescriptionDlg(const ValueDescription &descriptions, Q
   table->setSelectionBehavior(QAbstractItemView::SelectRows);
   table->setSelectionMode(QAbstractItemView::SingleSelection);
   table->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
-  table->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
   int row = 0;
   for (auto &[val, desc] : descriptions) {

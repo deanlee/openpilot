@@ -6,8 +6,6 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 
-#include "tools/cabana/commands.h"
-
 QVariant HistoryLogModel::data(const QModelIndex &index, int role) const {
   const bool show_signals = display_signals_mode && sigs.size() > 0;
   const auto &m = messages[index.row()];
@@ -253,8 +251,7 @@ LogsWidget::LogsWidget(QWidget *parent) : QFrame(parent) {
   QObject::connect(comp_box, SIGNAL(activated(int)), this, SLOT(setFilter()));
   QObject::connect(value_edit, &QLineEdit::textChanged, this, &LogsWidget::setFilter);
   QObject::connect(can, &AbstractStream::seekedTo, model, &HistoryLogModel::refresh);
-  QObject::connect(dbc(), &DBCManager::DBCFileChanged, this, &LogsWidget::refresh);
-  QObject::connect(UndoStack::instance(), &QUndoStack::indexChanged, this, &LogsWidget::refresh);
+  QObject::connect(dbc(), &DBCManager::changed, this, &LogsWidget::refresh);
   QObject::connect(can, &AbstractStream::eventsMerged, model, &HistoryLogModel::segmentsMerged);
 }
 

@@ -53,8 +53,6 @@ protected:
   void saveFileToClipboard(DBCFile *dbc_file);
   void loadFingerprints();
   void loadFromClipboard(SourceSet s = SOURCE_ALL, bool close_all = true);
-  void autoSave();
-  void cleanupAutoSaveFile();
   void updateRecentFiles(const QString &fn);
   void updateRecentFileActions();
   void createActions();
@@ -72,7 +70,8 @@ protected:
   void onlineHelp();
   void toggleFullScreen();
   void updateStatus();
-  void updateLoadSaveMenus();
+  void updateManageDBCMenu();
+  void updateFileMenu();
   void createDockWidgets();
   void eventsMerged();
 
@@ -101,7 +100,6 @@ protected:
   int prev_undostack_index = 0;
   int prev_undostack_count = 0;
   QByteArray default_state;
-  friend class OnlineHelp;
 };
 
 class HelpOverlay : public QWidget {

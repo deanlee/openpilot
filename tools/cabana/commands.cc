@@ -64,11 +64,14 @@ void AddSigCommand::undo() {
 }
 
 void AddSigCommand::redo() {
-  if (auto msg = dbc()->msg(id); !msg) {
+  auto msg = dbc()->msg(id);
+  if (!msg) {
     msg_created = true;
-    dbc()->updateMsg(id, dbc()->newMsgName(id), can->lastMessage(id).dat.size(), "", "");
+    auto msg_name = QString("NEW_MSG_") + QString::number(id.address, 16).toUpper();
+    dbc()->updateMsg(id, msg_name, can->lastMessage(id).dat.size(), "", "");
+    msg = dbc()->msg(id);
   }
-  signal.name = dbc()->newSignalName(id);
+  signal.name = msg->newSignalName();
   signal.max = std::pow(2, signal.size) - 1;
   dbc()->addSignal(id, signal);
 }

@@ -93,7 +93,6 @@ signals:
   void streamStarted();
   void eventsMerged(const MessageEventsMap &events_map);
   void msgsReceived(const std::set<MessageId> *new_msgs, bool has_new_ids);
-  void sourcesUpdated(const SourceSet &s);
   void privateUpdateLastMsgsSignal();
 
 public:
