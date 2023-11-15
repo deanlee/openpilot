@@ -232,18 +232,15 @@ void UIState::updateStatus() {
       status = STATUS_DISENGAGED;
       scene.started_frame = sm->frame;
     }
-    started_prev = scene.started;
+    if (scene.started != started_prev) {
+      resetSubMaster();
+      started_prev = scene.started;
+    }
     emit offroadTransition(!scene.started);
   }
 }
 
 UIState::UIState(QObject *parent) : QObject(parent) {
-  sm = std::make_unique<SubMaster, const std::initializer_list<const char *>>({
-    "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
-    "pandaStates", "carParams", "driverMonitoringState", "carState", "liveLocationKalman", "driverStateV2",
-    "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan",
-  });
-
   Params params;
   language = QString::fromStdString(params.get("LanguageSetting"));
   auto prime_value = params.get("PrimeType");
@@ -255,6 +252,17 @@ UIState::UIState(QObject *parent) : QObject(parent) {
   timer = new QTimer(this);
   QObject::connect(timer, &QTimer::timeout, this, &UIState::update);
   timer->start(1000 / UI_FREQ);
+
+  resetSubMaster();
+}
+
+void UIState::resetSubMaster() {
+  sm.reset(new SubMaster({
+    "modelV2", "controlsState", "liveCalibration", "radarState", "deviceState", "roadCameraState",
+    "pandaStates", "carParams", "driverMonitoringState", "carState", "liveLocationKalman", "driverStateV2",
+    "wideRoadCameraState", "managerState", "navInstruction", "navRoute", "uiPlan",
+  }));
+  update();
 }
 
 void UIState::update() {

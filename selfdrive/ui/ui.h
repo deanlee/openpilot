@@ -187,6 +187,8 @@ private slots:
   void update();
 
 private:
+  void resetSubMaster();
+
   QTimer *timer;
   bool started_prev = false;
   PrimeType prime_type = PrimeType::UNKNOWN;
