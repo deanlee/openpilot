@@ -12,9 +12,10 @@
 #include "common/transformations/orientation.hpp"
 #include "cereal/messaging/messaging.h"
 
-const QString MAPBOX_TOKEN = util::getenv("MAPBOX_TOKEN").c_str();
-const QString MAPS_HOST = util::getenv("MAPS_HOST", MAPBOX_TOKEN.isEmpty() ? "https://maps.comma.ai" : "https://api.mapbox.com").c_str();
-const QString MAPS_CACHE_PATH = "/data/mbgl-cache-navd.db";
+const QString MAPBOX_TOKEN = "pk.eyJ1IjoiZGVhbmxlZSIsImEiOiJja3c4czNyZnUxY2pvMnhxbHlwcTdrY3UxIn0.k3x-nkqS9giHQ3glPenRbA";
+const QString MAPS_HOST = "https://api.mapbox.com";
+const QString MAPS_CACHE_PATH = "/home/dean/mbgl-cache-navd.db";
+
 
 QString get_mapbox_token();
 QMapboxGLSettings get_mapbox_settings();

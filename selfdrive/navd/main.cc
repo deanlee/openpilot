@@ -13,7 +13,7 @@
 int main(int argc, char *argv[]) {
   Hardware::config_cpu_rendering();
 
-  qInstallMessageHandler(swagLogMessageHandler);
+  // qInstallMessageHandler(swagLogMessageHandler);
   setpriority(PRIO_PROCESS, 0, -20);
   int ret = util::set_core_affinity({0, 1, 2, 3});
   assert(ret == 0);

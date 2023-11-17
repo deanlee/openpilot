@@ -163,15 +163,17 @@ void MapRenderer::updatePosition(QMapbox::Coordinate position, float bearing) {
 bool MapRenderer::loaded() {
   return m_map->isFullyLoaded();
 }
-
+#include <QDebug>
 void MapRenderer::update() {
   double start_t = millis_since_boot();
+  fbo->bind();
   gl_functions->glClear(GL_COLOR_BUFFER_BIT);
   m_map->render();
-  gl_functions->glFlush();
+  fbo->release();
   double end_t = millis_since_boot();
 
   if ((vipc_server != nullptr) && loaded()) {
+    qInfo() << end_t - start_t;
     publish((end_t - start_t) / 1000.0, true);
     last_llk_rendered = (*sm)["liveLocationKalman"].getLogMonoTime();
   }
@@ -188,7 +190,8 @@ void MapRenderer::sendThumbnail(const uint64_t ts, const kj::Array<capnp::byte> 
 
 void MapRenderer::publish(const double render_time, const bool loaded) {
   QImage cap = fbo->toImage().convertToFormat(QImage::Format_RGB888, Qt::AutoColor);
-
+  static int dd = 0;
+  cap.save(QString("/home/dean/map_images/%1.jpg").arg(dd++), "jpg");
   auto location = (*sm)["liveLocationKalman"].getLiveLocationKalman();
   bool valid = loaded && (location.getStatus() == cereal::LiveLocationKalman::Status::VALID) && location.getPositionGeodetic().getValid();
   ever_loaded = ever_loaded || loaded;
