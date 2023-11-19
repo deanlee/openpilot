@@ -39,14 +39,11 @@ class AbstractControl : public QWidget {
   Q_OBJECT
 
 public:
-  void setDescription(const QString &desc) { description->setText(desc); }
-  void setTitle(const QString &title) { title_label->setText(title); }
-  void setValue(const QString &val) { value->setText(val); }
-  const QString getDescription() const { return description->text(); }
-  void showDescription() { description->setVisible(true); }
-
-  QLabel *icon_label;
-  QPixmap icon_pixmap;
+  inline void setDescription(const QString &desc) { description->setText(desc); }
+  inline void setTitle(const QString &title) { title_label->setText(title); }
+  inline void setValue(const QString &val) { value->setText(val); }
+  inline const QString getDescription() const { return description->text(); }
+  inline void showDescription() { description->setVisible(true); }
 
 signals:
   void showDescriptionEvent();
@@ -54,10 +51,12 @@ signals:
 protected:
   AbstractControl(const QString &title, const QString &desc = "", const QString &icon = "", QWidget *parent = nullptr);
   void hideEvent(QHideEvent *e) override { description->hide(); }
+  void titleClicked();
 
   QHBoxLayout *hlayout;
   QPushButton *title_label;
-
+  QLabel *icon_label;
+  QPixmap icon_pixmap;
   ElidedLabel *value;
   QLabel *description = nullptr;
 };
