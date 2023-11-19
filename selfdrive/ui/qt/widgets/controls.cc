@@ -34,6 +34,7 @@ AbstractControl::AbstractControl(const QString &title, const QString &desc, cons
   description->setWordWrap(true);
   description->setVisible(false);
 
+  main_layout->addStretch(1);
   connect(title_label, &QPushButton::clicked, this, &AbstractControl::titleClicked);
 }
 
