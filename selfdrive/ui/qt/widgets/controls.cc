@@ -1,9 +1,8 @@
 #include "selfdrive/ui/qt/widgets/controls.h"
 
-#include <QPainter>
 #include <QStyleOption>
 
-AbstractControl::AbstractControl(const QString &title, const QString &desc, const QString &icon, QWidget *parent) : QFrame(parent) {
+AbstractControl::AbstractControl(const QString &title, const QString &desc, const QString &icon, QWidget *parent) : QWidget(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setMargin(0);
 
@@ -54,12 +53,6 @@ AbstractControl::AbstractControl(const QString &title, const QString &desc, cons
   });
 
   main_layout->addStretch();
-}
-
-void AbstractControl::hideEvent(QHideEvent *e) {
-  if (description != nullptr) {
-    description->hide();
-  }
 }
 
 // controls

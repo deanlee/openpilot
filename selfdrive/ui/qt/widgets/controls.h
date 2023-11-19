@@ -4,7 +4,6 @@
 #include <vector>
 
 #include <QButtonGroup>
-#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPainter>
@@ -36,45 +35,29 @@ protected:
 };
 
 
-class AbstractControl : public QFrame {
+class AbstractControl : public QWidget {
   Q_OBJECT
 
 public:
-  void setDescription(const QString &desc) {
-    if (description) description->setText(desc);
-  }
-
-  void setTitle(const QString &title) {
-    title_label->setText(title);
-  }
-
-  void setValue(const QString &val) {
-    value->setText(val);
-  }
-
-  const QString getDescription() {
-    return description->text();
-  }
+  void setDescription(const QString &desc) { description->setText(desc); }
+  void setTitle(const QString &title) { title_label->setText(title); }
+  void setValue(const QString &val) { value->setText(val); }
+  const QString getDescription() const { return description->text(); }
+  void showDescription() { description->setVisible(true); }
 
   QLabel *icon_label;
   QPixmap icon_pixmap;
-
-public slots:
-  void showDescription() {
-    description->setVisible(true);
-  }
 
 signals:
   void showDescriptionEvent();
 
 protected:
   AbstractControl(const QString &title, const QString &desc = "", const QString &icon = "", QWidget *parent = nullptr);
-  void hideEvent(QHideEvent *e) override;
+  void hideEvent(QHideEvent *e) override { description->hide(); }
 
   QHBoxLayout *hlayout;
   QPushButton *title_label;
 
-private:
   ElidedLabel *value;
   QLabel *description = nullptr;
 };
