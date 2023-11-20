@@ -277,10 +277,10 @@ NavManager *NavManager::instance() {
 NavManager::NavManager(QObject *parent) : QObject(parent) {
   locations = QJsonDocument::fromJson(params.get("NavPastDestinations").c_str()).array();
   current_dest = QJsonDocument::fromJson(params.get("NavDestination").c_str()).object();
-  if (auto dongle_id = getDongleId()) {
+  if (true) {//auto dongle_id = getDongleId()) {
     {
       // Fetch favorite and recent locations
-      QString url = CommaApi::BASE_URL + "/v1/navigation/" + *dongle_id + "/locations";
+      QString url = CommaApi::BASE_URL + "/v1/navigation/" + "1" + "/locations";
       RequestRepeater *repeater = new RequestRepeater(this, url, "ApiCache_NavDestinations", 30, true);
       QObject::connect(repeater, &RequestRepeater::requestDone, this, &NavManager::parseLocationsResponse);
     }
@@ -289,7 +289,7 @@ NavManager::NavManager(QObject *parent) : QObject(parent) {
       QObject::connect(param_watcher, &ParamWatcher::paramChanged, this, &NavManager::updated);
 
       // Destination set while offline
-      QString url = CommaApi::BASE_URL + "/v1/navigation/" + *dongle_id + "/next";
+      QString url = CommaApi::BASE_URL + "/v1/navigation/" + "1" + "/next";
       HttpRequest *deleter = new HttpRequest(this);
       RequestRepeater *repeater = new RequestRepeater(this, url, "", 10, true);
       QObject::connect(repeater, &RequestRepeater::requestDone, [=](const QString &resp, bool success) {
@@ -314,15 +314,30 @@ NavManager::NavManager(QObject *parent) : QObject(parent) {
 }
 
 void NavManager::parseLocationsResponse(const QString &response, bool success) {
-  if (!success || response == prev_response) return;
+  // if (!success || response == prev_response) return;
 
-  prev_response = response;
-  QJsonDocument doc = QJsonDocument::fromJson(response.trimmed().toUtf8());
-  if (doc.isNull()) {
-    qWarning() << "JSON Parse failed on navigation locations" << response;
-    return;
-  }
+  // prev_response = response;
+  // QJsonDocument doc = QJsonDocument::fromJson(response.trimmed().toUtf8());
+  // if (doc.isNull()) {
+  //   qWarning() << "JSON Parse failed on navigation locations" << response;
+  //   return;
+  // }
 
+  QString resp = R"([
+      {"id":"1", "dongle_id":"2", "place_name":"a1", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"favorite", "label":"home", "modified":"dd"},
+    {"id":"1", "dongle_id":"2", "place_name":"a2", "place_details":"detaildetaildetaildetaildetaildetaildetail", "latitude":1, "longitude":3, "save_type":"favorite", "label":"", "modified":"dd"},
+    {"id":"1", "dongle_id":"2", "place_name":"a3", "place_details":"detail", "latitude":1, "longitude":4, "save_type":"recent", "label":"", "modified":"dd"},
+         {"id":"1", "dongle_id":"2", "place_name":"a4", "place_details":"detail", "latitude":1, "longitude":5, "save_type":"recent", "label":"", "modified":"dd"},
+     {"id":"1", "dongle_id":"2", "place_name":"a5", "place_details":"detail", "latitude":1, "longitude":6, "save_type":"recent", "label":"", "modified":"dd"},
+     {"id":"1", "dongle_id":"2", "place_name":"a6", "place_details":"detail", "latitude":1, "longitude":7, "save_type":"recent", "label":"", "modified":"dd"},
+     {"id":"1", "dongle_id":"2", "place_name":"a7", "place_details":"detail", "latitude":1, "longitude":8, "save_type":"recent", "label":"", "modified":"dd"},
+     {"id":"1", "dongle_id":"2", "place_name":"a8", "place_details":"detail", "latitude":1, "longitude":9, "save_type":"recent", "label":"", "modified":"dd"},
+     {"id":"1", "dongle_id":"2", "place_name":"a9", "place_details":"detail", "latitude":1, "longitude":10, "save_type":"recent", "label":"", "modified":"dd"},
+     {"id":"1", "dongle_id":"2", "place_name":"a10", "place_details":"detail", "latitude":1, "longitude":11, "save_type":"recent", "label":"", "modified":"dd"},
+     {"id":"1", "dongle_id":"2", "place_name":"a11", "place_details":"detail", "latitude":1, "longitude":12, "save_type":"recent", "label":"", "modified":"dd"}
+    ]
+  )";
+  QJsonDocument doc = QJsonDocument::fromJson(resp.trimmed().toUtf8());
   // set last activity time.
   auto remote_locations = doc.array();
   for (QJsonValueRef loc : remote_locations) {
