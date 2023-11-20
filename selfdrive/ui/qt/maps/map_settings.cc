@@ -281,7 +281,7 @@ NavManager::NavManager(QObject *parent) : QObject(parent) {
     {
       // Fetch favorite and recent locations
       QString url = CommaApi::BASE_URL + "/v1/navigation/" + "1" + "/locations";
-      RequestRepeater *repeater = new RequestRepeater(this, url, "ApiCache_NavDestinations", 30, true);
+      RequestRepeater *repeater = new RequestRepeater(this, url, "ApiCache_NavDestinations", 1, true);
       QObject::connect(repeater, &RequestRepeater::requestDone, this, &NavManager::parseLocationsResponse);
     }
     {
@@ -324,7 +324,8 @@ void NavManager::parseLocationsResponse(const QString &response, bool success) {
   // }
 
   QString resp = R"([
-      {"id":"1", "dongle_id":"2", "place_name":"a1", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"favorite", "label":"home", "modified":"dd"},
+      {"id":"1", "dongle_id":"2", "place_name":"home", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"favorite", "label":"home", "modified":"dd"},
+      {"id":"1", "dongle_id":"2", "place_name":"work", "place_details":"detail", "latitude":1, "longitude":2, "save_type":"favorite", "label":"work", "modified":"dd"},
     {"id":"1", "dongle_id":"2", "place_name":"a2", "place_details":"detaildetaildetaildetaildetaildetaildetail", "latitude":1, "longitude":3, "save_type":"favorite", "label":"", "modified":"dd"},
     {"id":"1", "dongle_id":"2", "place_name":"a3", "place_details":"detail", "latitude":1, "longitude":4, "save_type":"recent", "label":"", "modified":"dd"},
          {"id":"1", "dongle_id":"2", "place_name":"a4", "place_details":"detail", "latitude":1, "longitude":5, "save_type":"recent", "label":"", "modified":"dd"},
