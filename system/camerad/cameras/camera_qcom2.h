@@ -86,7 +86,12 @@ private:
   Params params;
 };
 
-typedef struct MultiCameraState {
+class MultiCameraState {
+public:
+  MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+  ~MultiCameraState();
+  void run();
+
   unique_fd video0_fd;
   unique_fd cam_sync_fd;
   unique_fd isp_fd;
@@ -98,4 +103,9 @@ typedef struct MultiCameraState {
   CameraState driver_cam;
 
   PubMaster *pm;
-} MultiCameraState;
+
+protected:
+  void init();
+  void initCameras(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+};
+
