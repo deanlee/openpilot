@@ -278,6 +278,13 @@
     <name>DriverViewScene</name>
     <message>
         <source>camera starting</source>
+        <translation type="obsolete">بدء تشغيل الكاميرا</translation>
+    </message>
+</context>
+<context>
+    <name>DriverViewWindow</name>
+    <message>
+        <source>camera starting</source>
         <translation>بدء تشغيل الكاميرا</translation>
     </message>
 </context>

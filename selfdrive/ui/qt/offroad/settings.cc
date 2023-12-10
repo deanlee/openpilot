@@ -204,7 +204,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   auto dcamBtn = new ButtonControl(tr("Driver Camera"), tr("PREVIEW"),
                                    tr("Preview the driver facing camera to ensure that driver monitoring has good visibility. (vehicle must be off)"));
   connect(dcamBtn, &ButtonControl::clicked, [this]() {
-    DriverViewWindow d(this);
+    DriverViewDialog d(this);
     d.exec();
   });
   addItem(dcamBtn);

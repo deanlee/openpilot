@@ -278,6 +278,13 @@
     <name>DriverViewScene</name>
     <message>
         <source>camera starting</source>
+        <translation type="obsolete">ｶﾒﾗを起動しています</translation>
+    </message>
+</context>
+<context>
+    <name>DriverViewWindow</name>
+    <message>
+        <source>camera starting</source>
         <translation>ｶﾒﾗを起動しています</translation>
     </message>
 </context>
