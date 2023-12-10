@@ -30,8 +30,6 @@ Panda::Panda(std::string serial, uint32_t bus_offset) : bus_offset(bus_offset) {
             (hw_type == cereal::PandaState::PandaType::TRES);
 
   can_reset_communications();
-
-  return;
 }
 
 bool Panda::connected() {
