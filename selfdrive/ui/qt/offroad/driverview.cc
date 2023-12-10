@@ -75,3 +75,10 @@ void DriverViewWindow::paintGL() {
   p.setOpacity(face_detected ? 1.0 : 0.2);
   p.drawPixmap(img_x, img_y, face_img);
 }
+
+  DriverViewDialog::DriverViewDialog(QWidget *parent) : DialogBase(parent) {
+    QVBoxLayout *main_layout = new QVBoxLayout(this);
+    auto driver_view = new DriverViewWindow(this);
+    main_layout->addWidget(driver_view);
+    QObject::connect(driver_view, &DriverViewWindow::done, this, &DialogBase::accept);
+  }

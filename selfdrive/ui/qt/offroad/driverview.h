@@ -1,6 +1,7 @@
 #pragma once
 
 #include "selfdrive/ui/qt/widgets/cameraview.h"
+#include "selfdrive/ui/qt/widgets/input.h"
 
 class DriverViewWindow : public CameraWidget {
   Q_OBJECT
@@ -18,4 +19,9 @@ protected:
 
   Params params;
   QPixmap face_img;
+};
+
+class DriverViewDialog : public DialogBase {
+public:
+  explicit DriverViewDialog(QWidget *parent);
 };
