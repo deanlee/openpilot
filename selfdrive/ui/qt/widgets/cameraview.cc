@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 
+#include <QApplication>
 #include <QOpenGLBuffer>
 #include <QOffscreenSurface>
 
@@ -102,11 +103,11 @@ CameraWidget::CameraWidget(std::string stream_name, VisionStreamType type, bool 
   QObject::connect(this, &CameraWidget::vipcThreadConnected, this, &CameraWidget::vipcConnected, Qt::BlockingQueuedConnection);
   QObject::connect(this, &CameraWidget::vipcThreadFrameReceived, this, &CameraWidget::vipcFrameReceived, Qt::QueuedConnection);
   QObject::connect(this, &CameraWidget::vipcAvailableStreamsUpdated, this, &CameraWidget::availableStreamsUpdated, Qt::QueuedConnection);
+  QObject::connect(qApp, &QApplication::aboutToQuit, this, &CameraWidget::stopVipcThread);
 }
 
 CameraWidget::~CameraWidget() {
   makeCurrent();
-  stopVipcThread();
   if (isValid()) {
     glDeleteVertexArrays(1, &frame_vao);
     glDeleteBuffers(1, &frame_vbo);
@@ -181,7 +182,7 @@ void CameraWidget::showEvent(QShowEvent *event) {
     clearFrames();
     vipc_thread = new QThread();
     connect(vipc_thread, &QThread::started, [=]() { vipcThread(); });
-    connect(vipc_thread, &QThread::finished, vipc_thread, &QObject::deleteLater);
+    // connect(vipc_thread, &QThread::finished, vipc_thread, &QObject::deleteLater);
     vipc_thread->start();
   }
 }
@@ -189,8 +190,14 @@ void CameraWidget::showEvent(QShowEvent *event) {
 void CameraWidget::stopVipcThread() {
   if (vipc_thread) {
     vipc_thread->requestInterruption();
+    qWarning() << "before";
+    while (vipc_thread->isRunning()) {
+      qWarning() << "loop";
+		  QApplication::processEvents(QEventLoop::AllEvents, 100);
+    }
+    qWarning() << "here";
     vipc_thread->quit();
-    vipc_thread->wait();
+    delete vipc_thread;
     vipc_thread = nullptr;
   }
 }
