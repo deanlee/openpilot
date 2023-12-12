@@ -284,11 +284,11 @@ float set_exposure_target(const CameraBuf *b, int x_start, int x_end, int x_skip
   return lum_med / 256.0;
 }
 
-void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
+void *processing_thread(const CameraBuf *buf, process_thread_cb callback) {
   const char *thread_name = nullptr;
-  if (cs == &cameras->road_cam) {
+  if (buf->stream_type == VISION_STREAM_ROAD) {
     thread_name = "RoadCamera";
-  } else if (cs == &cameras->driver_cam) {
+  } else if (buf->stream_type == VISION_STREAM_DRIVER) {
     thread_name = "DriverCamera";
   } else {
     thread_name = "WideRoadCamera";
@@ -297,11 +297,11 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
 
   uint32_t cnt = 0;
   while (!do_exit) {
-    if (!cs->buf.acquire()) continue;
+    if (!buf.acquire()) continue;
 
-    callback(cameras, cs, cnt);
+    callback(buf, cnt);
 
-    if (cs == &(cameras->road_cam) && cameras->pm && cnt % 100 == 3) {
+    if (buf->stream_type == VISION_STREAM_ROAD && cameras->pm && cnt % 100 == 3) {
       // this takes 10ms???
       publish_thumbnail(cameras->pm, &(cs->buf));
     }
