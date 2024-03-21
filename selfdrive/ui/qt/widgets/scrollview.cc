@@ -43,8 +43,12 @@ ScrollView::ScrollView(QWidget *w, QWidget *parent) : QScrollArea(parent) {
   scroller->grabGesture(this->viewport(), QScroller::LeftMouseButtonGesture);
   scroller->setScrollerProperties(sp);
 }
+#include <QDebug>
 ScrollView::~ScrollView() {
-  QScroller::ungrabGesture(viewport());
+  assert(viewport());
+  qWarning() << "(**********)";
+  // QScroller::ungrabGesture(viewport());
+  QScroller::scroller(this->viewport())->ungrabGesture(viewport());
 }
 
 void ScrollView::hideEvent(QHideEvent *e) {
