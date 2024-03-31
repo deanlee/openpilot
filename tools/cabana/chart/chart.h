@@ -58,6 +58,7 @@ signals:
 private slots:
   void signalUpdated(const cabana::Signal *sig);
   void manageSignals();
+  void viewLogs();
   void handleMarkerClicked();
   void msgUpdated(MessageId id);
   void msgRemoved(MessageId id) { removeIf([=](auto &s) { return s.msg_id.address == id.address && !dbc()->msg(id); }); }

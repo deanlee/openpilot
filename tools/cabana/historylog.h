@@ -20,53 +20,75 @@ public:
   void paintSection(QPainter *painter, const QRect &rect, int logicalIndex) const;
 };
 
-class HistoryLogModel : public QAbstractTableModel {
+class AbstractLogModel : public QAbstractTableModel {
+  Q_OBJECT
+public:
+  AbstractLogModel(QObject *parent) : QAbstractTableModel(parent) {}
+  inline bool canFetchMore(const QModelIndex &parent) const override { return has_more_data; }
+  virtual void refresh(bool fetch_message = true) = 0;
+  virtual int fetchData(uint64_t from_time, uint64_t min_time = 0) = 0;
+  virtual void setMessage(const MessageId &message_id) = 0;
+  const int batch_size = 50;
+  bool has_more_data = true;
+};
+
+class HexLogModel : public AbstractLogModel {
   Q_OBJECT
 
 public:
-  HistoryLogModel(QObject *parent) : QAbstractTableModel(parent) {}
-  void setMessage(const MessageId &message_id);
-  void updateState();
-  void setFilter(int sig_idx, const QString &value, std::function<bool(double, double)> cmp);
+  HexLogModel(QObject *parent) : AbstractLogModel(parent) {}
+  void setMessage(const MessageId &msg_id) override { message_id = msg_id; }
   QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
   QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-  void fetchMore(const QModelIndex &parent) override;
-  inline bool canFetchMore(const QModelIndex &parent) const override { return has_more_data; }
   int rowCount(const QModelIndex &parent = QModelIndex()) const override { return messages.size(); }
-  int columnCount(const QModelIndex &parent = QModelIndex()) const override {
-    return display_signals_mode && !sigs.empty() ? sigs.size() + 1 : 2;
-  }
-  void refresh(bool fetch_message = true);
-
-public slots:
-  void setDisplayType(int type);
-  void setDynamicMode(int state);
-  void segmentsMerged();
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override { return 2; }
+  void refresh(bool fetch_message = true) override;
 
 public:
   struct Message {
     uint64_t mono_time = 0;
-    std::vector<double> sig_values;
     std::vector<uint8_t> data;
     std::vector<QColor> colors;
   };
 
-  template <class InputIt>
-  std::deque<HistoryLogModel::Message> fetchData(InputIt first, InputIt last, uint64_t min_time);
-  std::deque<Message> fetchData(uint64_t from_time, uint64_t min_time = 0);
+  MessageId message_id;
+  int fetchData(uint64_t from_time, uint64_t min_time) override;
 
-  MessageId msg_id;
   CanData hex_colors;
-  bool has_more_data = true;
-  const int batch_size = 50;
+  std::deque<Message> messages;
+};
+
+class SignalLogModel : public AbstractLogModel {
+  Q_OBJECT
+
+public:
+  SignalLogModel(QObject *parent) : AbstractLogModel(parent) {}
+  void setMessage(const MessageId &message_id) override;
+  void addSignal(const MessageId &message_id, const cabana::Signal *signal);
+  void setFilter(int sig_idx, const QString &value, std::function<bool(double, double)> cmp);
+  QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
+  QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+  int rowCount(const QModelIndex &parent = QModelIndex()) const override { return messages.size(); }
+  int columnCount(const QModelIndex &parent = QModelIndex()) const override { return sigs.size() + 1; }
+  void refresh(bool fetch_message = true) override;
+
+public:
+  struct Message {
+    uint64_t mono_time = 0;
+    std::vector<std::optional<double>> sig_values;
+  };
+  struct Sig {
+    MessageId msg_id;
+    const cabana::Signal *sig;
+  };
+
+  int fetchData(uint64_t from_time, uint64_t min_time = 0) override;
+
   int filter_sig_idx = -1;
   double filter_value = 0;
-  uint64_t last_fetch_time = 0;
   std::function<bool(double, double)> filter_cmp = nullptr;
   std::deque<Message> messages;
-  std::vector<cabana::Signal *> sigs;
-  bool dynamic_mode = true;
-  bool display_signals_mode = true;
+  std::vector<Sig> sigs;
 };
 
 class LogsWidget : public QFrame {
@@ -74,6 +96,7 @@ class LogsWidget : public QFrame {
 
 public:
   LogsWidget(QWidget *parent);
+  void addSignal(const MessageId &message_id, const cabana::Signal *signal);
   void setMessage(const MessageId &message_id);
   void updateState();
   void showEvent(QShowEvent *event) override;
@@ -86,10 +109,10 @@ private:
   void refresh();
 
   QTableView *logs;
-  HistoryLogModel *model;
-  QCheckBox *dynamic_mode;
+  AbstractLogModel *model;
   QComboBox *signals_cb, *comp_box, *display_type_cb;
   QLineEdit *value_edit;
   QWidget *filters_widget;
+  MessageId msg_id;
   MessageBytesDelegate *delegate;
 };

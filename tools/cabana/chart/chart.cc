@@ -79,6 +79,7 @@ void ChartView::createToolButtons() {
     menu->addAction(act);
   }
   menu->addSeparator();
+  menu->addAction(tr("View Logs"), this, &ChartView::viewLogs);
   menu->addAction(tr("Manage Signals"), this, &ChartView::manageSignals);
   split_chart_act = menu->addAction(tr("Split Chart"), [this]() { charts_widget->splitChart(this); });
 
@@ -167,6 +168,16 @@ void ChartView::msgUpdated(MessageId id) {
   if (std::any_of(sigs.cbegin(), sigs.cend(), [=](auto &s) { return s.msg_id.address == id.address; })) {
     updateTitle();
   }
+}
+
+#include "tools/cabana/historylog.h"
+
+void ChartView::viewLogs() {
+  LogsWidget *logview = new LogsWidget(nullptr);
+  for (const auto &s : sigs) {
+    logview->addSignal(s.msg_id, s.sig);
+  }
+  logview->show();
 }
 
 void ChartView::manageSignals() {
