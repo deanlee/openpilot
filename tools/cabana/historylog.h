@@ -24,12 +24,15 @@ class AbstractLogModel : public QAbstractTableModel {
   Q_OBJECT
 public:
   AbstractLogModel(QObject *parent) : QAbstractTableModel(parent) {}
+  void updateState();
+  void fetchMore(const QModelIndex &parent) override;
   inline bool canFetchMore(const QModelIndex &parent) const override { return has_more_data; }
   virtual void refresh(bool fetch_message = true) = 0;
   virtual int fetchData(uint64_t from_time, uint64_t min_time = 0) = 0;
   virtual void setMessage(const MessageId &message_id) = 0;
   const int batch_size = 50;
   bool has_more_data = true;
+  uint64_t last_fetch_time = 0;
 };
 
 class HexLogModel : public AbstractLogModel {

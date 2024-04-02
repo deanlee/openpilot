@@ -67,7 +67,7 @@ void HexLogModel::refresh(bool fetch_message) {
   endResetModel();
 }
 
-std::vector<HexLogModel::Message> HexLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
+int HexLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
   std::vector<Message> msgs;
   const auto &events = can->events(message_id);
   auto first = std::upper_bound(events.rbegin(), events.rend(), from_time, [](uint64_t ts, auto e) {
@@ -163,7 +163,7 @@ void SignalLogModel::setFilter(int sig_idx, const QString &value, std::function<
   filter_cmp = value.isEmpty() ? nullptr : cmp;
 }
 
-std::vector<SignalLogModel::Message> SignalLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
+int SignalLogModel::fetchData(uint64_t from_time, uint64_t min_time) {
   std::vector<Message> msgs;
   int i = 0;
   for (const auto &sig : sigs) {

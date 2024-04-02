@@ -23,5 +23,13 @@
     "system/**",
     "third_party/**",
     "tools/**",
-  ]
+  ],
+  "files.associations": {
+    "*.py": "python",
+    "array": "cpp",
+    "deque": "cpp",
+    "list": "cpp",
+    "vector": "cpp",
+    "string_view": "cpp"
+  }
 }
