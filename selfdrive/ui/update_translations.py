@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 
 from cereal import car, messaging
 from cereal.services import SERVICE_LIST
@@ -30,18 +31,30 @@ def generate_offroad_alerts_translations():
       content += f'QT_TRANSLATE_NOOP("OffroadAlert", R"({alert["text"]})");\n'
   return content
 
+group_number = 0
+def replace_sub(match):
+  global group_number
+  group_number += 1
+  # return '%' + str(match.lastindex)
+  return '%' + str(group_number)
+
+
 def generate_onroad_alert_translations():
+  global group_number
   cp = car.CarParams.new_message()
   cs = car.CarState.new_message()
   sm = messaging.SubMaster(list(SERVICE_LIST.keys()))
   translated = set()
+
+  pattern = r'\[([^[\]]*)\]'
 
   for event in EVENTS.values():
     for alert in event.values():
       if not isinstance(alert, Alert):
         alert = alert(cp, cs, sm, False, 0)
       for text in (alert.alert_text_1, alert.alert_text_2):
-        text = text.split('|')[0]
+        group_number = 0
+        text = re.sub(pattern, replace_sub, text)
         if (text and text not in translated):
           translated.add(text)
 

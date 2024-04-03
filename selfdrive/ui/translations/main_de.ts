@@ -510,22 +510,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>0 °C</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>0% used</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>0.0% frames dropped</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>0.0% used</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>100% full</source>
         <translation type="unfinished"></translation>
     </message>
@@ -706,10 +690,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Drive above 0 mph to engage</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Drive to Calibrate</source>
         <translation type="unfinished"></translation>
     </message>
@@ -739,10 +719,6 @@
     </message>
     <message>
         <source>GPS Malfunction</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Gas: 0%, Steer: 0%</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -863,10 +839,6 @@
     </message>
     <message>
         <source>Remount Detected: Recalibrating</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Remount Device (Pitch: nan°, Yaw: nan°)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1020,6 +992,30 @@ Gear</source>
     </message>
     <message>
         <source>ui_multilang_onroad_alerts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>0.0% frames dropped</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Gas: %1%, Steer: %2%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 °C</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1% used</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Drive above %1 to engage</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remount Device (Pitch: %1°, Yaw: %2°)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
