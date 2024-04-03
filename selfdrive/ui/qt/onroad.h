@@ -43,6 +43,7 @@ protected:
     {cereal::ControlsState::AlertStatus::CRITICAL, QColor(0xC9, 0x22, 0x31, 0xf1)},
   };
 
+  QString translateAlertText(const QString &text);
   void paintEvent(QPaintEvent*) override;
   OnroadAlerts::Alert getAlert(const SubMaster &sm, uint64_t started_frame);
 
