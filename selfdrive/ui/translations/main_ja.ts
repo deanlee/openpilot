@@ -569,10 +569,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Calibration in Progress: 0%</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Camera CRC Error - Driver</source>
         <translation type="unfinished"></translation>
     </message>
@@ -682,10 +678,6 @@
     </message>
     <message>
         <source>Door Open</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Drive Above 15 mph</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1015,6 +1007,14 @@ Gear</source>
     </message>
     <message>
         <source>Remount Device (Pitch: %1°, Yaw: %2°)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Calibration in Progress: %1%</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Drive Above %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

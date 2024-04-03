@@ -245,8 +245,8 @@ def below_steer_speed_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.S
 def calibration_incomplete_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int) -> Alert:
   first_word = 'Recalibration' if sm['liveCalibration'].calStatus == log.LiveCalibrationData.Status.recalibrating else 'Calibration'
   return Alert(
-    f"{first_word} in Progress: {sm['liveCalibration'].calPerc:.0f}%",
-    f"Drive Above {get_display_speed(MIN_SPEED_FILTER, metric)}",
+    f"{first_word} in Progress: [{sm['liveCalibration'].calPerc:.0f}]%",
+    f"Drive Above [{get_display_speed(MIN_SPEED_FILTER, metric)}]",
     AlertStatus.normal, AlertSize.mid,
     Priority.LOWEST, VisualAlert.none, AudibleAlert.none, .2)
 
