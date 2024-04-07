@@ -256,15 +256,12 @@ void CanData::compute(const MessageId &msg_id, const uint8_t *can_data, const in
         last_change.same_delta_counter += std::signbit(delta) == std::signbit(last_change.delta) ? 1 : -4;
         last_change.same_delta_counter = std::clamp(last_change.same_delta_counter, 0, 16);
 
+        // If last change was while ago or same delta counter is greater than 8, choose color based on delta up or down
+        // Otherwise, apply periodic changes
         const double delta_t = ts - last_change.ts;
-        // Mostly moves in the same direction, color based on delta up/down
-        if (delta_t * freq > periodic_threshold || last_change.same_delta_counter > 8) {
-          // Last change was while ago, choose color based on delta up or down
-          colors[i] = getColor(cur > last ? CYAN : RED);
-        } else {
-          // Periodic changes
-          colors[i] = blend(colors[i], getColor(GREYISH_BLUE));
-        }
+        colors[i] = (delta_t * freq > periodic_threshold || last_change.same_delta_counter > 8)
+                        ? getColor(cur > last ? CYAN : RED)
+                        : blend(colors[i], getColor(GREYISH_BLUE));
 
         // Track bit level changes
         const uint8_t diff = (cur ^ last);
