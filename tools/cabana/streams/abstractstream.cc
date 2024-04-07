@@ -77,12 +77,12 @@ size_t AbstractStream::suppressHighlighted() {
   return cnt;
 }
 
-void AbstractStream::clearSuppressed() {
-  std::lock_guard lk(mutex_);
-  for (auto &[_, m] : messages_) {
-    std::for_each(m.last_changes.begin(), m.last_changes.end(), [](auto &c) { c.suppressed = false; });
+  void AbstractStream::clearSuppressed() {
+    std::lock_guard lk(mutex_);
+    for (auto &[_, m] : messages_) {
+      std::for_each(m.last_changes.begin(), m.last_changes.end(), [](auto &c) { c.suppressed = false; });
+    }
   }
-}
 
 void AbstractStream::updateLastMessages() {
   auto prev_src_size = sources.size();
@@ -253,11 +253,8 @@ void CanData::compute(const MessageId &msg_id, const uint8_t *can_data, const in
       if (last != cur) {
         const int delta = cur - last;
         // Keep track if signal is changing randomly, or mostly moving in the same direction
-        if (std::signbit(delta) == std::signbit(last_change.delta)) {
-          last_change.same_delta_counter = std::min(16, last_change.same_delta_counter + 1);
-        } else {
-          last_change.same_delta_counter = std::max(0, last_change.same_delta_counter - 4);
-        }
+        last_change.same_delta_counter += std::signbit(delta) == std::signbit(last_change.delta) ? 1 : -4;
+        last_change.same_delta_counter = std::clamp(last_change.same_delta_counter, 0, 16);
 
         const double delta_t = ts - last_change.ts;
         // Mostly moves in the same direction, color based on delta up/down
