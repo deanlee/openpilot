@@ -169,10 +169,13 @@ const CanEvent *AbstractStream::newEvent(uint64_t mono_time, const cereal::CanDa
 void AbstractStream::mergeEvents(const std::vector<const CanEvent *> &events) {
   static MessageEventsMap msg_events;
   std::for_each(msg_events.begin(), msg_events.end(), [](auto &e) { e.second.clear(); });
+
+  // Group events by message ID
   for (auto e : events) {
     msg_events[{.source = e->src, .address = e->address}].push_back(e);
   }
 
+  // If there are events, merge them into the event containers
   if (!events.empty()) {
     for (const auto &[id, new_e] : msg_events) {
       if (!new_e.empty()) {
