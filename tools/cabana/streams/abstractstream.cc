@@ -77,12 +77,12 @@ size_t AbstractStream::suppressHighlighted() {
   return cnt;
 }
 
-  void AbstractStream::clearSuppressed() {
-    std::lock_guard lk(mutex_);
-    for (auto &[_, m] : messages_) {
-      std::for_each(m.last_changes.begin(), m.last_changes.end(), [](auto &c) { c.suppressed = false; });
-    }
+void AbstractStream::clearSuppressed() {
+  std::lock_guard lk(mutex_);
+  for (auto &[_, m] : messages_) {
+    std::for_each(m.last_changes.begin(), m.last_changes.end(), [](auto &c) { c.suppressed = false; });
   }
+}
 
 void AbstractStream::updateLastMessages() {
   auto prev_src_size = sources.size();
@@ -130,6 +130,7 @@ void AbstractStream::updateLastMsgsTo(double sec) {
   current_sec_ = sec;
   uint64_t last_ts = (sec + routeStartTime()) * 1e9;
   std::unordered_map<MessageId, CanData> msgs;
+  msgs.reserve(events_.size());
 
   for (const auto &[id, ev] : events_) {
     auto it = std::upper_bound(ev.begin(), ev.end(), last_ts, CompareCanEvent());
