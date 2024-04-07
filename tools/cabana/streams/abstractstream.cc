@@ -272,8 +272,8 @@ void CanData::compute(const MessageId &msg_id, const uint8_t *can_data, const in
         // Track bit level changes
         const uint8_t diff = (cur ^ last);
         for (int bit = 0; bit < 8; bit++) {
-          if (diff & (1 << (7 - bit))) {
-            ++last_change.bit_change_counts[bit];
+          if (diff & (1u << bit)) {
+            ++last_change.bit_change_counts[7 - bit];
           }
         }
 
