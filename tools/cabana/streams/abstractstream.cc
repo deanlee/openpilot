@@ -140,7 +140,7 @@ void AbstractStream::updateLastMsgsTo(double sec) {
       auto &m = msgs[id];
       // Keep last changes
       if (auto old_m = messages_.find(id); old_m != messages_.end()) {
-        m.last_changes = old_m->second.last_changes;
+        m.last_changes = std::move(old_m->second.last_changes);
       }
       m.compute(id, (*prev)->dat, (*prev)->size, ts, getSpeed(), {});
       m.count = std::distance(ev.begin(), prev) + 1;
@@ -209,7 +209,7 @@ inline QColor blend(const QColor &a, const QColor &b) {
   return QColor((a.red() + b.red()) / 2, (a.green() + b.green()) / 2, (a.blue() + b.blue()) / 2, (a.alpha() + b.alpha()) / 2);
 }
 
-// Calculate the frequency of the past minute.
+// Calculate the frequency from the past one minute data
 double calc_freq(const MessageId &msg_id, double current_sec) {
   const auto &events = can->events(msg_id);
   uint64_t cur_mono_time = (can->routeStartTime() + current_sec) * 1e9;
