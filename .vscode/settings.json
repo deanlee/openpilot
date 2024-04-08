@@ -23,12 +23,5 @@
     "system/**",
     "third_party/**",
     "tools/**",
-  ],
-  "files.associations": {
-    "*.py": "python",
-    "random": "cpp",
-    "bitset": "cpp",
-    "chrono": "cpp",
-    "algorithm": "cpp"
-  }
+  ]
 }
