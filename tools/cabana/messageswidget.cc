@@ -307,10 +307,9 @@ bool MessageListModel::match(const MessageListModel::Item &item) {
 }
 
 void MessageListModel::filterAndSort() {
+  // merge CAN and DBC messages
   std::vector<MessageId> all_messages;
   all_messages.reserve(can->lastMessages().size() + dbc_messages_.size());
-
-  // merge CAN and DBC messages
   auto dbc_msgs = dbc_messages_;
   for (const auto &[id, m] : can->lastMessages()) {
     all_messages.push_back(id);
@@ -320,7 +319,6 @@ void MessageListModel::filterAndSort() {
 
   // filter and sort
   std::vector<Item> items;
-  items.reserve(all_messages.size());
   for (const auto &id : all_messages) {
     auto msg = dbc()->msg(id);
     Item item = {.id = id,
