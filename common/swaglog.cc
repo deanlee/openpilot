@@ -4,7 +4,6 @@
 
 #include "common/swaglog.h"
 
-#include <cassert>
 #include <limits>
 #include <mutex>
 #include <string>

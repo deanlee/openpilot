@@ -8,7 +8,6 @@
 #define CLOUDLOG_ERROR 40
 #define CLOUDLOG_CRITICAL 50
 
-
 #ifdef __GNUC__
 #define SWAG_LOG_CHECK_FMT(a, b) __attribute__ ((format (printf, a, b)))
 #else
@@ -20,7 +19,6 @@ void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func
 
 void cloudlog_t(int levelnum, const char* filename, int lineno, const char* func,
                  uint32_t frame_id, const char* fmt, ...) SWAG_LOG_CHECK_FMT(6, 7);
-
 
 #define cloudlog(lvl, fmt, ...) cloudlog_e(lvl, __FILE__, __LINE__, \
                                            __func__, \
