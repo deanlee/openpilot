@@ -82,7 +82,7 @@ bool LOG_TIMESTAMPS = getenv("LOG_TIMESTAMPS");
 uint32_t NO_FRAME_ID = std::numeric_limits<uint32_t>::max();
 
 static void cloudlog_common(int levelnum, const char* filename, int lineno, const char* func,
-                            char* msg_buf, const json11::Json::object &msg_j={}) {
+                            const char* msg_buf, const json11::Json::object &msg_j={}) {
   static SwaglogState s;
 
   json11::Json::object log_j = json11::Json::object {
@@ -104,7 +104,7 @@ static void cloudlog_common(int levelnum, const char* filename, int lineno, cons
   ((json11::Json)log_j).dump(log_s);
   s.log(levelnum, filename, lineno, func, msg_buf, log_s);
 
-  free(msg_buf);
+  // free(msg_buf);
 }
 
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
@@ -150,3 +150,37 @@ void cloudlog_te(int levelnum, const char* filename, int lineno, const char* fun
   cloudlog_t_common(levelnum, filename, lineno, func, frame_id, fmt, args);
   va_end(args);
 }
+
+Logger::Logger(const char* filename, int lineno, const char* func) : filename_(filename), lineno_(lineno), func_(func) {
+
+}
+
+Logger::~Logger() {
+  message_ += this->str();
+  cloudlog_common(level_, filename_, lineno_, func_, message_.c_str());
+  printf("message output %s\n", message_.c_str());
+}
+
+Logger& Logger::error(const char* fmt, ...) {
+  level_ = CLOUDLOG_ERROR;
+  va_list args;
+  va_start(args, fmt);
+  char* msg_buf = nullptr;
+  int ret = vasprintf(&msg_buf, fmt, args);
+  if (ret > 0) {
+    message_ = msg_buf;
+    free(msg_buf);
+  }
+  va_end(args);
+  return *this;
+}
+
+  Logger &Logger::warning(const char *fmt, ...) {
+
+  }
+  Logger &Logger::debug(const char *fmt, ...) {
+
+  }
+  Logger &Logger::info(const char *fmt, ...) {
+
+  }

@@ -362,6 +362,11 @@ void Device::updateWakefulness(const UIState &s) {
 
 UIState *uiState() {
   static UIState ui_state;
+  {
+    LOGE("here %d %s", 10, "love") << " you what";
+    qWarning() << "out scope";
+  }
+
   return &ui_state;
 }
 

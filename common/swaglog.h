@@ -1,6 +1,8 @@
 #pragma once
 
 #include "common/timing.h"
+#include <sstream>
+#include <string>
 
 #define CLOUDLOG_DEBUG 10
 #define CLOUDLOG_INFO 20
@@ -14,6 +16,22 @@
 #else
 #define SWAG_LOG_CHECK_FMT(a, b)
 #endif
+
+class Logger : public std::stringstream {
+ public:
+  // Logger(int levelnum, const char* filename, int lineno, const char* func, const char* fmt, ...);
+  Logger(const char* filename, int lineno, const char* func);
+  ~Logger();
+  Logger &error(const char *fmt, ...);
+  Logger &warning(const char *fmt, ...);
+  Logger &debug(const char *fmt, ...);
+  Logger &info(const char *fmt, ...);
+  int level_;
+  const char *filename_;
+  int lineno_;
+  const char *func_;
+  std::string message_;
+};
 
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
                 const char* fmt, ...) SWAG_LOG_CHECK_FMT(5, 6);
@@ -66,9 +84,9 @@ void cloudlog_te(int levelnum, const char* filename, int lineno, const char* fun
 
 #define LOGT(...) cloudlog_t(CLOUDLOG_DEBUG, __VA_ARGS__)
 #define LOGD(fmt, ...) cloudlog(CLOUDLOG_DEBUG, fmt, ## __VA_ARGS__)
-#define LOG(fmt, ...) cloudlog(CLOUDLOG_INFO, fmt, ## __VA_ARGS__)
-#define LOGW(fmt, ...) cloudlog(CLOUDLOG_WARNING, fmt, ## __VA_ARGS__)
-#define LOGE(fmt, ...) cloudlog(CLOUDLOG_ERROR, fmt, ## __VA_ARGS__)
+#define LOG Logger(__FILE__, __LINE__, __func__).error
+#define LOGW Logger(__FILE__, __LINE__, __func__).warning
+#define LOGE Logger(__FILE__, __LINE__, __func__).error
 
 #define LOGD_100(fmt, ...) cloudlog_rl(2, 100, CLOUDLOG_DEBUG, fmt, ## __VA_ARGS__)
 #define LOG_100(fmt, ...) cloudlog_rl(2, 100, CLOUDLOG_INFO, fmt, ## __VA_ARGS__)
