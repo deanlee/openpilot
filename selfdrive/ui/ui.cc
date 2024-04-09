@@ -1,4 +1,3 @@
-
 #include "selfdrive/ui/ui.h"
 
 #include <algorithm>
@@ -363,7 +362,6 @@ void Device::updateWakefulness(const UIState &s) {
 
 UIState *uiState() {
   static UIState ui_state;
-  LOGD("test %d %s", 10, "love");
   return &ui_state;
 }
 
