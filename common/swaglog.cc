@@ -78,25 +78,11 @@ public:
   json11::Json::object ctx_j;
 };
 
-std::string formatMessage(const char* fmt, va_list args) {
-  va_list args_copy;
-  va_copy(args_copy, args);
-  int len = vsnprintf(nullptr, 0, fmt, args_copy);
-  va_end(args_copy);
-
-  if (len < 0) {
-    return {};
-  }
-  std::string message(len, '\0');
-  vsnprintf(&message[0], len + 1, fmt, args);
-  return message;
-}
-
 bool LOG_TIMESTAMPS = getenv("LOG_TIMESTAMPS");
 uint32_t NO_FRAME_ID = std::numeric_limits<uint32_t>::max();
 
 static void cloudlog_common(int levelnum, const char* filename, int lineno, const char* func,
-                            const std::string &message, const json11::Json::object &msg_j={}) {
+                            char* msg_buf, const json11::Json::object &msg_j={}) {
   static SwaglogState s;
 
   json11::Json::object log_j = json11::Json::object {
@@ -108,7 +94,7 @@ static void cloudlog_common(int levelnum, const char* filename, int lineno, cons
     {"created", seconds_since_epoch()}
   };
   if (msg_j.empty()) {
-    log_j["msg"] = message;
+    log_j["msg"] = msg_buf;
   } else {
     log_j["msg"] = msg_j;
   }
@@ -116,16 +102,20 @@ static void cloudlog_common(int levelnum, const char* filename, int lineno, cons
   std::string log_s;
   log_s += (char)levelnum;
   ((json11::Json)log_j).dump(log_s);
-  s.log(levelnum, filename, lineno, func, message.c_str(), log_s);
+  s.log(levelnum, filename, lineno, func, msg_buf, log_s);
+
+  free(msg_buf);
 }
 
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
                 const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  std::string message = formatMessage(fmt, args);
+  char* msg_buf = nullptr;
+  int ret = vasprintf(&msg_buf, fmt, args);
   va_end(args);
-  cloudlog_common(levelnum, filename, lineno, func, message.c_str());
+  if (ret <= 0 || !msg_buf) return;
+  cloudlog_common(levelnum, filename, lineno, func, msg_buf);
 }
 
 void cloudlog_t(int levelnum, const char* filename, int lineno, const char* func,
@@ -134,15 +124,16 @@ void cloudlog_t(int levelnum, const char* filename, int lineno, const char* func
 
   va_list args;
   va_start(args, fmt);
-  std::string message = formatMessage(fmt, args);
+  int ret = vasprintf(&msg_buf, fmt, args);
   va_end(args);
+  if (ret <= 0 || !msg_buf) return;
   json11::Json::object tspt_j = json11::Json::object{
-    {"event", message},
+    {"event", msg_buf},
     {"time", std::to_string(nanos_since_boot())}
   };
   if (frame_id < NO_FRAME_ID) {
     tspt_j["frame_id"] = std::to_string(frame_id);
   }
   tspt_j = json11::Json::object{{"timestamp", tspt_j}};
-  cloudlog_common(levelnum, filename, lineno, func, message.c_str(), tspt_j);
+  cloudlog_common(levelnum, filename, lineno, func, msg_buf, tspt_j);
 }
