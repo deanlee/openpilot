@@ -1,6 +1,7 @@
 #include "tools/replay/filereader.h"
 
 #include <fstream>
+#include <thread>
 
 #include "common/util.h"
 #include "system/hardware/hw.h"
@@ -35,11 +36,13 @@ std::string FileReader::read(const std::string &file, std::atomic<bool> *abort) 
 
 std::string FileReader::download(const std::string &url, std::atomic<bool> *abort) {
   for (int i = 0; i <= max_retries_ && !(abort && *abort); ++i) {
-    if (i > 0) rWarning("download failed, retrying %d", i);
-
     std::string result = httpGet(url, chunk_size_, abort);
     if (!result.empty()) {
       return result;
+    }
+    if (i < max_retries_) {
+      rWarning("download failed, retrying %d", i + 1);
+      std::this_thread::sleep_for(std::chrono::seconds(3));
     }
   }
   return {};
