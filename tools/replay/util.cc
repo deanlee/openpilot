@@ -14,6 +14,7 @@
 #include <numeric>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 #include "common/timing.h"
 #include "common/util.h"
@@ -58,27 +59,28 @@ struct CURLGlobalInitializer {
 
 static CURLGlobalInitializer curl_initializer;
 
-struct MultiPartWriter {
+struct CurlMultiPartWriter {
+  CURL * curl_handle;
   std::ostream *stream;
-  size_t *total_written;
-  size_t offset;
-  size_t end;
+  size_t *total_written_bytes;
+  size_t start_offset;
+  size_t end_offset;
 
   size_t write(char *data, size_t size, size_t count) {
     size_t bytes = size * count;
-    if ((offset + bytes) > end) return 0;
+    if ((start_offset + bytes) > end_offset) return 0;
 
-    stream->seekp(offset);
+    stream->seekp(start_offset);
     stream->write(data, bytes);
 
-    offset += bytes;
-    *total_written += bytes;
+    start_offset += bytes;
+    *total_written_bytes += bytes;
     return bytes;
   }
 };
 
 size_t write_cb(char *data, size_t size, size_t count, void *userp) {
-  return ((MultiPartWriter*)userp)->write(data, size, count);
+  return ((CurlMultiPartWriter*)userp)->write(data, size, count);
 }
 
 size_t dumy_write_cb(char *data, size_t size, size_t count, void *userp) { return size * count; }
@@ -170,27 +172,30 @@ std::string getUrlWithoutQuery(const std::string &url) {
 bool httpDownload(const std::string &url, std::ostream &stream, size_t chunk_size, size_t content_length, std::atomic<bool> *abort) {
   download_stats.add(url, content_length);
 
-  int parts = 1;
+  int num_parts = 1;
   if (chunk_size > 0 && content_length > 10 * 1024 * 1024) {
-    parts = std::nearbyint(content_length / (float)chunk_size);
-    parts = std::clamp(parts, 1, 5);
+    num_parts = std::nearbyint(content_length / (float)chunk_size);
+    num_parts = std::clamp(num_parts, 1, 5);
   }
 
   CURLM *cm = curl_multi_init();
-  std::map<CURL *, MultiPartWriter> writers;
-  const int part_size = content_length / parts;
-  size_t total_written = 0;
-  for (int i = 0; i < parts; ++i) {
+  std::vector<CurlMultiPartWriter> writers(num_parts);
+  const int part_size = content_length / num_parts;
+  size_t total_written_bytes = 0;
+
+  // Setup multi-part downloads
+  for (int i = 0; i < num_parts; ++i) {
     CURL *eh = curl_easy_init();
-    writers[eh] = {
-        .stream = &stream,
-        .offset = (size_t)(i * part_size),
-        .end = i == parts - 1 ? content_length : (i + 1) * part_size,
+    writers[i] = {
+      .curl_handle = eh,
+      .stream = &stream,
+      .start_offset = (size_t)(i * part_size),
+      .end_offset = i == num_parts - 1 ? content_length : (i + 1) * part_size,
     };
     curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_cb);
-    curl_easy_setopt(eh, CURLOPT_WRITEDATA, (void *)(&writers[eh]));
+    curl_easy_setopt(eh, CURLOPT_WRITEDATA, (void *)(&writers[i]));
     curl_easy_setopt(eh, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(eh, CURLOPT_RANGE, util::string_format("%d-%d", writers[eh].offset, writers[eh].end - 1).c_str());
+    curl_easy_setopt(eh, CURLOPT_RANGE, util::string_format("%d-%d", writers[i].start_offset, writers[i].end_offset - 1).c_str());
     curl_easy_setopt(eh, CURLOPT_HTTPGET, 1);
     curl_easy_setopt(eh, CURLOPT_NOSIGNAL, 1);
     curl_easy_setopt(eh, CURLOPT_FOLLOWLOCATION, 1);
@@ -198,23 +203,25 @@ bool httpDownload(const std::string &url, std::ostream &stream, size_t chunk_siz
     curl_multi_add_handle(cm, eh);
   }
 
+   // Perform multi-part downloads
   int still_running = 1;
   while (still_running > 0 && !(abort && *abort)) {
     curl_multi_wait(cm, nullptr, 0, 1000, nullptr);
     curl_multi_perform(cm, &still_running);
-    download_stats.update(url, total_written);
+    download_stats.update(url, total_written_bytes);
   }
 
+   // Check completion status
   CURLMsg *msg;
   int msgs_left = -1;
-  int complete = 0;
+  int successful_downloads = 0;
   while ((msg = curl_multi_info_read(cm, &msgs_left)) && !(abort && *abort)) {
     if (msg->msg == CURLMSG_DONE) {
       if (msg->data.result == CURLE_OK) {
         long res_status = 0;
         curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &res_status);
         if (res_status == 206) {
-          complete++;
+          successful_downloads++;
         } else {
           rWarning("Download failed: http error code: %d", res_status);
         }
@@ -224,16 +231,16 @@ bool httpDownload(const std::string &url, std::ostream &stream, size_t chunk_siz
     }
   }
 
-  bool success = complete == parts;
-  download_stats.update(url, total_written, success);
-  download_stats.remove(url);
-
-  for (const auto &[e, w] : writers) {
-    curl_multi_remove_handle(cm, e);
-    curl_easy_cleanup(e);
+  // Clean up handles and return success status
+  for (const auto &writer : writers) {
+    curl_multi_remove_handle(cm, writer.curl_handle);
+    curl_easy_cleanup(writer.curl_handle);
   }
   curl_multi_cleanup(cm);
 
+  bool success = successful_downloads == part_size;
+  download_stats.update(url, total_written_bytes, success);
+  download_stats.remove(url);
   return success;
 }
 
