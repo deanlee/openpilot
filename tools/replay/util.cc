@@ -13,6 +13,7 @@
 #include <map>
 #include <mutex>
 #include <numeric>
+#include <sstream>
 #include <utility>
 
 #include "common/timing.h"
@@ -58,9 +59,8 @@ struct CURLGlobalInitializer {
 
 static CURLGlobalInitializer curl_initializer;
 
-template <class T>
 struct MultiPartWriter {
-  T *buf;
+  std::ostream *stream;
   size_t *total_written;
   size_t offset;
   size_t end;
@@ -69,12 +69,8 @@ struct MultiPartWriter {
     size_t bytes = size * count;
     if ((offset + bytes) > end) return 0;
 
-    if constexpr (std::is_same<T, std::string>::value) {
-      memcpy(buf->data() + offset, data, bytes);
-    } else if constexpr (std::is_same<T, std::ofstream>::value) {
-      buf->seekp(offset);
-      buf->write(data, bytes);
-    }
+    stream->seekp(offset);
+    stream->write(data, bytes);
 
     offset += bytes;
     *total_written += bytes;
@@ -82,10 +78,8 @@ struct MultiPartWriter {
   }
 };
 
-template <class T>
 size_t write_cb(char *data, size_t size, size_t count, void *userp) {
-  auto w = (MultiPartWriter<T> *)userp;
-  return w->write(data, size, count);
+  return ((MultiPartWriter*)userp)->write(data, size, count);
 }
 
 size_t dumy_write_cb(char *data, size_t size, size_t count, void *userp) { return size * count; }
@@ -174,8 +168,7 @@ std::string getUrlWithoutQuery(const std::string &url) {
   return (idx == std::string::npos ? url : url.substr(0, idx));
 }
 
-template <class T>
-bool httpDownload(const std::string &url, T &buf, size_t chunk_size, size_t content_length, std::atomic<bool> *abort) {
+bool httpDownload(const std::string &url, std::ostream &stream, size_t chunk_size, size_t content_length, std::atomic<bool> *abort) {
   download_stats.add(url, content_length);
 
   int parts = 1;
@@ -186,17 +179,17 @@ bool httpDownload(const std::string &url, T &buf, size_t chunk_size, size_t cont
 
   CURLM *cm = curl_multi_init();
   size_t written = 0;
-  std::map<CURL *, MultiPartWriter<T>> writers;
+  std::map<CURL *, MultiPartWriter> writers;
   const int part_size = content_length / parts;
   for (int i = 0; i < parts; ++i) {
     CURL *eh = curl_easy_init();
     writers[eh] = {
-        .buf = &buf,
+        .stream = &stream,
         .total_written = &written,
         .offset = (size_t)(i * part_size),
         .end = i == parts - 1 ? content_length : (i + 1) * part_size,
     };
-    curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_cb<T>);
+    curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_cb);
     curl_easy_setopt(eh, CURLOPT_WRITEDATA, (void *)(&writers[eh]));
     curl_easy_setopt(eh, CURLOPT_URL, url.c_str());
     curl_easy_setopt(eh, CURLOPT_RANGE, util::string_format("%d-%d", writers[eh].offset, writers[eh].end - 1).c_str());
@@ -251,7 +244,10 @@ std::string httpGet(const std::string &url, size_t chunk_size, std::atomic<bool>
   if (size == 0) return {};
 
   std::string result(size, '\0');
-  return httpDownload(url, result, chunk_size, size, abort) ? result : "";
+  std::stringbuf sbuf;
+  sbuf.pubsetbuf(result.data(), size);
+  std::ostream os(&sbuf);
+  return httpDownload(url, os, chunk_size, size, abort) ? result : "";
 }
 
 bool httpDownload(const std::string &url, const std::string &file, size_t chunk_size, std::atomic<bool> *abort) {
