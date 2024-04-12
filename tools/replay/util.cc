@@ -5,7 +5,6 @@
 #include <openssl/sha.h>
 
 #include <cstdarg>
-#include <cstring>
 #include <cassert>
 #include <cmath>
 #include <fstream>
@@ -178,14 +177,13 @@ bool httpDownload(const std::string &url, std::ostream &stream, size_t chunk_siz
   }
 
   CURLM *cm = curl_multi_init();
-  size_t written = 0;
   std::map<CURL *, MultiPartWriter> writers;
   const int part_size = content_length / parts;
+  size_t total_written = 0;
   for (int i = 0; i < parts; ++i) {
     CURL *eh = curl_easy_init();
     writers[eh] = {
         .stream = &stream,
-        .total_written = &written,
         .offset = (size_t)(i * part_size),
         .end = i == parts - 1 ? content_length : (i + 1) * part_size,
     };
@@ -204,7 +202,7 @@ bool httpDownload(const std::string &url, std::ostream &stream, size_t chunk_siz
   while (still_running > 0 && !(abort && *abort)) {
     curl_multi_wait(cm, nullptr, 0, 1000, nullptr);
     curl_multi_perform(cm, &still_running);
-    download_stats.update(url, written);
+    download_stats.update(url, total_written);
   }
 
   CURLMsg *msg;
@@ -227,7 +225,7 @@ bool httpDownload(const std::string &url, std::ostream &stream, size_t chunk_siz
   }
 
   bool success = complete == parts;
-  download_stats.update(url, written, success);
+  download_stats.update(url, total_written, success);
   download_stats.remove(url);
 
   for (const auto &[e, w] : writers) {
