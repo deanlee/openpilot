@@ -33,8 +33,8 @@ Replay::Replay(QString route, QStringList allow, QStringList block, SubMaster *s
     pm = std::make_unique<PubMaster>(s);
   }
   route_ = std::make_unique<Route>(route, data_dir);
-  events_ = std::make_unique<std::vector<Event *>>();
-  new_events_ = std::make_unique<std::vector<Event *>>();
+  events_ = std::make_unique<std::vector<Event>>();
+  new_events_ = std::make_unique<std::vector<Event>>();
 }
 
 Replay::~Replay() {
@@ -146,34 +146,34 @@ void Replay::buildTimeline() {
     std::shared_ptr<LogReader> log(new LogReader());
     if (!log->load(it->second.qlog.toStdString(), &exit_, !hasFlag(REPLAY_FLAG_NO_FILE_CACHE), 0, 3)) continue;
 
-    for (const Event *e : log->events) {
-      if (e->which == cereal::Event::Which::CONTROLS_STATE) {
-        capnp::FlatArrayMessageReader reader(e->data);
+    for (const Event &e : log->events) {
+      if (e.which == cereal::Event::Which::CONTROLS_STATE) {
+        capnp::FlatArrayMessageReader reader(e.data);
         auto event = reader.getRoot<cereal::Event>();
         auto cs = event.getControlsState();
 
         if (engaged != cs.getEnabled()) {
           if (engaged) {
             std::lock_guard lk(timeline_lock);
-            timeline.push_back({toSeconds(engaged_begin), toSeconds(e->mono_time), TimelineType::Engaged});
+            timeline.push_back({toSeconds(engaged_begin), toSeconds(e.mono_time), TimelineType::Engaged});
           }
-          engaged_begin = e->mono_time;
+          engaged_begin = e.mono_time;
           engaged = cs.getEnabled();
         }
 
         if (alert_type != cs.getAlertType().cStr() || alert_status != cs.getAlertStatus()) {
           if (!alert_type.empty() && alert_size != cereal::ControlsState::AlertSize::NONE) {
             std::lock_guard lk(timeline_lock);
-            timeline.push_back({toSeconds(alert_begin), toSeconds(e->mono_time), timeline_types[(int)alert_status]});
+            timeline.push_back({toSeconds(alert_begin), toSeconds(e.mono_time), timeline_types[(int)alert_status]});
           }
-          alert_begin = e->mono_time;
+          alert_begin = e.mono_time;
           alert_type = cs.getAlertType().cStr();
           alert_size = cs.getAlertSize();
           alert_status = cs.getAlertStatus();
         }
-      } else if (e->which == cereal::Event::Which::USER_FLAG) {
+      } else if (e.which == cereal::Event::Which::USER_FLAG) {
         std::lock_guard lk(timeline_lock);
-        timeline.push_back({toSeconds(e->mono_time), toSeconds(e->mono_time), TimelineType::UserFlag});
+        timeline.push_back({toSeconds(e.mono_time), toSeconds(e.mono_time), TimelineType::UserFlag});
       }
     }
     std::sort(timeline.begin(), timeline.end(), [](auto &l, auto &r) { return std::get<2>(l) < std::get<2>(r); });
@@ -280,8 +280,8 @@ void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::
       size_t size = new_events_->size();
       const auto &events = segments_[n]->log->events;
       std::copy_if(events.begin(), events.end(), std::back_inserter(*new_events_),
-                   [this](auto e) { return e->which < sockets_.size() && sockets_[e->which] != nullptr; });
-      std::inplace_merge(new_events_->begin(), new_events_->begin() + size, new_events_->end(), Event::lessThan());
+                   [this](const Event &e) { return e.which < sockets_.size() && sockets_[e.which] != nullptr; });
+      std::inplace_merge(new_events_->begin(), new_events_->begin() + size, new_events_->end());
     }
 
     if (stream_thread_) {
@@ -311,15 +311,15 @@ void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::
 void Replay::startStream(const Segment *cur_segment) {
   const auto &events = cur_segment->log->events;
 
-  route_start_ts_ = events.front()->mono_time;
+  route_start_ts_ = events.front().mono_time;
   cur_mono_time_ += route_start_ts_ - 1;
 
   // get datetime from INIT_DATA, fallback to datetime in the route name
   route_date_time_ = route()->datetime();
   auto it = std::find_if(events.cbegin(), events.cend(),
-                         [](auto e) { return e->which == cereal::Event::Which::INIT_DATA; });
+                         [](const Event &e) { return e.which == cereal::Event::Which::INIT_DATA; });
   if (it != events.cend()) {
-    capnp::FlatArrayMessageReader reader((*it)->data);
+    capnp::FlatArrayMessageReader reader(it->data);
     auto event = reader.getRoot<cereal::Event>();
     uint64_t wall_time = event.getInitData().getWallTimeNanos();
     if (wall_time > 0) {
@@ -328,9 +328,9 @@ void Replay::startStream(const Segment *cur_segment) {
   }
 
   // write CarParams
-  it = std::find_if(events.begin(), events.end(), [](auto e) { return e->which == cereal::Event::Which::CAR_PARAMS; });
+  it = std::find_if(events.begin(), events.end(), [](const Event &e) { return e.which == cereal::Event::Which::CAR_PARAMS; });
   if (it != events.end()) {
-    capnp::FlatArrayMessageReader reader((*it)->data);
+    capnp::FlatArrayMessageReader reader(it->data);
     auto event = reader.getRoot<cereal::Event>();
     car_fingerprint_ = event.getCarParams().getCarFingerprint();
     capnp::MallocMessageBuilder builder;
@@ -412,7 +412,7 @@ void Replay::stream() {
     if (exit_) break;
 
     Event cur_event{cur_which, cur_mono_time_, {}};
-    auto eit = std::upper_bound(events_->begin(), events_->end(), &cur_event, Event::lessThan());
+    auto eit = std::upper_bound(events_->begin(), events_->end(), cur_event);
     if (eit == events_->end()) {
       rInfo("waiting for events...");
       continue;
@@ -422,7 +422,7 @@ void Replay::stream() {
     uint64_t loop_start_ts = nanos_since_boot();
 
     for (auto end = events_->end(); !updating_events_ && eit != end; ++eit) {
-      const Event *evt = (*eit);
+      const Event *evt = &(*eit);
       cur_which = evt->which;
       cur_mono_time_ = evt->mono_time;
       setCurrentSegment(toSeconds(cur_mono_time_) / 60);

@@ -31,18 +31,20 @@ void ReplayStream::mergeSegments() {
     if (seg && seg->isLoaded() && !processed_segments.count(n)) {
       processed_segments.insert(n);
 
+      double t1 = millis_since_boot();
       std::vector<const CanEvent *> new_events;
       new_events.reserve(seg->log->events.size());
       for (auto it = seg->log->events.cbegin(); it != seg->log->events.cend(); ++it) {
-        if ((*it)->which == cereal::Event::Which::CAN) {
-          const uint64_t ts = (*it)->mono_time;
-          capnp::FlatArrayMessageReader reader((*it)->data);
+        if (it->which == cereal::Event::Which::CAN) {
+          const uint64_t ts = it->mono_time;
+          capnp::FlatArrayMessageReader reader(it->data);
           auto event = reader.getRoot<cereal::Event>();
           for (const auto &c : event.getCan()) {
             new_events.push_back(newEvent(ts, c));
           }
         }
       }
+      qDebug() << millis_since_boot() - t1;
       mergeEvents(new_events);
     }
   }

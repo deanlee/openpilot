@@ -88,7 +88,7 @@ void read_segment(int n, const SegmentFile &segment_file, uint32_t flags) {
 
     // test LogReader & FrameReader
     REQUIRE(segment.log->events.size() > 0);
-    REQUIRE(std::is_sorted(segment.log->events.begin(), segment.log->events.end(), Event::lessThan()));
+    REQUIRE(std::is_sorted(segment.log->events.begin(), segment.log->events.end()));
 
     for (auto cam : ALL_CAMERAS) {
       auto &fr = segment.frames[cam];
@@ -179,15 +179,15 @@ void TestReplay::testSeekTo(int seek_to) {
     }
 
     Event cur_event(cereal::Event::Which::INIT_DATA, cur_mono_time_, {});
-    auto eit = std::upper_bound(events_->begin(), events_->end(), &cur_event, Event::lessThan());
+    auto eit = std::upper_bound(events_->begin(), events_->end(), cur_event);
     if (eit == events_->end()) {
       qDebug() << "waiting for events...";
       continue;
     }
 
-    REQUIRE(std::is_sorted(events_->begin(), events_->end(), Event::lessThan()));
+    REQUIRE(std::is_sorted(events_->begin(), events_->end()));
     const int seek_to_segment = seek_to / 60;
-    const int event_seconds = ((*eit)->mono_time - route_start_ts_) / 1e9;
+    const int event_seconds = (eit->mono_time - route_start_ts_) / 1e9;
     current_segment_ = event_seconds / 60;
     INFO("seek to [" << seek_to << "s segment " << seek_to_segment << "], events [" << event_seconds << "s segment" << current_segment_ << "]");
     REQUIRE(event_seconds >= seek_to);

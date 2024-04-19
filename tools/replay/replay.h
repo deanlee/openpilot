@@ -79,7 +79,7 @@ public:
   inline int totalSeconds() const { return (!segments_.empty()) ? (segments_.rbegin()->first + 1) * 60 : 0; }
   inline void setSpeed(float speed) { speed_ = speed; }
   inline float getSpeed() const { return speed_; }
-  inline const std::vector<Event *> *events() const { return events_.get(); }
+  inline const std::vector<Event> *events() const { return events_.get(); }
   inline const std::map<int, std::unique_ptr<Segment>> &segments() const { return segments_; }
   inline const std::string &carFingerprint() const { return car_fingerprint_; }
   inline const std::vector<std::tuple<double, double, TimelineType>> getTimeline() {
@@ -126,8 +126,8 @@ protected:
   QDateTime route_date_time_;
   uint64_t route_start_ts_ = 0;
   std::atomic<uint64_t> cur_mono_time_ = 0;
-  std::unique_ptr<std::vector<Event *>> events_;
-  std::unique_ptr<std::vector<Event *>> new_events_;
+  std::unique_ptr<std::vector<Event>> events_;
+  std::unique_ptr<std::vector<Event>> new_events_;
   std::vector<int> segments_merged_;
 
   // messaging

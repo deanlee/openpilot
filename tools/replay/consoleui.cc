@@ -172,7 +172,7 @@ void ConsoleUI::updateStatus() {
   if (status != Status::Paused) {
     auto events = replay->events();
     uint64_t current_mono_time = replay->routeStartTime() + replay->currentSeconds() * 1e9;
-    bool playing = !events->empty() && events->back()->mono_time > current_mono_time;
+    bool playing = !events->empty() && events->back().mono_time > current_mono_time;
     status = playing ? Status::Playing : Status::Waiting;
   }
   auto [status_str, status_color] = status_text[status];

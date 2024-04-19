@@ -8,13 +8,11 @@ LogReader::LogReader(size_t memory_pool_block_size) {
   events.reserve(memory_pool_block_size);
 }
 
-LogReader::~LogReader() {
-  for (Event *e : events) {
-    delete e;
-  }
-}
-
+#include <QDebug>
+#include "common/timing.h"
+double dd = 0;
 bool LogReader::load(const std::string &url, std::atomic<bool> *abort, bool local_cache, int chunk_size, int retries) {
+  dd = millis_since_boot();
   raw_ = FileReader(local_cache, chunk_size, retries).read(url, abort);
   if (raw_.empty()) return false;
 
@@ -31,6 +29,7 @@ bool LogReader::load(const std::byte *data, size_t size, std::atomic<bool> *abor
 }
 
 bool LogReader::parse(std::atomic<bool> *abort) {
+  double t1 = millis_since_boot();
   try {
     kj::ArrayPtr<const capnp::word> words((const capnp::word *)raw_.data(), raw_.size() / sizeof(capnp::word));
     while (words.size() > 0 && !(abort && *abort)) {
@@ -40,16 +39,16 @@ bool LogReader::parse(std::atomic<bool> *abort) {
       uint64_t mono_time = event.getLogMonoTime();
       auto event_data = kj::arrayPtr(words.begin(), reader.getEnd());
 
-      Event *evt = events.emplace_back(newEvent(which, mono_time, event_data));
+      const Event &evt = events.emplace_back(which, mono_time, event_data);
       // Add encodeIdx packet again as a frame packet for the video stream
-      if (evt->which == cereal::Event::ROAD_ENCODE_IDX ||
-          evt->which == cereal::Event::DRIVER_ENCODE_IDX ||
-          evt->which == cereal::Event::WIDE_ROAD_ENCODE_IDX) {
+      if (evt.which == cereal::Event::ROAD_ENCODE_IDX ||
+          evt.which == cereal::Event::DRIVER_ENCODE_IDX ||
+          evt.which == cereal::Event::WIDE_ROAD_ENCODE_IDX) {
         auto idx = capnp::AnyStruct::Reader(event).getPointerSection()[0].getAs<cereal::EncodeIndex>();
         if (uint64_t sof = idx.getTimestampSof()) {
           mono_time = sof;
         }
-        events.emplace_back(newEvent(which, mono_time, event_data, idx.getSegmentNum()));
+        events.emplace_back(which, mono_time, event_data, idx.getSegmentNum());
       }
 
       words = kj::arrayPtr(reader.getEnd(), words.end());
@@ -59,16 +58,10 @@ bool LogReader::parse(std::atomic<bool> *abort) {
   }
 
   if (!events.empty() && !(abort && *abort)) {
-    std::sort(events.begin(), events.end(), Event::lessThan());
+    std::sort(events.begin(), events.end());
+    // qDebug() << events.capacity() << events.size() << DEFAULT_EVENT_MEMORY_POOL_BLOCK_SIZE*sizeof(Event) << sizeof(Event) << sizeof(Event *);
+    qDebug() << "load time" << millis_since_boot() - t1 << "total" << millis_since_boot() - dd;
     return true;
   }
   return false;
-}
-
-Event *LogReader::newEvent(cereal::Event::Which which, uint64_t mono_time, const kj::ArrayPtr<const capnp::word> &words, int eidx_segnum) {
-#ifdef HAS_MEMORY_RESOURCE
-  return new (&mbr_) Event(which, mono_time, words, eidx_segnum);
-#else
-  return new Event(which, mono_time, words, eidx_segnum);
-#endif
 }
