@@ -25,7 +25,6 @@ private:
   QString speedUnit;
   float setSpeed;
   float speedLimit;
-  bool is_cruise_set = false;
   bool is_metric = false;
   bool dmActive = false;
   bool hideBottomIcons = false;
