@@ -8,6 +8,7 @@ _spinner
 
 ui
 mui
+replay_ui
 watch3
 installer/installers/*
 qt/setup/setup
