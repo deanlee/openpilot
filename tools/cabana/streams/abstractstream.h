@@ -12,7 +12,8 @@
 
 #include "cereal/messaging/messaging.h"
 #include "tools/cabana/dbc/dbcmanager.h"
-#include "tools/cabana/util.h"
+#include "tools/cabana/utils/util.h"
+#include "tools/replay/util.h"
 
 struct CanData {
   void compute(const MessageId &msg_id, const uint8_t *dat, const int size, double current_sec,

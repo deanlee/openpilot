@@ -15,9 +15,9 @@ def dmonitoringd_thread():
 
   params = Params()
   pm = messaging.PubMaster(['driverMonitoringState'])
-  sm = messaging.SubMaster(['driverStateV2', 'liveCalibration', 'carState', 'controlsState', 'modelV2'], poll=['driverStateV2'])
+  sm = messaging.SubMaster(['driverStateV2', 'liveCalibration', 'carState', 'controlsState', 'modelV2'], poll='driverStateV2')
 
-  driver_status = DriverStatus(rhd_saved=params.get_bool("IsRhdDetected"))
+  driver_status = DriverStatus(rhd_saved=params.get_bool("IsRhdDetected"), always_on=params.get_bool("AlwaysOnDM"))
 
   v_cruise_last = 0
   driver_engaged = False
@@ -43,7 +43,7 @@ def dmonitoringd_thread():
     # Get data from dmonitoringmodeld
     events = Events()
 
-    if sm.all_checks():
+    if sm.all_checks() and len(sm['liveCalibration'].rpyCalib):
       driver_status.update_states(sm['driverStateV2'], sm['liveCalibration'].rpyCalib, sm['carState'].vEgo, sm['controlsState'].enabled)
 
     # Block engaging after max number of distrations
@@ -52,7 +52,8 @@ def dmonitoringd_thread():
       events.add(car.CarEvent.EventName.tooDistracted)
 
     # Update events from driver state
-    driver_status.update_events(events, driver_engaged, sm['controlsState'].enabled, sm['carState'].standstill)
+    driver_status.update_events(events, driver_engaged, sm['controlsState'].enabled,
+      sm['carState'].standstill, sm['carState'].gearShifter in [car.CarState.GearShifter.reverse, car.CarState.GearShifter.park])
 
     # build driverMonitoringState packet
     dat = messaging.new_message('driverMonitoringState', valid=sm.all_checks())
@@ -75,6 +76,9 @@ def dmonitoringd_thread():
       "isRHD": driver_status.wheel_on_right,
     }
     pm.send('driverMonitoringState', dat)
+
+    if sm['driverStateV2'].frameId % 40 == 1:
+      driver_status.always_on = params.get_bool("AlwaysOnDM")
 
     # save rhd virtual toggle every 5 mins
     if (sm['driverStateV2'].frameId % 6000 == 0 and

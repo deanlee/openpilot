@@ -3,7 +3,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <zmq.h>
 
 #include <algorithm>
 #include <atomic>
@@ -78,7 +77,7 @@ float getenv(const char* key, float default_val);
 std::string hexdump(const uint8_t* in, const size_t size);
 std::string dir_name(std::string const& path);
 bool starts_with(const std::string &s1, const std::string &s2);
-bool ends_with(const std::string &s1, const std::string &s2);
+bool ends_with(const std::string &s, const std::string &suffix);
 
 // ***** random helpers *****
 int random_int(int min, int max);
@@ -181,35 +180,9 @@ void update_max_atomic(std::atomic<T>& max, T const& value) {
   while (prev < value && !max.compare_exchange_weak(prev, value)) {}
 }
 
-class LogState {
- public:
-  bool initialized = false;
-  std::mutex lock;
-  void *zctx = nullptr;
-  void *sock = nullptr;
-  int print_level;
-  std::string endpoint;
-
-  LogState(std::string _endpoint) {
-    endpoint = _endpoint;
-  }
-
-  inline void initialize() {
-    zctx = zmq_ctx_new();
-    sock = zmq_socket(zctx, ZMQ_PUSH);
-
-    // Timeout on shutdown for messages to be received by the logging process
-    int timeout = 100;
-    zmq_setsockopt(sock, ZMQ_LINGER, &timeout, sizeof(timeout));
-
-    zmq_connect(sock, endpoint.c_str());
-    initialized = true;
-  }
-
-  ~LogState() {
-    if (initialized) {
-      zmq_close(sock);
-      zmq_ctx_destroy(zctx);
-    }
-  }
-};
+typedef struct Rect {
+  int x;
+  int y;
+  int w;
+  int h;
+} Rect;
