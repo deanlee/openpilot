@@ -114,7 +114,7 @@ CameraWidget::~CameraWidget() {
 // Qt uses device-independent pixels, depending on platform this may be
 // different to what OpenGL uses
 int CameraWidget::glWidth() {
-    return width() * devicePixelRatio();
+  return width() * devicePixelRatio();
 }
 
 int CameraWidget::glHeight() {
@@ -335,9 +335,7 @@ bool CameraWidget::receiveFrame(uint64_t request_frame_id) {
     vipc_client.reset(new VisionIpcClient(stream_name, requested_stream_type, false));
   }
 
-  double t1 = millis_since_boot();
   if (!vipc_client->connected) {
-    qWarning() << "** not connected";
     frame = nullptr;
     recent_frames.clear();
     available_streams = VisionIpcClient::getAvailableStreams(stream_name, false);
@@ -347,7 +345,6 @@ bool CameraWidget::receiveFrame(uint64_t request_frame_id) {
     emit vipcAvailableStreamsUpdated();
     vipcConnected();
   }
-
 
   VisionIpcBufExtra meta_main = {};
   while (auto buf = vipc_client->recv(&meta_main, 0)) {
@@ -367,7 +364,6 @@ bool CameraWidget::receiveFrame(uint64_t request_frame_id) {
   } else if (!recent_frames.empty()) {
     std::tie(frame_id, frame) = recent_frames.back();
   }
-  qWarning() << millis_since_boot() - t1;
   return frame != nullptr;
 }
 
