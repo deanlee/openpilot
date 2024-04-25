@@ -429,19 +429,33 @@ void AnnotatedCameraWidget::paintGL() {
   }
 
   drawHud(painter);
-}
-
-/**
- * @brief Called when a frame is swapped. Measures draw time, calculates FPS
- */
-void AnnotatedCameraWidget::frameSwapped() {
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
   double fps = fps_filter.update(1. / dt * 1000);
   if (fps < 15) {
     LOGW("slow frame rate: %.2f fps", fps);
   }
+  static int i = 0;
+  qWarning() << fps << ++i;;
   prev_draw_t = cur_draw_t;
+
+
+}
+
+/**
+ * @brief Called when a frame is swapped. Measures draw time, calculates FPS
+ */
+void AnnotatedCameraWidget::frameSwapped() {
+  static int i = 0;
+  qWarning() << "swap" << ++i;
+  double cur_draw_t = millis_since_boot();
+  // double dt = cur_draw_t - prev_draw_t;
+  // double fps = fps_filter.update(1. / dt * 1000);
+  // if (fps < 15) {
+  //   LOGW("slow frame rate: %.2f fps", fps);
+  // }
+  // qWarning() << fps;
+  // prev_draw_t = cur_draw_t;
 
   // publish debug msg
   MessageBuilder msg;
