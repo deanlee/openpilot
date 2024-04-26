@@ -28,7 +28,7 @@ static const QColor timeline_colors[] = {
 };
 
 VideoWidget::VideoWidget(QWidget *parent) : QFrame(parent) {
-  setFrameStyle(QFrame::StyledPanel | QFrame::Plain);
+  setFrameStyle(QFrame::NoFrame);
   auto main_layout = new QVBoxLayout(this);
   if (!can->liveStreaming())
     main_layout->addWidget(createCameraWidget());

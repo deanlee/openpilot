@@ -33,6 +33,7 @@ MessagesWidget::MessagesWidget(QWidget *parent) : menu(new QMenu(this)), QWidget
   main_layout->addWidget(createToolBar());
   // message table
   main_layout->addWidget(view = new MessageView(this));
+  view->setStyleSheet(QString("QTreeView{border-top:1px solid %1; border-bottom:1px solid %1;}").arg(palette().mid().color().name()));
   view->setItemDelegate(delegate = new MessageBytesDelegate(view, settings.multiple_lines_hex));
   view->setModel(model = new MessageListModel(this));
   view->setHeader(header = new MessageViewHeader(this));

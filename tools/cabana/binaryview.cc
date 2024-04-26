@@ -53,6 +53,7 @@ BinaryView::BinaryView(QWidget *parent) : QTableView(parent) {
       <span style="background-color:lightGray;color:gray">&nbsp;p&nbsp;</span>,
       <span style="background-color:lightGray;color:gray">&nbsp;g&nbsp;</span>
   )");
+  setStyleSheet(QString("QTableView{border-top:1px solid %1; border-bottom:1px solid %1;}").arg(palette().mid().color().name()));
 }
 
 void BinaryView::addShortcuts() {

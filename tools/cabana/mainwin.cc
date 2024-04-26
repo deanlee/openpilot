@@ -56,10 +56,25 @@ MainWindow::MainWindow() : QMainWindow() {
   });
   installMessageHandler([](ReplyMsgType type, const std::string msg) { qInfo() << msg.c_str(); });
 
-  setStyleSheet(QString(R"(QMainWindow::separator {
-    width: %1px; /* when vertical */
-    height: %1px; /* when horizontal */
-  })").arg(style()->pixelMetric(QStyle::PM_SplitterWidth)));
+  // setStyleSheet(QString(R"(QMainWindow::separator {
+  //   width: %1px; /* when vertical */
+  //   height: %1px; /* when horizontal */
+  //   background-color: green;
+  //   width: 4px;
+  //   border: none;
+  // })").arg(style()->pixelMetric(QStyle::PM_SplitterWidth)));
+    setStyleSheet(QString(R"(QMainWindow::separator {
+    background-color: %1;
+    width: 1px;
+    height: 1px;
+  })").arg(palette().mid().color().name()));
+  // qDebug() << "***" << palette().dark().color().name();
+
+
+  // setStyleSheet(R"(QMainWindow::separator {
+  //   background-color: green;
+  //   border: none;
+  // })");
 
   QObject::connect(this, &MainWindow::showMessage, statusBar(), &QStatusBar::showMessage);
   QObject::connect(this, &MainWindow::updateProgressBar, this, &MainWindow::updateDownloadProgress);
@@ -164,6 +179,18 @@ void MainWindow::createActions() {
 
 void MainWindow::createDockWindows() {
   messages_dock = new QDockWidget(tr("MESSAGES"), this);
+     messages_dock->setStyleSheet(R"(
+            QSplitter::handle {
+                background-color: #CCCCCC; /* Change the color as needed */
+                border: 1px solid #999999; /* Change the border color as needed */
+            }
+            QSplitter::handle:hover {
+                background-color: #BBBBBB; /* Change the hover color as needed */
+            }
+            QSplitter::handle:pressed {
+                background-color: #AAAAAA; /* Change the pressed color as needed */
+            }
+        )");
   messages_dock->setObjectName("MessagesPanel");
   messages_dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea | Qt::TopDockWidgetArea | Qt::BottomDockWidgetArea);
   messages_dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable | QDockWidget::DockWidgetClosable);
@@ -190,6 +217,7 @@ void MainWindow::createDockWidgets() {
 
   // splitter between video and charts
   video_splitter = new QSplitter(Qt::Vertical, this);
+  video_splitter->setStyleSheet(QString("QSplitter::handle{height:1px; background-color:%1}").arg(palette().mid().color().name()));
   video_widget = new VideoWidget(this);
   video_splitter->addWidget(video_widget);
   QObject::connect(charts_widget, &ChartsWidget::rangeChanged, video_widget, &VideoWidget::updateTimeRange);

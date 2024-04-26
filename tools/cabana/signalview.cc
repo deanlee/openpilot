@@ -434,7 +434,7 @@ void SignalItemDelegate::setModelData(QWidget *editor, QAbstractItemModel *model
 // SignalView
 
 SignalView::SignalView(ChartsWidget *charts, QWidget *parent) : charts(charts), QFrame(parent) {
-  setFrameStyle(QFrame::StyledPanel | QFrame::Plain);
+  setFrameStyle(QFrame::NoFrame);
   // title bar
   QWidget *title_bar = new QWidget(this);
   QHBoxLayout *hl = new QHBoxLayout(title_bar);

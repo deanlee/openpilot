@@ -17,7 +17,9 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   tabbar = new TabBar(this);
   tabbar->setUsesScrollButtons(true);
   tabbar->setAutoHide(true);
+  tabbar->setExpanding(false);
   tabbar->setContextMenuPolicy(Qt::CustomContextMenu);
+  // tabbar->setStyleSheet("QTabBar{left:5px;}");
   main_layout->addWidget(tabbar);
 
   // message title
@@ -78,6 +80,7 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   });
   QObject::connect(tabbar, &QTabBar::tabCloseRequested, tabbar, &QTabBar::removeTab);
   QObject::connect(charts, &ChartsWidget::seriesChanged, signal_view, &SignalView::updateChartState);
+  // setStyleSheet("QTabBar:tab{margin-left:8px;}");
 }
 
 void DetailWidget::showTabBarContextMenu(const QPoint &pt) {

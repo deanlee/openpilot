@@ -17,7 +17,7 @@ const int CHART_SPACING = 4;
 ChartsWidget::ChartsWidget(QWidget *parent) : QFrame(parent) {
   align_timer = new QTimer(this);
   auto_scroll_timer = new QTimer(this);
-  setFrameStyle(QFrame::StyledPanel | QFrame::Plain);
+  setFrameStyle(QFrame::NoFrame);//QFrame::StyledPanel | QFrame::Plain);
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(0, 0, 0, 0);
   main_layout->setSpacing(0);
