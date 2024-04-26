@@ -295,11 +295,11 @@ void processing_thread(MultiCameraState *cameras, CameraState *cs) {
   }
   util::set_thread_name(thread_name);
 
-  auto process_camera = [](CameraState *c, cereal::Event::cereal::FrameData::Builder builder, int x_skip, int y_skip) {
+  auto process_camera = [](CameraState *c, cereal::FrameData::Builder framed, int x_skip, int y_skip) {
     c->set_camera_exposure(set_exposure_target(&c->buf, c->ae_xywh, x_skip, y_skip));
     fill_frame_data(framed, c->buf.cur_frame_data, c);
     c->ci->processRegisters(c, framed);
-  }
+  };
 
   uint32_t cnt = 0;
   while (!do_exit) {
@@ -308,13 +308,14 @@ void processing_thread(MultiCameraState *cameras, CameraState *cs) {
     MessageBuilder msg;
     auto event = msg.initEvent();
     if (cs == &(cameras->road_cam)) {
-      process_camera(cs, event.initRoadCameraState(), 2, 2);
+      auto framed = event.initRoadCameraState();
+      process_camera(cs, framed, 2, 2);
       if (cnt % 100 == 3) {
         // this takes 10ms???
         publish_thumbnail(cameras->pm, &(cs->buf));
       }
       if (env_log_raw_frames && cnt % 100 == 5) {  // no overlap with qlog decimation
-        framed.setImage(get_raw_frame_image(b));
+        framed.setImage(get_raw_frame_image(&cs->buf));
       }
       LOGT(cs->buf.cur_frame_data.frame_id, "%s: Image set", "RoadCamera");
       cameras->pm->send("roadCameraState", msg);

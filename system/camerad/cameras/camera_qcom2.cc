@@ -930,9 +930,9 @@ void CameraState::set_camera_exposure(float grey_frac) {
 void cameras_run(MultiCameraState *s) {
   LOG("-- Starting threads");
   std::vector<std::thread> threads;
-  if (s->driver_cam.enabled) threads.emplace_back(s, &s->driver_cam);
-  if (s->road_cam.enabled) threads.emplace_back(s, &s->road_cam);
-  if (s->wide_road_cam.enabled) threads.emplace_back(s, &s->wide_road_cam);
+  if (s->driver_cam.enabled) threads.emplace_back(processing_thread, s, &s->driver_cam);
+  if (s->road_cam.enabled) threads.emplace_back(processing_thread, s, &s->road_cam);
+  if (s->wide_road_cam.enabled) threads.emplace_back(processing_thread, s, &s->wide_road_cam);
 
   // start devices
   LOG("-- Starting devices");
