@@ -72,17 +72,15 @@ public:
   void queue(size_t buf_idx);
 };
 
-typedef void (*process_thread_cb)(MultiCameraState *s, CameraState *c, int cnt);
 
 void fill_frame_data(cereal::FrameData::Builder &framed, const FrameMetadata &frame_data, CameraState *c);
 kj::Array<uint8_t> get_raw_frame_image(const CameraBuf *b);
 float set_exposure_target(const CameraBuf *b, Rect ae_xywh, int x_skip, int y_skip);
-std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback);
-
 void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx);
 void cameras_open(MultiCameraState *s);
 void cameras_run(MultiCameraState *s);
 void cameras_close(MultiCameraState *s);
 void camerad_thread();
+void processing_thread(MultiCameraState *cameras, CameraState *cs);
 
 int open_v4l_by_name_and_index(const char name[], int index = 0, int flags = O_RDWR | O_NONBLOCK);

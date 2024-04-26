@@ -927,42 +927,12 @@ void CameraState::set_camera_exposure(float grey_frac) {
   sensors_i2c(exp_reg_array.data(), exp_reg_array.size(), CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG, ci->data_word);
 }
 
-static void process_driver_camera(MultiCameraState *s, CameraState *c, int cnt) {
-  c->set_camera_exposure(set_exposure_target(&c->buf, c->ae_xywh, 2, 4));
-
-  MessageBuilder msg;
-  auto framed = msg.initEvent().initDriverCameraState();
-  framed.setFrameType(cereal::FrameData::FrameType::FRONT);
-  fill_frame_data(framed, c->buf.cur_frame_data, c);
-
-  c->ci->processRegisters(c, framed);
-  s->pm->send("driverCameraState", msg);
-}
-
-void process_road_camera(MultiCameraState *s, CameraState *c, int cnt) {
-  const CameraBuf *b = &c->buf;
-
-  MessageBuilder msg;
-  auto framed = c == &s->road_cam ? msg.initEvent().initRoadCameraState() : msg.initEvent().initWideRoadCameraState();
-  fill_frame_data(framed, b->cur_frame_data, c);
-  if (env_log_raw_frames && c == &s->road_cam && cnt % 100 == 5) {  // no overlap with qlog decimation
-    framed.setImage(get_raw_frame_image(b));
-  }
-  LOGT(c->buf.cur_frame_data.frame_id, "%s: Image set", c == &s->road_cam ? "RoadCamera" : "WideRoadCamera");
-
-  c->ci->processRegisters(c, framed);
-  s->pm->send(c == &s->road_cam ? "roadCameraState" : "wideRoadCameraState", msg);
-
-  const int skip = 2;
-  c->set_camera_exposure(set_exposure_target(b, c->ae_xywh, skip, skip));
-}
-
 void cameras_run(MultiCameraState *s) {
   LOG("-- Starting threads");
   std::vector<std::thread> threads;
-  if (s->driver_cam.enabled) threads.push_back(start_process_thread(s, &s->driver_cam, process_driver_camera));
-  if (s->road_cam.enabled) threads.push_back(start_process_thread(s, &s->road_cam, process_road_camera));
-  if (s->wide_road_cam.enabled) threads.push_back(start_process_thread(s, &s->wide_road_cam, process_road_camera));
+  if (s->driver_cam.enabled) threads.emplace_back(s, &s->driver_cam);
+  if (s->road_cam.enabled) threads.emplace_back(s, &s->road_cam);
+  if (s->wide_road_cam.enabled) threads.emplace_back(s, &s->wide_road_cam);
 
   // start devices
   LOG("-- Starting devices");

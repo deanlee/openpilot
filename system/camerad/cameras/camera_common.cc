@@ -284,7 +284,7 @@ float set_exposure_target(const CameraBuf *b, Rect ae_xywh, int x_skip, int y_sk
   return lum_med / 256.0;
 }
 
-void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
+void processing_thread(MultiCameraState *cameras, CameraState *cs) {
   const char *thread_name = nullptr;
   if (cs == &cameras->road_cam) {
     thread_name = "RoadCamera";
@@ -295,23 +295,43 @@ void *processing_thread(MultiCameraState *cameras, CameraState *cs, process_thre
   }
   util::set_thread_name(thread_name);
 
+  auto process_camera = [](CameraState *c, cereal::Event::cereal::FrameData::Builder builder, int x_skip, int y_skip) {
+    c->set_camera_exposure(set_exposure_target(&c->buf, c->ae_xywh, x_skip, y_skip));
+    fill_frame_data(framed, c->buf.cur_frame_data, c);
+    c->ci->processRegisters(c, framed);
+  }
+
   uint32_t cnt = 0;
   while (!do_exit) {
     if (!cs->buf.acquire()) continue;
 
-    callback(cameras, cs, cnt);
-
-    if (cs == &(cameras->road_cam) && cameras->pm && cnt % 100 == 3) {
-      // this takes 10ms???
-      publish_thumbnail(cameras->pm, &(cs->buf));
+    MessageBuilder msg;
+    auto event = msg.initEvent();
+    if (cs == &(cameras->road_cam)) {
+      process_camera(cs, event.initRoadCameraState(), 2, 2);
+      if (cnt % 100 == 3) {
+        // this takes 10ms???
+        publish_thumbnail(cameras->pm, &(cs->buf));
+      }
+      if (env_log_raw_frames && cnt % 100 == 5) {  // no overlap with qlog decimation
+        framed.setImage(get_raw_frame_image(b));
+      }
+      cameras->pm->send("roadCameraState", msg);
+      LOGT(cs->buf.cur_frame_data.frame_id, "%s: Image set", "RoadCamera");
+    } else if (cs == &(cameras->wide_road_cam)) {
+      auto framed = event.initWideRoadCameraState();
+      process_camera(cs, framed, 2, 2);
+      framed.setFrameType(cereal::FrameData::FrameType::FRONT);
+      cameras->pm->send("wideRoadCameraState", msg);
+      LOGT(cs->buf.cur_frame_data.frame_id, "%s: Image set", "WideRoadCamera");
+    } else {
+      process_camera(cs, event.initDriverCameraState(), 2, 4);
+      cameras->pm->send("DriverCameraState", msg);
     }
+
     ++cnt;
   }
   return NULL;
-}
-
-std::thread start_process_thread(MultiCameraState *cameras, CameraState *cs, process_thread_cb callback) {
-  return std::thread(processing_thread, cameras, cs, callback);
 }
 
 void camerad_thread() {
