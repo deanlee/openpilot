@@ -316,22 +316,21 @@ void processing_thread(MultiCameraState *cameras, CameraState *cs) {
       if (env_log_raw_frames && cnt % 100 == 5) {  // no overlap with qlog decimation
         framed.setImage(get_raw_frame_image(b));
       }
-      cameras->pm->send("roadCameraState", msg);
       LOGT(cs->buf.cur_frame_data.frame_id, "%s: Image set", "RoadCamera");
+      cameras->pm->send("roadCameraState", msg);
     } else if (cs == &(cameras->wide_road_cam)) {
-      auto framed = event.initWideRoadCameraState();
-      process_camera(cs, framed, 2, 2);
-      framed.setFrameType(cereal::FrameData::FrameType::FRONT);
-      cameras->pm->send("wideRoadCameraState", msg);
+      process_camera(cs, event.initWideRoadCameraState(), 2, 2);
       LOGT(cs->buf.cur_frame_data.frame_id, "%s: Image set", "WideRoadCamera");
+      cameras->pm->send("wideRoadCameraState", msg);
     } else {
-      process_camera(cs, event.initDriverCameraState(), 2, 4);
+      auto framed = event.initDriverCameraState();
+      process_camera(cs, framed, 2, 4);
+      framed.setFrameType(cereal::FrameData::FrameType::FRONT);
       cameras->pm->send("DriverCameraState", msg);
     }
 
     ++cnt;
   }
-  return NULL;
 }
 
 void camerad_thread() {
