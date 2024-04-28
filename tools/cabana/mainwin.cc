@@ -361,9 +361,13 @@ void MainWindow::changingStream() {
     this->close();
   });
   QObject::connect(this, &MainWindow::updateProgressBar, wait_dlg, [=](uint64_t cur, uint64_t total, bool success) {
+    qDebug() << "update progress" << cur / total;
     wait_dlg->setValue((int)((cur / (double)total) * 100));
   });
-  QObject::connect(StreamNotifier::instance(), &StreamNotifier::streamStarted, wait_dlg, &QProgressDialog::close);
+  QObject::connect(StreamNotifier::instance(), &StreamNotifier::streamStarted, this, [=]() {
+    // wait_dlg, &QProgressDialog::close);
+    qDebug() << "**************" << "started";
+  });
   wait_dlg->show();
 }
 
