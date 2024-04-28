@@ -49,7 +49,7 @@ MainWindow::MainWindow() : QMainWindow() {
   qRegisterMetaType<uint64_t>("uint64_t");
   qRegisterMetaType<SourceSet>("SourceSet");
   installDownloadProgressHandler([](uint64_t cur, uint64_t total, bool success) {
-    emit static_main_win->updateProgressBar((cur / (double)total) * 100);
+    emit static_main_win->updateProgressBar(cur, total, success);
   });
   qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &context, const QString &msg) {
     if (type == QtDebugMsg) std::cout << msg.toStdString() << std::endl;
@@ -375,13 +375,17 @@ void MainWindow::streamStarted() {
   QObject::connect(can, &AbstractStream::eventsMerged, this, &MainWindow::eventsMerged);
   QObject::connect(can, &AbstractStream::sourcesUpdated, this, &MainWindow::updateLoadSaveMenus);
 
-  QProgressDialog *wait_dlg = new QProgressDialog(tr("Loading segment..."), tr("Abort load"), 0, 100, this);
-  wait_dlg->setWindowModality(Qt::WindowModal);
-  QObject::connect(wait_dlg, &QProgressDialog::canceled, this, &MainWindow::close);
-  QObject::connect(this, &MainWindow::updateProgressBar, wait_dlg, [=](uint64_t cur, uint64_t total, bool success) {
-    wait_dlg->setValue((int)((cur / (double)total) * 100));
-  });
-  QObject::connect(can, &AbstractStream::eventsMerged, wait_dlg, &QProgressDialog::deleteLater);
+  if (has_stream) {
+    auto wait_dlg = new QProgressDialog(can->liveStreaming() ? tr("Waiting for stream...") : tr("Loading segment..."),
+                                        tr("Abort"), 0, 100, this);
+    wait_dlg->setWindowModality(Qt::WindowModal);
+    wait_dlg->setFixedSize(wait_dlg->sizeHint());
+    QObject::connect(wait_dlg, &QProgressDialog::canceled, this, &MainWindow::close);
+    QObject::connect(can, &AbstractStream::eventsMerged, wait_dlg, &QProgressDialog::deleteLater);
+    QObject::connect(this, &MainWindow::updateProgressBar, wait_dlg, [=](uint64_t cur, uint64_t total, bool success) {
+      wait_dlg->setValue((int)((cur / (double)total) * 100));
+    });
+  }
 }
 
 void MainWindow::eventsMerged() {
