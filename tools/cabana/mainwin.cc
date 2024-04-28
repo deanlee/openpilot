@@ -376,11 +376,12 @@ void MainWindow::streamStarted() {
   QObject::connect(can, &AbstractStream::sourcesUpdated, this, &MainWindow::updateLoadSaveMenus);
 
   if (has_stream) {
+    // use QMessageBox to simplify logic?
     auto wait_dlg = new QProgressDialog(
         can->liveStreaming() ? tr("Waiting for the live stream to start...") : tr("Loading segment data..."),
         tr("&Abort"), 0, 100, this);
     wait_dlg->setWindowModality(Qt::WindowModal);
-    wait_dlg->setFixedSize(wait_dlg->sizeHint());
+    wait_dlg->setFixedSize(400, wait_dlg->sizeHint().height());
     QObject::connect(wait_dlg, &QProgressDialog::canceled, this, &MainWindow::close);
     QObject::connect(can, &AbstractStream::eventsMerged, wait_dlg, &QProgressDialog::deleteLater);
     QObject::connect(this, &MainWindow::updateProgressBar, wait_dlg, [=](uint64_t cur, uint64_t total, bool success) {
