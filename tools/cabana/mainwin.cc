@@ -376,8 +376,9 @@ void MainWindow::streamStarted() {
   QObject::connect(can, &AbstractStream::sourcesUpdated, this, &MainWindow::updateLoadSaveMenus);
 
   if (has_stream) {
-    auto wait_dlg = new QProgressDialog(can->liveStreaming() ? tr("Waiting for stream...") : tr("Loading segment..."),
-                                        tr("Abort"), 0, 100, this);
+    auto wait_dlg = new QProgressDialog(
+        can->liveStreaming() ? tr("Waiting for the live stream to start...") : tr("Loading segment data..."),
+        tr("&Abort"), 0, 100, this);
     wait_dlg->setWindowModality(Qt::WindowModal);
     wait_dlg->setFixedSize(wait_dlg->sizeHint());
     QObject::connect(wait_dlg, &QProgressDialog::canceled, this, &MainWindow::close);
