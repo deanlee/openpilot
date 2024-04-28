@@ -116,4 +116,3 @@ protected:
   void mouseReleaseEvent(QMouseEvent *event) override;
   bool eventFilter(QObject *obj, QEvent *event) override;
 };
-
