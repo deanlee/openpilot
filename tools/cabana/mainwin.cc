@@ -49,7 +49,7 @@ MainWindow::MainWindow() : QMainWindow() {
   qRegisterMetaType<uint64_t>("uint64_t");
   qRegisterMetaType<SourceSet>("SourceSet");
   installDownloadProgressHandler([](uint64_t cur, uint64_t total, bool success) {
-    emit static_main_win->updateProgressBar(cur, total, success);
+    emit static_main_win->updateProgressBar((cur / (double)total) * 100);
   });
   qInstallMessageHandler([](QtMsgType type, const QMessageLogContext &context, const QString &msg) {
     if (type == QtDebugMsg) std::cout << msg.toStdString() << std::endl;
@@ -377,16 +377,11 @@ void MainWindow::streamStarted() {
 
   QProgressDialog *wait_dlg = new QProgressDialog(tr("Loading segment..."), tr("Abort load"), 0, 100, this);
   wait_dlg->setWindowModality(Qt::WindowModal);
-  wait_dlg->setAttribute(Qt::WA_DeleteOnClose);
-
-  QObject::connect(wait_dlg, &QProgressDialog::canceled, [=]() {
-    qDebug() << "canceled";
-    wait_dlg->close();
-  });
+  QObject::connect(wait_dlg, &QProgressDialog::canceled, this, &MainWindow::close);
   QObject::connect(this, &MainWindow::updateProgressBar, wait_dlg, [=](uint64_t cur, uint64_t total, bool success) {
     wait_dlg->setValue((int)((cur / (double)total) * 100));
   });
-  QObject::connect(can, &AbstractStream::eventsMerged, wait_dlg, &QProgressDialog::close);
+  QObject::connect(can, &AbstractStream::eventsMerged, wait_dlg, &QProgressDialog::deleteLater);
 }
 
 void MainWindow::eventsMerged() {
