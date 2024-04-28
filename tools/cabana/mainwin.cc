@@ -352,23 +352,6 @@ void MainWindow::changingStream() {
   center_widget->clear();
   delete messages_widget;
   delete video_splitter;
-  QProgressDialog *wait_dlg = new QProgressDialog(tr("Loading segment..."), tr("Abort load"), 0, 100, this);
-  wait_dlg->setModal(true);
-  wait_dlg->setAttribute(Qt::WA_DeleteOnClose);
-
-  QObject::connect(wait_dlg, &QProgressDialog::canceled, [=]() {
-    wait_dlg->close();
-    this->close();
-  });
-  QObject::connect(this, &MainWindow::updateProgressBar, wait_dlg, [=](uint64_t cur, uint64_t total, bool success) {
-    qDebug() << "update progress" << cur / total;
-    wait_dlg->setValue((int)((cur / (double)total) * 100));
-  });
-  QObject::connect(StreamNotifier::instance(), &StreamNotifier::streamStarted, this, [=]() {
-    // wait_dlg, &QProgressDialog::close);
-    qDebug() << "**************" << "started";
-  });
-  wait_dlg->show();
 }
 
 void MainWindow::streamStarted() {
@@ -391,6 +374,19 @@ void MainWindow::streamStarted() {
   QObject::connect(messages_widget, &MessagesWidget::msgSelectionChanged, center_widget, &CenterWidget::setMessage);
   QObject::connect(can, &AbstractStream::eventsMerged, this, &MainWindow::eventsMerged);
   QObject::connect(can, &AbstractStream::sourcesUpdated, this, &MainWindow::updateLoadSaveMenus);
+
+  QProgressDialog *wait_dlg = new QProgressDialog(tr("Loading segment..."), tr("Abort load"), 0, 100, this);
+  wait_dlg->setWindowModality(Qt::WindowModal);
+  wait_dlg->setAttribute(Qt::WA_DeleteOnClose);
+
+  QObject::connect(wait_dlg, &QProgressDialog::canceled, [=]() {
+    qDebug() << "canceled";
+    wait_dlg->close();
+  });
+  QObject::connect(this, &MainWindow::updateProgressBar, wait_dlg, [=](uint64_t cur, uint64_t total, bool success) {
+    wait_dlg->setValue((int)((cur / (double)total) * 100));
+  });
+  QObject::connect(can, &AbstractStream::eventsMerged, wait_dlg, &QProgressDialog::close);
 }
 
 void MainWindow::eventsMerged() {
