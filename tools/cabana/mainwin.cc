@@ -349,22 +349,22 @@ void MainWindow::loadFromClipboard(SourceSet s, bool close_all) {
 }
 
 void MainWindow::changingStream() {
-  // assert(0);
   center_widget->clear();
   delete messages_widget;
   delete video_splitter;
   QProgressDialog *wait_dlg = new QProgressDialog(tr("Loading segment..."), tr("Abort load"), 0, 100, this);
+  wait_dlg->setModal(true);
   wait_dlg->setAttribute(Qt::WA_DeleteOnClose);
-  wait_dlg->show();
-  QObject::connect(StreamNotifier::instance(), &StreamNotifier::streamStarted, wait_dlg, &QDialog::close);
+
   QObject::connect(wait_dlg, &QProgressDialog::canceled, [=]() {
     wait_dlg->close();
     this->close();
   });
-  QObject::connect(this, &MainWindow::updateProgressBar, [=](uint64_t cur, uint64_t total, bool success) {
-    wait_dlg->setValue((cur / (double)total) * 100);
+  QObject::connect(this, &MainWindow::updateProgressBar, wait_dlg, [=](uint64_t cur, uint64_t total, bool success) {
+    wait_dlg->setValue((int)((cur / (double)total) * 100));
   });
-  // connect(this, &MainWindow::finished, waitDialog, &QMessageBox::close);
+  QObject::connect(StreamNotifier::instance(), &StreamNotifier::streamStarted, wait_dlg, &QProgressDialog::close);
+  wait_dlg->show();
 }
 
 void MainWindow::streamStarted() {
@@ -714,20 +714,3 @@ bool HelpOverlay::eventFilter(QObject *obj, QEvent *event) {
 void HelpOverlay::mouseReleaseEvent(QMouseEvent *event) {
   close();
 }
-
-
-// WaitDialog::WaitDialog(QWidget *parent) : QDialog(parent) {
-//   qDebug() << "here";
-//   setAttribute(Qt::WA_DeleteOnClose);
-//   setWindowTitle("Please Wait");
-//   QVBoxLayout *main_layout = new QVBoxLayout(this);
-//   main_layout->addWidget(new QLabel("Loading segment..."));
-//   QHBoxLayout *hlayout = new QHBoxLayout();
-//   main_layout->addLayout(hlayout);
-//   QPushButton *cancel = new QPushButton(tr("&Cancel"));
-//   QProgressBar *progress = new QProgressBar();
-//   hlayout->addWidget(progress);
-//   hlayout->addWidget(cancel);
-//   QObject::connect(StreamNotifier::instance(), &StreamNotifier::streamStarted, this, &QDialog::close);
-//   QObject::connect(cancel, &QPushButton::clicked, this, &QDialog::close);
-// }
