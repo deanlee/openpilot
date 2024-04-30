@@ -42,9 +42,12 @@ ChartsWidget::ChartsWidget(QWidget *parent) : QFrame(parent) {
   columns_action->setMenu(menu);
   qobject_cast<QToolButton*>(toolbar->widgetForAction(columns_action))->setPopupMode(QToolButton::InstantPopup);
 
-  QLabel *stretch_label = new QLabel(this);
-  stretch_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  toolbar->addWidget(stretch_label);
+  // QLabel *stretch_label = new QLabel(this);
+  // stretch_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+  // toolbar->addWidget(stretch_label);
+
+  zoom_range_slider = new RangeSlider(this);
+  toolbar->addWidget(zoom_range_slider);
 
   range_lb_action = toolbar->addWidget(range_lb = new QLabel(this));
   range_slider = new LogSlider(1000, Qt::Horizontal, this);
@@ -153,6 +156,7 @@ void ChartsWidget::updateTabBar() {
 }
 
 void ChartsWidget::eventsMerged(const MessageEventsMap &new_events) {
+  zoom_range_slider->setRange(0, can->totalSeconds());
   QFutureSynchronizer<void> future_synchronizer;
   for (auto c : charts) {
     future_synchronizer.addFuture(QtConcurrent::run(c, &ChartView::updateSeries, nullptr, &new_events));
@@ -165,6 +169,8 @@ void ChartsWidget::setZoom(double min, double max) {
   updateToolBar();
   updateState();
   emit rangeChanged(min, max, is_zoomed);
+
+  zoom_range_slider->setZoomRange(min, max);
 }
 
 void ChartsWidget::zoomReset() {

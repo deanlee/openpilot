@@ -10,6 +10,7 @@
 #include <QUndoCommand>
 #include <QUndoStack>
 
+#include "tools/cabana/chart/rangeslider.h"
 #include "tools/cabana/chart/signalselector.h"
 #include "tools/cabana/dbc/dbcmanager.h"
 #include "tools/cabana/streams/abstractstream.h"
@@ -94,6 +95,7 @@ private:
   QAction *reset_zoom_action;
   ToolButton *reset_zoom_btn;
   QUndoStack *zoom_undo_stack;
+  RangeSlider *zoom_range_slider;
 
   ToolButton *remove_all_btn;
   QList<ChartView *> charts;
