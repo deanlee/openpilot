@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     MainWindow w;
     QTimer::singleShot(0, [&]() {
       if (!stream) {
-        StreamSelector dlg(&stream);
+        StreamSelector dlg;
         dlg.exec();
         dbc_file = dlg.dbcFile();
       }

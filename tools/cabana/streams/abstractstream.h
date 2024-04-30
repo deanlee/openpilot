@@ -128,12 +128,9 @@ private:
 
 class AbstractOpenStreamWidget : public QWidget {
 public:
-  AbstractOpenStreamWidget(AbstractStream **stream, QWidget *parent = nullptr) : stream(stream), QWidget(parent) {}
-  virtual bool open() = 0;
+  AbstractOpenStreamWidget(QWidget *parent = nullptr) : QWidget(parent) {}
+  virtual AbstractStream *open() = 0;
   virtual QString title() = 0;
-
-protected:
-  AbstractStream **stream = nullptr;
 };
 
 class DummyStream : public AbstractStream {

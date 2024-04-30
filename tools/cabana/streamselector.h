@@ -10,11 +10,13 @@ class StreamSelector : public QDialog {
   Q_OBJECT
 
 public:
-  StreamSelector(AbstractStream **stream, QWidget *parent = nullptr);
+  StreamSelector(QWidget *parent = nullptr);
   void addStreamWidget(AbstractOpenStreamWidget *w);
   QString dbcFile() const { return dbc_file->text(); }
+  AbstractStream *stream() const { return stream_; }
 
 private:
   QLineEdit *dbc_file;
   QTabWidget *tab;
+  AbstractStream *stream_ = nullptr;
 };

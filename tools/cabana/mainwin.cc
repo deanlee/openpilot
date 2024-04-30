@@ -254,13 +254,12 @@ void MainWindow::DBCFileChanged() {
 }
 
 void MainWindow::openStream() {
-  AbstractStream *stream = nullptr;
-  StreamSelector dlg(&stream, this);
-  if (dlg.exec()) {
+  StreamSelector dlg(this);
+  if (dlg.exec() && dlg.stream()) {
     if (!dlg.dbcFile().isEmpty()) {
       loadFile(dlg.dbcFile());
     }
-    stream->start();
+    dlg.stream()->start();
     statusBar()->showMessage(tr("Route %1 loaded").arg(can->routeName()), 2000);
   }
 }

@@ -31,7 +31,7 @@ public:
   inline Replay *getReplay() const { return replay.get(); }
   inline bool isPaused() const override { return replay->isPaused(); }
   void pause(bool pause) override;
-  static AbstractOpenStreamWidget *widget(AbstractStream **stream);
+  static AbstractOpenStreamWidget *widget();
 
 signals:
   void qLogLoaded(int segnum, std::shared_ptr<LogReader> qlog);
@@ -47,8 +47,8 @@ class OpenReplayWidget : public AbstractOpenStreamWidget {
   Q_OBJECT
 
 public:
-  OpenReplayWidget(AbstractStream **stream);
-  bool open() override;
+  OpenReplayWidget();
+  AbstractStream *open() override;
   QString title() override { return tr("&Replay"); }
 
 private:

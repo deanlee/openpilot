@@ -90,13 +90,13 @@ void ReplayStream::pause(bool pause) {
 }
 
 
-AbstractOpenStreamWidget *ReplayStream::widget(AbstractStream **stream) {
-  return new OpenReplayWidget(stream);
+AbstractOpenStreamWidget *ReplayStream::widget() {
+  return new OpenReplayWidget();
 }
 
 // OpenReplayWidget
 
-OpenReplayWidget::OpenReplayWidget(AbstractStream **stream) : AbstractOpenStreamWidget(stream) {
+OpenReplayWidget::OpenReplayWidget() : AbstractOpenStreamWidget() {
   // TODO: get route list from api.comma.ai
   QGridLayout *grid_layout = new QGridLayout(this);
   grid_layout->addWidget(new QLabel(tr("Route")), 0, 0);
@@ -122,7 +122,7 @@ OpenReplayWidget::OpenReplayWidget(AbstractStream **stream) : AbstractOpenStream
   });
 }
 
-bool OpenReplayWidget::open() {
+AbstractStream *OpenReplayWidget::open() {
   QString route = route_edit->text();
   QString data_dir;
   if (int idx = route.lastIndexOf('/'); idx != -1) {
@@ -141,10 +141,10 @@ bool OpenReplayWidget::open() {
     if (flags == REPLAY_FLAG_NONE && !cameras[0]->isChecked()) flags = REPLAY_FLAG_NO_VIPC;
 
     if (replay_stream->loadRoute(route, data_dir, flags)) {
-      *stream = replay_stream.release();
+      return replay_stream.release();
     } else {
       QMessageBox::warning(nullptr, tr("Warning"), tr("Failed to load route: '%1'").arg(route));
     }
   }
-  return *stream != nullptr;
+  return nullptr;
 }

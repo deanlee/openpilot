@@ -101,13 +101,13 @@ void PandaStream::streamThread() {
   }
 }
 
-AbstractOpenStreamWidget *PandaStream::widget(AbstractStream **stream) {
-  return new OpenPandaWidget(stream);
+AbstractOpenStreamWidget *PandaStream::widget() {
+  return new OpenPandaWidget();
 }
 
 // OpenPandaWidget
 
-OpenPandaWidget::OpenPandaWidget(AbstractStream **stream) : AbstractOpenStreamWidget(stream) {
+OpenPandaWidget::OpenPandaWidget() : AbstractOpenStreamWidget() {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->addStretch(1);
 
@@ -209,12 +209,12 @@ void OpenPandaWidget::buildConfigForm() {
   }
 }
 
-bool OpenPandaWidget::open() {
+AbstractStream *OpenPandaWidget::open() {
   try {
-    *stream = new PandaStream(qApp, config);
+    auto stream = new PandaStream(qApp, config);
+    return stream;
   } catch (std::exception &e) {
     QMessageBox::warning(nullptr, tr("Warning"), tr("Failed to connect to panda: '%1'").arg(e.what()));
-    return false;
+    return nullptr;
   }
-  return true;
 }
