@@ -31,7 +31,7 @@ public slots:
   void closeStream();
   void exportToCSV();
   void changingStream();
-  void streamStarted();
+  void streamChanged();
 
   void newFile(SourceSet s = SOURCE_ALL);
   void openFile(SourceSet s = SOURCE_ALL);

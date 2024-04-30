@@ -68,7 +68,7 @@ MainWindow::MainWindow() : QMainWindow() {
   QObject::connect(UndoStack::instance(), &QUndoStack::indexChanged, this, &MainWindow::undoStackIndexChanged);
   QObject::connect(&settings, &Settings::changed, this, &MainWindow::updateStatus);
   QObject::connect(StreamNotifier::instance(), &StreamNotifier::changingStream, this, &MainWindow::changingStream);
-  QObject::connect(StreamNotifier::instance(), &StreamNotifier::streamStarted, this, &MainWindow::streamStarted);
+  QObject::connect(StreamNotifier::instance(), &StreamNotifier::streamChanged, this, &MainWindow::streamChanged);
 }
 
 void MainWindow::loadFingerprints() {
@@ -262,6 +262,9 @@ void MainWindow::openStream() {
     }
     stream->start();
     statusBar()->showMessage(tr("Route %1 loaded").arg(can->routeName()), 2000);
+  } else if (!can) {
+    stream = new DummyStream(this);
+    stream->start();
   }
 }
 
@@ -353,7 +356,7 @@ void MainWindow::changingStream() {
   delete video_splitter;
 }
 
-void MainWindow::streamStarted() {
+void MainWindow::streamChanged() {
   bool has_stream = dynamic_cast<DummyStream *>(can) == nullptr;
   close_stream_act->setEnabled(has_stream);
   export_to_csv_act->setEnabled(has_stream);

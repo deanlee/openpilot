@@ -9,7 +9,7 @@
 
 // DetailWidget
 
-DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(charts), QWidget(parent) {
+DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : QWidget(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(0, 0, 0, 0);
 

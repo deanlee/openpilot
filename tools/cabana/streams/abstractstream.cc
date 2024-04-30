@@ -27,7 +27,7 @@ AbstractStream::AbstractStream(QObject *parent) : QObject(parent) {
     emit StreamNotifier::instance()->changingStream();
     delete can;
     can = this;
-    emit StreamNotifier::instance()->streamStarted();
+    emit StreamNotifier::instance()->streamChanged();
   });
 }
 

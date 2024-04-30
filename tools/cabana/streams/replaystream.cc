@@ -105,7 +105,6 @@ OpenReplayWidget::OpenReplayWidget(AbstractStream **stream) : AbstractOpenStream
   auto file_btn = new QPushButton(tr("Browse..."), this);
   grid_layout->addWidget(file_btn, 0, 2);
 
-  grid_layout->addWidget(new QLabel(tr("Camera")), 1, 0);
   QHBoxLayout *camera_layout = new QHBoxLayout();
   for (auto c : {tr("Road camera"), tr("Driver camera"), tr("Wide road camera")})
     camera_layout->addWidget(cameras.emplace_back(new QCheckBox(c, this)));

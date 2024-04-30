@@ -150,7 +150,7 @@ public:
   StreamNotifier(QObject *parent = nullptr) : QObject(parent) {}
   static StreamNotifier* instance();
 signals:
-  void streamStarted();
+  void streamChanged();
   void changingStream();
 };
 

@@ -51,7 +51,6 @@ private:
   LogsWidget *history_log;
   BinaryView *binary_view;
   SignalView *signal_view;
-  ChartsWidget *charts;
   QSplitter *splitter;
 };
 
