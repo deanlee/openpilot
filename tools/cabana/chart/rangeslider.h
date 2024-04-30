@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QWidget>
-
+#include <QStyleOptionSlider>
 class RangeSlider : public QWidget {
   Q_OBJECT
 public:
@@ -24,6 +24,7 @@ protected:
   void mouseReleaseEvent(QMouseEvent *event) override;
 
   double min_ = 0;
+  QStyleOptionSlider opt;
   double max_ = 0;
   double zoom_min_ = 0;
   double zoom_max_ = 0;

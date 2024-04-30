@@ -1,31 +1,34 @@
-#include "chat/rangeslider.h"
+#include "tools/cabana/chart/rangeslider.h"
 
+#include <QApplication>
 #include <QPainter>
 #include <QStyle>
-#include <QStyleOptionSlider>
+
 
 RangeSlider::RangeSlider(QWidget *parent) : QWidget(parent) {
-  setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+  setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed, QSizePolicy::Slider));
+  // opt.tickInterval = 1;
 }
 
 QSize RangeSlider::sizeHint() const {
-  return {0, style()->pixelMetric(QStyle::PM_SliderThickness)};
+  int h = 50;//style()->pixelMetric(QStyle::PM_SliderThickness, &opt);
+
+  return style()->sizeFromContents(QStyle::CT_Slider, &opt, QSize(rect().width(), h), this)
+      .expandedTo(QApplication::globalStrut());
 }
 
 void RangeSlider::paintEvent(QPaintEvent *event) {
   QPainter p(this);
-  QStyleOptionSlider opt;
   opt.initFrom(this);
-  opt.minimum = min_ * 1000.0;
-  opt.maximum = max_ * 1000.0;
+  opt.minimum =0;//min_ * 1000.0;
+  opt.maximum = 0;//max_ * 1000.0;
   opt.rect = rect();
-  opt.sliderPosition = opt.minimum;
-  opt.subControls = QStyle::SC_SliderGroove;
-  opt.tickInterval = 1;
+  opt.sliderPosition = 0;//100*1000.0;//opt.minimum;
+  opt.subControls = QStyle::SC_SliderGroove;// |  QStyle::SC_SliderTickmarks;
   // p.fillRect(rect(), Qt::red);
-  style()->drawComplexControl(QStyle::CC_Slider, &opt, &p, this);
+  style()->drawComplexControl(QStyle::CC_Slider, &opt, &p);
 
-  auto groove_rect = style()->subControlRect(QStyle::CC_Slider, &opt, QStyle::SC_SliderGroove, this);
+  auto groove_rect = style()->subControlRect(QStyle::CC_Slider, &opt, QStyle::SC_SliderGroove);
   QColor color = palette().color(QPalette::Normal, QPalette::Highlight);
   color.setAlpha(160);
   QRect rc = groove_rect;
