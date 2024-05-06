@@ -303,12 +303,25 @@ void AnnotatedCameraWidget::drawDriverState(QPainter &painter, const UIState *s)
                                       0.545 + 0.4 * s->engaged(),
                                       0.545 - 0.285 * s->engaged(),
                                       0.4 * (1.0 - dm_fade_state));
+
+  // Calculate delta, pen width, and start angles for arcs in x and y directions
   float delta_x = -scene.driver_pose_sins[1] * arc_l / 2;
   float delta_y = -scene.driver_pose_sins[0] * arc_l / 2;
-  painter.setPen(QPen(arc_color, arc_t_default+arc_t_extend*fmin(1.0, scene.driver_pose_diff[1] * 5.0), Qt::SolidLine, Qt::RoundCap));
-  painter.drawArc(QRectF(std::fmin(x + delta_x, x), y - arc_l / 2, fabs(delta_x), arc_l), (scene.driver_pose_sins[1]>0 ? 90 : -90) * 16, 180 * 16);
-  painter.setPen(QPen(arc_color, arc_t_default+arc_t_extend*fmin(1.0, scene.driver_pose_diff[0] * 5.0), Qt::SolidLine, Qt::RoundCap));
-  painter.drawArc(QRectF(x - arc_l / 2, std::fmin(y + delta_y, y), arc_l, fabs(delta_y)), (scene.driver_pose_sins[0]>0 ? 0 : 180) * 16, 180 * 16);
+
+  int start_angle_x = (scene.driver_pose_sins[1] > 0 ? 90 : -90) * 16;
+  int start_angle_y = (scene.driver_pose_sins[0] > 0 ? 0 : 180) * 16;
+
+  int pen_width_x = arc_t_default + arc_t_extend * fmin(1.0, scene.driver_pose_diff[1] * 5.0);
+  int pen_width_y = arc_t_default + arc_t_extend * fmin(1.0, scene.driver_pose_diff[0] * 5.0);
+
+  const int span_angle = 180 * 16;
+
+  // Draw arcs in x and y directions
+  painter.setPen(QPen(arc_color, pen_width_x, Qt::SolidLine, Qt::RoundCap));
+  painter.drawArc(std::fmin(x + delta_x, x), y - arc_l / 2, fabs(delta_x), arc_l, start_angle_x, span_angle);
+
+  painter.setPen(QPen(arc_color, pen_width_y, Qt::SolidLine, Qt::RoundCap));
+  painter.drawArc(x - arc_l / 2, std::fmin(y + delta_y, y), arc_l, fabs(delta_y), start_angle_y, span_angle);
 
   painter.restore();
 }
