@@ -217,7 +217,7 @@ void VideoWidget::updateState() {
   if (slider) {
     if (!slider->isSliderDown())
       slider->setCurrentSecond(can->currentSec());
-    alert_label->showAlert(slider->alertInfo(can->currentSec()));
+    alert_label->setAlert(slider->alertInfo(can->currentSec()));
     time_btn->setText(QString("%1 / %2").arg(formatTime(can->currentSec(), true),
                                              formatTime(slider->maximum() / slider->factor)));
   } else {
@@ -373,11 +373,13 @@ void InfoLabel::showPixmap(const QPoint &pt, const QString &sec, const QPixmap &
   update();
 }
 
-void InfoLabel::showAlert(const AlertInfo &alert) {
-  alert_info = alert;
-  pixmap = {};
-  setVisible(!alert_info.text1.isEmpty());
-  update();
+void InfoLabel::setAlert(const AlertInfo &alert) {
+  if (alert != alert_info) {
+    alert_info = alert;
+    pixmap = {};
+    setVisible(!alert_info.text1.isEmpty());
+    update();
+  }
 }
 
 void InfoLabel::paintEvent(QPaintEvent *event) {

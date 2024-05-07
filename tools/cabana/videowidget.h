@@ -17,13 +17,17 @@ struct AlertInfo {
   cereal::ControlsState::AlertStatus status;
   QString text1;
   QString text2;
+  inline bool operator==(const AlertInfo &other) const {
+    return status == other.status && text1 == other.text1 && text2 == other.text2;
+  }
+  inline bool operator!=(const AlertInfo &other) const { return !(*this == other); }
 };
 
 class InfoLabel : public QWidget {
 public:
   InfoLabel(QWidget *parent);
   void showPixmap(const QPoint &pt, const QString &sec, const QPixmap &pm, const AlertInfo &alert);
-  void showAlert(const AlertInfo &alert);
+  void setAlert(const AlertInfo &alert);
   void paintEvent(QPaintEvent *event) override;
   QPixmap pixmap;
   QString second;
