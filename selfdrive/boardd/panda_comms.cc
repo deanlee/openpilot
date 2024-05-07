@@ -32,7 +32,7 @@ open_or_list_device(libusb_context *ctx, std::optional<std::string> serial = std
 
   size_t num_devices = libusb_get_device_list(ctx, &dev_list);
   for (size_t i = 0; i < num_devices; ++i) {
-    libusb_device_descriptor desc = {};
+    libusb_device_descriptor desc;
     libusb_device_handle *handle = nullptr;
     if (libusb_get_device_descriptor(dev_list[i], &desc) == 0 &&
         desc.idVendor == 0xbbaa && desc.idProduct == 0xddcc &&
