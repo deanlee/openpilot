@@ -1,9 +1,10 @@
 #include "selfdrive/boardd/panda.h"
 
 #include <cassert>
+#include <optional>
 #include <stdexcept>
 #include <memory>
-
+#include <variant>
 #include "common/swaglog.h"
 
 static libusb_context *init_usb_ctx() {
@@ -22,9 +23,9 @@ static libusb_context *init_usb_ctx() {
   return context;
 }
 
-#include <variant>
-#include <optional>
-std::variant<std::vector<std::string>, libusb_device_handle*> open_or_list_device(libusb_context *ctx, std::optional<std::string> serial) {
+// Open a USB device with a specific serial number or return a list of all serial numbers
+std::variant<std::vector<std::string>, libusb_device_handle *>
+open_or_list_device(libusb_context *ctx, std::optional<std::string> serial = std::nullopt) {
   std::vector<std::string> serials;
   libusb_device_handle *dev_handle = nullptr;
   libusb_device **dev_list = nullptr;
@@ -32,16 +33,16 @@ std::variant<std::vector<std::string>, libusb_device_handle*> open_or_list_devic
   size_t num_devices = libusb_get_device_list(ctx, &dev_list);
   for (size_t i = 0; i < num_devices; ++i) {
     libusb_device_descriptor desc = {};
-    libusb_device_handle *handle;
-    int ret = libusb_get_device_descriptor(dev_list[i], &desc);
-    if (ret == 0 && desc.idVendor == 0xbbaa && desc.idProduct == 0xddcc && libusb_open(dev_list[i], &handle) == 0) {
+    libusb_device_handle *handle = nullptr;
+    if (libusb_get_device_descriptor(dev_list[i], &desc) == 0 &&
+        desc.idVendor == 0xbbaa && desc.idProduct == 0xddcc &&
+        libusb_open(dev_list[i], &handle) == 0) {
       unsigned char s[256] = {'\0'};
-      ret = libusb_get_string_descriptor_ascii(handle, desc.iSerialNumber, s, std::size(s));
+      int ret = libusb_get_string_descriptor_ascii(handle, desc.iSerialNumber, s, std::size(s));
       if (ret >= 0) {
         auto hw_serial = std::string((char *)s, ret);
-        if (!serial) {
-          serials.emplace_back(hw_serial);
-        } else if ((*serial).empty() || *serial == hw_serial) {
+        serials.emplace_back(hw_serial);
+        if (serial && (serial->empty() || *serial == hw_serial)) {
           dev_handle = handle;
           break;
         }
