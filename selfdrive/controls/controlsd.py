@@ -194,8 +194,7 @@ class Controls:
       return condition
 
     # Add joystick event, static on cars, dynamic on nonCars
-    if self.joystick_mode:
-      self.events.add(EventName.joystickDebug)
+    if add_event_if(self.joystick_mode, EventName.joystickDebug):
       self.startup_event = None
 
     # Add startup event
@@ -259,10 +258,9 @@ class Controls:
          (CS.rightBlindspot and direction == LaneChangeDirection.right):
         self.events.add(EventName.laneChangeBlocked)
       else:
-        if direction == LaneChangeDirection.left:
-          self.events.add(EventName.preLaneChangeLeft)
-        else:
-          self.events.add(EventName.preLaneChangeRight)
+        add_event_if(direction == LaneChangeDirection.left, EventName.preLaneChangeLeft)
+        add_event_if(direction == LaneChangeDirection.right, EventName.preLaneChangeRight)
+
     elif self.sm['modelV2'].meta.laneChangeState in (LaneChangeState.laneChangeStarting,
                                                     LaneChangeState.laneChangeFinishing):
       self.events.add(EventName.laneChange)
@@ -308,12 +306,9 @@ class Controls:
     has_disable_events = self.events.contains(ET.NO_ENTRY) and (self.events.contains(ET.SOFT_DISABLE) or self.events.contains(ET.IMMEDIATE_DISABLE))
     no_system_errors = (not has_disable_events) or (len(self.events) == num_events)
     if (not self.sm.all_checks() or CS.canRcvTimeout) and no_system_errors:
-      if not self.sm.all_alive():
-        self.events.add(EventName.commIssue)
-      elif not self.sm.all_freq_ok():
-        self.events.add(EventName.commIssueAvgFreq)
-      else:  # invalid or can_rcv_timeout.
-        self.events.add(EventName.commIssue)
+      add_event_if(not self.sm.all_alive(), EventName.commIssue) or \
+      add_event_if(not self.sm.all_freq_ok(), EventName.commIssueAvgFreq) or \
+      add_event_if(True, EventName.commIssue)  # invalid or can_rcv_timeout.
 
       logs = {
         'invalid': [s for s, valid in self.sm.valid.items() if not valid],
@@ -367,8 +362,7 @@ class Controls:
         self.distance_traveled = 0
       self.distance_traveled += CS.vEgo * DT_CTRL
 
-      if self.sm['modelV2'].frameDropPerc > 20:
-        self.events.add(EventName.modeldLagging)
+      add_event_if(self.sm['modelV2'].frameDropPerc > 20, EventName.modeldLagging)
 
   def data_sample(self):
     """Receive data from sockets"""
