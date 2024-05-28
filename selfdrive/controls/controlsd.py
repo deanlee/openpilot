@@ -188,19 +188,22 @@ class Controls:
 
     self.events.clear()
 
+    def add_event_if(condition, event_name):
+      if condition:
+        self.events.add(event_name)
+      return condition
+
     # Add joystick event, static on cars, dynamic on nonCars
     if self.joystick_mode:
       self.events.add(EventName.joystickDebug)
       self.startup_event = None
 
     # Add startup event
-    if self.startup_event is not None:
-      self.events.add(self.startup_event)
-      self.startup_event = None
+    add_event_if(self.startup_event, self.startup_event)
+    self.startup_event = None
 
     # Don't add any more events if not initialized
-    if not self.initialized:
-      self.events.add(EventName.controlsInitializing)
+    if add_event_if(not self.initialized, EventName.controlsInitializing):
       return
 
     # no more events while in dashcam mode
@@ -209,8 +212,7 @@ class Controls:
 
     # Block resume if cruise never previously enabled
     resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)
-    if not self.CP.pcmCruise and not self.v_cruise_helper.v_cruise_initialized and resume_pressed:
-      self.events.add(EventName.resumeBlocked)
+    add_event_if(resume_pressed and not self.CP.pcmCruise and not self.v_cruise_helper.v_cruise_initialized, EventName.resumeBlocked)
 
     if not self.CP.notCar:
       self.events.add_from_msg(self.sm['driverMonitoringState'].events)
@@ -220,13 +222,9 @@ class Controls:
       self.events.add_from_msg(CS.events)
 
     # Create events for temperature, disk space, and memory
-    if self.sm['deviceState'].thermalStatus >= ThermalStatus.red:
-      self.events.add(EventName.overheat)
-    if self.sm['deviceState'].freeSpacePercent < 7 and not SIMULATION:
-      # under 7% of space free no enable allowed
-      self.events.add(EventName.outOfSpace)
-    if self.sm['deviceState'].memoryUsagePercent > 90 and not SIMULATION:
-      self.events.add(EventName.lowMemory)
+    add_event_if(self.sm['deviceState'].thermalStatus >= ThermalStatus.red, EventName.overheat)
+    add_event_if(self.sm['deviceState'].freeSpacePercent < 7 and not SIMULATION, EventName.outOfSpace)
+    add_event_if(self.sm['deviceState'].memoryUsagePercent > 90 and not SIMULATION, EventName.lowMemory)
 
     # TODO: enable this once loggerd CPU usage is more reasonable
     #cpus = list(self.sm['deviceState'].cpuUsagePercent)
@@ -237,8 +235,7 @@ class Controls:
     if self.sm['peripheralState'].pandaType != log.PandaState.PandaType.unknown:
       if self.sm['peripheralState'].fanSpeedRpm < 500 and self.sm['deviceState'].fanSpeedPercentDesired > 50:
         # allow enough time for the fan controller in the panda to recover from stalls
-        if (self.sm.frame - self.last_functional_fan_frame) * DT_CTRL > 15.0:
-          self.events.add(EventName.fanMalfunction)
+        add_event_if((self.sm.frame - self.last_functional_fan_frame) * DT_CTRL > 15.0, EventName.fanMalfunction)
       else:
         self.last_functional_fan_frame = self.sm.frame
 
@@ -283,8 +280,7 @@ class Controls:
       if (safety_mismatch and self.sm.frame*DT_CTRL > 10.) or pandaState.safetyRxChecksInvalid or self.mismatch_counter >= 200:
         self.events.add(EventName.controlsMismatch)
 
-      if log.PandaState.FaultType.relayMalfunction in pandaState.faults:
-        self.events.add(EventName.relayMalfunction)
+      add_event_if(log.PandaState.FaultType.relayMalfunction in pandaState.faults, EventName.relayMalfunction)
 
     # Handle HW and system malfunctions
     # Order is very intentional here. Be careful when modifying this.
@@ -297,22 +293,16 @@ class Controls:
       if not_running != self.not_running_prev:
         cloudlog.event("process_not_running", not_running=not_running, error=True)
       self.not_running_prev = not_running
-    else:
-      if not SIMULATION and not self.rk.lagging:
-        if not self.sm.all_alive(self.camera_packets):
-          self.events.add(EventName.cameraMalfunction)
-        elif not self.sm.all_freq_ok(self.camera_packets):
-          self.events.add(EventName.cameraFrameRate)
-    if not REPLAY and self.rk.lagging:
-      self.events.add(EventName.controlsdLagging)
-    if len(self.sm['radarState'].radarErrors) or ((not self.rk.lagging or REPLAY) and not self.sm.all_checks(['radarState'])):
-      self.events.add(EventName.radarFault)
-    if not self.sm.valid['pandaStates']:
-      self.events.add(EventName.usbError)
-    if CS.canTimeout:
-      self.events.add(EventName.canBusMissing)
-    elif not CS.canValid:
-      self.events.add(EventName.canError)
+    elif not SIMULATION and not self.rk.lagging:
+      add_event_if(not self.sm.all_alive(self.camera_packets), EventName.cameraMalfunction) or \
+      add_event_if(not self.sm.all_freq_ok(self.camera_packets), EventName.cameraFrameRate)
+
+    add_event_if(not REPLAY and self.rk.lagging, EventName.controlsdLagging)
+    add_event_if(len(self.sm['radarState'].radarErrors) or ((not self.rk.lagging or REPLAY) and not self.sm.all_checks(['radarState'])), EventName.radarFault)
+    add_event_if(not self.sm.valid['pandaStates'], EventName.usbError)
+
+    add_event_if(CS.canTimeout, EventName.canBusMissing) or \
+    add_event_if(not CS.canValid, EventName.canError)
 
     # generic catch-all. ideally, a more specific event should be added above instead
     has_disable_events = self.events.contains(ET.NO_ENTRY) and (self.events.contains(ET.SOFT_DISABLE) or self.events.contains(ET.IMMEDIATE_DISABLE))
@@ -338,32 +328,25 @@ class Controls:
       self.logged_comm_issue = None
 
     if not (self.CP.notCar and self.joystick_mode):
-      if not self.sm['liveLocationKalman'].posenetOK:
-        self.events.add(EventName.posenetInvalid)
-      if not self.sm['liveLocationKalman'].deviceStable:
-        self.events.add(EventName.deviceFalling)
-      if not self.sm['liveLocationKalman'].inputsOK:
-        self.events.add(EventName.locationdTemporaryError)
-      if not self.sm['liveParameters'].valid and not TESTING_CLOSET and (not SIMULATION or REPLAY):
-        self.events.add(EventName.paramsdTemporaryError)
+      add_event_if(not self.sm['liveLocationKalman'].posenetOK, EventName.posenetInvalid)
+      add_event_if(not self.sm['liveLocationKalman'].deviceStable, EventName.deviceFalling)
+      add_event_if(self.sm['liveLocationKalman'].inputsOK, EventName.locationdTemporaryError)
+      add_event_if(not self.sm['liveParameters'].valid and not TESTING_CLOSET and (not SIMULATION or REPLAY), EventName.paramsdTemporaryError)
 
     # conservative HW alert. if the data or frequency are off, locationd will throw an error
-    if any((self.sm.frame - self.sm.recv_frame[s])*DT_CTRL > 10. for s in self.sensor_packets):
-      self.events.add(EventName.sensorDataInvalid)
+    add_event_if(any((self.sm.frame - self.sm.recv_frame[s])*DT_CTRL > 10. for s in self.sensor_packets), EventName.sensorDataInvalid)
 
     if not REPLAY:
       # Check for mismatch between openpilot and car's PCM
       cruise_mismatch = CS.cruiseState.enabled and (not self.enabled or not self.CP.pcmCruise)
       self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
-      if self.cruise_mismatch_counter > int(6. / DT_CTRL):
-        self.events.add(EventName.cruiseMismatch)
+      add_event_if(self.cruise_mismatch_counter > int(6. / DT_CTRL), EventName.cruiseMismatch)
 
     # Check for FCW
     stock_long_is_braking = self.enabled and not self.CP.openpilotLongitudinalControl and CS.aEgo < -1.25
     model_fcw = self.sm['modelV2'].meta.hardBrakePredicted and not CS.brakePressed and not stock_long_is_braking
     planner_fcw = self.sm['longitudinalPlan'].fcw and self.enabled
-    if (planner_fcw or model_fcw) and not (self.CP.notCar and self.joystick_mode):
-      self.events.add(EventName.fcw)
+    add_event_if((planner_fcw or model_fcw) and not (self.CP.notCar and self.joystick_mode), EventName.fcw)
 
     for m in messaging.drain_sock(self.log_sock, wait_for_one=False):
       try:
@@ -371,8 +354,7 @@ class Controls:
         if any(err in msg for err in ("ERROR_CRC", "ERROR_ECC", "ERROR_STREAM_UNDERFLOW", "APPLY FAILED")):
           csid = msg.split("CSID:")[-1].split(" ")[0]
           evt = CSID_MAP.get(csid, None)
-          if evt is not None:
-            self.events.add(evt)
+          add_event_if(evt, evt)
       except UnicodeDecodeError:
         pass
 
