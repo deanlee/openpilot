@@ -4,7 +4,7 @@ Import('env', 'envCython', 'arch', 'cereal', 'messaging', 'common', 'gpucommon',
 lenv = env.Clone()
 lenvCython = envCython.Clone()
 
-libs = [cereal, messaging, visionipc, gpucommon, common, 'capnp', 'zmq', 'kj', 'pthread']
+libs = [cereal, messaging, visionipc, gpucommon, common, 'capnp', 'zmq', 'kj', 'rt', 'pthread']
 frameworks = []
 
 common_src = [

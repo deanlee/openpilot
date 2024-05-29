@@ -1,7 +1,7 @@
 Import('env', 'arch', 'cereal', 'messaging', 'common', 'visionipc')
 
 libs = [common, cereal, messaging, visionipc,
-        'zmq', 'capnp', 'kj', 'z',
+        'zmq', 'capnp', 'kj', 'z', 'rt',
         'avformat', 'avcodec', 'swscale', 'avutil',
         'yuv', 'OpenCL', 'pthread']
 

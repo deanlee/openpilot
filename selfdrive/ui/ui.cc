@@ -266,6 +266,12 @@ UIState::UIState(QObject *parent) : QObject(parent) {
 }
 
 void UIState::update() {
+  //  std::unique_ptr<Context> ctx(Context::create());
+  // std::unique_ptr<SubSocket> sock(SubSocket::create(ctx.get(), "uiPlan"));
+  // // while (true) {
+  // // sock->setTimeout(10000);
+  // auto r = sock->receive();
+  // printf("received %d\n", r != nullptr);
   update_sockets(this);
   update_state(this);
   updateStatus();
@@ -363,6 +369,8 @@ void Device::updateWakefulness(const UIState &s) {
 
 UIState *uiState() {
   static UIState ui_state;
+
+  // }
   return &ui_state;
 }
 
