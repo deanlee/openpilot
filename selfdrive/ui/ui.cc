@@ -269,9 +269,10 @@ void UIState::update() {
   //  std::unique_ptr<Context> ctx(Context::create());
   // std::unique_ptr<SubSocket> sock(SubSocket::create(ctx.get(), "uiPlan"));
   // // while (true) {
-  // // sock->setTimeout(10000);
+  // sock->setTimeout(20);
   // auto r = sock->receive();
   // printf("received %d\n", r != nullptr);
+  // delete r;
   update_sockets(this);
   update_state(this);
   updateStatus();
