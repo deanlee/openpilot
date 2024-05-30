@@ -26,5 +26,7 @@ int main(int argc, char *argv[]) {
   MainWindow w;
   setMainWindow(&w);
   a.installEventFilter(&w);
-  return a.exec();
+  int ret = a.exec();
+  printf("exit app ****************\n");
+  return ret;
 }

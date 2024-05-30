@@ -108,6 +108,9 @@ class UIState : public QObject {
 
 public:
   UIState(QObject* parent = 0);
+  ~UIState() {
+    printf("~UIState\n");
+  }
   void updateStatus();
   inline bool engaged() const {
     return scene.started && (*sm)["controlsState"].getControlsState().getEnabled();

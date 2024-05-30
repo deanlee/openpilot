@@ -93,6 +93,7 @@ void setQtSurfaceFormat() {
 }
 
 void sigTermHandler(int s) {
+  printf("sigTermHandler received *************\n\n\n");
   std::signal(s, SIG_DFL);
   qApp->quit();
 }
