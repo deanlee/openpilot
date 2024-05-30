@@ -330,6 +330,7 @@ void CameraWidget::paintGL() {
 }
 
 void CameraWidget::vipcConnected(VisionIpcClient *vipc_client) {
+  printf("vipc connected %d\n", vipc_client->num_buffers);
   makeCurrent();
   stream_width = vipc_client->buffers[0].width;
   stream_height = vipc_client->buffers[0].height;
@@ -390,6 +391,7 @@ void CameraWidget::vipcThread() {
 
   while (!QThread::currentThread()->isInterruptionRequested()) {
     if (!vipc_client || cur_stream != requested_stream_type) {
+      printf("no client1\n");
       clearFrames();
       qDebug().nospace() << "connecting to stream " << requested_stream_type << ", was connected to " << cur_stream;
       cur_stream = requested_stream_type;
@@ -398,21 +400,26 @@ void CameraWidget::vipcThread() {
     active_stream_type = cur_stream;
 
     if (!vipc_client->connected) {
+      printf("no connect2\n");
       clearFrames();
+      printf("clear frame\n");
       auto streams = VisionIpcClient::getAvailableStreams(stream_name, false);
+      printf("get alaviable\n");
       if (streams.empty()) {
+        printf("continue\n");
         QThread::msleep(100);
         continue;
       }
+      printf("emit vipc\n");
       emit vipcAvailableStreamsUpdated(streams);
-
+      printf("connecting\n");
       if (!vipc_client->connect(false)) {
         QThread::msleep(100);
         continue;
       }
+      printf("connected\n");
       emit vipcThreadConnected(vipc_client.get());
     }
-
     if (VisionBuf *buf = vipc_client->recv(&meta_main, 1000)) {
       {
         std::lock_guard lk(frame_lock);
@@ -421,13 +428,16 @@ void CameraWidget::vipcThread() {
           frames.pop_front();
         }
       }
+
       emit vipcThreadFrameReceived();
+      // printf("emit vipcframe\n");
     } else {
       if (!isVisible()) {
-        vipc_client->connected = false;
+        // vipc_client->connected = false;
       }
     }
   }
+  printf("stopped\n****\n");
 }
 
 void CameraWidget::clearFrames() {
