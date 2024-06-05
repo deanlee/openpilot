@@ -17,7 +17,7 @@ std::tuple<size_t, size_t, size_t> get_nv12_info(int width, int height) {
   return {nv12_width, nv12_height, nv12_buffer_size};
 }
 
-CameraServer::CameraServer(std::pair<int, int> camera_size[MAX_CAMERAS]) {
+CameraServer::CameraServer(const std::array<std::pair<int, int>, MAX_CAMERAS> &camera_size) {
   for (int i = 0; i < MAX_CAMERAS; ++i) {
     std::tie(cameras_[i].width, cameras_[i].height) = camera_size[i];
   }
@@ -27,7 +27,11 @@ CameraServer::CameraServer(std::pair<int, int> camera_size[MAX_CAMERAS]) {
 CameraServer::~CameraServer() {
   for (auto &cam : cameras_) {
     if (cam.thread.joinable()) {
-      cam.queue.push({});
+      {
+        std::unique_lock lock(cam.mtx);
+        cam.exit = true;
+      }
+      cam.cv.notify_one();
       cam.thread.join();
     }
   }
@@ -38,9 +42,11 @@ void CameraServer::startVipcServer() {
   vipc_server_.reset(new VisionIpcServer("camerad"));
   for (auto &cam : cameras_) {
     cam.cached_buf.clear();
+    cam.frame_reader = nullptr;
+    cam.event = nullptr;
 
     if (cam.width > 0 && cam.height > 0) {
-      rInfo("camera[%d] frame size %dx%d", cam.type, cam.width, cam.height);
+      rInfo("camera[%d] frame size %dx%d", cam.stream_type, cam.width, cam.height);
       auto [nv12_width, nv12_height, nv12_buffer_size] = get_nv12_info(cam.width, cam.height);
       vipc_server_->create_buffers_with_sizes(cam.stream_type, BUFFER_COUNT, false, cam.width, cam.height,
                                               nv12_buffer_size, nv12_width, nv12_width * nv12_height);
@@ -54,17 +60,16 @@ void CameraServer::startVipcServer() {
 
 void CameraServer::cameraThread(Camera &cam) {
   while (true) {
-    const auto [fr, event] = cam.queue.pop();
-    if (!fr) break;
+    std::unique_lock<std::mutex> lock(cam.mtx);
+    cam.cv.wait(lock, [&cam] { return cam.event != nullptr || cam.exit; });
+    if (cam.exit) break;
 
-    capnp::FlatArrayMessageReader reader(event->data);
+    capnp::FlatArrayMessageReader reader(cam.event->data);
     auto evt = reader.getRoot<cereal::Event>();
     auto eidx = capnp::AnyStruct::Reader(evt).getPointerSection()[0].getAs<cereal::EncodeIndex>();
-    if (eidx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C) continue;
-
     int segment_id = eidx.getSegmentId();
     uint32_t frame_id = eidx.getFrameId();
-    if (auto yuv = getFrame(cam, fr, segment_id, frame_id)) {
+    if (auto yuv = getFrame(cam, segment_id, frame_id)) {
       VisionIpcBufExtra extra = {
           .frame_id = frame_id,
           .timestamp_sof = eidx.getTimestampSof(),
@@ -72,24 +77,25 @@ void CameraServer::cameraThread(Camera &cam) {
       };
       vipc_server_->send(yuv, &extra);
     } else {
-      rError("camera[%d] failed to get frame: %lu", cam.type, segment_id);
+      rError("camera[%d] failed to get frame: %lu", cam.stream_type, segment_id);
     }
 
     // Prefetch the next frame
-    getFrame(cam, fr, segment_id + 1, frame_id + 1);
+    getFrame(cam, segment_id + 1, frame_id + 1);
 
-    --publishing_;
+    cam.event = nullptr;
+    cam.cv.notify_one();
   }
 }
 
-VisionBuf *CameraServer::getFrame(Camera &cam, FrameReader *fr, int32_t segment_id, uint32_t frame_id) {
+VisionBuf *CameraServer::getFrame(Camera &cam, int32_t segment_id, uint32_t frame_id) {
   // Check if the frame is cached
   auto buf_it = std::find_if(cam.cached_buf.begin(), cam.cached_buf.end(),
                              [frame_id](VisionBuf *buf) { return buf->get_frame_id() == frame_id; });
   if (buf_it != cam.cached_buf.end()) return *buf_it;
 
   VisionBuf *yuv_buf = vipc_server_->get_buffer(cam.stream_type);
-  if (fr->get(segment_id, yuv_buf)) {
+  if (cam.frame_reader->get(segment_id, yuv_buf)) {
     yuv_buf->set_frame_id(frame_id);
     cam.cached_buf.insert(yuv_buf);
     return yuv_buf;
@@ -106,12 +112,18 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const Event *even
     startVipcServer();
   }
 
-  ++publishing_;
-  cam.queue.push({fr, event});
+  {
+    std::unique_lock lock(cam.mtx);
+    cam.cv.wait(lock, [&cam] { return !cam.event; });
+    cam.frame_reader = fr;
+    cam.event = event;
+  }
+  cam.cv.notify_one();
 }
 
 void CameraServer::waitForSent() {
-  while (publishing_ > 0) {
-    std::this_thread::yield();
+  for (auto &cam : cameras_) {
+    std::unique_lock<std::mutex> lock(cam.mtx);
+    cam.cv.wait(lock, [&cam]() { return !cam.event; });
   }
 }

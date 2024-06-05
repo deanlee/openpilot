@@ -51,7 +51,7 @@ Replay::~Replay() {
   rInfo("shutdown: in progress...");
   if (stream_thread_ != nullptr) {
     exit_ =true;
-    paused_ = true;
+    pauseStreamThread();
     stream_cv_.notify_one();
     stream_thread_->quit();
     stream_thread_->wait();
@@ -359,7 +359,7 @@ void Replay::startStream(const Segment *cur_segment) {
 
   // start camera server
   if (!hasFlag(REPLAY_FLAG_NO_VIPC)) {
-    std::pair<int, int> camera_size[MAX_CAMERAS] = {};
+    std::array<std::pair<int, int>, MAX_CAMERAS> camera_size = {};
     for (auto type : ALL_CAMERAS) {
       if (auto &fr = cur_segment->frames[type]) {
         camera_size[type] = {fr->width, fr->height};
@@ -480,7 +480,7 @@ std::vector<Event>::const_iterator Replay::publishEvents(std::vector<Event>::con
       loop_start_ts = current_nanos;
       prev_replay_speed = speed_;
     } else if (time_diff > 0) {
-      precise_nano_sleep(time_diff);
+      precise_nano_sleep(time_diff, paused_);
     }
 
     if (paused_) break;
@@ -489,9 +489,6 @@ std::vector<Event>::const_iterator Replay::publishEvents(std::vector<Event>::con
     if (evt.eidx_segnum == -1) {
       publishMessage(&evt);
     } else if (camera_server_) {
-      if (speed_ > 1.0) {
-        camera_server_->waitForSent();
-      }
       publishFrame(&evt);
     }
   }
