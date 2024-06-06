@@ -321,7 +321,7 @@ std::string decompressBZ2(const std::byte *in, size_t in_size, std::atomic<bool>
 void precise_nano_sleep(int64_t nanoseconds, std::atomic<bool> &should_exit) {
   struct timespec req, rem;
   req.tv_sec = nanoseconds / 1000000000;
-  req.tv_nsec = nanoseconds % (int64_t)1000000000;
+  req.tv_nsec = nanoseconds % 1000000000;
   while (!should_exit) {
 #ifdef __APPLE_
     int ret = nanosleep(&req, &rem);
