@@ -36,10 +36,6 @@ protected:
   void cameraThread(Camera &cam);
   VisionBuf *getFrame(Camera &cam, int32_t segment_id, uint32_t frame_id);
 
-  Camera cameras_[MAX_CAMERAS] = {
-      {.stream_type = VISION_STREAM_ROAD},
-      {.stream_type = VISION_STREAM_DRIVER},
-      {.stream_type = VISION_STREAM_WIDE_ROAD},
-  };
+  Camera cameras_[MAX_CAMERAS] = {};
   std::unique_ptr<VisionIpcServer> vipc_server_;
 };

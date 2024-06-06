@@ -19,6 +19,7 @@ std::tuple<size_t, size_t, size_t> get_nv12_info(int width, int height) {
 
 CameraServer::CameraServer(const std::array<std::pair<int, int>, MAX_CAMERAS> &camera_size) {
   for (int i = 0; i < MAX_CAMERAS; ++i) {
+    cameras_[i].stream_type = VisionStreamType(i);
     std::tie(cameras_[i].width, cameras_[i].height) = camera_size[i];
   }
   startVipcServer();
