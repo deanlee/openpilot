@@ -13,28 +13,28 @@ void Sparkline::update(const MessageId &msg_id, const cabana::Signal *sig, doubl
   auto first = std::lower_bound(msgs.cbegin(), msgs.cend(), first_ts, CompareCanEvent());
   auto last = std::upper_bound(first, msgs.cend(), ts, CompareCanEvent());
 
-  if (first == last || size.isEmpty()) {
-    pixmap = QPixmap();
-    return;
-  }
-
   points.clear();
   double value = 0;
+  min_val = std::numeric_limits<double>::max();
+  max_value = std::numeric_limits<double>::lowest();
   for (auto it = first; it != last; ++it) {
     if (sig->getValue((*it)->dat, (*it)->size, &value)) {
       points.emplace_back(((*it)->mono_time - (*first)->mono_time) / 1e9, value);
+      if (value < min_val) min_val = value;
+      if (value > max_value) max_value = value;
     }
   }
 
-  if (points.empty()) {
+  if (points.empty() || size.isEmpty()) {
     pixmap = QPixmap();
     return;
   }
 
-  const auto [min, max] = std::minmax_element(points.begin(), points.end(),
-                                              [](auto &l, auto &r) { return l.y() < r.y(); });
-  min_val = min->y() == max->y() ? min->y() - 1 : min->y();
-  max_val = min->y() == max->y() ? max->y() + 1 : max->y();
+  if (min_val() == max_val) {
+    min_val -= 1;
+    max_val += 1;
+  }
+
   freq_ = points.size() / std::max(points.back().x() - points.front().x(), 1.0);
   render(sig->color, range, size);
 }
