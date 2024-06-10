@@ -18,12 +18,13 @@ public:
 
   bool connect(const std::vector<std::string> &serials);
   void pandad_thread();
+
+protected:
   void can_recv();
   void can_send(bool fake_send);
   void process_panda_state(bool spoofing_started);
   void peripheral_control(bool no_fan_control);
 
-protected:
   std::optional<bool> send_panda_states(bool spoofing_started);
   void send_peripheral_state(Panda *panda);
 

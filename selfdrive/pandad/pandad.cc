@@ -173,6 +173,9 @@ void Pandad::can_send(bool fake_send) {
   while (!do_exit && check_all_connected(pandas)) {
     std::unique_ptr<Message> msg(send_can_sock->receive(true));
     if (!msg) {
+      if (errno == EINTR) {
+        do_exit = true;
+      }
       break;
     }
 
@@ -216,10 +219,10 @@ void Pandad::can_recv() {
 
 std::optional<bool> Pandad::send_panda_states(bool spoofing_started) {
   static bool ignition_local = false;
-  const uint32_t pandas_cnt = pandas.size();
 
   // build msg
   MessageBuilder msg;
+  const uint32_t pandas_cnt = pandas.size();
   auto evt = msg.initEvent();
   auto pss = evt.initPandaStates(pandas_cnt);
 
@@ -457,9 +460,12 @@ void Pandad::peripheral_control(bool no_fan_control) {
   static uint16_t prev_fan_speed = 999;
   static uint16_t ir_pwr = 0;
   static uint16_t prev_ir_pwr = 999;
+  static SubMaster sm({"deviceState", "driverCameraState"});
 
   Panda *panda = pandas[0];
   {
+    sm.update(0);
+
     if (sm.updated("deviceState") && !no_fan_control) {
       // Fan speed
       uint16_t fan_speed = sm["deviceState"].getDeviceState().getFanSpeedPercentDesired();
@@ -510,6 +516,9 @@ void Pandad::pandad_thread() {
 
     sm.update(0);
 
+    if (rk.frame() % 5) { // 20 hz
+      peripheral_control(no_fan_control);
+    }
     if (rk.frame() % 10) {  // 10 hz
       process_panda_state(spoofing_started);
     }
