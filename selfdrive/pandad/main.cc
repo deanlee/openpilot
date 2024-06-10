@@ -2,7 +2,6 @@
 
 #include "selfdrive/pandad/pandad.h"
 #include "common/swaglog.h"
-#include "common/util.h"
 #include "system/hardware/hw.h"
 
 int main(int argc, char *argv[]) {
@@ -17,6 +16,7 @@ int main(int argc, char *argv[]) {
   }
 
   std::vector<std::string> serials(argv + 1, argv + argc);
-  pandad_main_thread(serials);
+  Pandad pandad;
+  pandad.connect(serials);
   return 0;
 }

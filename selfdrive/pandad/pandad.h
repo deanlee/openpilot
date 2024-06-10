@@ -11,24 +11,25 @@
 #include "common/util.h"
 #include "selfdrive/pandad/panda.h"
 
-bool safety_setter_thread(std::vector<Panda *> pandas);
-void pandad_main_thread(std::vector<std::string> serials);
-
 class Pandad {
 public:
   Pandad();
+  ~Pandad();
 
-  PubMaster pm;
-  SubMaster sm;
-  Params params;
-  std::vector<Panda *> pandas;
-  void pandad_thread(std::vector<Panda *> p);
+  bool connect(const std::vector<std::string> &serials);
+  void pandad_thread();
   void can_recv();
   void can_send(bool fake_send);
   void panda_state(bool spoofing_started);
   void peripheral_control(Panda *panda, bool no_fan_control);
 
   void checkConnections();
+
+protected:
+  PubMaster pm;
+  SubMaster sm;
+  Params params;
+  std::vector<Panda *> pandas;
   FirstOrderFilter integ_lines_filter;
   // data:
   std::vector<can_frame> raw_can_data;

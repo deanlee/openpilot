@@ -7,7 +7,6 @@
 #include <cassert>
 #include <cerrno>
 #include <chrono>
-#include <thread>
 
 #include "cereal/gen/cpp/car.capnp.h"
 #include "common/ratekeeper.h"
@@ -157,8 +156,18 @@ Panda *connect(std::string serial="", uint32_t index=0) {
   return panda.release();
 }
 
+// Pandad class
+
+Pandad::Pandad()
+    : pm({"can", "pandaStates", "peripheralState"}),
+      sm({"controlsState", "deviceState", "driverCameraState"}),
+      integ_lines_filter(0, 30.0, 0.05) {
+  context.reset(Context::create());
+  send_can_sock.reset(SubSocket::create(context.get(), "sendcan"));
+}
+
 void Pandad::can_send(bool fake_send) {
-  AlignedBuffer aligned_buf;
+  static AlignedBuffer aligned_buf;
 
   // run as fast as messages come in
   while (!do_exit && check_all_connected(pandas)) {
@@ -182,17 +191,6 @@ void Pandad::can_send(bool fake_send) {
     }
   }
 }
-
-Pandad::Pandad()
-: pm({"can", "pandaStates", "peripheralState"}),
-  sm({"controlsState", "deviceState", "driverCameraState"}),
-  integ_lines_filter(0, 30.0, 0.05) {
-  // for (Panda *p : pandas) {
-  //   connected_serials.push_back(p->hw_serial());
-  // }
-  context.reset(Context::create());
-  send_can_sock.reset(SubSocket::create(context.get(), "sendcan"));
-  }
 
 void Pandad::can_recv() {
   bool comms_healthy = true;
@@ -394,7 +392,6 @@ void Pandad::panda_state(bool spoofing_started) {
   static bool is_onroad = false;
   static bool is_onroad_last = false;
 
-  // while (!do_exit && check_all_connected(pandas)) {
   // send out peripheralState at 2Hz
   if (sm.frame % 5 == 0) {
     send_peripheral_state(peripheral_panda);
@@ -449,7 +446,6 @@ void Pandad::panda_state(bool spoofing_started) {
 
   is_onroad_last = is_onroad;
 
-  sm.update(0);
   const bool engaged = sm.allAliveAndValid({"controlsState"}) && sm["controlsState"].getControlsState().getEnabled();
 
   for (const auto &panda : pandas) {
@@ -459,7 +455,6 @@ void Pandad::panda_state(bool spoofing_started) {
 
 
 void Pandad::peripheral_control(Panda *panda, bool no_fan_control) {
-  // checkConnections();
   static uint64_t last_driver_camera_t = 0;
   static uint16_t prev_fan_speed = 999;
   static uint16_t ir_pwr = 0;
@@ -501,43 +496,37 @@ void Pandad::peripheral_control(Panda *panda, bool no_fan_control) {
   }
 }
 
-void Pandad::pandad_thread(std::vector<Panda *> p) {
+void Pandad::pandad_thread() {
   const bool no_fan_control = getenv("NO_FAN_CONTROL") != nullptr;
   const bool spoofing_started  = getenv("STARTED") != nullptr;
   const bool facke_send = getenv("FAKESEND") != nullptr;
-  pandas = p;
+
   while (!do_exit) {
     can_recv();
     can_send(facke_send);
     sm.update(0);
     panda_state(spoofing_started);
-    peripheral_control(p[0], no_fan_control);
+    peripheral_control(pandas[0], no_fan_control);
   }
 }
 
-void pandad_main_thread(std::vector<std::string> serials) {
-  LOGW("launching pandad");
-
-  if (serials.size() == 0) {
-    serials = Panda::list();
-
-    if (serials.size() == 0) {
-      LOGW("no pandas found, exiting");
-      return;
-    }
+bool Pandad::connect(const std::vector<std::string> &serials) {
+  connected_serials = serials.empty() ? Panda::list() : serials;
+  if (connected_serials.size() == 0) {
+    LOGW("no pandas found, exiting");
+    return false;
   }
 
   std::string serials_str;
-  for (int i = 0; i < serials.size(); i++) {
-    serials_str += serials[i];
-    if (i < serials.size() - 1) serials_str += ", ";
+  for (int i = 0; i < connected_serials.size(); i++) {
+    serials_str += connected_serials[i];
+    if (i < connected_serials.size() - 1) serials_str += ", ";
   }
   LOGW("connecting to pandas: %s", serials_str.c_str());
 
   // connect to all provided serials
-  std::vector<Panda *> pandas;
   for (int i = 0; i < serials.size() && !do_exit; /**/) {
-    Panda *p = connect(serials[i], i);
+    Panda *p = ::connect(serials[i], i);
     if (!p) {
       util::sleep_for(100);
       continue;
@@ -546,8 +535,11 @@ void pandad_main_thread(std::vector<std::string> serials) {
     pandas.push_back(p);
     ++i;
   }
-  Pandad pandad;
-  pandad.pandad_thread(pandas);
+  pandad_thread();
+  return true;
+}
+
+Pandad::~Pandad() {
   for (Panda *panda : pandas) {
     delete panda;
   }
