@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+#include <future>
 #include <string>
 #include <vector>
 #include <optional>
@@ -33,4 +35,7 @@ public:
   std::vector<std::string> connected_serials;
   std::optional<bool> send_panda_states(bool spoofing_started);
   void send_peripheral_state(Panda *panda);
+  std::future<bool> safety_future;
+  std::unique_ptr<Context> context;
+  std::unique_ptr<SubSocket> send_can_sock;
 };
