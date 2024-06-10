@@ -193,6 +193,8 @@ void Pandad::can_send(bool fake_send) {
 }
 
 void Pandad::can_recv() {
+  static std::vector<can_frame> raw_can_data;
+
   bool comms_healthy = true;
   raw_can_data.clear();
   for (const auto& panda : pandas) {
@@ -420,7 +422,7 @@ void Pandad::panda_state(bool spoofing_started) {
       } else {
         // check for new pandas
         for (std::string &s : Panda::list(true)) {
-          if (!std::count(connected_serials.begin(), connected_serials.end(), s)) {
+          if (!std::count(serials.begin(), serials.end(), s)) {
             LOGW("Reconnecting to new panda: %s", s.c_str());
             do_exit = true;
             break;
@@ -512,17 +514,17 @@ void Pandad::pandad_thread() {
   }
 }
 
-bool Pandad::connect(const std::vector<std::string> &serials) {
-  connected_serials = serials.empty() ? Panda::list() : serials;
-  if (connected_serials.size() == 0) {
+bool Pandad::connect(const std::vector<std::string> &srequest_serials) {
+  serials = srequest_serials.empty() ? Panda::list() : srequest_serials;
+  if (serials.size() == 0) {
     LOGW("no pandas found, exiting");
     return false;
   }
 
   std::string serials_str;
-  for (int i = 0; i < connected_serials.size(); i++) {
-    serials_str += connected_serials[i];
-    if (i < connected_serials.size() - 1) serials_str += ", ";
+  for (int i = 0; i < serials.size(); i++) {
+    serials_str += serials[i];
+    if (i < serials.size() - 1) serials_str += ", ";
   }
   LOGW("connecting to pandas: %s", serials_str.c_str());
 

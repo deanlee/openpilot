@@ -26,16 +26,15 @@ public:
   void checkConnections();
 
 protected:
+  std::optional<bool> send_panda_states(bool spoofing_started);
+  void send_peripheral_state(Panda *panda);
+
   PubMaster pm;
   SubMaster sm;
   Params params;
   std::vector<Panda *> pandas;
   FirstOrderFilter integ_lines_filter;
-  // data:
-  std::vector<can_frame> raw_can_data;
-  std::vector<std::string> connected_serials;
-  std::optional<bool> send_panda_states(bool spoofing_started);
-  void send_peripheral_state(Panda *panda);
+  std::vector<std::string> serials;
   std::future<bool> safety_future;
   std::unique_ptr<Context> context;
   std::unique_ptr<SubSocket> send_can_sock;
