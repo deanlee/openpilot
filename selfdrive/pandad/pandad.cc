@@ -388,7 +388,7 @@ void Pandad::send_peripheral_state(Panda *panda) {
   pm.send("peripheralState", msg);
 }
 
-void Pandad::panda_state(bool spoofing_started) {
+void Pandad::process_panda_state(bool spoofing_started) {
   static bool is_onroad = false;
   static bool is_onroad_last = false;
 
@@ -502,16 +502,16 @@ void Pandad::pandad_thread() {
   const bool spoofing_started = getenv("STARTED") != nullptr;
   const bool facke_send = getenv("FAKESEND") != nullptr;
 
-  RateKeeper rk("pandad", 100);
+  RateKeeper rk("pandad", 100); // 100 hz
 
   while (!do_exit && check_all_connected(pandas)) {
-    can_recv();            // 100 hz
+    can_recv();
     can_send(facke_send);  // run as fast as messages come in
 
     sm.update(0);
 
     if (rk.frame() % 10) {  // 10 hz
-      panda_state(spoofing_started);
+      process_panda_state(spoofing_started);
     }
     if (rk.frame() % 50) {  // send out peripheralState at 2Hz
       send_peripheral_state(pandas[0]);

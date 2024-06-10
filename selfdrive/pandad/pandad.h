@@ -20,10 +20,8 @@ public:
   void pandad_thread();
   void can_recv();
   void can_send(bool fake_send);
-  void panda_state(bool spoofing_started);
+  void process_panda_state(bool spoofing_started);
   void peripheral_control(bool no_fan_control);
-
-  void checkConnections();
 
 protected:
   std::optional<bool> send_panda_states(bool spoofing_started);
