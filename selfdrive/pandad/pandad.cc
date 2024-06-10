@@ -391,65 +391,66 @@ void Pandad::panda_state(bool spoofing_started) {
   Panda *peripheral_panda = pandas[0];
   static bool is_onroad = false;
   static bool is_onroad_last = false;
-
-  // send out peripheralState at 2Hz
-  if (sm.frame % 5 == 0) {
-    send_peripheral_state(peripheral_panda);
-  }
-
-  auto ignition_opt = send_panda_states(spoofing_started);
-
-  if (!ignition_opt) {
-    LOGE("Failed to get ignition_opt");
-    return;
-  }
-
-  ignition = *ignition_opt;
-
-  // check if we should have pandad reconnect
-  if (!ignition) {
-    bool comms_healthy = true;
-    for (const auto &panda : pandas) {
-      comms_healthy &= panda->comms_healthy();
+  {
+    // send out peripheralState at 2Hz
+    if (sm.frame % 5 == 0) {
+      send_peripheral_state(peripheral_panda);
     }
 
-    if (!comms_healthy) {
-      LOGE("Reconnecting, communication to pandas not healthy");
-      do_exit = true;
+    auto ignition_opt = send_panda_states(spoofing_started);
 
-    } else {
-      // check for new pandas
-      for (std::string &s : Panda::list(true)) {
-        if (!std::count(connected_serials.begin(), connected_serials.end(), s)) {
-          LOGW("Reconnecting to new panda: %s", s.c_str());
-          do_exit = true;
-          break;
+    if (!ignition_opt) {
+      LOGE("Failed to get ignition_opt");
+      return;
+    }
+
+    ignition = *ignition_opt;
+
+    // check if we should have pandad reconnect
+    if (!ignition) {
+      bool comms_healthy = true;
+      for (const auto &panda : pandas) {
+        comms_healthy &= panda->comms_healthy();
+      }
+
+      if (!comms_healthy) {
+        LOGE("Reconnecting, communication to pandas not healthy");
+        do_exit = true;
+
+      } else {
+        // check for new pandas
+        for (std::string &s : Panda::list(true)) {
+          if (!std::count(connected_serials.begin(), connected_serials.end(), s)) {
+            LOGW("Reconnecting to new panda: %s", s.c_str());
+            do_exit = true;
+            break;
+          }
         }
+      }
+
+      if (do_exit) {
+        return;
       }
     }
 
-    if (do_exit) {
-      return;
+    is_onroad = params.getBool("IsOnroad");
+
+    // set new safety on onroad transition, after params are cleared
+    if (is_onroad && !is_onroad_last) {
+      if (!safety_future.valid() || safety_future.wait_for(0ms) == std::future_status::ready) {
+        safety_future = std::async(std::launch::async, safety_setter_thread, pandas);
+      } else {
+        LOGW("Safety setter thread already running");
+      }
     }
-  }
 
-  is_onroad = params.getBool("IsOnroad");
+    is_onroad_last = is_onroad;
 
-  // set new safety on onroad transition, after params are cleared
-  if (is_onroad && !is_onroad_last) {
-    if (!safety_future.valid() || safety_future.wait_for(0ms) == std::future_status::ready) {
-      safety_future = std::async(std::launch::async, safety_setter_thread, pandas);
-    } else {
-      LOGW("Safety setter thread already running");
+    const bool engaged = sm.allAliveAndValid({"controlsState"}) && sm["controlsState"].getControlsState().getEnabled();
+
+    for (const auto &panda : pandas) {
+      panda->send_heartbeat(engaged);
     }
-  }
-
-  is_onroad_last = is_onroad;
-
-  const bool engaged = sm.allAliveAndValid({"controlsState"}) && sm["controlsState"].getControlsState().getEnabled();
-
-  for (const auto &panda : pandas) {
-    panda->send_heartbeat(engaged);
   }
 }
 
@@ -459,40 +460,41 @@ void Pandad::peripheral_control(Panda *panda, bool no_fan_control) {
   static uint16_t prev_fan_speed = 999;
   static uint16_t ir_pwr = 0;
   static uint16_t prev_ir_pwr = 999;
-
-  if (sm.updated("deviceState") && !no_fan_control) {
-    // Fan speed
-    uint16_t fan_speed = sm["deviceState"].getDeviceState().getFanSpeedPercentDesired();
-    if (fan_speed != prev_fan_speed || sm.frame % 100 == 0) {
-      panda->set_fan_speed(fan_speed);
-      prev_fan_speed = fan_speed;
+  {
+    if (sm.updated("deviceState") && !no_fan_control) {
+      // Fan speed
+      uint16_t fan_speed = sm["deviceState"].getDeviceState().getFanSpeedPercentDesired();
+      if (fan_speed != prev_fan_speed || sm.frame % 100 == 0) {
+        panda->set_fan_speed(fan_speed);
+        prev_fan_speed = fan_speed;
+      }
     }
-  }
 
-  if (sm.updated("driverCameraState")) {
-    auto event = sm["driverCameraState"];
-    int cur_integ_lines = event.getDriverCameraState().getIntegLines();
+    if (sm.updated("driverCameraState")) {
+      auto event = sm["driverCameraState"];
+      int cur_integ_lines = event.getDriverCameraState().getIntegLines();
 
-    cur_integ_lines = integ_lines_filter.update(cur_integ_lines);
-    last_driver_camera_t = event.getLogMonoTime();
+      cur_integ_lines = integ_lines_filter.update(cur_integ_lines);
+      last_driver_camera_t = event.getLogMonoTime();
 
-    if (cur_integ_lines <= CUTOFF_IL) {
-      ir_pwr = 100.0 * MIN_IR_POWER;
-    } else if (cur_integ_lines > SATURATE_IL) {
-      ir_pwr = 100.0 * MAX_IR_POWER;
-    } else {
-      ir_pwr = 100.0 * (MIN_IR_POWER + ((cur_integ_lines - CUTOFF_IL) * (MAX_IR_POWER - MIN_IR_POWER) / (SATURATE_IL - CUTOFF_IL)));
+      if (cur_integ_lines <= CUTOFF_IL) {
+        ir_pwr = 100.0 * MIN_IR_POWER;
+      } else if (cur_integ_lines > SATURATE_IL) {
+        ir_pwr = 100.0 * MAX_IR_POWER;
+      } else {
+        ir_pwr = 100.0 * (MIN_IR_POWER + ((cur_integ_lines - CUTOFF_IL) * (MAX_IR_POWER - MIN_IR_POWER) / (SATURATE_IL - CUTOFF_IL)));
+      }
     }
-  }
 
-  // Disable IR on input timeout
-  if (nanos_since_boot() - last_driver_camera_t > 1e9) {
-    ir_pwr = 0;
-  }
+    // Disable IR on input timeout
+    if (nanos_since_boot() - last_driver_camera_t > 1e9) {
+      ir_pwr = 0;
+    }
 
-  if (ir_pwr != prev_ir_pwr || sm.frame % 100 == 0 || ir_pwr >= 50.0) {
-    panda->set_ir_pwr(ir_pwr);
-    prev_ir_pwr = ir_pwr;
+    if (ir_pwr != prev_ir_pwr || sm.frame % 100 == 0 || ir_pwr >= 50.0) {
+      panda->set_ir_pwr(ir_pwr);
+      prev_ir_pwr = ir_pwr;
+    }
   }
 }
 
