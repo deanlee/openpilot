@@ -21,7 +21,7 @@ public:
   void can_recv();
   void can_send(bool fake_send);
   void panda_state(bool spoofing_started);
-  void peripheral_control(Panda *panda, bool no_fan_control);
+  void peripheral_control(bool no_fan_control);
 
   void checkConnections();
 

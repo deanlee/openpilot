@@ -390,9 +390,10 @@ void Pandad::send_peripheral_state(Panda *panda) {
 }
 
 void Pandad::panda_state(bool spoofing_started) {
-  Panda *peripheral_panda = pandas[0];
   static bool is_onroad = false;
   static bool is_onroad_last = false;
+
+  Panda *peripheral_panda = pandas[0];
   {
     // send out peripheralState at 2Hz
     if (sm.frame % 5 == 0) {
@@ -457,11 +458,13 @@ void Pandad::panda_state(bool spoofing_started) {
 }
 
 
-void Pandad::peripheral_control(Panda *panda, bool no_fan_control) {
+void Pandad::peripheral_control(bool no_fan_control) {
   static uint64_t last_driver_camera_t = 0;
   static uint16_t prev_fan_speed = 999;
   static uint16_t ir_pwr = 0;
   static uint16_t prev_ir_pwr = 999;
+
+  Panda *panda = pandas[0];
   {
     if (sm.updated("deviceState") && !no_fan_control) {
       // Fan speed
@@ -510,7 +513,7 @@ void Pandad::pandad_thread() {
     can_send(facke_send);
     sm.update(0);
     panda_state(spoofing_started);
-    peripheral_control(pandas[0], no_fan_control);
+    peripheral_control(no_fan_control);
   }
 }
 
