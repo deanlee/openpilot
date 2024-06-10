@@ -29,7 +29,6 @@ protected:
   void send_peripheral_state(Panda *panda);
 
   PubMaster pm;
-  SubMaster sm;
   Params params;
   std::vector<Panda *> pandas;
   FirstOrderFilter integ_lines_filter;

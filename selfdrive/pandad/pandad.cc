@@ -160,7 +160,6 @@ Panda *connect(std::string serial="", uint32_t index=0) {
 
 Pandad::Pandad()
     : pm({"can", "pandaStates", "peripheralState"}),
-      sm({"controlsState", "deviceState", "driverCameraState"}),
       integ_lines_filter(0, 30.0, 0.05) {
   context.reset(Context::create());
   send_can_sock.reset(SubSocket::create(context.get(), "sendcan"));
@@ -394,8 +393,8 @@ void Pandad::send_peripheral_state(Panda *panda) {
 void Pandad::process_panda_state(bool spoofing_started) {
   static bool is_onroad = false;
   static bool is_onroad_last = false;
+  static SubMaster sm({"controlsState"});
 
-  Panda *peripheral_panda = pandas[0];
   {
     auto ignition_opt = send_panda_states(spoofing_started);
 
@@ -446,6 +445,7 @@ void Pandad::process_panda_state(bool spoofing_started) {
 
     is_onroad_last = is_onroad;
 
+    sm.update(0);
     const bool engaged = sm.allAliveAndValid({"controlsState"}) && sm["controlsState"].getControlsState().getEnabled();
 
     for (const auto &panda : pandas) {
@@ -514,14 +514,14 @@ void Pandad::pandad_thread() {
     can_recv();
     can_send(facke_send);  // run as fast as messages come in
 
-    sm.update(0);
-
     if (rk.frame() % 5) { // 20 hz
       peripheral_control(no_fan_control);
     }
+
     if (rk.frame() % 10) {  // 10 hz
       process_panda_state(spoofing_started);
     }
+
     if (rk.frame() % 50) {  // send out peripheralState at 2Hz
       send_peripheral_state(pandas[0]);
     }
