@@ -508,12 +508,18 @@ void Pandad::pandad_thread() {
   const bool spoofing_started  = getenv("STARTED") != nullptr;
   const bool facke_send = getenv("FAKESEND") != nullptr;
 
+  RateKeeper rk("pandad", 100);
+
   while (!do_exit && check_all_connected(pandas)) {
     can_recv();
     can_send(facke_send);
+
     sm.update(0);
-    panda_state(spoofing_started);
-    peripheral_control(no_fan_control);
+
+    if (rk.frame() % 10) panda_state(spoofing_started);
+    if (rk.frame() % 50) peripheral_control(no_fan_control);
+
+    rk.keepTime();
   }
 }
 
