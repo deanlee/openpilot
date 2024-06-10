@@ -367,7 +367,6 @@ std::optional<bool> Pandad::send_panda_states(bool spoofing_started) {
 }
 
 void Pandad::send_peripheral_state(Panda *panda) {
-  // build msg
   MessageBuilder msg;
   auto evt = msg.initEvent();
   evt.setValid(panda->comms_healthy());
@@ -395,11 +394,6 @@ void Pandad::panda_state(bool spoofing_started) {
 
   Panda *peripheral_panda = pandas[0];
   {
-    // send out peripheralState at 2Hz
-    if (sm.frame % 5 == 0) {
-      send_peripheral_state(peripheral_panda);
-    }
-
     auto ignition_opt = send_panda_states(spoofing_started);
 
     if (!ignition_opt) {
@@ -505,19 +499,23 @@ void Pandad::peripheral_control(bool no_fan_control) {
 
 void Pandad::pandad_thread() {
   const bool no_fan_control = getenv("NO_FAN_CONTROL") != nullptr;
-  const bool spoofing_started  = getenv("STARTED") != nullptr;
+  const bool spoofing_started = getenv("STARTED") != nullptr;
   const bool facke_send = getenv("FAKESEND") != nullptr;
 
   RateKeeper rk("pandad", 100);
 
   while (!do_exit && check_all_connected(pandas)) {
-    can_recv();
-    can_send(facke_send);
+    can_recv();            // 100 hz
+    can_send(facke_send);  // run as fast as messages come in
 
     sm.update(0);
 
-    if (rk.frame() % 10) panda_state(spoofing_started);
-    if (rk.frame() % 50) peripheral_control(no_fan_control);
+    if (rk.frame() % 10) {  // 10 hz
+      panda_state(spoofing_started);
+    }
+    if (rk.frame() % 50) {  // send out peripheralState at 2Hz
+      send_peripheral_state(pandas[0]);
+    }
 
     rk.keepTime();
   }
