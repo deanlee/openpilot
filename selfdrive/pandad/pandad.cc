@@ -508,7 +508,7 @@ void Pandad::pandad_thread() {
   const bool spoofing_started  = getenv("STARTED") != nullptr;
   const bool facke_send = getenv("FAKESEND") != nullptr;
 
-  while (!do_exit) {
+  while (!do_exit && check_all_connected(pandas)) {
     can_recv();
     can_send(facke_send);
     sm.update(0);
