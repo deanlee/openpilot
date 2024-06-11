@@ -180,23 +180,36 @@ bool cabana::Signal::operator==(const cabana::Signal &other) const {
 
 double get_raw_value(const uint8_t *data, size_t data_size, const cabana::Signal &sig) {
   int64_t val = 0;
+  int byteIndex = sig.lsb / 8;
+  int bitIndex = sig.lsb % 8;
+  int bitsLeft = sig.size;
+  const int byteStep = (sig.is_little_endian ? 1 : -1);
 
-  int i = sig.msb / 8;
-  int bits = sig.size;
-  while (i >= 0 && i < data_size && bits > 0) {
-    int lsb = (int)(sig.lsb / 8) == i ? sig.lsb : i * 8;
-    int msb = (int)(sig.msb / 8) == i ? sig.msb : (i + 1) * 8 - 1;
-    int size = msb - lsb + 1;
+  while (bitsLeft > 0 && byteIndex >= 0 && byteIndex < data_size) {
+    // Read the next byte from data
+    uint64_t byteData = data[byteIndex];
 
-    uint64_t d = (data[i] >> (lsb - (i * 8))) & ((1ULL << size) - 1);
-    val |= d << (bits - size);
+    // Calculate the number of bits to read in this iteration
+    int bitsToRead = std::min(bitsLeft, 8 - bitIndex);
 
-    bits -= size;
-    i = sig.is_little_endian ? i - 1 : i + 1;
+    // Mask to extract relevant bits from the byte
+    uint64_t mask = (1ULL << bitsToRead) - 1;
+
+    // Extract the bits and update the value
+    uint64_t dataBits = (byteData >> bitIndex) & mask;
+    val |= (dataBits << (sig.size - bitsLeft));
+
+    // Update loop variables
+    bitsLeft -= bitsToRead;
+    byteIndex += byteStep;
+    bitIndex = 0;  // Start from the first bit in the next byte
   }
-  if (sig.is_signed) {
-    val -= ((val >> (sig.size - 1)) & 0x1) ? (1ULL << sig.size) : 0;
+
+  // Adjust for signed values if necessary
+  if (sig.is_signed && (val & (1ULL << (sig.size - 1)))) {
+    val -= (1ULL << sig.size);
   }
+
   return val * sig.factor + sig.offset;
 }
 
