@@ -20,7 +20,7 @@ from openpilot.tools.lib.comma_car_segments import get_url as get_comma_segments
 from openpilot.tools.lib.openpilotci import get_url
 from openpilot.tools.lib.filereader import FileReader, file_exists, internal_source_available
 from openpilot.tools.lib.route import Route, SegmentRange
-from openpilot.tools.lib.logreader_pyx import LogFileReader
+from openpilot.tools.replay.logreader_pyx import LogFileReader
 
 LogMessage = type[capnp._DynamicStructReader]
 LogIterable = Iterable[LogMessage]
