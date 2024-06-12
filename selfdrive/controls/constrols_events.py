@@ -2,6 +2,7 @@ import os
 from functools import wraps
 import cereal.messaging as messaging
 
+from openpilot.selfdrive.car.car_helpers import get_startup_event
 from cereal import car, log
 from openpilot.selfdrive.controls.lib.events import ET
 from openpilot.selfdrive.controls.lib.alertmanager import set_offroad_alert
@@ -43,6 +44,8 @@ class ControlsEvents:
     self.cruise_mismatch_counter = 0
     self.not_running_prev = None
     self.recalibrating_seen = False
+
+    self.startup_event = get_startup_event(controls.car_recognized, not self.CP.passive, len(self.CP.carFw) > 0)
 
   @cache_function('deviceState')
   def get_device_events(self):
@@ -169,63 +172,8 @@ class ControlsEvents:
         events.append(EventName.paramsdTemporaryError)
     return events
 
-  def update_events(self, CS):
-
-    self.cs.events.clear()
-
+  def get_generic_events(self, num_events):
     events = []
-    # Add joystick event, static on cars, dynamic on nonCars
-    if self.cs.joystick_mode:
-      events.append(EventName.joystickDebug)
-      self.cs.startup_event = None
-
-    # Add startup event
-    if self.cs.startup_event is not None:
-      events.append(self.cs.startup_event)
-      self.cs.startup_event = None
-
-    # Don't add any more events if not initialized
-    if not self.cs.initialized:
-      events.append(EventName.controlsInitializing)
-      return
-
-    # no more events while in dashcam mode
-    if self.cs.CP.passive:
-      return
-
-    # Block resume if cruise never previously enabled
-    resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)
-    if not self.cs.CP.pcmCruise and not self.cs.v_cruise_helper.v_cruise_initialized and resume_pressed:
-      events.append(EventName.resumeBlocked)
-
-    if not self.cs.CP.notCar:
-      self.cs.events.add_from_msg(self.cs.sm['driverMonitoringState'].events)
-
-    # Add car events, ignore if CAN isn't valid
-    if CS.canValid:
-      self.cs.events.add_from_msg(CS.events)
-
-    events += self.get_device_events()
-    events += self.get_peripheral_events()
-    events += self.get_calibration_events()
-    events += self.get_lanechange_events()
-    events += self.get_panda_events()
-
-    # Handle HW and system malfunctions
-    # Order is very intentional here. Be careful when modifying this.
-    # All events here should at least have NO_ENTRY and SOFT_DISABLE.
-    num_events = len(events)
-    events += self.get_process_events()
-
-    if not REPLAY and self.cs.rk.lagging:
-      events.append(EventName.controlsdLagging)
-    if len(self.cs.sm['radarState'].radarErrors) or ((not self.cs.rk.lagging or REPLAY) and not self.cs.sm.all_checks(['radarState'])):
-      events.append(EventName.radarFault)
-    if CS.canTimeout:
-      events.append(EventName.canBusMissing)
-    elif not CS.canValid:
-      events.append(EventName.canError)
-
     # generic catch-all. ideally, a more specific event should be added above instead
     has_disable_events = self.cs.events.contains(ET.NO_ENTRY) and (self.cs.events.contains(ET.SOFT_DISABLE) or self.cs.events.contains(ET.IMMEDIATE_DISABLE))
     no_system_errors = (not has_disable_events) or (len(self.cs.events) == num_events)
@@ -248,8 +196,24 @@ class ControlsEvents:
     else:
       self.logged_comm_issue = None
 
-    self.get_gps_events()
+    return events
 
+  def get_log_error(self):
+    events = []
+    for m in messaging.drain_sock(self.cs.log_sock, wait_for_one=False):
+      try:
+        msg = m.androidLog.message
+        if any(err in msg for err in ("ERROR_CRC", "ERROR_ECC", "ERROR_STREAM_UNDERFLOW", "APPLY FAILED")):
+          csid = msg.split("CSID:")[-1].split(" ")[0]
+          evt = CSID_MAP.get(csid, None)
+          if evt is not None:
+            events.append(evt)
+      except UnicodeDecodeError:
+        pass
+    return events
+
+  def get_miscellaneous_events(self, CS):
+    events = []
     # conservative HW alert. if the data or frequency are off, locationd will throw an error
     if any((self.cs.sm.frame - self.cs.sm.recv_frame[s])*DT_CTRL > 10. for s in self.cs.sensor_packets):
       events.append(EventName.sensorDataInvalid)
@@ -268,17 +232,6 @@ class ControlsEvents:
     if (planner_fcw or model_fcw) and not (self.cs.CP.notCar and self.cs.joystick_mode):
       events.append(EventName.fcw)
 
-    for m in messaging.drain_sock(self.cs.log_sock, wait_for_one=False):
-      try:
-        msg = m.androidLog.message
-        if any(err in msg for err in ("ERROR_CRC", "ERROR_ECC", "ERROR_STREAM_UNDERFLOW", "APPLY FAILED")):
-          csid = msg.split("CSID:")[-1].split(" ")[0]
-          evt = CSID_MAP.get(csid, None)
-          if evt is not None:
-            events.append(evt)
-      except UnicodeDecodeError:
-        pass
-
     # TODO: fix simulator
     if not SIMULATION or REPLAY:
       # Not show in first 1 km to allow for driving out of garage. This event shows after 5 minutes
@@ -287,3 +240,65 @@ class ControlsEvents:
       if self.cs.sm['liveLocationKalman'].gpsOK:
         self.distance_traveled = 0
       self.distance_traveled += CS.vEgo * DT_CTRL
+
+
+  def update_events(self, CS):
+
+    self.cs.events.clear()
+
+    events = []
+    # Add joystick event, static on cars, dynamic on nonCars
+    if self.cs.joystick_mode:
+      events.append(EventName.joystickDebug)
+      self.startup_event = None
+
+    # Add startup event
+    if self.startup_event is not None:
+      events.append(self.startup_event)
+      self.startup_event = None
+
+    # Don't add any more events if not initialized
+    if not self.cs.initialized:
+      events.append(EventName.controlsInitializing)
+      return
+
+    # no more events while in dashcam mode
+    if self.cs.CP.passive:
+      return
+
+    # Block resume if cruise never previously enabled
+    resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)
+    if not self.cs.CP.pcmCruise and not self.cs.v_cruise_helper.v_cruise_initialized and resume_pressed:
+      events.append(EventName.resumeBlocked)
+
+    if not self.cs.CP.notCar:
+      for e in self.cs.sm['driverMonitoringState'].events:
+        events.append(e.name.raw)
+
+    # Add car events, ignore if CAN isn't valid
+    if CS.canValid:
+      for e in CS.events:
+        events.append(e.name.raw)
+
+    events += self.get_device_events()
+    events += self.get_peripheral_events()
+    events += self.get_calibration_events()
+    events += self.get_lanechange_events(CS)
+    events += self.get_panda_events()
+
+    num_events = len(events)
+    events += self.get_process_events()
+
+    if not REPLAY and self.cs.rk.lagging:
+      events.append(EventName.controlsdLagging)
+    if len(self.cs.sm['radarState'].radarErrors) or ((not self.cs.rk.lagging or REPLAY) and not self.cs.sm.all_checks(['radarState'])):
+      events.append(EventName.radarFault)
+    if CS.canTimeout:
+      events.append(EventName.canBusMissing)
+    elif not CS.canValid:
+      events.append(EventName.canError)
+
+    events += self.get_generic_events(num_events)
+    events += self.get_gps_events()
+    events += self.get_log_error()
+    events += self.get_miscellaneous_events()
