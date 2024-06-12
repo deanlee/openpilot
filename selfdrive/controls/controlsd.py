@@ -136,7 +136,6 @@ class Controls:
     self.cruise_mismatch_counter = 0
     self.last_blinker_frame = 0
     self.last_steering_pressed_frame = 0
-    self.distance_traveled = 0
     self.last_functional_fan_frame = 0
     self.events_prev = []
     self.current_alert_types = [ET.PERMANENT]

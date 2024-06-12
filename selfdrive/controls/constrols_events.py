@@ -26,7 +26,7 @@ def cache_function(key):
   def decorator(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
-      if self.sm.updated(key):
+      if self.cs.sm.updated(key):
         events_cache[key] = func(self, *args, **kwargs)
       return events_cache.get(key, [])
 
@@ -36,208 +36,248 @@ def cache_function(key):
 
 class ControlsEvents:
   def __init__(self, controls):
-    self.cs = controls
+    self.cs.cs = controls
+    self.distance_traveled = 0
 
-  def update_events(self, CS):
-    """Compute onroadEvents from carState"""
-
-    self.events.clear()
-
-    # Add joystick event, static on cars, dynamic on nonCars
-    if self.joystick_mode:
-      self.events.add(EventName.joystickDebug)
-      self.startup_event = None
-
-    # Add startup event
-    if self.startup_event is not None:
-      self.events.add(self.startup_event)
-      self.startup_event = None
-
-    # Don't add any more events if not initialized
-    if not self.initialized:
-      self.events.add(EventName.controlsInitializing)
-      return
-
-    # no more events while in dashcam mode
-    if self.CP.passive:
-      return
-
-    # Block resume if cruise never previously enabled
-    resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)
-    if not self.CP.pcmCruise and not self.v_cruise_helper.v_cruise_initialized and resume_pressed:
-      self.events.add(EventName.resumeBlocked)
-
-    if not self.CP.notCar:
-      self.events.add_from_msg(self.sm['driverMonitoringState'].events)
-
-    # Add car events, ignore if CAN isn't valid
-    if CS.canValid:
-      self.events.add_from_msg(CS.events)
-
-    # Create events for temperature, disk space, and memory
-    if self.sm['deviceState'].thermalStatus >= ThermalStatus.red:
-      self.events.add(EventName.overheat)
-    if self.sm['deviceState'].freeSpacePercent < 7 and not SIMULATION:
+  @cache_function('deviceState')
+  def get_device_events(self):
+    events = []
+      # Create events for temperature, disk space, and memory
+    if self.cs.sm['deviceState'].thermalStatus >= ThermalStatus.red:
+      events.append(EventName.overheat)
+    if self.cs.sm['deviceState'].freeSpacePercent < 7 and not SIMULATION:
       # under 7% of space free no enable allowed
-      self.events.add(EventName.outOfSpace)
-    if self.sm['deviceState'].memoryUsagePercent > 90 and not SIMULATION:
-      self.events.add(EventName.lowMemory)
-
+      events.append(EventName.outOfSpace)
+    if self.cs.sm['deviceState'].memoryUsagePercent > 90 and not SIMULATION:
+      events.append.add(EventName.lowMemory)
     # TODO: enable this once loggerd CPU usage is more reasonable
-    #cpus = list(self.sm['deviceState'].cpuUsagePercent)
+    #cpus = list(self.cs.sm['deviceState'].cpuUsagePercent)
     #if max(cpus, default=0) > 95 and not SIMULATION:
-    #  self.events.add(EventName.highCpuUsage)
+    #  self.cs.events.add(EventName.highCpuUsage)
+    return events
 
+  @cache_function('peripheralState')
+  def get_peripheral_events(self):
     # Alert if fan isn't spinning for 5 seconds
-    if self.sm['peripheralState'].pandaType != log.PandaState.PandaType.unknown:
-      if self.sm['peripheralState'].fanSpeedRpm < 500 and self.sm['deviceState'].fanSpeedPercentDesired > 50:
+    if self.cs.sm['peripheralState'].pandaType != log.PandaState.PandaType.unknown:
+      if self.cs.sm['peripheralState'].fanSpeedRpm < 500 and self.cs.sm['deviceState'].fanSpeedPercentDesired > 50:
         # allow enough time for the fan controller in the panda to recover from stalls
-        if (self.sm.frame - self.last_functional_fan_frame) * DT_CTRL > 15.0:
-          self.events.add(EventName.fanMalfunction)
+        if (self.cs.sm.frame - self.cs.last_functional_fan_frame) * DT_CTRL > 15.0:
+          return [EventName.fanMalfunction]
       else:
-        self.last_functional_fan_frame = self.sm.frame
+        self.cs.last_functional_fan_frame = self.cs.sm.frame
+    return []
 
+  @cache_function('liveCalibration')
+  def get_calibration_events(self):
     # Handle calibration status
-    cal_status = self.sm['liveCalibration'].calStatus
+    events = []
+    cal_status = self.cs.sm['liveCalibration'].calStatus
     if cal_status != log.LiveCalibrationData.Status.calibrated:
       if cal_status == log.LiveCalibrationData.Status.uncalibrated:
-        self.events.add(EventName.calibrationIncomplete)
+        events.append(EventName.calibrationIncomplete)
       elif cal_status == log.LiveCalibrationData.Status.recalibrating:
-        if not self.recalibrating_seen:
+        if not self.cs.recalibrating_seen:
           set_offroad_alert("Offroad_Recalibration", True)
-        self.recalibrating_seen = True
-        self.events.add(EventName.calibrationRecalibrating)
+        self.cs.recalibrating_seen = True
+        events.append(EventName.calibrationRecalibrating)
       else:
-        self.events.add(EventName.calibrationInvalid)
+        events.append(EventName.calibrationInvalid)
+    return events
+
+  @cache_function('modelV2')
+  def get_lanechange_events(self, CS):
+    events = []
+    if not SIMULATION or REPLAY:
+      if self.cs.sm['modelV2'].frameDropPerc > 20:
+        events.append(EventName.modeldLagging)
 
     # Handle lane change
-    if self.sm['modelV2'].meta.laneChangeState == LaneChangeState.preLaneChange:
-      direction = self.sm['modelV2'].meta.laneChangeDirection
+    if self.cs.sm['modelV2'].meta.laneChangeState == LaneChangeState.preLaneChange:
+      direction = self.cs.sm['modelV2'].meta.laneChangeDirection
       if (CS.leftBlindspot and direction == LaneChangeDirection.left) or \
          (CS.rightBlindspot and direction == LaneChangeDirection.right):
-        self.events.add(EventName.laneChangeBlocked)
+        events.append(EventName.laneChangeBlocked)
       else:
         if direction == LaneChangeDirection.left:
-          self.events.add(EventName.preLaneChangeLeft)
+          events.append(EventName.preLaneChangeLeft)
         else:
-          self.events.add(EventName.preLaneChangeRight)
-    elif self.sm['modelV2'].meta.laneChangeState in (LaneChangeState.laneChangeStarting,
+          events.append(EventName.preLaneChangeRight)
+    elif self.cs.sm['modelV2'].meta.laneChangeState in (LaneChangeState.laneChangeStarting,
                                                     LaneChangeState.laneChangeFinishing):
-      self.events.add(EventName.laneChange)
+      events.append(EventName.laneChange)
 
-    for i, pandaState in enumerate(self.sm['pandaStates']):
+    return events
+
+  @cache_function('pandaStates')
+  def get_panda_events(self):
+    events = []
+    if not self.cs.sm.valid['pandaStates']:
+      self.cs.events.add(EventName.usbError)
+
+    for i, pandaState in enumerate(self.cs.sm['pandaStates']):
       # All pandas must match the list of safetyConfigs, and if outside this list, must be silent or noOutput
-      if i < len(self.CP.safetyConfigs):
-        safety_mismatch = pandaState.safetyModel != self.CP.safetyConfigs[i].safetyModel or \
-                          pandaState.safetyParam != self.CP.safetyConfigs[i].safetyParam or \
-                          pandaState.alternativeExperience != self.CP.alternativeExperience
+      if i < len(self.cs.CP.safetyConfigs):
+        safety_mismatch = pandaState.safetyModel != self.cs.CP.safetyConfigs[i].safetyModel or \
+                          pandaState.safetyParam != self.cs.CP.safetyConfigs[i].safetyParam or \
+                          pandaState.alternativeExperience != self.cs.CP.alternativeExperience
       else:
         safety_mismatch = pandaState.safetyModel not in IGNORED_SAFETY_MODES
 
       # safety mismatch allows some time for pandad to set the safety mode and publish it back from panda
-      if (safety_mismatch and self.sm.frame*DT_CTRL > 10.) or pandaState.safetyRxChecksInvalid or self.mismatch_counter >= 200:
-        self.events.add(EventName.controlsMismatch)
+      if (safety_mismatch and self.cs.sm.frame*DT_CTRL > 10.) or pandaState.safetyRxChecksInvalid or self.cs.mismatch_counter >= 200:
+        events.append(EventName.controlsMismatch)
 
       if log.PandaState.FaultType.relayMalfunction in pandaState.faults:
-        self.events.add(EventName.relayMalfunction)
+        events.append(EventName.relayMalfunction)
+
+    return events
+
+  @cache_function('managerState')
+  def get_process_events(self):
+    events = []
+    not_running = {p.name for p in self.cs.sm['managerState'].processes if not p.running and p.shouldBeRunning}
+    if self.cs.sm.recv_frame['managerState'] and (not_running - IGNORE_PROCESSES):
+      events.append(EventName.processNotRunning)
+      if not_running != self.cs.not_running_prev:
+        cloudlog.event("process_not_running", not_running=not_running, error=True)
+      self.cs.not_running_prev = not_running
+    else:
+      if not SIMULATION and not self.cs.rk.lagging:
+        if not self.cs.sm.all_alive(self.cs.camera_packets):
+          events.append(EventName.cameraMalfunction)
+        elif not self.cs.sm.all_freq_ok(self.cs.camera_packets):
+          events.append(EventName.cameraFrameRate)
+    return events
+
+  @cache_function('liveLocationKalman')
+  def get_gps_events(self):
+    events = []
+    if not (self.cs.CP.notCar and self.cs.joystick_mode):
+      if not self.cs.sm['liveLocationKalman'].posenetOK:
+        events.append(EventName.posenetInvalid)
+      if not self.cs.sm['liveLocationKalman'].deviceStable:
+        events.append(EventName.deviceFalling)
+      if not self.cs.sm['liveLocationKalman'].inputsOK:
+        events.append(EventName.locationdTemporaryError)
+      if not self.cs.sm['liveParameters'].valid and not TESTING_CLOSET and (not SIMULATION or REPLAY):
+        events.append(EventName.paramsdTemporaryError)
+    return events
+
+  def update_events(self, CS):
+
+    self.cs.events.clear()
+
+    # Add joystick event, static on cars, dynamic on nonCars
+    if self.cs.joystick_mode:
+      self.cs.events.add(EventName.joystickDebug)
+      self.cs.startup_event = None
+
+    # Add startup event
+    if self.cs.startup_event is not None:
+      self.cs.events.add(self.cs.startup_event)
+      self.cs.startup_event = None
+
+    # Don't add any more events if not initialized
+    if not self.cs.initialized:
+      self.cs.events.add(EventName.controlsInitializing)
+      return
+
+    # no more events while in dashcam mode
+    if self.cs.CP.passive:
+      return
+
+    # Block resume if cruise never previously enabled
+    resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)
+    if not self.cs.CP.pcmCruise and not self.cs.v_cruise_helper.v_cruise_initialized and resume_pressed:
+      self.cs.events.add(EventName.resumeBlocked)
+
+    if not self.cs.CP.notCar:
+      self.cs.events.add_from_msg(self.cs.sm['driverMonitoringState'].events)
+
+    # Add car events, ignore if CAN isn't valid
+    if CS.canValid:
+      self.cs.events.add_from_msg(CS.events)
+
+    self.get_device_events()
+    self.get_peripheral_events()
+    self.get_calibration_events()
+    self.get_lanechange_events()
+    self.get_panda_events()
 
     # Handle HW and system malfunctions
     # Order is very intentional here. Be careful when modifying this.
     # All events here should at least have NO_ENTRY and SOFT_DISABLE.
-    num_events = len(self.events)
+    num_events = len(self.cs.events)
+    self.get_process_events()
 
-    not_running = {p.name for p in self.sm['managerState'].processes if not p.running and p.shouldBeRunning}
-    if self.sm.recv_frame['managerState'] and (not_running - IGNORE_PROCESSES):
-      self.events.add(EventName.processNotRunning)
-      if not_running != self.not_running_prev:
-        cloudlog.event("process_not_running", not_running=not_running, error=True)
-      self.not_running_prev = not_running
-    else:
-      if not SIMULATION and not self.rk.lagging:
-        if not self.sm.all_alive(self.camera_packets):
-          self.events.add(EventName.cameraMalfunction)
-        elif not self.sm.all_freq_ok(self.camera_packets):
-          self.events.add(EventName.cameraFrameRate)
-    if not REPLAY and self.rk.lagging:
-      self.events.add(EventName.controlsdLagging)
-    if len(self.sm['radarState'].radarErrors) or ((not self.rk.lagging or REPLAY) and not self.sm.all_checks(['radarState'])):
-      self.events.add(EventName.radarFault)
-    if not self.sm.valid['pandaStates']:
-      self.events.add(EventName.usbError)
+    if not REPLAY and self.cs.rk.lagging:
+      self.cs.events.add(EventName.controlsdLagging)
+    if len(self.cs.sm['radarState'].radarErrors) or ((not self.cs.rk.lagging or REPLAY) and not self.cs.sm.all_checks(['radarState'])):
+      self.cs.events.add(EventName.radarFault)
     if CS.canTimeout:
-      self.events.add(EventName.canBusMissing)
+      self.cs.events.add(EventName.canBusMissing)
     elif not CS.canValid:
-      self.events.add(EventName.canError)
+      self.cs.events.add(EventName.canError)
 
     # generic catch-all. ideally, a more specific event should be added above instead
-    has_disable_events = self.events.contains(ET.NO_ENTRY) and (self.events.contains(ET.SOFT_DISABLE) or self.events.contains(ET.IMMEDIATE_DISABLE))
-    no_system_errors = (not has_disable_events) or (len(self.events) == num_events)
-    if not self.sm.all_checks() and no_system_errors:
-      if not self.sm.all_alive():
-        self.events.add(EventName.commIssue)
-      elif not self.sm.all_freq_ok():
-        self.events.add(EventName.commIssueAvgFreq)
+    has_disable_events = self.cs.events.contains(ET.NO_ENTRY) and (self.cs.events.contains(ET.SOFT_DISABLE) or self.cs.events.contains(ET.IMMEDIATE_DISABLE))
+    no_system_errors = (not has_disable_events) or (len(self.cs.events) == num_events)
+    if not self.cs.sm.all_checks() and no_system_errors:
+      if not self.cs.sm.all_alive():
+        self.cs.events.add(EventName.commIssue)
+      elif not self.cs.sm.all_freq_ok():
+        self.cs.events.add(EventName.commIssueAvgFreq)
       else:
-        self.events.add(EventName.commIssue)
+        self.cs.events.add(EventName.commIssue)
 
       logs = {
-        'invalid': [s for s, valid in self.sm.valid.items() if not valid],
-        'not_alive': [s for s, alive in self.sm.alive.items() if not alive],
-        'not_freq_ok': [s for s, freq_ok in self.sm.freq_ok.items() if not freq_ok],
+        'invalid': [s for s, valid in self.cs.sm.valid.items() if not valid],
+        'not_alive': [s for s, alive in self.cs.sm.alive.items() if not alive],
+        'not_freq_ok': [s for s, freq_ok in self.cs.sm.freq_ok.items() if not freq_ok],
       }
-      if logs != self.logged_comm_issue:
+      if logs != self.cs.logged_comm_issue:
         cloudlog.event("commIssue", error=True, **logs)
-        self.logged_comm_issue = logs
+        self.cs.logged_comm_issue = logs
     else:
-      self.logged_comm_issue = None
+      self.cs.logged_comm_issue = None
 
-    if not (self.CP.notCar and self.joystick_mode):
-      if not self.sm['liveLocationKalman'].posenetOK:
-        self.events.add(EventName.posenetInvalid)
-      if not self.sm['liveLocationKalman'].deviceStable:
-        self.events.add(EventName.deviceFalling)
-      if not self.sm['liveLocationKalman'].inputsOK:
-        self.events.add(EventName.locationdTemporaryError)
-      if not self.sm['liveParameters'].valid and not TESTING_CLOSET and (not SIMULATION or REPLAY):
-        self.events.add(EventName.paramsdTemporaryError)
+    self.get_gps_events()
 
     # conservative HW alert. if the data or frequency are off, locationd will throw an error
-    if any((self.sm.frame - self.sm.recv_frame[s])*DT_CTRL > 10. for s in self.sensor_packets):
-      self.events.add(EventName.sensorDataInvalid)
+    if any((self.cs.sm.frame - self.cs.sm.recv_frame[s])*DT_CTRL > 10. for s in self.cs.sensor_packets):
+      self.cs.events.add(EventName.sensorDataInvalid)
 
     if not REPLAY:
       # Check for mismatch between openpilot and car's PCM
-      cruise_mismatch = CS.cruiseState.enabled and (not self.enabled or not self.CP.pcmCruise)
-      self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
-      if self.cruise_mismatch_counter > int(6. / DT_CTRL):
-        self.events.add(EventName.cruiseMismatch)
+      cruise_mismatch = CS.cruiseState.enabled and (not self.cs.enabled or not self.cs.CP.pcmCruise)
+      self.cs.cruise_mismatch_counter = self.cs.cruise_mismatch_counter + 1 if cruise_mismatch else 0
+      if self.cs.cruise_mismatch_counter > int(6. / DT_CTRL):
+        self.cs.events.add(EventName.cruiseMismatch)
 
     # Check for FCW
-    stock_long_is_braking = self.enabled and not self.CP.openpilotLongitudinalControl and CS.aEgo < -1.25
-    model_fcw = self.sm['modelV2'].meta.hardBrakePredicted and not CS.brakePressed and not stock_long_is_braking
-    planner_fcw = self.sm['longitudinalPlan'].fcw and self.enabled
-    if (planner_fcw or model_fcw) and not (self.CP.notCar and self.joystick_mode):
-      self.events.add(EventName.fcw)
+    stock_long_is_braking = self.cs.enabled and not self.cs.CP.openpilotLongitudinalControl and CS.aEgo < -1.25
+    model_fcw = self.cs.sm['modelV2'].meta.hardBrakePredicted and not CS.brakePressed and not stock_long_is_braking
+    planner_fcw = self.cs.sm['longitudinalPlan'].fcw and self.cs.enabled
+    if (planner_fcw or model_fcw) and not (self.cs.CP.notCar and self.cs.joystick_mode):
+      self.cs.events.add(EventName.fcw)
 
-    for m in messaging.drain_sock(self.log_sock, wait_for_one=False):
+    for m in messaging.drain_sock(self.cs.log_sock, wait_for_one=False):
       try:
         msg = m.androidLog.message
         if any(err in msg for err in ("ERROR_CRC", "ERROR_ECC", "ERROR_STREAM_UNDERFLOW", "APPLY FAILED")):
           csid = msg.split("CSID:")[-1].split(" ")[0]
           evt = CSID_MAP.get(csid, None)
           if evt is not None:
-            self.events.add(evt)
+            self.cs.events.add(evt)
       except UnicodeDecodeError:
         pass
 
     # TODO: fix simulator
     if not SIMULATION or REPLAY:
       # Not show in first 1 km to allow for driving out of garage. This event shows after 5 minutes
-      if not self.sm['liveLocationKalman'].gpsOK and self.sm['liveLocationKalman'].inputsOK and (self.distance_traveled > 1500):
-        self.events.add(EventName.noGps)
-      if self.sm['liveLocationKalman'].gpsOK:
+      if not self.cs.sm['liveLocationKalman'].gpsOK and self.cs.sm['liveLocationKalman'].inputsOK and (self.distance_traveled > 1500):
+        self.cs.events.add(EventName.noGps)
+      if self.cs.sm['liveLocationKalman'].gpsOK:
         self.distance_traveled = 0
       self.distance_traveled += CS.vEgo * DT_CTRL
-
-      if self.sm['modelV2'].frameDropPerc > 20:
-        self.events.add(EventName.modeldLagging)
