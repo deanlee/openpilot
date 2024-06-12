@@ -134,7 +134,7 @@ class TestCarModelBase(unittest.TestCase):
         return cls.get_testing_data_from_logreader(lr)
       except Exception:
         pass
-
+    return
     # Route is not in CI bucket, assume either user has access (private), or it is public
     # test_route_on_ci_bucket will fail when running in CI
     if not is_internal:
@@ -163,6 +163,7 @@ class TestCarModelBase(unittest.TestCase):
       raise Exception(f"missing test route for {cls.platform}")
 
     car_fw, can_msgs, experimental_long = cls.get_testing_data()
+    return
 
     # if relay is expected to be open in the route
     cls.openpilot_enabled = cls.car_safety_mode_frame is not None

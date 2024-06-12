@@ -32,7 +32,7 @@ public:
   bool load(const std::string &url, std::atomic<bool> *abort,
             bool local_cache = false, int chunk_size = -1, int retries = 0);
   bool load(const char *data, size_t size, std::atomic<bool> *abort = nullptr);
-  bool load(const std::string &url) { return load(url, nullptr); }
+  bool load(const std::string &url) { return load(url, nullptr, true); }
   std::vector<Event> events;
 
 private:

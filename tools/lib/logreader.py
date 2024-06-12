@@ -1,26 +1,21 @@
 #!/usr/bin/env python3
-import bz2
 from functools import partial
 import multiprocessing
 import capnp
 import enum
-import os
 import pathlib
-import sys
+#import sys
 import tqdm
-import urllib.parse
-import warnings
 
 from collections.abc import Callable, Iterable, Iterator
 from urllib.parse import parse_qs, urlparse
 
-from cereal import log as capnp_log
 from openpilot.common.swaglog import cloudlog
 from openpilot.tools.lib.comma_car_segments import get_url as get_comma_segments_url
 from openpilot.tools.lib.openpilotci import get_url
-from openpilot.tools.lib.filereader import FileReader, file_exists, internal_source_available
+from openpilot.tools.lib.filereader import file_exists, internal_source_available
 from openpilot.tools.lib.route import Route, SegmentRange
-from openpilot.tools.replay.logreader_pyx import LogFileReader
+from openpilot.tools.replay.logreader2 import LogFileReader
 
 LogMessage = type[capnp._DynamicStructReader]
 LogIterable = Iterable[LogMessage]
@@ -29,34 +24,12 @@ RawLogIterable = Iterable[bytes]
 
 class _LogFileReader:
   def __init__(self, fn, canonicalize=True, only_union_types=False, sort_by_time=False, dat=None):
+    print(fn)
     self.data_version = None
     self._only_union_types = only_union_types
-    self.reader = LogFileReader()
-
-    ext = None
-    if not dat:
-      _, ext = os.path.splitext(urllib.parse.urlparse(fn).path)
-      if ext not in ('', '.bz2'):
-        # old rlogs weren't bz2 compressed
-        raise Exception(f"unknown extension {ext}")
-
-      with FileReader(fn) as f:
-        dat = f.read()
-
-    if ext == ".bz2" or dat.startswith(b'BZh9'):
-      dat = bz2.decompress(dat)
-
-    ents = capnp_log.Event.read_multiple_bytes(dat)
-
-    _ents = []
-    try:
-      for e in ents:
-        _ents.append(e)
-    except capnp.KjException:
-      warnings.warn("Corrupted events detected", RuntimeWarning, stacklevel=1)
-
-    self._ents = list(sorted(_ents, key=lambda x: x.logMonoTime) if sort_by_time else _ents)
-    self._ts = [x.logMonoTime for x in self._ents]
+    self.reader = LogFileReader(fn)
+    self._ents = []
+    #self._ts = [x.logMonoTime for x in self._ents]
 
   def __iter__(self) -> Iterator[capnp._DynamicStructReader]:
     for ent in self._ents:
@@ -179,6 +152,7 @@ def auto_source(sr: SegmentRange, mode=ReadMode.RLOG) -> LogPaths:
   if mode in [ReadMode.AUTO, ReadMode.AUTO_INTERACTIVE]:
     for source in SOURCES:
       try:
+        print('try', source , sr)
         return check_source(source, sr, ReadMode.RLOG)
       except Exception:
         pass
@@ -234,10 +208,11 @@ class LogReader:
       if direct_parsed is not None:
         return direct_source(identifier)
 
+    print(parsed, self.default_source)
     sr = SegmentRange(parsed)
     mode = self.default_mode if sr.selector is None else ReadMode(sr.selector)
     source = self.default_source if source is None else source
-
+    print(source, sr)
     identifiers = source(sr, mode)
 
     invalid_count = len(list(get_invalid_files(identifiers)))
@@ -297,7 +272,8 @@ if __name__ == "__main__":
   # capnproto <= 0.8.0 throws errors converting byte data to string
   # below line catches those errors and replaces the bytes with \x__
   codecs.register_error("strict", codecs.backslashreplace_errors)
-  log_path = sys.argv[1]
-  lr = LogReader(log_path, sort_by_time=True)
+  #log_path = sys.argv[1]
+  lr = LogReader("a2a0ccea32023010|2023-07-27--13-01-19", sort_by_time=True)
   for msg in lr:
+    print("d")
     print(msg)
