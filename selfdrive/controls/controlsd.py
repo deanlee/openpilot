@@ -28,6 +28,7 @@ from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle, S
 from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
 from openpilot.selfdrive.controls.lib.longcontrol import LongControl
 from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
+from openpilot.selfdrive.controls.constrols_events import ControlsEvents
 
 from openpilot.system.hardware import HARDWARE
 
@@ -133,20 +134,16 @@ class Controls:
     self.active = False
     self.soft_disable_timer = 0
     self.mismatch_counter = 0
-    self.cruise_mismatch_counter = 0
     self.last_blinker_frame = 0
     self.last_steering_pressed_frame = 0
-    self.last_functional_fan_frame = 0
     self.events_prev = []
+    self.controls_events = ControlsEvents(self)
     self.current_alert_types = [ET.PERMANENT]
-    self.logged_comm_issue = None
-    self.not_running_prev = None
     self.steer_limited = False
     self.desired_curvature = 0.0
     self.experimental_mode = False
     self.personality = self.read_personality_param()
     self.v_cruise_helper = VCruiseHelper(self.CP)
-    self.recalibrating_seen = False
 
     self.can_log_mono_time = 0
 
@@ -586,7 +583,7 @@ class Controls:
     CS = self.data_sample()
     cloudlog.timestamp("Data sampled")
 
-    self.update_events(CS)
+    self.controls_events.update_events(CS)
     cloudlog.timestamp("Events updated")
 
     if not self.CP.passive and self.initialized:
