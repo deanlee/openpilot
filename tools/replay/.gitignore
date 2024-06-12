@@ -3,3 +3,4 @@ moc_*
 
 replay
 tests/test_replay
+logreader_pyx.cpp
