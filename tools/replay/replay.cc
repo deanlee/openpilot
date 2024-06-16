@@ -152,6 +152,7 @@ void Replay::buildTimeline() {
   auto alert_size = cereal::ControlsState::AlertSize::NONE;
   uint64_t alert_begin = 0;
   std::string alert_type;
+  uint64_t event_mono_time = 0;
 
   const TimelineType timeline_types[] = {
     [(int)cereal::ControlsState::AlertStatus::NORMAL] = TimelineType::AlertInfo,
@@ -170,26 +171,27 @@ void Replay::buildTimeline() {
         capnp::FlatArrayMessageReader reader(e.data);
         auto event = reader.getRoot<cereal::Event>();
         auto cs = event.getControlsState();
+        event_mono_time = e.mono_time;
 
         if (engaged != cs.getEnabled()) {
           if (engaged) {
-            timeline.push_back({toSeconds(engaged_begin), toSeconds(e.mono_time), TimelineType::Engaged});
+            timeline.push_back({toSeconds(engaged_begin), toSeconds(event_mono_time), TimelineType::Engaged});
           }
-          engaged_begin = e.mono_time;
+          engaged_begin = event_mono_time;
           engaged = cs.getEnabled();
         }
 
         if (alert_type != cs.getAlertType().cStr() || alert_status != cs.getAlertStatus()) {
           if (!alert_type.empty() && alert_size != cereal::ControlsState::AlertSize::NONE) {
-            timeline.push_back({toSeconds(alert_begin), toSeconds(e.mono_time), timeline_types[(int)alert_status]});
+            timeline.push_back({toSeconds(alert_begin), toSeconds(event_mono_time), timeline_types[(int)alert_status]});
           }
-          alert_begin = e.mono_time;
+          alert_begin = event_mono_time;
           alert_type = cs.getAlertType().cStr();
           alert_size = cs.getAlertSize();
           alert_status = cs.getAlertStatus();
         }
       } else if (e.which == cereal::Event::Which::USER_FLAG) {
-        timeline.push_back({toSeconds(e.mono_time), toSeconds(e.mono_time), TimelineType::UserFlag});
+        timeline.push_back({toSeconds(event_mono_time), toSeconds(event_mono_time), TimelineType::UserFlag});
       }
     }
 
@@ -204,6 +206,15 @@ void Replay::buildTimeline() {
     }
     emit qLogLoaded(log);
   }
+
+  std::lock_guard lk(timeline_lock);
+  if (engaged) {
+    timeline_.push_back({toSeconds(engaged_begin), toSeconds(event_mono_time), TimelineType::Engaged});
+  }
+  if (!alert_type.empty() && alert_size != cereal::ControlsState::AlertSize::NONE) {
+    timeline_.push_back({toSeconds(alert_begin), toSeconds(event_mono_time), timeline_types[(int)alert_status]});
+  }
+  std::sort(timeline_.begin(), timeline_.end(), [](auto &l, auto &r) { return std::get<2>(l) < std::get<2>(r); });
 }
 
 std::optional<uint64_t> Replay::find(FindFlag flag) {
