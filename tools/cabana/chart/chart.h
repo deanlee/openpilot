@@ -14,15 +14,10 @@
 #include <QtCharts/QValueAxis>
 using namespace QtCharts;
 
+#include "tools/cabana/chart/chartswidget.h"
 #include "tools/cabana/chart/tiplabel.h"
 #include "tools/cabana/dbc/dbcmanager.h"
 #include "tools/cabana/streams/abstractstream.h"
-
-enum class SeriesType {
-  Line = 0,
-  StepLine,
-  Scatter
-};
 
 class ChartsWidget;
 class ChartView : public QChartView {

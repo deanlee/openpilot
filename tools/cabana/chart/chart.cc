@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <limits>
 
-#include <QActionGroup>
 #include <QApplication>
 #include <QDrag>
 #include <QGraphicsLayout>
@@ -67,18 +66,8 @@ void ChartView::createToolButtons() {
   close_btn_proxy->setWidget(remove_btn);
   close_btn_proxy->setZValue(chart()->zValue() + 11);
 
-  menu = new QMenu(this);
   // series types
-  auto change_series_group = new QActionGroup(menu);
-  change_series_group->setExclusive(true);
-  QStringList types{tr("Line"), tr("Step Line"), tr("Scatter")};
-  for (int i = 0; i < types.size(); ++i) {
-    QAction *act = new QAction(types[i], change_series_group);
-    act->setData(i);
-    act->setCheckable(true);
-    act->setChecked(i == (int)series_type);
-    menu->addAction(act);
-  }
+  menu = createSeriesSelectMenu((int)series_type, this, &ChartView::setSeriesType);
   menu->addSeparator();
   menu->addAction(tr("Manage Signals"), this, &ChartView::manageSignals);
   split_chart_act = menu->addAction(tr("Split Chart"), [this]() { charts_widget->splitChart(this); });
@@ -94,9 +83,6 @@ void ChartView::createToolButtons() {
   close_act = new QAction(tr("Close"), this);
   QObject::connect(close_act, &QAction::triggered, [this] () { charts_widget->removeChart(this); });
   QObject::connect(remove_btn, &QToolButton::clicked, close_act, &QAction::triggered);
-  QObject::connect(change_series_group, &QActionGroup::triggered, [this](QAction *action) {
-    setSeriesType((SeriesType)action->data().toInt());
-  });
 }
 
 QSize ChartView::sizeHint() const {

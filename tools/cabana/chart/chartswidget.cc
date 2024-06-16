@@ -34,6 +34,12 @@ ChartsWidget::ChartsWidget(QWidget *parent) : QFrame(parent) {
   toolbar->addWidget(title_label = new QLabel());
   title_label->setContentsMargins(0, 0, style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing), 0);
 
+  default_series_act = toolbar->addAction("");
+  default_series_act->setMenu(createSeriesSelectMenu(settings.chart_series_type, this, &ChartsWidget::setDefaultSeriesType));
+  qobject_cast<QToolButton*>(toolbar->widgetForAction(default_series_act))->setPopupMode(QToolButton::InstantPopup);
+  setDefaultSeriesType((SeriesType)settings.chart_series_type);
+
+
   QMenu *menu = new QMenu(this);
   for (int i = 0; i < MAX_COLUMN_COUNT; ++i) {
     menu->addAction(tr("%1").arg(i + 1), [=]() { setColumnCount(i + 1); });
@@ -213,6 +219,18 @@ void ChartsWidget::setMaxChartRange(int value) {
   updateState();
 }
 
+void ChartsWidget::setDefaultSeriesType(SeriesType type) {
+  static const QString type_strings[] = {tr("Line"), tr("Step Line"), tr("Scatter")};
+  if (type != (SeriesType)settings.chart_series_type) {
+    for (auto c : charts) {
+      c->setSeriesType(type);
+      c->resetChartCache();
+    }
+    settings.chart_series_type = (int)type;
+  }
+  default_series_act->setText(type_strings[(int)type]);
+}
+
 void ChartsWidget::updateToolBar() {
   title_label->setText(tr("Charts: %1").arg(charts.size()));
   columns_action->setText(tr("Column: %1").arg(column_count));
@@ -240,7 +258,6 @@ void ChartsWidget::settingChanged() {
   range_slider->setRange(1, settings.max_cached_minutes * 60);
   for (auto c : charts) {
     c->setFixedHeight(settings.chart_height);
-    c->setSeriesType((SeriesType)settings.chart_series_type);
     c->resetChartCache();
   }
 }

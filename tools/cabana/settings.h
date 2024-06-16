@@ -57,7 +57,6 @@ public:
   QSpinBox *fps;
   QSpinBox *cached_minutes;
   QSpinBox *chart_height;
-  QComboBox *chart_series_type;
   QComboBox *theme;
   QGroupBox *log_livestream;
   QLineEdit *log_path;

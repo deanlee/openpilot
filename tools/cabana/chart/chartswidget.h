@@ -3,8 +3,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include <QActionGroup>
 #include <QGridLayout>
 #include <QLabel>
+#include <QMenu>
 #include <QScrollArea>
 #include <QTimer>
 #include <QUndoCommand>
@@ -16,6 +18,12 @@
 
 const int CHART_MIN_WIDTH = 300;
 const QString CHART_MIME_TYPE = "application/x-cabanachartview";
+
+enum class SeriesType {
+  Line = 0,
+  StepLine,
+  Scatter
+};
 
 class ChartView;
 class ChartsWidget;
@@ -54,6 +62,7 @@ signals:
   void seriesChanged();
 
 private:
+  void setDefaultSeriesType(SeriesType type);
   QSize minimumSizeHint() const override;
   void resizeEvent(QResizeEvent *event) override;
   bool event(QEvent *event) override;
@@ -84,6 +93,7 @@ private:
   QLabel *title_label;
   QLabel *range_lb;
   LogSlider *range_slider;
+  QAction *default_series_act;
   QAction *range_lb_action;
   QAction *range_slider_action;
   bool docking = true;
@@ -128,3 +138,23 @@ public:
   ChartsWidget *charts;
   std::pair<double, double> prev_range, range;
 };
+
+// Helpers
+template <typename Obj, typename Functor>
+QMenu *createSeriesSelectMenu(int selected, Obj *object, Functor functor) {
+  QMenu *menu = new QMenu();
+  auto change_series_group = new QActionGroup(menu);
+  change_series_group->setExclusive(true);
+  QStringList types{QObject::tr("Line"), QObject::tr("Step Line"), QObject::tr("Scatter")};
+  for (int i = 0; i < types.size(); ++i) {
+    QAction *act = new QAction(types[i], change_series_group);
+    act->setData(i);
+    act->setCheckable(true);
+    act->setChecked(i == selected);
+    menu->addAction(act);
+  }
+  QObject::connect(change_series_group, &QActionGroup::triggered, object, [object, functor](QAction *act) {
+    (object->*functor)((SeriesType)(act->data().toInt()));
+  });
+  return menu;
+}
