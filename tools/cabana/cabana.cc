@@ -7,6 +7,17 @@
 #include "tools/cabana/streams/pandastream.h"
 #include "tools/cabana/streams/replaystream.h"
 #include "tools/cabana/streams/socketcanstream.h"
+#include "tools/cabana/utils/authdlg.h"
+
+#include <QDebug>
+void check_auth() {
+  auto auth_content = util::read_file(util::getenv("HOME") + "/.comma/auth.json");
+  qDebug() << (util::getenv("HOME") + "/.comma/auth.json").c_str() << "\n\n";
+  if (true) {//auth_content.empty()) {
+    AuthDialog dlg(nullptr);
+    dlg.exec();
+  }
+}
 
 int main(int argc, char *argv[]) {
   QCoreApplication::setApplicationName("Cabana");
@@ -38,6 +49,7 @@ int main(int argc, char *argv[]) {
   cmd_parser.addOption({"dbc", "dbc file to open", "dbc"});
   cmd_parser.process(app);
 
+  check_auth();
   QString dbc_file = cmd_parser.isSet("dbc") ? cmd_parser.value("dbc") : "";
 
   AbstractStream *stream = nullptr;
