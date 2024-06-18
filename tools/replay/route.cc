@@ -38,14 +38,14 @@ RouteIdentifier Route::parseRoute(const QString &str) {
   return identifier;
 }
 
-bool Route::load() {
+RouteLoadError Route::load() {
   if (route_.str.isEmpty() || (data_dir_.isEmpty() && route_.dongle_id.isEmpty())) {
     rInfo("invalid route format");
-    return false;
+    return RouteLoadError::InvalidRouteFormat;
   }
   date_time_ = QDateTime::fromString(route_.timestamp, "yyyy-MM-dd--HH-mm-ss");
-  bool ret = data_dir_.isEmpty() ? loadFromServer() : loadFromLocal();
-  if (ret) {
+  RouteLoadError err = data_dir_.isEmpty() ? loadFromServer() : loadFromLocal();
+  if (err == RouteLoadError::None) {
     if (route_.begin_segment == -1) route_.begin_segment = segments_.rbegin()->first;
     if (route_.end_segment == -1) route_.end_segment = segments_.rbegin()->first;
     for (auto it = segments_.begin(); it != segments_.end(); /**/) {
@@ -55,11 +55,15 @@ bool Route::load() {
         ++it;
       }
     }
+
+    if (segments_.empty()) {
+      err = RouteLoadError::NoValidSegment;
+    }
   }
-  return !segments_.empty();
+  return err;
 }
 
-bool Route::loadFromServer(int retries) {
+RouteLoadError Route::loadFromServer(int retries) {
   for (int i = 1; i <= retries; ++i) {
     QString result;
     QEventLoop loop;
@@ -68,21 +72,27 @@ bool Route::loadFromServer(int retries) {
       result = json;
       loop.exit((int)err);
     });
+
     http.sendRequest(CommaApi::BASE_URL + "/v1/route/" + route_.str + "/files");
     auto err = (QNetworkReply::NetworkError)loop.exec();
-    if (err == QNetworkReply::NoError) {
-      return loadFromJson(result);
-    } else if (err == QNetworkReply::ContentAccessDenied || err == QNetworkReply::AuthenticationRequiredError) {
-      rWarning(">>  Unauthorized. Authenticate with tools/lib/auth.py  <<");
-      err_ = RouteLoadError::AccessDenied;
-      return false;
-    } else {
-      err_ = RouteLoadError::NetworkError;
+    switch (err) {
+      case QNetworkReply::NoError:
+        // Successful response, attempt to parse JSON
+        return loadFromJson(result) ? RouteLoadError::None : RouteLoadError::InvalidResponse;
+      case QNetworkReply::ContentAccessDenied:
+      case QNetworkReply::AuthenticationRequiredError:
+        rWarning(">>  Unauthorized. Authenticate with tools/lib/auth.py  <<");
+        return RouteLoadError::AccessDenied;
+      case QNetworkReply::ContentNotFoundError:
+        rWarning("Route not found on server");
+        return RouteLoadError::FileNotFound;
+      default:
+        rWarning("Network error occurred, retrying %d/%d", i, retries);
+        util::sleep_for(3000);  // Sleep before retrying
+        break;
     }
-    rWarning("Retrying %d/%d", i, retries);
-    util::sleep_for(3000);
   }
-  return false;
+  return RouteLoadError::NetworkError;
 }
 
 bool Route::loadFromJson(const QString &json) {
@@ -98,7 +108,7 @@ bool Route::loadFromJson(const QString &json) {
   return !segments_.empty();
 }
 
-bool Route::loadFromLocal() {
+RouteLoadError Route::loadFromLocal() {
   QDirIterator it(data_dir_, {QString("%1--*").arg(route_.timestamp)}, QDir::Dirs | QDir::NoDotAndDotDot);
   while (it.hasNext()) {
     QString segment = it.next();
@@ -108,7 +118,7 @@ bool Route::loadFromLocal() {
       addFileToSegment(seg_num, segment_dir.absoluteFilePath(f));
     }
   }
-  return !segments_.empty();
+  return !segments_.empty() ? RouteLoadError::None : RouteLoadError::FileNotFound;
 }
 
 void Route::addFileToSegment(int n, const QString &file) {

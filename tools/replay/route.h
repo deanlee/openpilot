@@ -14,6 +14,9 @@
 
 enum class RouteLoadError {
   None,
+  InvalidResponse,
+  InvalidRouteFormat,
+  NoValidSegment,
   AccessDenied,
   NetworkError,
   FileNotFound,
@@ -40,8 +43,7 @@ struct SegmentFile {
 class Route {
 public:
   Route(const QString &route, const QString &data_dir = {});
-  bool load();
-  RouteLoadError lastError() const { return err_; }
+  RouteLoadError load();
   inline const QString &name() const { return route_.str; }
   inline const QDateTime datetime() const { return date_time_; }
   inline const QString &dir() const { return data_dir_; }
@@ -51,15 +53,14 @@ public:
   static RouteIdentifier parseRoute(const QString &str);
 
 protected:
-  bool loadFromLocal();
-  bool loadFromServer(int retries = 3);
+  RouteLoadError loadFromLocal();
+  RouteLoadError loadFromServer(int retries = 3);
   bool loadFromJson(const QString &json);
   void addFileToSegment(int seg_num, const QString &file);
   RouteIdentifier route_ = {};
   QString data_dir_;
   std::map<int, SegmentFile> segments_;
   QDateTime date_time_;
-  RouteLoadError err_ = RouteLoadError::None;
 };
 
 class Segment : public QObject {

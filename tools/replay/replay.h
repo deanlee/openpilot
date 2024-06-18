@@ -52,8 +52,7 @@ public:
   Replay(QString route, QStringList allow, QStringList block, SubMaster *sm = nullptr,
          uint32_t flags = REPLAY_FLAG_NONE, QString data_dir = "", QObject *parent = 0);
   ~Replay();
-  bool load();
-  RouteLoadError lastRouteError() const { return route_->lastError(); }
+  RouteLoadError load();
   void start(int seconds = 0);
   void stop();
   void pause(bool pause);

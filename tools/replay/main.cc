@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
     replay->setSpeed(std::clamp(parser.value("x").toFloat(),
                                 ConsoleUI::speed_array.front(), ConsoleUI::speed_array.back()));
   }
-  if (!replay->load()) {
+  if (replay->load() != RouteLoadError::None) {
     return 0;
   }
 

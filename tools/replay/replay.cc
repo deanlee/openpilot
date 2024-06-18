@@ -66,11 +66,11 @@ void Replay::stop() {
   segments_.clear();
 }
 
-bool Replay::load() {
-  if (!route_->load()) {
+RouteLoadError Replay::load() {
+  if (RouteLoadError err = route_->load(); err != RouteLoadError::None) {
     qCritical() << "failed to load route" << route_->name()
                 << "from" << (route_->dir().isEmpty() ? "server" : route_->dir());
-    return false;
+    return err;
   }
 
   for (auto &[n, f] : route_->segments()) {
@@ -82,10 +82,10 @@ bool Replay::load() {
   }
   if (segments_.empty()) {
     qCritical() << "no valid segments in route" << route_->name();
-    return false;
+    return RouteLoadError::NoValidSegment;
   }
   rInfo("load route %s with %zu valid segments", qPrintable(route_->name()), segments_.size());
-  return true;
+  return RouteLoadError::None;
 }
 
 void Replay::start(int seconds) {
@@ -104,6 +104,7 @@ void Replay::updateEvents(const std::function<bool()> &update_events_function) {
 
 void Replay::seekTo(double seconds, bool relative) {
   updateEvents([&]() {
+    seeking_to_ = std::nullopt;
     double target_time = relative ? seconds + currentSeconds() : seconds;
     target_time = std::max(double(0.0), target_time);
     int target_segment = (int)target_time / 60;
@@ -125,8 +126,7 @@ void Replay::seekTo(double seconds, bool relative) {
 
 void Replay::checkSeekProgress() {
   if (seeking_to_) {
-    auto it = segments_.find(int(*seeking_to_ / 60));
-    if (it != segments_.end() && it->second && it->second->isLoaded()) {
+    if (isSegmentMerged(int(*seeking_to_) / 60)) {
       emit seekedTo(*seeking_to_);
       seeking_to_ = std::nullopt;
       // wake up stream thread
@@ -285,13 +285,13 @@ void Replay::updateSegmentsCache() {
 void Replay::loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::iterator cur, SegmentMap::iterator end) {
   auto loadNextSegment = [this](auto first, auto last) {
     auto it = std::find_if(first, last, [](const auto &seg_it) { return !seg_it.second || !seg_it.second->isLoaded(); });
-    if (it != last && !it->second) {
+    if (it == last) return false;
+    if (!it->second) {
       rDebug("loading segment %d...", it->first);
       it->second = std::make_unique<Segment>(it->first, route_->at(it->first), flags_, filters_);
       QObject::connect(it->second.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
-      return true;
     }
-    return false;
+    return true;
   };
 
   // Try loading forward segments, then reverse segments

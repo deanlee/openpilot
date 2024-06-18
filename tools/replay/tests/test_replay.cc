@@ -140,7 +140,7 @@ TEST_CASE("Local route") {
 
   auto flags = GENERATE(0, REPLAY_FLAG_QCAMERA);
   Route route(DEMO_ROUTE, QString::fromStdString(data_dir));
-  REQUIRE(route.load());
+  REQUIRE(route.load() == RouteLoadError::None);
   REQUIRE(route.segments().size() == 2);
   for (int i = 0; i < TEST_REPLAY_SEGMENTS; ++i) {
     read_segment(i, route.at(i), flags);
@@ -150,7 +150,7 @@ TEST_CASE("Local route") {
 TEST_CASE("Remote route") {
   auto flags = GENERATE(0, REPLAY_FLAG_QCAMERA);
   Route route(DEMO_ROUTE);
-  REQUIRE(route.load());
+  REQUIRE(route.load() == RouteLoadError::None);
   REQUIRE(route.segments().size() == 13);
   for (int i = 0; i < TEST_REPLAY_SEGMENTS; ++i) {
     read_segment(i, route.at(i), flags);
@@ -168,7 +168,7 @@ TEST_CASE("seek_to") {
     loop.quit();
   });
 
-  REQUIRE(replay.load());
+  REQUIRE(replay.load() == RouteLoadError::None);
   replay.start();
   replay.seekTo(seek_to, false);
 

@@ -56,9 +56,9 @@ bool ReplayStream::loadRoute(const QString &route, const QString &data_dir, uint
   QObject::connect(replay.get(), &Replay::seeking, this, &AbstractStream::seeking);
   QObject::connect(replay.get(), &Replay::seekedTo, this, &AbstractStream::seekedTo);
   QObject::connect(replay.get(), &Replay::segmentsMerged, this, &ReplayStream::mergeSegments);
-  bool success = replay->load();
-  if (!success) {
-    if (replay->lastRouteError() == RouteLoadError::AccessDenied) {
+  RouteLoadError err = replay->load();
+  if (err != RouteLoadError::None) {
+    if (err == RouteLoadError::AccessDenied) {
       auto auth_content = util::read_file(util::getenv("HOME") + "/.comma/auth.json");
       QString message;
       if (auth_content.empty()) {
@@ -70,14 +70,17 @@ bool ReplayStream::loadRoute(const QString &route, const QString &data_dir, uint
                      "This is likely a private route.").arg(route);
       }
       QMessageBox::warning(nullptr, tr("Access Denied"), message);
-    } else if (replay->lastRouteError() == RouteLoadError::NetworkError) {
+    } else if (err == RouteLoadError::NetworkError) {
       QMessageBox::warning(nullptr, tr("Network Error"),
                           tr("Unable to load the route:\n\n %1.\n\nPlease check your network connection and try again.").arg(route));
+    } else if (err == RouteLoadError::FileNotFound) {
+      QMessageBox::warning(nullptr, tr("Route Not Found"),
+                           tr("The specified route could not be found:\n\n %1.\n\nPlease check the route name and try again.").arg(route));
     } else {
       QMessageBox::warning(nullptr, tr("Route Load Failed"), tr("Failed to load route: '%1'").arg(route));
     }
   }
-  return success;
+  return err == RouteLoadError::None;
 }
 
 void ReplayStream::start() {
