@@ -62,7 +62,6 @@ class VideoWidget : public QFrame {
 
 public:
   VideoWidget(QWidget *parnet = nullptr);
-  void setMaximumTime(double sec);
 
 protected:
   QString formatTime(double sec, bool include_milliseconds = false);
@@ -75,7 +74,6 @@ protected:
   void vipcAvailableStreamsUpdated(std::set<VisionStreamType> streams);
 
   CameraWidget *cam_widget;
-  double maximum_time = 0;
   QToolButton *time_btn = nullptr;
   ToolButton *seek_backward_btn = nullptr;
   ToolButton *play_btn = nullptr;

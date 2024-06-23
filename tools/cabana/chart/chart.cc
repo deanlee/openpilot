@@ -500,8 +500,8 @@ void ChartView::mouseReleaseEvent(QMouseEvent *event) {
     rubber->hide();
     auto rect = rubber->geometry().normalized();
     // Prevent zooming/seeking past the end of the route
-    double min = std::clamp(chart()->mapToValue(rect.topLeft()).x(), 0., can->totalSeconds());
-    double max = std::clamp(chart()->mapToValue(rect.bottomRight()).x(), 0., can->totalSeconds());
+    double min = std::clamp(chart()->mapToValue(rect.topLeft()).x(), can->minSeconds(), can->maxSeconds());
+    double max = std::clamp(chart()->mapToValue(rect.bottomRight()).x(), can->minSeconds(), can->maxSeconds());
     if (rubber->width() <= 0) {
       // no rubber dragged, seek to mouse position
       can->seekTo(min);
@@ -531,7 +531,7 @@ void ChartView::mouseMoveEvent(QMouseEvent *ev) {
   // Scrubbing
   if (is_scrubbing && QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
     if (plot_area.contains(ev->pos())) {
-      can->seekTo(std::clamp(chart()->mapToValue(ev->pos()).x(), 0., can->totalSeconds()));
+      can->seekTo(std::clamp(chart()->mapToValue(ev->pos()).x(), can->minSeconds(), can->maxSeconds()));
     }
   }
 

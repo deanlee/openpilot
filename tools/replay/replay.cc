@@ -164,6 +164,8 @@ void Replay::buildTimeline() {
     std::shared_ptr<LogReader> log(new LogReader());
     if (!log->load(it->second.qlog.toStdString(), &exit_, !hasFlag(REPLAY_FLAG_NO_FILE_CACHE), 0, 3) || log->events.empty()) continue;
 
+    uint64_t engaged_begin = 0;
+    bool engaged = false;
     std::vector<std::tuple<double, double, TimelineType>> timeline;
     for (const Event &e : log->events) {
       if (e.which == cereal::Event::Which::CONTROLS_STATE) {
@@ -193,14 +195,19 @@ void Replay::buildTimeline() {
       }
     }
 
+    if (it->first == route_segments.rbegin()->first) {
+      if (engaged) {
+        timeline.push_back({toSeconds(engaged_begin), toSeconds(log->events.back().mono_time), TimelineType::Engaged});
+      }
+      if (!alert_type.empty() && alert_size != cereal::ControlsState::AlertSize::NONE) {
+        timeline.push_back({toSeconds(alert_begin), toSeconds(log->events.back().mono_time), timeline_types[(int)alert_status]});
+      }
+      emit minMaxTimeChanged(route_segments.cbegin()->first * 60.0, toSeconds(log->events.back().mono_time));
+    }
     {
       std::lock_guard lk(timeline_lock);
       timeline_.insert(timeline_.end(), timeline.begin(), timeline.end());
       std::sort(timeline_.begin(), timeline_.end(), [](auto &l, auto &r) { return std::get<2>(l) < std::get<2>(r); });
-    }
-
-    if (it->first == route_segments.rbegin()->first) {
-      emit totalSecondsUpdated(toSeconds(log->events.back().mono_time));
     }
     emit qLogLoaded(log);
   }
@@ -463,7 +470,7 @@ void Replay::streamThread() {
       int last_segment = segments_.rbegin()->first;
       if (current_segment_ >= last_segment && isSegmentMerged(last_segment)) {
         rInfo("reaches the end of route, restart from beginning");
-        QMetaObject::invokeMethod(this, std::bind(&Replay::seekTo, this, 0, false), Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, std::bind(&Replay::seekTo, this, minSeconds(), false), Qt::QueuedConnection);
       }
     }
   }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <mutex>
@@ -74,7 +75,8 @@ public:
   virtual QDateTime beginDateTime() const { return {}; }
   virtual double routeStartTime() const { return 0; }
   inline double currentSec() const { return current_sec_; }
-  virtual double totalSeconds() const { return lastEventMonoTime() / 1e9 - routeStartTime(); }
+  virtual double minSeconds() const { return 0; }
+  virtual double maxSeconds() const { return std::max(1.0, lastEventMonoTime() / 1e9 - routeStartTime()); }
   virtual void setSpeed(float speed) {}
   virtual double getSpeed() { return 1; }
   virtual bool isPaused() const { return false; }

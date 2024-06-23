@@ -76,7 +76,7 @@ QHBoxLayout *VideoWidget::createPlaybackController() {
       // set speed to 1.0
       speed_btn->menu()->actions()[7]->setChecked(true);
       can->pause(false);
-      can->seekTo(can->totalSeconds() + 1);
+      can->seekTo(can->maxSeconds() + 1);
     });
   }
 
@@ -149,8 +149,8 @@ QWidget *VideoWidget::createCameraWidget() {
 
   l->addWidget(slider = new Slider(w));
   slider->setSingleStep(0);
+  slider->setTimeRange(can->minSeconds(), can->maxSeconds());
 
-  setMaximumTime(can->totalSeconds());
   QObject::connect(slider, &QSlider::sliderReleased, [this]() { can->seekTo(slider->currentSecond()); });
   QObject::connect(can, &AbstractStream::eventsMerged, this, [this]() { slider->update(); });
   QObject::connect(cam_widget, &CameraWidget::clicked, []() { can->pause(!can->isPaused()); });
@@ -161,7 +161,7 @@ QWidget *VideoWidget::createCameraWidget() {
 
   auto replay = static_cast<ReplayStream*>(can)->getReplay();
   QObject::connect(replay, &Replay::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
-  QObject::connect(replay, &Replay::totalSecondsUpdated, this, &VideoWidget::setMaximumTime, Qt::QueuedConnection);
+  QObject::connect(replay, &Replay::minMaxTimeChanged, slider, &Slider::setTimeRange, Qt::QueuedConnection);
   return w;
 }
 
@@ -197,18 +197,13 @@ void VideoWidget::loopPlaybackClicked() {
   }
 }
 
-void VideoWidget::setMaximumTime(double sec) {
-  maximum_time = sec;
-  slider->setTimeRange(0, sec);
-}
-
 void VideoWidget::timeRangeChanged(const std::optional<std::pair<double, double>> &time_range) {
   if (can->liveStreaming()) {
     skip_to_end_btn->setEnabled(!time_range.has_value());
     return;
   }
   time_range ? slider->setTimeRange(time_range->first, time_range->second)
-             : slider->setTimeRange(0, maximum_time);
+             : slider->setTimeRange(can->minSeconds(), can->maxSeconds());
 }
 
 QString VideoWidget::formatTime(double sec, bool include_milliseconds) {

@@ -93,7 +93,7 @@ ChartsWidget::ChartsWidget(QWidget *parent) : QFrame(parent) {
   current_theme = settings.theme;
   column_count = std::clamp(settings.chart_column_count, 1, MAX_COLUMN_COUNT);
   max_chart_range = std::clamp(settings.chart_range, 1, settings.max_cached_minutes * 60);
-  display_range = {0, max_chart_range};
+  display_range = std::make_pair(can->minSeconds(), can->minSeconds() + max_chart_range);
   range_slider->setValue(max_chart_range);
   updateToolBar();
 
@@ -192,10 +192,9 @@ void ChartsWidget::updateState() {
   if (!time_range.has_value()) {
     double pos = (cur_sec - display_range.first) / std::max<float>(1.0, max_chart_range);
     if (pos < 0 || pos > 0.8) {
-      display_range.first = std::max(0.0, cur_sec - max_chart_range * 0.1);
+      display_range.first = cur_sec - max_chart_range * 0.1;
     }
-    double max_sec = std::min(display_range.first + max_chart_range, can->totalSeconds());
-    display_range.first = std::max(0.0, max_sec - max_chart_range);
+    display_range.first = std::max(can->minSeconds(), display_range.first);
     display_range.second = display_range.first + max_chart_range;
   }
 
