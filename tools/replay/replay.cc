@@ -164,8 +164,6 @@ void Replay::buildTimeline() {
     std::shared_ptr<LogReader> log(new LogReader());
     if (!log->load(it->second.qlog.toStdString(), &exit_, !hasFlag(REPLAY_FLAG_NO_FILE_CACHE), 0, 3) || log->events.empty()) continue;
 
-    uint64_t engaged_begin = 0;
-    bool engaged = false;
     std::vector<std::tuple<double, double, TimelineType>> timeline;
     for (const Event &e : log->events) {
       if (e.which == cereal::Event::Which::CONTROLS_STATE) {
