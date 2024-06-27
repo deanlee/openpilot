@@ -125,10 +125,10 @@ def main() -> NoReturn:
             cloudlog.event("unknown metric type", metric_type=metric_type)
         except zmq.error.Again:
           break
-        except ValueError as ve:
-          cloudlog.event("malformed metric", error=str(ve), metric=metric)
-        except Exception as e:
-          cloudlog.event("unexpected error processing metric", error=e)
+        except ValueError:
+          cloudlog.event("malformed metric", metric_type=metric_type)
+        except Exception:
+          cloudlog.event("unexpected error processing metric", metric_type=metric_type)
 
       # flush when started state changes or after FLUSH_TIME_S
       if (time.monotonic() > last_flush_time + STATS_FLUSH_TIME_S) or (sm['deviceState'].started != started_prev):
