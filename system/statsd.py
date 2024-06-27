@@ -62,19 +62,13 @@ class StatLog:
 def main() -> NoReturn:
   dongle_id = Params().get("DongleId", encoding='utf-8')
   def get_influxdb_line(measurement: str, value: float | dict[str, float],  timestamp: datetime, tags: dict) -> str:
-    res = f"{measurement}"
-    for k, v in tags.items():
-      res += f",{k}={str(v)}"
-    res += " "
-
     if isinstance(value, float):
       value = {'value': value}
 
-    for k, v in value.items():
-      res += f"{k}={v},"
+    tags_str = ','.join([f"{k}={v}" for k, v in tags.items()])
+    values_str = ','.join([f"{k}={v}" for k, v in value.items()])
 
-    res += f"dongle_id=\"{dongle_id}\" {int(timestamp.timestamp() * 1e9)}\n"
-    return res
+    return f"{measurement},{tags_str} {values_str},dongle_id=\"{dongle_id}\" {int(timestamp.timestamp() * 1e9)}\n"
 
   # open statistics socket
   ctx = zmq.Context.instance()
@@ -114,21 +108,27 @@ def main() -> NoReturn:
       while True:
         try:
           metric = sock.recv_string(zmq.NOBLOCK)
-          try:
-            metric_type = metric.split('|')[1]
-            metric_name = metric.split(':')[0]
-            metric_value = float(metric.split('|')[0].split(':')[1])
 
-            if metric_type == METRIC_TYPE.GAUGE:
-              gauges[metric_name] = metric_value
-            elif metric_type == METRIC_TYPE.SAMPLE:
-              samples[metric_name].append(metric_value)
-            else:
-              cloudlog.event("unknown metric type", metric_type=metric_type)
-          except Exception:
-            cloudlog.event("malformed metric", metric=metric)
+          parts = metric.split('|')
+          if len(parts) != 2:
+            raise ValueError("Malformed metric format")
+
+          metric_name, value_str = parts[0].split(':')
+          metric_value = float(value_str)
+          metric_type = parts[1]
+
+          if metric_type == METRIC_TYPE.GAUGE:
+            gauges[metric_name] = metric_value
+          elif metric_type == METRIC_TYPE.SAMPLE:
+            samples[metric_name].append(metric_value)
+          else:
+            cloudlog.event("unknown metric type", metric_type=metric_type)
         except zmq.error.Again:
           break
+        except ValueError as ve:
+          cloudlog.event("malformed metric", error=str(ve), metric=metric)
+        except Exception as e:
+          cloudlog.event("unexpected error processing metric", error=e)
 
       # flush when started state changes or after FLUSH_TIME_S
       if (time.monotonic() > last_flush_time + STATS_FLUSH_TIME_S) or (sm['deviceState'].started != started_prev):
