@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  ConsoleUI console_ui(replay);
+  // ConsoleUI console_ui(replay);
   replay->start(parser.value("start").toInt());
   return app.exec();
 }
