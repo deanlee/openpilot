@@ -169,7 +169,7 @@ def main() -> NoReturn:
               f.write(result)
             idx += 1
         else:
-          cloudlog.error("stats dir full")
+          cloudlog.error("stats1 dir full")
   finally:
     sock.close()
     ctx.term()
