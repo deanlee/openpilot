@@ -103,7 +103,7 @@ def main() -> NoReturn:
 
   idx = 0
   last_flush_time = time.monotonic()
-  gauges = {}
+  gauges: dict[str, float] = {}
   samples: dict[str, list[float]] = defaultdict(list)
   try:
     while True:
@@ -114,19 +114,19 @@ def main() -> NoReturn:
       while True:
         try:
           metric = sock.recv_string(zmq.NOBLOCK)
-          try:
-            metric_type = metric.split('|')[1]
-            metric_name = metric.split(':')[0]
-            metric_value = float(metric.split('|')[0].split(':')[1])
 
-            if metric_type == METRIC_TYPE.GAUGE:
-              gauges[metric_name] = metric_value
-            elif metric_type == METRIC_TYPE.SAMPLE:
-              samples[metric_name].append(metric_value)
-            else:
-              cloudlog.event("unknown metric type", metric_type=metric_type)
-          except Exception:
-            cloudlog.event("malformed metric", metric=metric)
+          metric_info, metric_type = metric.split('|')
+          metric_name, str_value = metric_info.split(':')
+          metric_value = float(str_value)
+
+          if metric_type == METRIC_TYPE.GAUGE:
+            gauges[metric_name] = metric_value
+          elif metric_type == METRIC_TYPE.SAMPLE:
+            samples[metric_name].append(metric_value)
+          else:
+            cloudlog.event("unknown metric type", metric_type=metric_type)
+        except (ValueError, IndexError):
+          cloudlog.event("malformed metric", metric=metric)
         except zmq.error.Again:
           break
 
@@ -169,7 +169,7 @@ def main() -> NoReturn:
               f.write(result)
             idx += 1
         else:
-          cloudlog.error("stats1 dir full")
+          cloudlog.error("stats dir full")
   finally:
     sock.close()
     ctx.term()
