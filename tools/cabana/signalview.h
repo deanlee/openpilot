@@ -29,7 +29,6 @@ public:
     const cabana::Signal *sig = nullptr;
     QString title;
     bool highlight = false;
-    bool extra_expanded = false;
     QString sig_val = "-";
     Sparkline sparkline;
   };
@@ -47,10 +46,9 @@ public:
   bool saveSignal(const cabana::Signal *origin_s, cabana::Signal &s);
   Item *getItem(const QModelIndex &index) const;
   int signalRow(const cabana::Signal *sig) const;
-  void showExtraInfo(const QModelIndex &index);
 
 private:
-  void insertItem(SignalModel::Item *parent_item, int pos, const cabana::Signal *sig);
+  void insertItem(SignalModel::Item *root_item, int pos, const cabana::Signal *sig);
   void handleSignalAdded(MessageId id, const cabana::Signal *sig);
   void handleSignalUpdated(const cabana::Signal *sig);
   void handleSignalRemoved(const cabana::Signal *sig);
@@ -92,7 +90,6 @@ public:
   QFont label_font, minmax_font;
   const int color_label_width = 18;
   mutable QSize button_size;
-  mutable QHash<QString, int> width_cache;
 };
 
 class SignalView : public QFrame {
@@ -119,6 +116,7 @@ private:
   void handleSignalAdded(MessageId id, const cabana::Signal *sig);
   void handleSignalUpdated(const cabana::Signal *sig);
   void updateState(const std::set<MessageId> *msgs = nullptr);
+  QModelIndex signalIndexAt(const QPoint &pt);
 
   struct TreeView : public QTreeView {
     TreeView(QWidget *parent) : QTreeView(parent) {}
@@ -136,7 +134,6 @@ private:
       QTreeView::leaveEvent(event);
     }
   };
-  int max_value_width = 0;
   int value_column_width = 0;
   TreeView *tree;
   QLabel *sparkline_label;
@@ -145,5 +142,4 @@ private:
   ChartsWidget *charts;
   QLabel *signal_count_lb;
   SignalItemDelegate *delegate;
-  friend SignalItemDelegate;
 };
