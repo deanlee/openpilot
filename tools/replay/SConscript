@@ -1,4 +1,4 @@
-Import('env', 'qt_env', 'arch', 'common', 'messaging', 'visionipc', 'cereal')
+Import('env', 'envCython', 'qt_env', 'arch', 'common', 'messaging', 'visionipc', 'cereal')
 
 base_frameworks = qt_env['FRAMEWORKS']
 base_libs = [common, messaging, cereal, visionipc,
@@ -14,6 +14,9 @@ replay_lib = qt_env.Library("qt_replay", replay_lib_src, LIBS=base_libs, FRAMEWO
 Export('replay_lib')
 replay_libs = [replay_lib, 'avutil', 'avcodec', 'avformat', 'bz2', 'curl', 'yuv', 'ncurses'] + base_libs
 qt_env.Program("replay", ["main.cc"], LIBS=replay_libs, FRAMEWORKS=base_frameworks)
+
+replay_python = envCython.Program('logreader_pyx.so', 'logreader_pyx.pyx', LIBS=[replay_libs] + envCython["LIBS"])
+Export('replay_python')
 
 if GetOption('extras'):
   qt_env.Program('tests/test_replay', ['tests/test_runner.cc', 'tests/test_replay.cc'], LIBS=[replay_libs, base_libs])
