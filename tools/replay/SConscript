@@ -15,7 +15,7 @@ Export('replay_lib')
 replay_libs = [replay_lib, 'avutil', 'avcodec', 'avformat', 'bz2', 'curl', 'yuv', 'ncurses'] + base_libs
 qt_env.Program("replay", ["main.cc"], LIBS=replay_libs, FRAMEWORKS=base_frameworks)
 
-replay_python = envCython.Program('logreader_pyx.so', 'logreader_pyx.pyx', LIBS=[replay_libs] + envCython["LIBS"])
+replay_python = envCython.Program('logreader_pyx.so', 'logreader_pyx.pyx', LIBS=envCython['LIBS'] + [common, replay_lib, 'bz2', 'curl', 'ssl', 'pthread', common, messaging, cereal])
 Export('replay_python')
 
 if GetOption('extras'):

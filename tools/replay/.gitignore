@@ -2,4 +2,5 @@ moc_*
 *.moc
 
 replay
+logreader_pyx.cpp
 tests/test_replay
