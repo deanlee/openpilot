@@ -37,7 +37,6 @@ public slots:
   void loadDBCFromOpendbc(const QString &name);
   void save();
   void saveAs();
-  void saveToClipboard();
 
 signals:
   void showMessage(const QString &msg, int timeout);
@@ -50,7 +49,7 @@ protected:
   void closeFile(DBCFile *dbc_file);
   void saveFile(DBCFile *dbc_file);
   void saveFileAs(DBCFile *dbc_file);
-  void saveFileToClipboard(DBCFile *dbc_file);
+  void saveFileToClipboard(DBCFile *dbc_file = nullptr);
   void loadFingerprints();
   void loadFromClipboard(SourceSet s = SOURCE_ALL, bool close_all = true);
   void updateRecentFiles(const QString &fn);

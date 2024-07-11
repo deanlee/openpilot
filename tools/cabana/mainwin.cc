@@ -109,7 +109,7 @@ void MainWindow::createActions() {
   file_menu->addSeparator();
   save_dbc = file_menu->addAction(tr("Save DBC..."), this, &MainWindow::save, QKeySequence::Save);
   save_dbc_as = file_menu->addAction(tr("Save DBC As..."), this, &MainWindow::saveAs, QKeySequence::SaveAs);
-  copy_dbc_to_clipboard = file_menu->addAction(tr("Copy DBC To Clipboard"), this, &MainWindow::saveToClipboard);
+  copy_dbc_to_clipboard = file_menu->addAction(tr("Copy DBC To Clipboard"), this, [this]() { saveFileToClipboard(); });
 
   file_menu->addSeparator();
   file_menu->addAction(tr("Settings..."), this, &MainWindow::setOption, QKeySequence::Preferences);
@@ -423,18 +423,12 @@ void MainWindow::saveFileAs(DBCFile *dbc_file) {
   }
 }
 
-void MainWindow::saveToClipboard() {
-  // Copy all open DBC files to clipboard. Should not be called with more than 1 file open
-  for (auto dbc_file : dbc()->allDBCFiles()) {
-    if (dbc_file->isEmpty()) continue;
-    saveFileToClipboard(dbc_file);
-  }
-}
-
 void MainWindow::saveFileToClipboard(DBCFile *dbc_file) {
-  assert(dbc_file != nullptr);
-  QGuiApplication::clipboard()->setText(dbc_file->generateDBC());
-  QMessageBox::information(this, tr("Copy To Clipboard"), tr("DBC Successfully copied!"));
+  dbc_file = dbc_file ? dbc_file : dbc()->findDBCFile(-1);
+  if (dbc_file) {
+    QGuiApplication::clipboard()->setText(dbc_file->generateDBC());
+    QMessageBox::information(this, tr("Copy To Clipboard"), tr("DBC Successfully copied!"));
+  }
 }
 
 void MainWindow::updateLoadSaveMenus() {
