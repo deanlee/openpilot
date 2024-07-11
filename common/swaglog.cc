@@ -78,15 +78,15 @@ public:
   json11::Json::object ctx_j;
 };
 
+static SwaglogState g_swaglog_state;
+
 bool LOG_TIMESTAMPS = getenv("LOG_TIMESTAMPS");
 uint32_t NO_FRAME_ID = std::numeric_limits<uint32_t>::max();
 
 static void cloudlog_common(int levelnum, const char* filename, int lineno, const char* func,
                             char* msg_buf, const json11::Json::object &msg_j={}) {
-  static SwaglogState s;
-
   json11::Json::object log_j = json11::Json::object {
-    {"ctx", s.ctx_j},
+    {"ctx", g_swaglog_state.ctx_j},
     {"levelnum", levelnum},
     {"filename", filename},
     {"lineno", lineno},
@@ -102,7 +102,7 @@ static void cloudlog_common(int levelnum, const char* filename, int lineno, cons
   std::string log_s;
   log_s += (char)levelnum;
   ((json11::Json)log_j).dump(log_s);
-  s.log(levelnum, filename, lineno, func, msg_buf, log_s);
+  g_swaglog_state.log(levelnum, filename, lineno, func, msg_buf, log_s);
 
   free(msg_buf);
 }
