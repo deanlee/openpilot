@@ -45,13 +45,8 @@ void DBCManager::close(const SourceSet &sources) {
 
 void DBCManager::close(DBCFile *dbc_file) {
   for (auto &[_, f] : dbc_files) {
-    if (f.get() == dbc_file) f = nullptr;
+    if (f.get() == dbc_file) f.reset(nullptr);
   }
-  emit DBCFileChanged();
-}
-
-void DBCManager::closeAll() {
-  dbc_files.clear();
   emit DBCFileChanged();
 }
 

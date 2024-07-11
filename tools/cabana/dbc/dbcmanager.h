@@ -22,7 +22,6 @@ public:
   bool open(const SourceSet &sources, const QString &name, const QString &content, QString *error = nullptr);
   void close(const SourceSet &sources);
   void close(DBCFile *dbc_file);
-  void closeAll();
 
   void addSignal(const MessageId &id, const cabana::Signal &sig);
   void updateSignal(const MessageId &id, const QString &sig_name, const cabana::Signal &sig);

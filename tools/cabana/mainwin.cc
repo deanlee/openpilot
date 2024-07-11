@@ -384,11 +384,7 @@ void MainWindow::saveAs() {
 
 void MainWindow::closeFile(SourceSet s) {
   remindSaveChanges();
-  if (s == SOURCE_ALL) {
-    dbc()->closeAll();
-  } else {
-    dbc()->close(s);
-  }
+  dbc()->close(s);
 }
 
 void MainWindow::closeFile(DBCFile *dbc_file) {
