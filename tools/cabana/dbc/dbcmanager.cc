@@ -145,7 +145,10 @@ int DBCManager::nonEmptyDBCCount() {
 
 DBCFile *DBCManager::findDBCFile(const uint8_t source) {
   // Find DBC file that matches id.source, fall back to SOURCE_ALL if no specific DBC is found
-  auto it = dbc_files.count(source) ? dbc_files.find(source) : dbc_files.find(-1);
+  auto it = dbc_files.find(source);
+  if (it == dbc_files.end() || !it->second) {
+    it = dbc_files.find(-1);
+  }
   return it != dbc_files.end() ? it->second.get() : nullptr;
 }
 
