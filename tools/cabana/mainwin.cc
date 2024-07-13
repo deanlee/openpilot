@@ -526,7 +526,6 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
 void MainWindow::toggleChartsDocking() {
   if (floating_window) {
     // Dock the charts widget back to the main window
-    floating_window->removeEventFilter(this);
     charts_layout->insertWidget(0, charts_widget, 1);
     floating_window->deleteLater();
     floating_window = nullptr;
@@ -535,7 +534,7 @@ void MainWindow::toggleChartsDocking() {
     // Float the charts widget in a separate window
     floating_window = new QWidget(this, Qt::Window);
     floating_window->setWindowTitle("Charts");
-    floating_window->setLayout(new QVBoxLayout());
+    floating_window->setLayout(new QVBoxLayout(floating_window));
     floating_window->layout()->addWidget(charts_widget);
     floating_window->installEventFilter(this);
     floating_window->showMaximized();
