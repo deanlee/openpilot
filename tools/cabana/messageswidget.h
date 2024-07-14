@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <optional>
 #include <set>
 #include <vector>
 
@@ -114,7 +113,7 @@ protected:
   MessageView *view;
   MessageViewHeader *header;
   MessageBytesDelegate *delegate;
-  std::optional<MessageId> current_msg_id;
+  MessageId current_msg_id;
   MessageListModel *model;
   QPushButton *suppress_add;
   QPushButton *suppress_clear;

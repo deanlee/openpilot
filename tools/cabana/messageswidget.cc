@@ -59,19 +59,14 @@ MessagesWidget::MessagesWidget(QWidget *parent) : menu(new QMenu(this)), QWidget
   QObject::connect(dbc(), &DBCManager::DBCFileChanged, model, &MessageListModel::dbcModified);
   QObject::connect(UndoStack::instance(), &QUndoStack::indexChanged, model, &MessageListModel::dbcModified);
   QObject::connect(model, &MessageListModel::modelReset, [this]() {
-    if (current_msg_id) {
-      selectMessage(*current_msg_id);
-    }
+    selectMessage(current_msg_id);
     view->updateBytesSectionSize();
     updateTitle();
   });
   QObject::connect(view->selectionModel(), &QItemSelectionModel::currentChanged, [=](const QModelIndex &current, const QModelIndex &previous) {
     if (current.isValid() && current.row() < model->items_.size()) {
-      const auto &id = model->items_[current.row()].id;
-      if (!current_msg_id || id != *current_msg_id) {
-        current_msg_id = id;
-        emit msgSelectionChanged(*current_msg_id);
-      }
+      current_msg_id = model->items_[current.row()].id;
+      emit msgSelectionChanged(current_msg_id);
     }
   });
 
