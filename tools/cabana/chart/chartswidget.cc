@@ -538,9 +538,10 @@ void ChartsContainer::paintEvent(QPaintEvent *ev) {
 }
 
 ChartView *ChartsContainer::getDropAfter(const QPoint &pos) const {
-  auto it = std::find_if(charts_widget->currentCharts().crbegin(), charts_widget->currentCharts().crend(), [&pos](auto c) {
+  auto charts = charts_widget->currentCharts();
+  auto it = std::find_if(charts.crbegin(), charts.crend(), [&pos](auto c) {
     auto area = c->geometry();
     return pos.x() >= area.left() && pos.x() <= area.right() && pos.y() >= area.bottom();
   });
-  return it == charts_widget->currentCharts().crend() ? nullptr : *it;
+  return it == charts.crend() ? nullptr : *it;
 }
