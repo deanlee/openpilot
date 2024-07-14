@@ -835,8 +835,6 @@ void ChartView::setSeriesType(SeriesType type) {
     for (auto &s : sigs) {
       chart()->removeSeries(s.series);
       s.series->deleteLater();
-    }
-    for (auto &s : sigs) {
       s.series = createSeries(series_type, s.sig->color);
       s.series->replace(QVector<QPointF>::fromStdVector(series_type == SeriesType::StepLine ? s.step_vals : s.vals));
     }
