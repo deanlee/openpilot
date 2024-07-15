@@ -357,21 +357,22 @@ static void drawAlert(QPainter &p, const QRect &rect, const AlertInfo &alert_inf
     color.setAlphaF(0.5);
 
     QString text = alert_info.text1 + (alert_info.text2.isEmpty() ? "" : "\n" + alert_info.text2);
-    QRect r = p.fontMetrics().boundingRect(rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
-    p.fillRect(rect.left(), r.top(), rect.width(), r.height(), color);
-    p.drawText(rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
+    QRect text_rect = rect.adjusted(1, 1, -1, -1);
+    QRect r = p.fontMetrics().boundingRect(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
+    p.fillRect(text_rect.left(), r.top(), text_rect.width(), r.height(), color);
+    p.drawText(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
   }
 }
 
 void InfoLabel::paintEvent(QPaintEvent *event) {
   QPainter p(this);
-  p.setFont(QFont(font().family(), 10));
-  drawAlert(p, rect(), alert_info);
-
   p.setPen(QPen(palette().color(QPalette::BrightText), 2));
   p.drawPixmap(0, 0, pixmap);
   p.drawRect(rect());
   p.drawText(rect().adjusted(0, 0, 0, -THUMBNAIL_MARGIN), second, Qt::AlignHCenter | Qt::AlignBottom);
+
+  p.setFont(QFont(font().family(), 10));
+  drawAlert(p, rect(), alert_info);
 }
 
 StreamCameraView::StreamCameraView(std::string stream_name, VisionStreamType stream_type, bool zoom, QWidget *parent)
