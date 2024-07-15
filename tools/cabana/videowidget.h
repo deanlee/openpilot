@@ -64,6 +64,7 @@ class StreamCameraView : public CameraWidget {
 
 public:
   StreamCameraView(std::string stream_name, VisionStreamType stream_type, bool zoom, QWidget *parent = nullptr);
+  void setAlertInfo(const AlertInfo &info);
   void paintGL() override;
   void showPausedOverlay() { fade_animation->start(); }
   float overlayOpacity() const { return overlay_opacity; }
@@ -75,6 +76,7 @@ public:
 private:
   float overlay_opacity;
   QPropertyAnimation *fade_animation;
+  AlertInfo alert_info;
 };
 
 class VideoWidget : public QFrame {

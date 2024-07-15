@@ -205,7 +205,7 @@ void VideoWidget::updateState() {
     if (!slider->isSliderDown()) {
       slider->setCurrentSecond(can->currentSec());
     }
-    // alert_label->showAlert(slider->alertInfo(can->currentSec()));
+    cam_widget->setAlertInfo(slider->alertInfo(can->currentSec()));
     time_btn->setText(QString("%1 / %2").arg(formatTime(can->currentSec(), true),
                                              formatTime(slider->maximum() / slider->factor)));
   } else {
@@ -356,30 +356,33 @@ void InfoLabel::showPixmap(const QPoint &pt, const QString &sec, const QPixmap &
   update();
 }
 
+void drawAlert(QPainter &p, const QRect &rect, const AlertInfo &alert) {
+  QColor color = timeline_colors[(int)TimelineType::AlertInfo];
+  if (alert.status == cereal::ControlsState::AlertStatus::USER_PROMPT) {
+    color = timeline_colors[(int)TimelineType::AlertWarning];
+  } else if (alert.status == cereal::ControlsState::AlertStatus::CRITICAL) {
+    color = timeline_colors[(int)TimelineType::AlertCritical];
+  }
+  color.setAlphaF(0.5);
+  QString text = alert.text1;
+  if (!alert.text2.isEmpty()) {
+    text += "\n" + alert.text2;
+  }
+
+  QRect text_rect = rect.adjusted(1, 1, -1, -1);
+  QRect r = p.fontMetrics().boundingRect(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
+  p.fillRect(text_rect.left(), r.top(), text_rect.width(), r.height(), color);
+  p.drawText(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
+}
+
 void InfoLabel::paintEvent(QPaintEvent *event) {
   QPainter p(this);
   p.setPen(QPen(palette().color(QPalette::BrightText), 2));
   p.drawPixmap(0, 0, pixmap);
   p.drawRect(rect());
   p.drawText(rect().adjusted(0, 0, 0, -THUMBNAIL_MARGIN), second, Qt::AlignHCenter | Qt::AlignBottom);
-
   if (alert_info.text1.size() > 0) {
-    QColor color = timeline_colors[(int)TimelineType::AlertInfo];
-    if (alert_info.status == cereal::ControlsState::AlertStatus::USER_PROMPT) {
-      color = timeline_colors[(int)TimelineType::AlertWarning];
-    } else if (alert_info.status == cereal::ControlsState::AlertStatus::CRITICAL) {
-      color = timeline_colors[(int)TimelineType::AlertCritical];
-    }
-    color.setAlphaF(0.5);
-    QString text = alert_info.text1;
-    if (!alert_info.text2.isEmpty()) {
-      text += "\n" + alert_info.text2;
-    }
-
-    QRect text_rect = rect().adjusted(1, 1, -1, -1);
-    QRect r = p.fontMetrics().boundingRect(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
-    p.fillRect(text_rect.left(), r.top(), text_rect.width(), r.height(), color);
-    p.drawText(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
+    drawAlert(p, rect(), alert_info);
   }
 }
 
@@ -391,13 +394,23 @@ StreamCameraView::StreamCameraView(std::string stream_name, VisionStreamType str
   fade_animation->setEndValue(0.7f);
 }
 
+void StreamCameraView::setAlertInfo(const AlertInfo &info) {
+  alert_info = info;
+  update();
+}
+
 void StreamCameraView::paintGL() {
   CameraWidget::paintGL();
+  if (!can->isPaused() && alert_info.text1.isEmpty()) return;
 
+  QPainter p(this);
   if (can->isPaused()) {
-    QPainter p(this);
     p.setPen(QColor(200, 200, 200, static_cast<int>(255 * overlay_opacity)));
     p.setFont(QFont(font().family(), 16, QFont::Bold));
     p.drawText(rect(), Qt::AlignCenter, tr("PAUSED"));
+  }
+  if (!alert_info.text1.isEmpty()) {
+    p.setPen(QPen(palette().color(QPalette::BrightText), 2));
+    drawAlert(p, rect(), alert_info);
   }
 }
