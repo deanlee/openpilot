@@ -91,11 +91,6 @@ QHBoxLayout *VideoWidget::createPlaybackController() {
   time_btn->setAutoRaise(true);
   layout->addStretch(0);
 
-  if (!can->liveStreaming()) {
-    layout->addWidget(loop_btn = new ToolButton("repeat", tr("Loop playback")));
-    QObject::connect(loop_btn, &QToolButton::clicked, this, &VideoWidget::loopPlaybackClicked);
-  }
-
   // speed selector
   layout->addWidget(speed_btn = new QToolButton(this));
   speed_btn->setAutoRaise(true);
@@ -185,19 +180,6 @@ void VideoWidget::vipcAvailableStreamsUpdated(std::set<VisionStreamType> streams
   }
   while (camera_tab->count() > streams.size()) {
     camera_tab->removeTab(camera_tab->count() - 1);
-  }
-}
-
-void VideoWidget::loopPlaybackClicked() {
-  auto replay = getReplay();
-  if (!replay) return;
-
-  if (replay->hasFlag(REPLAY_FLAG_NO_LOOP)) {
-    replay->removeFlag(REPLAY_FLAG_NO_LOOP);
-    loop_btn->setIcon("repeat");
-  } else {
-    replay->addFlag(REPLAY_FLAG_NO_LOOP);
-    loop_btn->setIcon("repeat-1");
   }
 }
 
@@ -299,8 +281,7 @@ void Slider::paintEvent(QPaintEvent *ev) {
     p.fillRect(r, color);
   };
 
-  auto replay = getReplay();
-  if (replay) {
+  if (auto replay = getReplay(); replay) {
     for (auto [begin, end, type] : replay->getTimeline()) {
       fillRange(begin, end, timeline_colors[(int)type]);
     }
@@ -394,10 +375,6 @@ void InfoLabel::paintEvent(QPaintEvent *event) {
     if (!alert_info.text2.isEmpty()) {
       text += "\n" + alert_info.text2;
     }
-
-    QFont font;
-    font.setPixelSize(11);
-    p.setFont(font);
 
     QRect text_rect = rect().adjusted(1, 1, -1, -1);
     QRect r = p.fontMetrics().boundingRect(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);

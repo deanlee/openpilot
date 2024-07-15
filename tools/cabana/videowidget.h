@@ -90,7 +90,6 @@ protected:
   void updatePlayBtnState();
   QWidget *createCameraWidget();
   QHBoxLayout *createPlaybackController();
-  void loopPlaybackClicked();
   void vipcAvailableStreamsUpdated(std::set<VisionStreamType> streams);
 
   StreamCameraView *cam_widget;
