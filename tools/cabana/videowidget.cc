@@ -219,7 +219,7 @@ Slider::Slider(QWidget *parent) : QSlider(Qt::Horizontal, parent) {
 }
 
 AlertInfo Slider::alertInfo(double seconds) {
-  auto mono_time = can->toMonoTime(seconds);
+  uint64_t mono_time = can->toMonoTime(seconds);
   auto alert_it = alerts.lower_bound(mono_time);
   bool has_alert = (alert_it != alerts.end()) && ((alert_it->first - mono_time) <= 1e8);
   return has_alert ? alert_it->second : AlertInfo{};
