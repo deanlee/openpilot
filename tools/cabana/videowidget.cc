@@ -28,9 +28,7 @@ static const QColor timeline_colors[] = {
 
 static Replay *getReplay() {
   auto stream = qobject_cast<ReplayStream *>(can);
-  if (!stream) return nullptr;
-
-  return stream->getReplay();
+  return stream ? stream->getReplay() : nullptr;
 }
 
 VideoWidget::VideoWidget(QWidget *parent) : QFrame(parent) {
