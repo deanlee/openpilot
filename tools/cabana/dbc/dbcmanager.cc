@@ -50,11 +50,6 @@ void DBCManager::close(DBCFile *dbc_file) {
   emit DBCFileChanged();
 }
 
-void DBCManager::closeAll() {
-  dbc_files.clear();
-  emit DBCFileChanged();
-}
-
 void DBCManager::addSignal(const MessageId &id, const cabana::Signal &sig) {
   if (auto m = msg(id)) {
     if (auto s = m->addSignal(sig)) {

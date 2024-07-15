@@ -384,10 +384,10 @@ void MainWindow::saveAs() {
 
 void MainWindow::closeFile(SourceSet s) {
   remindSaveChanges();
-  if (s == SOURCE_ALL) {
-    dbc()->closeAll();
-  } else {
-    dbc()->close(s);
+  dbc()->close(s);
+  // Ensure we always have at least one file open
+  if (dbc()->dbcCount() == 0) {
+    newFile();
   }
 }
 
