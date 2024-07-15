@@ -41,21 +41,12 @@ public:
   double currentSecond() const { return value() / factor; }
   void setCurrentSecond(double sec) { setValue(sec * factor); }
   void setTimeRange(double min, double max);
-  AlertInfo alertInfo(double sec);
-  QPixmap thumbnail(double sec);
-  void parseQLog(std::shared_ptr<LogReader> qlog);
-
   const double factor = 1000.0;
 
 private:
   void mousePressEvent(QMouseEvent *e) override;
-  void mouseMoveEvent(QMouseEvent *e) override;
-  bool event(QEvent *event) override;
+  // void mouseMoveEvent(QMouseEvent *e) override;
   void paintEvent(QPaintEvent *ev) override;
-
-  QMap<uint64_t, QPixmap> thumbnails;
-  std::map<uint64_t, AlertInfo> alerts;
-  InfoLabel *thumbnail_label;
 };
 
 class StreamCameraView : public CameraWidget {
@@ -86,13 +77,20 @@ public:
   VideoWidget(QWidget *parnet = nullptr);
 
 protected:
+  bool event(QEvent *event) override;
   void timeRangeChanged();
   void updateState();
   void vipcAvailableStreamsUpdated(std::set<VisionStreamType> streams);
+  AlertInfo alertInfo(double sec);
+  QPixmap thumbnail(double sec);
+  void parseQLog(std::shared_ptr<LogReader> qlog);
 
   StreamCameraView *cam_widget;
   Slider *slider = nullptr;
   QTabBar *camera_tab = nullptr;
+  QMap<uint64_t, QPixmap> thumbnails;
+  std::map<uint64_t, AlertInfo> alerts;
+  InfoLabel *thumbnail_label;
 };
 
 class PlayControls : public QFrame {

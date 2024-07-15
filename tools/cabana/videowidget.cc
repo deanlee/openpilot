@@ -34,8 +34,9 @@ static Replay *getReplay() {
 PlayControls::PlayControls(QWidget *parent) : QFrame(parent) {
   setFrameStyle(QFrame::StyledPanel | QFrame::Plain);
   auto main_layout = new QVBoxLayout(this);
-  if (!can->liveStreaming())
+  if (!can->liveStreaming()) {
     main_layout->addWidget(video_widget = new VideoWidget(this));
+  }
   main_layout->addLayout(createPlaybackController());
 
   setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
@@ -177,8 +178,10 @@ VideoWidget::VideoWidget(QWidget *parent) : QWidget(parent)  {
   });
 
   auto replay = static_cast<ReplayStream*>(can)->getReplay();
-  QObject::connect(replay, &Replay::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
+  QObject::connect(replay, &Replay::qLogLoaded, this, &VideoWidget::parseQLog, Qt::QueuedConnection);
   QObject::connect(replay, &Replay::minMaxTimeChanged, this, &VideoWidget::timeRangeChanged, Qt::QueuedConnection);
+
+  thumbnail_label = new InfoLabel(parent);
 }
 
 void VideoWidget::vipcAvailableStreamsUpdated(std::set<VisionStreamType> streams) {
@@ -204,7 +207,7 @@ void VideoWidget::updateState() {
   if (!slider->isSliderDown()) {
     slider->setCurrentSecond(can->currentSec());
   }
-  cam_widget->setAlertInfo(slider->alertInfo(can->currentSec()));
+  cam_widget->setAlertInfo(alertInfo(can->currentSec()));
 }
 
 void PlayControls::timeRangeChanged() {
@@ -222,31 +225,19 @@ void VideoWidget::timeRangeChanged() {
              : slider->setTimeRange(can->minSeconds(), can->maxSeconds());
 }
 
-// Slider
-
-Slider::Slider(QWidget *parent) : QSlider(Qt::Horizontal, parent) {
-  thumbnail_label = new InfoLabel(parent);
-  setMouseTracking(true);
-}
-
-AlertInfo Slider::alertInfo(double seconds) {
+AlertInfo VideoWidget::alertInfo(double seconds) {
   uint64_t mono_time = can->toMonoTime(seconds);
   auto alert_it = alerts.lower_bound(mono_time);
   bool has_alert = (alert_it != alerts.end()) && ((alert_it->first - mono_time) <= 1e8);
   return has_alert ? alert_it->second : AlertInfo{};
 }
 
-QPixmap Slider::thumbnail(double seconds)  {
+QPixmap VideoWidget::thumbnail(double seconds)  {
   auto it = thumbnails.lowerBound(can->toMonoTime(seconds));
   return it != thumbnails.end() ? it.value() : QPixmap();
 }
 
-void Slider::setTimeRange(double min, double max) {
-  assert(min < max);
-  setRange(min * factor, max * factor);
-}
-
-void Slider::parseQLog(std::shared_ptr<LogReader> qlog) {
+void VideoWidget::parseQLog(std::shared_ptr<LogReader> qlog) {
   std::mutex mutex;
   QtConcurrent::blockingMap(qlog->events.cbegin(), qlog->events.cend(), [&mutex, this](const Event &e) {
     if (e.which == cereal::Event::Which::THUMBNAIL) {
@@ -269,6 +260,32 @@ void Slider::parseQLog(std::shared_ptr<LogReader> qlog) {
     }
   });
   update();
+}
+
+bool VideoWidget::event(QEvent *event) {
+  switch (event->type()) {
+    case QEvent::WindowActivate:
+    case QEvent::WindowDeactivate:
+    case QEvent::FocusIn:
+    case QEvent::FocusOut:
+    case QEvent::Leave:
+      thumbnail_label->hide();
+      break;
+    default:
+      break;
+  }
+  return QWidget::event(event);
+}
+
+// Slider
+
+Slider::Slider(QWidget *parent) : QSlider(Qt::Horizontal, parent) {
+  setMouseTracking(true);
+}
+
+void Slider::setTimeRange(double min, double max) {
+  assert(min < max);
+  setRange(min * factor, max * factor);
 }
 
 void Slider::paintEvent(QPaintEvent *ev) {
@@ -315,34 +332,19 @@ void Slider::mousePressEvent(QMouseEvent *e) {
   }
 }
 
-void Slider::mouseMoveEvent(QMouseEvent *e) {
-  int pos = std::clamp(e->pos().x(), 0, width());
-  double seconds = (minimum() + pos * ((maximum() - minimum()) / (double)width())) / factor;
-  QPixmap thumb = thumbnail(seconds);
-  if (!thumb.isNull()) {
-    int x = std::clamp(pos - thumb.width() / 2, THUMBNAIL_MARGIN, width() - thumb.width() - THUMBNAIL_MARGIN + 1);
-    int y = -thumb.height() - THUMBNAIL_MARGIN;
-    thumbnail_label->showPixmap(mapToParent(QPoint(x, y)), utils::formatSeconds(seconds), thumb, alertInfo(seconds));
-  } else {
-    thumbnail_label->hide();
-  }
-  QSlider::mouseMoveEvent(e);
-}
-
-bool Slider::event(QEvent *event) {
-  switch (event->type()) {
-    case QEvent::WindowActivate:
-    case QEvent::WindowDeactivate:
-    case QEvent::FocusIn:
-    case QEvent::FocusOut:
-    case QEvent::Leave:
-      thumbnail_label->hide();
-      break;
-    default:
-      break;
-  }
-  return QSlider::event(event);
-}
+// void Slider::mouseMoveEvent(QMouseEvent *e) {
+//   int pos = std::clamp(e->pos().x(), 0, width());
+//   double seconds = (minimum() + pos * ((maximum() - minimum()) / (double)width())) / factor;
+//   QPixmap thumb = thumbnail(seconds);
+//   if (!thumb.isNull()) {
+//     int x = std::clamp(pos - thumb.width() / 2, THUMBNAIL_MARGIN, width() - thumb.width() - THUMBNAIL_MARGIN + 1);
+//     int y = -thumb.height() - THUMBNAIL_MARGIN;
+//     thumbnail_label->showPixmap(mapToParent(QPoint(x, y)), utils::formatSeconds(seconds), thumb, alertInfo(seconds));
+//   } else {
+//     thumbnail_label->hide();
+//   }
+//   QSlider::mouseMoveEvent(e);
+// }
 
 // InfoLabel
 
