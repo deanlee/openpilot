@@ -102,7 +102,6 @@ protected:
   ToolButton *loop_btn = nullptr;
   QToolButton *speed_btn = nullptr;
   ToolButton *skip_to_end_btn = nullptr;
-  InfoLabel *alert_label = nullptr;
   Slider *slider = nullptr;
   QTabBar *camera_tab = nullptr;
 };

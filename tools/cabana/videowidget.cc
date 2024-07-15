@@ -8,7 +8,6 @@
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
-#include <QStackedLayout>
 #include <QStyleOptionSlider>
 #include <QVBoxLayout>
 #include <QtConcurrent>
@@ -146,13 +145,9 @@ QWidget *VideoWidget::createCameraWidget() {
   camera_tab->setAutoHide(true);
   camera_tab->setExpanding(false);
 
-  QStackedLayout *stacked = new QStackedLayout();
-  stacked->setStackingMode(QStackedLayout::StackAll);
-  stacked->addWidget(cam_widget = new StreamCameraView("camerad", VISION_STREAM_ROAD, false));
+  l->addWidget(cam_widget = new StreamCameraView("camerad", VISION_STREAM_ROAD, false));
   cam_widget->setMinimumHeight(MIN_VIDEO_HEIGHT);
   cam_widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding);
-  stacked->addWidget(alert_label = new InfoLabel(this));
-  l->addLayout(stacked);
 
   l->addWidget(slider = new Slider(w));
   slider->setSingleStep(0);
