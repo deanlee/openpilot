@@ -342,7 +342,6 @@ bool Slider::event(QEvent *event) {
 
 InfoLabel::InfoLabel(QWidget *parent) : QWidget(parent, Qt::WindowStaysOnTopHint) {
   setAttribute(Qt::WA_ShowWithoutActivating);
-  setVisible(false);
 }
 
 void InfoLabel::showPixmap(const QPoint &pt, const QString &sec, const QPixmap &pm, const AlertInfo &alert) {
