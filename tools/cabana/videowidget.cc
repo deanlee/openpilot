@@ -364,11 +364,8 @@ void drawAlert(QPainter &p, const QRect &rect, const AlertInfo &alert) {
     color = timeline_colors[(int)TimelineType::AlertCritical];
   }
   color.setAlphaF(0.5);
-  QString text = alert.text1;
-  if (!alert.text2.isEmpty()) {
-    text += "\n" + alert.text2;
-  }
 
+  QString text = alert.text1 + (!alert.text2.isEmpty() ? "\n" + alert.text2 : "");
   QRect text_rect = rect.adjusted(1, 1, -1, -1);
   QRect r = p.fontMetrics().boundingRect(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
   p.fillRect(text_rect.left(), r.top(), text_rect.width(), r.height(), color);
