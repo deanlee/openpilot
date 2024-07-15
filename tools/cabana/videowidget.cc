@@ -223,7 +223,7 @@ void VideoWidget::updateState() {
     if (!slider->isSliderDown()) {
       slider->setCurrentSecond(can->currentSec());
     }
-    alert_label->showAlert(slider->alertInfo(can->currentSec()));
+    // alert_label->showAlert(slider->alertInfo(can->currentSec()));
     time_btn->setText(QString("%1 / %2").arg(formatTime(can->currentSec(), true),
                                              formatTime(slider->maximum() / slider->factor)));
   } else {
@@ -375,21 +375,13 @@ void InfoLabel::showPixmap(const QPoint &pt, const QString &sec, const QPixmap &
   update();
 }
 
-void InfoLabel::showAlert(const AlertInfo &alert) {
-  alert_info = alert;
-  pixmap = {};
-  setVisible(!alert_info.text1.isEmpty());
-  update();
-}
-
 void InfoLabel::paintEvent(QPaintEvent *event) {
   QPainter p(this);
   p.setPen(QPen(palette().color(QPalette::BrightText), 2));
-  if (!pixmap.isNull()) {
-    p.drawPixmap(0, 0, pixmap);
-    p.drawRect(rect());
-    p.drawText(rect().adjusted(0, 0, 0, -THUMBNAIL_MARGIN), second, Qt::AlignHCenter | Qt::AlignBottom);
-  }
+  p.drawPixmap(0, 0, pixmap);
+  p.drawRect(rect());
+  p.drawText(rect().adjusted(0, 0, 0, -THUMBNAIL_MARGIN), second, Qt::AlignHCenter | Qt::AlignBottom);
+
   if (alert_info.text1.size() > 0) {
     QColor color = timeline_colors[(int)TimelineType::AlertInfo];
     if (alert_info.status == cereal::ControlsState::AlertStatus::USER_PROMPT) {
@@ -403,11 +395,10 @@ void InfoLabel::paintEvent(QPaintEvent *event) {
       text += "\n" + alert_info.text2;
     }
 
-    if (!pixmap.isNull()) {
-      QFont font;
-      font.setPixelSize(11);
-      p.setFont(font);
-    }
+    QFont font;
+    font.setPixelSize(11);
+    p.setFont(font);
+
     QRect text_rect = rect().adjusted(1, 1, -1, -1);
     QRect r = p.fontMetrics().boundingRect(text_rect, Qt::AlignTop | Qt::AlignHCenter | Qt::TextWordWrap, text);
     p.fillRect(text_rect.left(), r.top(), text_rect.width(), r.height(), color);
