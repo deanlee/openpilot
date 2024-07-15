@@ -79,22 +79,36 @@ private:
   AlertInfo alert_info;
 };
 
-class VideoWidget : public QFrame {
+class VideoWidget : public QWidget {
   Q_OBJECT
 
 public:
   VideoWidget(QWidget *parnet = nullptr);
 
 protected:
-  QString formatTime(double sec, bool include_milliseconds = false);
   void timeRangeChanged();
   void updateState();
-  void updatePlayBtnState();
-  QWidget *createCameraWidget();
-  QHBoxLayout *createPlaybackController();
   void vipcAvailableStreamsUpdated(std::set<VisionStreamType> streams);
 
   StreamCameraView *cam_widget;
+  Slider *slider = nullptr;
+  QTabBar *camera_tab = nullptr;
+};
+
+class PlayControls : public QFrame {
+  Q_OBJECT
+
+public:
+  PlayControls(QWidget *parent = nullptr);
+
+protected:
+  void updateState();
+  void timeRangeChanged();
+  QString formatTime(double sec, bool include_milliseconds = false);
+  void updatePlayBtnState();
+  QHBoxLayout *createPlaybackController();
+
+  VideoWidget *video_widget = nullptr;
   QToolButton *time_btn = nullptr;
   ToolButton *seek_backward_btn = nullptr;
   ToolButton *play_btn = nullptr;
@@ -102,6 +116,4 @@ protected:
   ToolButton *loop_btn = nullptr;
   QToolButton *speed_btn = nullptr;
   ToolButton *skip_to_end_btn = nullptr;
-  Slider *slider = nullptr;
-  QTabBar *camera_tab = nullptr;
 };

@@ -182,7 +182,7 @@ void MainWindow::createDockWidgets() {
 
   // splitter between video and charts
   video_splitter = new QSplitter(Qt::Vertical, this);
-  video_widget = new VideoWidget(this);
+  video_widget = new PlayControls(this);
   video_splitter->addWidget(video_widget);
 
   video_splitter->addWidget(charts_container);

@@ -31,19 +31,19 @@ static Replay *getReplay() {
   return stream ? stream->getReplay() : nullptr;
 }
 
-VideoWidget::VideoWidget(QWidget *parent) : QFrame(parent) {
+PlayControls::PlayControls(QWidget *parent) : QFrame(parent) {
   setFrameStyle(QFrame::StyledPanel | QFrame::Plain);
   auto main_layout = new QVBoxLayout(this);
   if (!can->liveStreaming())
-    main_layout->addWidget(createCameraWidget());
+    main_layout->addWidget(video_widget = new VideoWidget(this));
   main_layout->addLayout(createPlaybackController());
 
   setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
-  QObject::connect(can, &AbstractStream::paused, this, &VideoWidget::updatePlayBtnState);
-  QObject::connect(can, &AbstractStream::resume, this, &VideoWidget::updatePlayBtnState);
-  QObject::connect(can, &AbstractStream::msgsReceived, this, &VideoWidget::updateState);
-  QObject::connect(can, &AbstractStream::seeking, this, &VideoWidget::updateState);
-  QObject::connect(can, &AbstractStream::timeRangeChanged, this, &VideoWidget::timeRangeChanged);
+  QObject::connect(can, &AbstractStream::paused, this, &PlayControls::updatePlayBtnState);
+  QObject::connect(can, &AbstractStream::resume, this, &PlayControls::updatePlayBtnState);
+  QObject::connect(can, &AbstractStream::msgsReceived, this, &PlayControls::updateState);
+  QObject::connect(can, &AbstractStream::seeking, this, &PlayControls::updateState);
+  QObject::connect(can, &AbstractStream::timeRangeChanged, this, &PlayControls::timeRangeChanged);
 
   updatePlayBtnState();
   setWhatsThis(tr(R"(
@@ -68,7 +68,7 @@ VideoWidget::VideoWidget(QWidget *parent) : QFrame(parent) {
           timeline_colors[(int)TimelineType::AlertCritical].name()));
 }
 
-QHBoxLayout *VideoWidget::createPlaybackController() {
+QHBoxLayout *PlayControls::createPlaybackController() {
   QHBoxLayout *layout = new QHBoxLayout();
   layout->addWidget(seek_backward_btn = new ToolButton("rewind", tr("Seek backward")));
   layout->addWidget(play_btn = new ToolButton("play", tr("Play")));
@@ -128,13 +128,32 @@ QHBoxLayout *VideoWidget::createPlaybackController() {
   return layout;
 }
 
-QWidget *VideoWidget::createCameraWidget() {
-  QWidget *w = new QWidget(this);
-  QVBoxLayout *l = new QVBoxLayout(w);
+void PlayControls::updatePlayBtnState() {
+  play_btn->setIcon(can->isPaused() ? "play" : "pause");
+  play_btn->setToolTip(can->isPaused() ? tr("Play") : tr("Pause"));
+}
+
+void PlayControls::updateState() {
+  if (!can->liveStreaming()) {
+    time_btn->setText(QString("%1 / %2").arg(formatTime(can->currentSec(), true),
+                                             formatTime(can->maxSeconds())));
+  } else {
+    time_btn->setText(formatTime(can->currentSec(), true));
+  }
+}
+
+QString PlayControls::formatTime(double sec, bool include_milliseconds) {
+  if (settings.absolute_time)
+    sec = can->beginDateTime().addMSecs(sec * 1000).toMSecsSinceEpoch() / 1000.0;
+  return utils::formatSeconds(sec, include_milliseconds, settings.absolute_time);
+}
+
+VideoWidget::VideoWidget(QWidget *parent) : QWidget(parent)  {
+  QVBoxLayout *l = new QVBoxLayout(this);
   l->setContentsMargins(0, 0, 0, 0);
   l->setSpacing(0);
 
-  l->addWidget(camera_tab = new TabBar(w));
+  l->addWidget(camera_tab = new TabBar(this));
   camera_tab->setAutoHide(true);
   camera_tab->setExpanding(false);
 
@@ -142,7 +161,7 @@ QWidget *VideoWidget::createCameraWidget() {
   cam_widget->setMinimumHeight(MIN_VIDEO_HEIGHT);
   cam_widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding);
 
-  l->addWidget(slider = new Slider(w));
+  l->addWidget(slider = new Slider(this));
   slider->setSingleStep(0);
   slider->setTimeRange(can->minSeconds(), can->maxSeconds());
 
@@ -150,6 +169,7 @@ QWidget *VideoWidget::createCameraWidget() {
   QObject::connect(can, &AbstractStream::paused, cam_widget, [c = cam_widget]() { c->showPausedOverlay(); });
   QObject::connect(can, &AbstractStream::resume, cam_widget, [c = cam_widget]() { c->update(); });
   QObject::connect(can, &AbstractStream::eventsMerged, this, [this]() { slider->update(); });
+  QObject::connect(can, &AbstractStream::msgsReceived, this, &VideoWidget::updateState);
   QObject::connect(cam_widget, &CameraWidget::clicked, []() { can->pause(!can->isPaused()); });
   QObject::connect(cam_widget, &CameraWidget::vipcAvailableStreamsUpdated, this, &VideoWidget::vipcAvailableStreamsUpdated);
   QObject::connect(camera_tab, &QTabBar::currentChanged, [this](int index) {
@@ -159,7 +179,6 @@ QWidget *VideoWidget::createCameraWidget() {
   auto replay = static_cast<ReplayStream*>(can)->getReplay();
   QObject::connect(replay, &Replay::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
   QObject::connect(replay, &Replay::minMaxTimeChanged, this, &VideoWidget::timeRangeChanged, Qt::QueuedConnection);
-  return w;
 }
 
 void VideoWidget::vipcAvailableStreamsUpdated(std::set<VisionStreamType> streams) {
@@ -181,39 +200,26 @@ void VideoWidget::vipcAvailableStreamsUpdated(std::set<VisionStreamType> streams
   }
 }
 
-void VideoWidget::timeRangeChanged() {
+void VideoWidget::updateState() {
+  if (!slider->isSliderDown()) {
+    slider->setCurrentSecond(can->currentSec());
+  }
+  cam_widget->setAlertInfo(slider->alertInfo(can->currentSec()));
+}
+
+void PlayControls::timeRangeChanged() {
   const auto time_range = can->timeRange();
   if (can->liveStreaming()) {
     skip_to_end_btn->setEnabled(!time_range.has_value());
     return;
   }
-  time_range ? slider->setTimeRange(time_range->first, time_range->second)
-             : slider->setTimeRange(can->minSeconds(), can->maxSeconds());
   updateState();
 }
 
-QString VideoWidget::formatTime(double sec, bool include_milliseconds) {
-  if (settings.absolute_time)
-    sec = can->beginDateTime().addMSecs(sec * 1000).toMSecsSinceEpoch() / 1000.0;
-  return utils::formatSeconds(sec, include_milliseconds, settings.absolute_time);
-}
-
-void VideoWidget::updateState() {
-  if (slider) {
-    if (!slider->isSliderDown()) {
-      slider->setCurrentSecond(can->currentSec());
-    }
-    cam_widget->setAlertInfo(slider->alertInfo(can->currentSec()));
-    time_btn->setText(QString("%1 / %2").arg(formatTime(can->currentSec(), true),
-                                             formatTime(slider->maximum() / slider->factor)));
-  } else {
-    time_btn->setText(formatTime(can->currentSec(), true));
-  }
-}
-
-void VideoWidget::updatePlayBtnState() {
-  play_btn->setIcon(can->isPaused() ? "play" : "pause");
-  play_btn->setToolTip(can->isPaused() ? tr("Play") : tr("Pause"));
+void VideoWidget::timeRangeChanged() {
+  auto time_range = can->timeRange();
+  time_range ? slider->setTimeRange(time_range->first, time_range->second)
+             : slider->setTimeRange(can->minSeconds(), can->maxSeconds());
 }
 
 // Slider
