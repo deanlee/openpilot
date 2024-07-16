@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cmath>
 
+#include <QApplication>
 #include <QtConcurrent>
 
 #include "common/transformations/orientation.hpp"
@@ -253,14 +254,29 @@ UIState::UIState(QObject *parent) : QObject(parent) {
     prime_type = static_cast<PrimeType>(std::atoi(prime_value.c_str()));
   }
 
-  thread = new QThread();
-  connect(thread, &QThread::started, [=]() { updateUIWorkerThread(); });
-  connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+  auto thread = new QThread();
+  QObject::connect(thread, &QThread::started, [=]() { updateSchedulerThread(); });
+  QObject::connect(QApplication::instance(), &QCoreApplication::aboutToQuit, [this]() {
+    thread->requestInterruption();
+    thread->quit();
+    thread->wait();
+    delete thread;
+  });
+
   thread->start();
 }
 
-void UIState::update(bool modeld_updated) {
-  if (scene.started && !modeld_updated) {
+void UIState::updateSchedulerThread() {
+  SubMaster s({"modelV2"});
+  while (!QThread::currentThread()->isInterruptionRequested()) {
+    s.update(1000 / UI_FREQ);
+    bool model_updated = s.updated("modelV2");
+    QMetaObject::invokeMethod(this, std::bind(&UIState::update, this, model_updated), Qt::QueuedConnection);
+  }
+}
+
+void UIState::update(bool model_updated) {
+  if (scene.started && !model_updated) {
     return;
   }
 
@@ -290,15 +306,6 @@ void UIState::setPrimeType(PrimeType type) {
     if (prev_prime != prime) {
       emit primeChanged(prime);
     }
-  }
-}
-
-void UIState::updateUIWorkerThread() {
-  SubMaster s({"modelV2"});
-  while (!QThread::currentThread()->isInterruptionRequested()) {
-    s.update(1000 / UI_FREQ);
-    bool received = s.updated("modelV2");
-    QMetaObject::invokeMethod(this, std::bind(&UIState::update, this, received), Qt::QueuedConnection);
   }
 }
 

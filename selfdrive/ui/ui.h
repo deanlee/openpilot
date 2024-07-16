@@ -7,7 +7,6 @@
 #include <QColor>
 #include <QFuture>
 #include <QPolygonF>
-#include <QThread>
 #include <QTransform>
 
 #include "cereal/messaging/messaging.h"
@@ -135,12 +134,11 @@ signals:
   void primeTypeChanged(PrimeType prime_type);
 
 private slots:
-  void update(bool modeld_updated);
+  void update(bool model_updated);
 
 private:
-  void updateUIWorkerThread();
+  void updateSchedulerThread();
 
-  QThread *thread = nullptr;
   bool started_prev = false;
   PrimeType prime_type = PrimeType::UNKNOWN;
 };
