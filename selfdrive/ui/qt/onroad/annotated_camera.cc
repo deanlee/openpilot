@@ -27,25 +27,28 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
   const int SET_SPEED_NA = 255;
   const SubMaster &sm = *(s.sm);
 
-  const bool cs_alive = sm.alive("controlsState");
   const auto cs = sm["controlsState"].getControlsState();
   const auto car_state = sm["carState"].getCarState();
 
   is_metric = s.scene.is_metric;
+  if (sm.alive("controlsState")) {
+    // Handle older routes where vCruiseCluster is not set
+    setSpeed = cs.getVCruiseCluster() == 0.0 ? cs.getVCruise() : cs.getVCruiseCluster();
+    is_cruise_set = setSpeed > 0;
+    if (!is_metric) {
+      setSpeed *= KM_TO_MILE;
+    }
 
-  // Handle older routes where vCruiseCluster is not set
-  float v_cruise = cs.getVCruiseCluster() == 0.0 ? cs.getVCruise() : cs.getVCruiseCluster();
-  setSpeed = cs_alive ? v_cruise : SET_SPEED_NA;
-  is_cruise_set = setSpeed > 0 && (int)setSpeed != SET_SPEED_NA;
-  if (is_cruise_set && !is_metric) {
-    setSpeed *= KM_TO_MILE;
+    // Handle older routes where vEgoCluster is not set
+    v_ego_cluster_seen = v_ego_cluster_seen || car_state.getVEgoCluster() != 0.0;
+    float v_ego = v_ego_cluster_seen ? car_state.getVEgoCluster() : car_state.getVEgo();
+    speed = std::max<float>(0.0, v_ego) * (is_metric ? MS_TO_KPH : MS_TO_MPH);
+
+  } else {
+    setSpeed = SET_SPEED_NA;
+    is_cruise_set = false;
+    speed = 0;
   }
-
-  // Handle older routes where vEgoCluster is not set
-  v_ego_cluster_seen = v_ego_cluster_seen || car_state.getVEgoCluster() != 0.0;
-  float v_ego = v_ego_cluster_seen ? car_state.getVEgoCluster() : car_state.getVEgo();
-  speed = cs_alive ? std::max<float>(0.0, v_ego) : 0.0;
-  speed *= is_metric ? MS_TO_KPH : MS_TO_MPH;
 
   speedUnit = is_metric ? tr("km/h") : tr("mph");
   hideBottomIcons = (cs.getAlertSize() != cereal::ControlsState::AlertSize::NONE);
