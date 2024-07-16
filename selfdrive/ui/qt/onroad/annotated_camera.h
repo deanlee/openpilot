@@ -15,6 +15,7 @@ public:
 
 private:
   void drawText(QPainter &p, int x, int y, const QString &text, int alpha = 255);
+  void vipcFrameReceived() override;
 
   QVBoxLayout *main_layout;
   ExperimentalButton *experimental_btn;

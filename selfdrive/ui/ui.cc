@@ -253,13 +253,17 @@ UIState::UIState(QObject *parent) : QObject(parent) {
     prime_type = static_cast<PrimeType>(std::atoi(prime_value.c_str()));
   }
 
-  // update timer
-  timer = new QTimer(this);
-  QObject::connect(timer, &QTimer::timeout, this, &UIState::update);
-  timer->start(1000 / UI_FREQ);
+  thread = new QThread();
+  connect(thread, &QThread::started, [=]() { updateUIWorkerThread(); });
+  connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+  thread->start();
 }
 
-void UIState::update() {
+void UIState::update(bool modeld_updated) {
+  if (scene.started && !modeld_updated) {
+    return;
+  }
+
   update_sockets(this);
   update_state(this);
   updateStatus();
@@ -286,6 +290,15 @@ void UIState::setPrimeType(PrimeType type) {
     if (prev_prime != prime) {
       emit primeChanged(prime);
     }
+  }
+}
+
+void UIState::updateUIWorkerThread() {
+  SubMaster s({"modelV2"});
+  while (!QThread::currentThread()->isInterruptionRequested()) {
+    s.update(1000 / UI_FREQ);
+    bool received = s.updated("modelV2");
+    QMetaObject::invokeMethod(this, std::bind(&UIState::update, this, received), Qt::QueuedConnection);
   }
 }
 

@@ -4,10 +4,10 @@
 #include <string>
 
 #include <QObject>
-#include <QTimer>
 #include <QColor>
 #include <QFuture>
 #include <QPolygonF>
+#include <QThread>
 #include <QTransform>
 
 #include "cereal/messaging/messaging.h"
@@ -135,10 +135,12 @@ signals:
   void primeTypeChanged(PrimeType prime_type);
 
 private slots:
-  void update();
+  void update(bool modeld_updated);
 
 private:
-  QTimer *timer;
+  void updateUIWorkerThread();
+
+  QThread *thread = nullptr;
   bool started_prev = false;
   PrimeType prime_type = PrimeType::UNKNOWN;
 };

@@ -96,7 +96,7 @@ protected:
 
 protected slots:
   void vipcConnected(VisionIpcClient *vipc_client);
-  void vipcFrameReceived();
+  virtual void vipcFrameReceived();
   void availableStreamsUpdated(std::set<VisionStreamType> streams);
 };
 

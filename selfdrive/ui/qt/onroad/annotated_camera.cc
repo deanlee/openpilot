@@ -60,6 +60,7 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
   rightHandDM = dm_state.getIsRHD();
   // DM icon transition
   dm_fade_state = std::clamp(dm_fade_state+0.2*(0.5-dmActive), 0.0, 1.0);
+  update();
 }
 
 void AnnotatedCameraWidget::drawHud(QPainter &p) {
@@ -384,4 +385,8 @@ void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
 
   ui_update_params(uiState());
   prev_draw_t = millis_since_boot();
+}
+
+void AnnotatedCameraWidget::vipcFrameReceived() {
+  // do nothing, we schedule by modeldv2
 }
