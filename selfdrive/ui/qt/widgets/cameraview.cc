@@ -234,21 +234,20 @@ void CameraWidget::updateFrameMat() {
         intrinsic_matrix = FCAM_INTRINSIC_MATRIX;
         zoom = 1.1;
       }
-      const vec3 inf = {{1000., 0., 0.}};
-      const vec3 Ep = matvecmul3(calibration, inf);
-      const vec3 Kep = matvecmul3(intrinsic_matrix, Ep);
+      Eigen::Vector3d inf(1000., 0., 0.);
+      const Eigen::Vector3d Kep = intrinsic_matrix * calibration * inf;
 
-      float x_offset_ = (Kep.v[0] / Kep.v[2] - intrinsic_matrix.v[2]) * zoom;
-      float y_offset_ = (Kep.v[1] / Kep.v[2] - intrinsic_matrix.v[5]) * zoom;
+      float x_offset_ = (Kep[0] / Kep[2] - intrinsic_matrix(0, 2)) * zoom;
+      float y_offset_ = (Kep[1] / Kep[2] - intrinsic_matrix(1, 2)) * zoom;
 
-      float max_x_offset = intrinsic_matrix.v[2] * zoom - w / 2 - 5;
-      float max_y_offset = intrinsic_matrix.v[5] * zoom - h / 2 - 5;
+      float max_x_offset = intrinsic_matrix(0, 2) * zoom - w / 2 - 5;
+      float max_y_offset = intrinsic_matrix(1, 2) * zoom - h / 2 - 5;
 
       x_offset = std::clamp(x_offset_, -max_x_offset, max_x_offset);
       y_offset = std::clamp(y_offset_, -max_y_offset, max_y_offset);
 
-      float zx = zoom * 2 * intrinsic_matrix.v[2] / w;
-      float zy = zoom * 2 * intrinsic_matrix.v[5] / h;
+      float zx = zoom * 2 * intrinsic_matrix(0, 2) / w;
+      float zy = zoom * 2 * intrinsic_matrix(1, 2) / h;
       const mat4 frame_transform = {{
         zx, 0.0, 0.0, -x_offset / w * 2,
         0.0, zy, 0.0, y_offset / h * 2,
@@ -265,7 +264,7 @@ void CameraWidget::updateFrameMat() {
   }
 }
 
-void CameraWidget::updateCalibration(const mat3 &calib) {
+void CameraWidget::updateCalibration(const Eigen::Matrix3d &calib) {
   calibration = calib;
 }
 

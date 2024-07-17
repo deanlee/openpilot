@@ -147,7 +147,7 @@ void AnnotatedCameraWidget::updateFrameMat() {
   s->car_space_transform.reset();
   s->car_space_transform.translate(w / 2 - x_offset, h / 2 - y_offset)
       .scale(zoom, zoom)
-      .translate(-intrinsic_matrix.v[2], -intrinsic_matrix.v[5]);
+      .translate(-intrinsic_matrix(0, 2), -intrinsic_matrix(1, 2));
 }
 
 void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s) {

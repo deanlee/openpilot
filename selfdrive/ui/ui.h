@@ -10,6 +10,7 @@
 #include <QPolygonF>
 #include <QTransform>
 
+#include "common/transformations/orientation.hpp"
 #include "cereal/messaging/messaging.h"
 #include "common/mat.h"
 #include "common/params.h"
@@ -24,15 +25,16 @@ const int BACKLIGHT_OFFROAD = 50;
 
 const float MIN_DRAW_DISTANCE = 10.0;
 const float MAX_DRAW_DISTANCE = 100.0;
-constexpr mat3 DEFAULT_CALIBRATION = {{ 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0 }};
-constexpr mat3 FCAM_INTRINSIC_MATRIX = (mat3){{2648.0, 0.0, 1928.0 / 2,
+const Eigen::Matrix3d DEFAULT_CALIBRATION = (Eigen::Matrix3d() << 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0).finished();
+
+const Eigen::Matrix3d FCAM_INTRINSIC_MATRIX = (Eigen::Matrix3d() << 2648.0, 0.0, 1928.0 / 2,
                                            0.0, 2648.0, 1208.0 / 2,
-                                           0.0, 0.0, 1.0}};
+                                           0.0, 0.0, 1.0).finished();
 // tici ecam focal probably wrong? magnification is not consistent across frame
 // Need to retrain model before this can be changed
-constexpr mat3 ECAM_INTRINSIC_MATRIX = (mat3){{567.0, 0.0, 1928.0 / 2,
+const Eigen::Matrix3d ECAM_INTRINSIC_MATRIX = (Eigen::Matrix3d() <<567.0, 0.0, 1928.0 / 2,
                                            0.0, 567.0, 1208.0 / 2,
-                                           0.0, 0.0, 1.0}};
+                                           0.0, 0.0, 1.0).finished();
 
 
 constexpr vec3 default_face_kpts_3d[] = {
@@ -74,8 +76,8 @@ typedef struct UIScene {
   bool calibration_valid = false;
   bool calibration_wide_valid  = false;
   bool wide_cam = true;
-  mat3 view_from_calib = DEFAULT_CALIBRATION;
-  mat3 view_from_wide_calib = DEFAULT_CALIBRATION;
+  Eigen::Matrix3d view_from_calib = DEFAULT_CALIBRATION;
+  Eigen::Matrix3d view_from_wide_calib = DEFAULT_CALIBRATION;
   cereal::PandaState::PandaType pandaType;
 
   // modelV2

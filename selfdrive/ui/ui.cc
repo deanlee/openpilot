@@ -22,12 +22,14 @@ static bool calib_frame_to_full_frame(const UIState *s, float in_x, float in_y, 
   const float margin = 500.0f;
   const QRectF clip_region{-margin, -margin, s->fb_w + 2 * margin, s->fb_h + 2 * margin};
 
-  const vec3 pt = (vec3){{in_x, in_y, in_z}};
-  const vec3 Ep = matvecmul3(s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib, pt);
-  const vec3 KEp = matvecmul3(s->scene.wide_cam ? ECAM_INTRINSIC_MATRIX : FCAM_INTRINSIC_MATRIX, Ep);
+  Eigen::Vector3d pt(in_x, in_y, in_z);
+  auto &transform_matrix = s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib;
+  // const vec3 Ep = matvecmul3(s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib, pt);
+  Eigen::Vector3d Ep = transform_matrix * pt;
+  Eigen::Vector3d KEp = (s->scene.wide_cam ? ECAM_INTRINSIC_MATRIX : FCAM_INTRINSIC_MATRIX) * Ep;
 
   // Project.
-  QPointF point = s->car_space_transform.map(QPointF{KEp.v[0] / KEp.v[2], KEp.v[1] / KEp.v[2]});
+  QPointF point = s->car_space_transform.map(QPointF{KEp[0] / KEp[2], KEp[1] / KEp[2]});
   if (clip_region.contains(point)) {
     *out = point;
     return true;
@@ -167,14 +169,8 @@ static void update_state(UIState *s) {
     view_from_device << 0, 1, 0,
                         0, 0, 1,
                         1, 0, 0;
-    Eigen::Matrix3d view_from_calib = view_from_device * device_from_calib;
-    Eigen::Matrix3d view_from_wide_calib = view_from_device * wide_from_device * device_from_calib;
-    for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        scene.view_from_calib.v[i*3 + j] = view_from_calib(i, j);
-        scene.view_from_wide_calib.v[i*3 + j] = view_from_wide_calib(i, j);
-      }
-    }
+    scene.view_from_calib = view_from_device * device_from_calib;
+    scene.view_from_wide_calib = view_from_device * wide_from_device * device_from_calib;
     scene.calibration_valid = live_calib.getCalStatus() == cereal::LiveCalibrationData::Status::CALIBRATED;
     scene.calibration_wide_valid = wfde_list.size() == 3;
   }
