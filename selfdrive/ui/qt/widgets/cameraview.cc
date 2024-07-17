@@ -66,36 +66,6 @@ const char frame_fragment_shader[] =
   "}\n";
 #endif
 
-mat4 get_driver_view_transform(int screen_width, int screen_height, int stream_width, int stream_height) {
-  const float driver_view_ratio = 2.0;
-  const float yscale = stream_height * driver_view_ratio / stream_width;
-  const float xscale = yscale*screen_height/screen_width*stream_width/stream_height;
-  mat4 transform = (mat4){{
-    xscale,  0.0, 0.0, 0.0,
-    0.0,  yscale, 0.0, 0.0,
-    0.0,  0.0, 1.0, 0.0,
-    0.0,  0.0, 0.0, 1.0,
-  }};
-  return transform;
-}
-
-mat4 get_fit_view_transform(float widget_aspect_ratio, float frame_aspect_ratio) {
-  float zx = 1, zy = 1;
-  if (frame_aspect_ratio > widget_aspect_ratio) {
-    zy = widget_aspect_ratio / frame_aspect_ratio;
-  } else {
-    zx = frame_aspect_ratio / widget_aspect_ratio;
-  }
-
-  const mat4 frame_transform = {{
-    zx, 0.0, 0.0, 0.0,
-    0.0, zy, 0.0, 0.0,
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0,
-  }};
-  return frame_transform;
-}
-
 } // namespace
 
 CameraWidget::CameraWidget(std::string stream_name, VisionStreamType type, bool zoom, QWidget* parent) :
@@ -214,54 +184,30 @@ void CameraWidget::availableStreamsUpdated(std::set<VisionStreamType> streams) {
   available_streams = streams;
 }
 
+mat4 CameraWidget::getFrameMat(int screen_width, int screen_height, int stream_width, int stream_height) {
+  float zx = 1, zy = 1;
+  float widget_aspect_ratio = (float)screen_width / screen_height;
+  float frame_aspect_ratio = (float)stream_width  / stream_height;
+
+  if (frame_aspect_ratio > widget_aspect_ratio) {
+    zy = widget_aspect_ratio / frame_aspect_ratio;
+  } else {
+    zx = frame_aspect_ratio / widget_aspect_ratio;
+  }
+
+  const mat4 frame_transform = {{
+    zx, 0.0, 0.0, 0.0,
+    0.0, zy, 0.0, 0.0,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0,
+  }};
+  return frame_transform;
+}
+
 void CameraWidget::updateFrameMat() {
   int w = glWidth(), h = glHeight();
-
-  if (zoomed_view) {
-    if (active_stream_type == VISION_STREAM_DRIVER) {
-      if (stream_width > 0 && stream_height > 0) {
-        frame_mat = get_driver_view_transform(w, h, stream_width, stream_height);
-      }
-    } else {
-      // Project point at "infinity" to compute x and y offsets
-      // to ensure this ends up in the middle of the screen
-      // for narrow come and a little lower for wide cam.
-      // TODO: use proper perspective transform?
-      if (active_stream_type == VISION_STREAM_WIDE_ROAD) {
-        intrinsic_matrix = ECAM_INTRINSIC_MATRIX;
-        zoom = 2.0;
-      } else {
-        intrinsic_matrix = FCAM_INTRINSIC_MATRIX;
-        zoom = 1.1;
-      }
-      const vec3 inf = {{1000., 0., 0.}};
-      const vec3 Ep = matvecmul3(calibration, inf);
-      const vec3 Kep = matvecmul3(intrinsic_matrix, Ep);
-
-      float x_offset_ = (Kep.v[0] / Kep.v[2] - intrinsic_matrix.v[2]) * zoom;
-      float y_offset_ = (Kep.v[1] / Kep.v[2] - intrinsic_matrix.v[5]) * zoom;
-
-      float max_x_offset = intrinsic_matrix.v[2] * zoom - w / 2 - 5;
-      float max_y_offset = intrinsic_matrix.v[5] * zoom - h / 2 - 5;
-
-      x_offset = std::clamp(x_offset_, -max_x_offset, max_x_offset);
-      y_offset = std::clamp(y_offset_, -max_y_offset, max_y_offset);
-
-      float zx = zoom * 2 * intrinsic_matrix.v[2] / w;
-      float zy = zoom * 2 * intrinsic_matrix.v[5] / h;
-      const mat4 frame_transform = {{
-        zx, 0.0, 0.0, -x_offset / w * 2,
-        0.0, zy, 0.0, y_offset / h * 2,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0,
-      }};
-      frame_mat = frame_transform;
-    }
-  } else if (stream_width > 0 && stream_height > 0) {
-    // fit frame to widget size
-    float widget_aspect_ratio = (float)w / h;
-    float frame_aspect_ratio = (float)stream_width  / stream_height;
-    frame_mat = get_fit_view_transform(widget_aspect_ratio, frame_aspect_ratio);
+  if (stream_width > 0 && stream_height > 0) {
+    frame_mat = getFrameMat(w, h, stream_width, stream_height);
   }
 }
 

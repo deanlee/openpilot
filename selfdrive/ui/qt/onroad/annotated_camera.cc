@@ -133,7 +133,39 @@ void AnnotatedCameraWidget::initializeGL() {
 }
 
 void AnnotatedCameraWidget::updateFrameMat() {
-  CameraWidget::updateFrameMat();
+  // Project point at "infinity" to compute x and y offsets
+  // to ensure this ends up in the middle of the screen
+  // for narrow come and a little lower for wide cam.
+  // TODO: use proper perspective transform?
+  if (active_stream_type == VISION_STREAM_WIDE_ROAD) {
+    intrinsic_matrix = ECAM_INTRINSIC_MATRIX;
+    zoom = 2.0;
+  } else {
+    intrinsic_matrix = FCAM_INTRINSIC_MATRIX;
+    zoom = 1.1;
+  }
+  const vec3 inf = {{1000., 0., 0.}};
+  const vec3 Ep = matvecmul3(calibration, inf);
+  const vec3 Kep = matvecmul3(intrinsic_matrix, Ep);
+
+  float x_offset_ = (Kep.v[0] / Kep.v[2] - intrinsic_matrix.v[2]) * zoom;
+  float y_offset_ = (Kep.v[1] / Kep.v[2] - intrinsic_matrix.v[5]) * zoom;
+
+  float max_x_offset = intrinsic_matrix.v[2] * zoom - w / 2 - 5;
+  float max_y_offset = intrinsic_matrix.v[5] * zoom - h / 2 - 5;
+
+  x_offset = std::clamp(x_offset_, -max_x_offset, max_x_offset);
+  y_offset = std::clamp(y_offset_, -max_y_offset, max_y_offset);
+
+  float zx = zoom * 2 * intrinsic_matrix.v[2] / w;
+  float zy = zoom * 2 * intrinsic_matrix.v[5] / h;
+  const mat4 frame_transform = {{
+    zx, 0.0, 0.0, -x_offset / w * 2,
+    0.0, zy, 0.0, y_offset / h * 2,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0,
+  }};
+
   UIState *s = uiState();
   int w = width(), h = height();
 
@@ -148,6 +180,8 @@ void AnnotatedCameraWidget::updateFrameMat() {
   s->car_space_transform.translate(w / 2 - x_offset, h / 2 - y_offset)
       .scale(zoom, zoom)
       .translate(-intrinsic_matrix.v[2], -intrinsic_matrix.v[5]);
+
+  return frame_transform;
 }
 
 void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s) {

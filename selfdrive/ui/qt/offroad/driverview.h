@@ -12,6 +12,7 @@ signals:
   void done();
 
 protected:
+  mat4 getFrameMat(int screen_width, int screen_height, int stream_width, int stream_height) override;
   void showEvent(QShowEvent *event) override;
   void hideEvent(QHideEvent *event) override;
   void paintGL() override;

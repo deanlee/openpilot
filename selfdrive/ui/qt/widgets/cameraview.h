@@ -55,7 +55,7 @@ protected:
   void showEvent(QShowEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override { emit clicked(); }
   virtual void updateFrameMat();
-  void updateCalibration(const mat3 &calib);
+  virtual mat4 getFrameMat(int screen_width, int screen_height, int stream_width, int stream_height) override;
   void vipcThread();
   void clearFrames();
 
@@ -86,8 +86,6 @@ protected:
   float x_offset = 0;
   float y_offset = 0;
   float zoom = 1.0;
-  mat3 calibration = DEFAULT_CALIBRATION;
-  mat3 intrinsic_matrix = FCAM_INTRINSIC_MATRIX;
 
   std::recursive_mutex frame_lock;
   std::deque<std::pair<uint32_t, VisionBuf*>> frames;
