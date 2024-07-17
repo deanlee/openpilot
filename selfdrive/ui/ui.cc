@@ -23,10 +23,9 @@ static bool calib_frame_to_full_frame(const UIState *s, float in_x, float in_y, 
   const QRectF clip_region{-margin, -margin, s->fb_w + 2 * margin, s->fb_h + 2 * margin};
 
   Eigen::Vector3d pt(in_x, in_y, in_z);
-  auto &transform_matrix = s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib;
-  // const vec3 Ep = matvecmul3(s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib, pt);
-  Eigen::Vector3d Ep = transform_matrix * pt;
-  Eigen::Vector3d KEp = (s->scene.wide_cam ? ECAM_INTRINSIC_MATRIX : FCAM_INTRINSIC_MATRIX) * Ep;
+  const auto &calib = s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib;
+  const auto &intrinsic = s->scene.wide_cam ? ECAM_INTRINSIC_MATRIX : FCAM_INTRINSIC_MATRIX;
+  Eigen::Vector3d KEp = calib * intrinsic * pt;
 
   // Project.
   QPointF point = s->car_space_transform.map(QPointF{KEp[0] / KEp[2], KEp[1] / KEp[2]});
