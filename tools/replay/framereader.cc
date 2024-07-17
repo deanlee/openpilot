@@ -232,3 +232,123 @@ bool VideoDecoder::copyBuffer(AVFrame *f, VisionBuf *buf) {
   }
   return true;
 }
+
+
+#include <sys/ioctl.h>
+#include <cassert>
+#include <poll.h>
+#include "third_party/linux/include/v4l2-controls.h"
+#include <linux/videodev2.h>
+V4l2Decoder::V4l2Decoder() {
+  fd = ::open("/dev/v4l/by-path/platform-aa00000.qcom_vidc-video-index1", O_RDWR);
+  assert(fd >= 0);
+}
+
+V4l2Decoder::~V4l2Decoder() {
+  close(fd);
+}
+
+bool V4l2Decoder::open() {
+   struct v4l2_format fmt;
+    memset(&fmt, 0, sizeof(fmt));
+
+    // Set format for the output stream (compressed input)
+    fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    fmt.fmt.pix_mp.width = WIDTH;
+    fmt.fmt.pix_mp.height = HEIGHT;
+    fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_HEVC;
+    fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;
+    int ret = ioctl(fd, VIDIOC_S_FMT, &fmt);
+    assert(ret == 0);
+
+    // Set format for the capture stream (decoded output)
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_NV12; // Output format
+    ret = ioctl(fd, VIDIOC_S_FMT, &fmt);
+    assert(ret == 0);
+
+    // Request buffers for output
+    struct v4l2_requestbuffers req;
+    memset(&req, 0, sizeof(req));
+    req.count = 4;
+    req.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    req.memory = V4L2_MEMORY_MMAP;
+    ret = ioctl(fd, VIDIOC_REQBUFS, &req);
+    assert(ret == 0);
+
+    // Map output buffers
+    struct v4l2_buffer buf;
+    struct v4l2_plane planes[1];
+    memset(&buf, 0, sizeof(buf));
+    buf.type = req.type;
+    buf.memory = V4L2_MEMORY_MMAP;
+    buf.length = 1;
+    buf.m.planes = planes;
+
+    for (int i = 0; i < req.count; ++i) {
+        buf.index = i;
+        ret = ioctl(fd, VIDIOC_QUERYBUF, &buf);
+        assert(ret == 0);
+        void *output_buffer = mmap(NULL, buf.m.planes[0].length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.planes[0].m.mem_offset);
+        // Fill output_buffer with HEVC data
+    }
+
+    // Queue output buffers
+    for (int i = 0; i < req.count; ++i) {
+        buf.index = i;
+        ret = ioctl(fd, VIDIOC_QBUF, &buf);
+        assert(ret == 0);
+    }
+
+    // Stream on for output
+    enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    ret = ioctl(fd, VIDIOC_STREAMON, &type);
+    assert(ret == 0);
+
+    // Request buffers for capture
+    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    ret = ioctl(fd, VIDIOC_REQBUFS, &req);
+    assert(ret == 0);
+
+    // Map capture buffers
+    for (int i = 0; i < req.count; ++i) {
+        buf.index = i;
+        ret = ioctl(fd, VIDIOC_QUERYBUF, &buf);
+        assert(ret == 0);
+        void *capture_buffer = mmap(NULL, buf.m.planes[0].length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.planes[0].m.mem_offset);
+        // Process capture_buffer
+    }
+
+    // Queue capture buffers
+    for (int i = 0; i < req.count; ++i) {
+        buf.index = i;
+        ret = ioctl(fd, VIDIOC_QBUF, &buf);
+        assert(ret == 0);
+    }
+
+    // Stream on for capture
+    type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    ioctl(fd, VIDIOC_STREAMON, &type);
+
+    // Main loop to process frames
+    while (1) {
+        // Dequeue a capture buffer
+        ret = ioctl(fd, VIDIOC_DQBUF, &buf);
+        assert(ret == 0);
+        // Process the decoded frame in capture_buffer
+        // Queue the buffer back
+        ret = ioctl(fd, VIDIOC_QBUF, &buf);
+        assert(ret == 0);
+    }
+
+    // Stream off
+    ioctl(fd, VIDIOC_STREAMOFF, &type);
+    type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    ioctl(fd, VIDIOC_STREAMOFF, &type);
+
+    close(fd);
+}
+
+bool V4l2Decoder::decode(FrameReader *reader, int idx, VisionBuf *buf) {
+
+}

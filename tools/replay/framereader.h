@@ -55,3 +55,14 @@ private:
   AVPixelFormat hw_pix_fmt = AV_PIX_FMT_NONE;
   AVBufferRef *hw_device_ctx = nullptr;
 };
+
+
+class V4l2Decoder {
+public:
+  V4l2Decoder();
+  ~V4l2Decoder();
+  bool open();
+  bool decode(FrameReader *reader, int idx, VisionBuf *buf);
+  int width = 0, height = 0;
+  int fd;
+};
