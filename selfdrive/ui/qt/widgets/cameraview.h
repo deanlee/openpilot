@@ -34,7 +34,7 @@ class CameraWidget : public QOpenGLWidget, protected QOpenGLFunctions {
 
 public:
   using QOpenGLWidget::QOpenGLWidget;
-  explicit CameraWidget(std::string stream_name, VisionStreamType stream_type, bool zoom, QWidget* parent = nullptr);
+  explicit CameraWidget(std::string stream_name, VisionStreamType stream_type, QWidget* parent = nullptr);
   ~CameraWidget();
   void setBackgroundColor(const QColor &color) { bg = color; }
   void setFrameId(int frame_id) { draw_frame_id = frame_id; }
@@ -55,14 +55,13 @@ protected:
   void showEvent(QShowEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override { emit clicked(); }
   virtual void updateFrameMat();
-  virtual mat4 getFrameMat(int screen_width, int screen_height, int stream_width, int stream_height) override;
+  virtual mat4 getFrameMat(int screen_width, int screen_height, int stream_width, int stream_height);
   void vipcThread();
   void clearFrames();
 
   int glWidth();
   int glHeight();
 
-  bool zoomed_view;
   GLuint frame_vao, frame_vbo, frame_ibo;
   GLuint textures[2];
   mat4 frame_mat = {};
@@ -81,11 +80,6 @@ protected:
   std::atomic<VisionStreamType> requested_stream_type;
   std::set<VisionStreamType> available_streams;
   QThread *vipc_thread = nullptr;
-
-  // Calibration
-  float x_offset = 0;
-  float y_offset = 0;
-  float zoom = 1.0;
 
   std::recursive_mutex frame_lock;
   std::deque<std::pair<uint32_t, VisionBuf*>> frames;

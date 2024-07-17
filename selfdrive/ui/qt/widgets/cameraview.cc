@@ -68,8 +68,8 @@ const char frame_fragment_shader[] =
 
 } // namespace
 
-CameraWidget::CameraWidget(std::string stream_name, VisionStreamType type, bool zoom, QWidget* parent) :
-                          stream_name(stream_name), active_stream_type(type), requested_stream_type(type), zoomed_view(zoom), QOpenGLWidget(parent) {
+CameraWidget::CameraWidget(std::string stream_name, VisionStreamType type, QWidget* parent) :
+                          stream_name(stream_name), active_stream_type(type), requested_stream_type(type), QOpenGLWidget(parent) {
   setAttribute(Qt::WA_OpaquePaintEvent);
   qRegisterMetaType<std::set<VisionStreamType>>("availableStreams");
   QObject::connect(this, &CameraWidget::vipcThreadConnected, this, &CameraWidget::vipcConnected, Qt::BlockingQueuedConnection);
@@ -184,10 +184,10 @@ void CameraWidget::availableStreamsUpdated(std::set<VisionStreamType> streams) {
   available_streams = streams;
 }
 
-mat4 CameraWidget::getFrameMat(int screen_width, int screen_height, int stream_width, int stream_height) {
+mat4 CameraWidget::getFrameMat(int screen_width, int screen_height, int stream_width_, int stream_height_) {
   float zx = 1, zy = 1;
   float widget_aspect_ratio = (float)screen_width / screen_height;
-  float frame_aspect_ratio = (float)stream_width  / stream_height;
+  float frame_aspect_ratio = (float)stream_width_  / stream_height_;
 
   if (frame_aspect_ratio > widget_aspect_ratio) {
     zy = widget_aspect_ratio / frame_aspect_ratio;
@@ -209,10 +209,6 @@ void CameraWidget::updateFrameMat() {
   if (stream_width > 0 && stream_height > 0) {
     frame_mat = getFrameMat(w, h, stream_width, stream_height);
   }
-}
-
-void CameraWidget::updateCalibration(const mat3 &calib) {
-  calibration = calib;
 }
 
 void CameraWidget::paintGL() {

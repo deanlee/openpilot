@@ -10,7 +10,7 @@
 #include "selfdrive/ui/qt/util.h"
 
 // Window that shows camera view and variety of info drawn on top
-AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget* parent) : fps_filter(UI_FREQ, 3, 1. / UI_FREQ), CameraWidget("camerad", type, true, parent) {
+AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget* parent) : fps_filter(UI_FREQ, 3, 1. / UI_FREQ), CameraWidget("camerad", type, parent) {
   pm = std::make_unique<PubMaster, const std::initializer_list<const char *>>({"uiDebug"});
 
   main_layout = new QVBoxLayout(this);
@@ -132,11 +132,13 @@ void AnnotatedCameraWidget::initializeGL() {
   setBackgroundColor(bg_colors[STATUS_DISENGAGED]);
 }
 
-void AnnotatedCameraWidget::updateFrameMat() {
+mat4 AnnotatedCameraWidget::getFrameMat(int w, int h, int stream_width, int stream_height) {
   // Project point at "infinity" to compute x and y offsets
   // to ensure this ends up in the middle of the screen
   // for narrow come and a little lower for wide cam.
   // TODO: use proper perspective transform?
+  float zoom = 0;
+  mat3 intrinsic_matrix;
   if (active_stream_type == VISION_STREAM_WIDE_ROAD) {
     intrinsic_matrix = ECAM_INTRINSIC_MATRIX;
     zoom = 2.0;
@@ -148,14 +150,14 @@ void AnnotatedCameraWidget::updateFrameMat() {
   const vec3 Ep = matvecmul3(calibration, inf);
   const vec3 Kep = matvecmul3(intrinsic_matrix, Ep);
 
-  float x_offset_ = (Kep.v[0] / Kep.v[2] - intrinsic_matrix.v[2]) * zoom;
-  float y_offset_ = (Kep.v[1] / Kep.v[2] - intrinsic_matrix.v[5]) * zoom;
+  float x_offset = (Kep.v[0] / Kep.v[2] - intrinsic_matrix.v[2]) * zoom;
+  float y_offset = (Kep.v[1] / Kep.v[2] - intrinsic_matrix.v[5]) * zoom;
 
   float max_x_offset = intrinsic_matrix.v[2] * zoom - w / 2 - 5;
   float max_y_offset = intrinsic_matrix.v[5] * zoom - h / 2 - 5;
 
-  x_offset = std::clamp(x_offset_, -max_x_offset, max_x_offset);
-  y_offset = std::clamp(y_offset_, -max_y_offset, max_y_offset);
+  x_offset = std::clamp(x_offset, -max_x_offset, max_x_offset);
+  y_offset = std::clamp(y_offset, -max_y_offset, max_y_offset);
 
   float zx = zoom * 2 * intrinsic_matrix.v[2] / w;
   float zy = zoom * 2 * intrinsic_matrix.v[5] / h;
@@ -167,7 +169,7 @@ void AnnotatedCameraWidget::updateFrameMat() {
   }};
 
   UIState *s = uiState();
-  int w = width(), h = height();
+  // int w = width(), h = height();
 
   s->fb_w = w;
   s->fb_h = h;
@@ -359,10 +361,9 @@ void AnnotatedCameraWidget::paintGL() {
 
     s->scene.wide_cam = CameraWidget::getStreamType() == VISION_STREAM_WIDE_ROAD;
     if (s->scene.calibration_valid) {
-      auto calib = s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib;
-      CameraWidget::updateCalibration(calib);
+      calibration = s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib;
     } else {
-      CameraWidget::updateCalibration(DEFAULT_CALIBRATION);
+      calibration = DEFAULT_CALIBRATION;
     }
     CameraWidget::setFrameId(model.getFrameId());
     CameraWidget::paintGL();
