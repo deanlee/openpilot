@@ -12,6 +12,7 @@ signals:
   void done();
 
 protected:
+  mat4 getFrameMatrix() override;
   void showEvent(QShowEvent *event) override;
   void hideEvent(QHideEvent *event) override;
   void paintGL() override;

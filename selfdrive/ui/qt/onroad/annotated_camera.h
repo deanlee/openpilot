@@ -15,6 +15,7 @@ public:
 
 private:
   void drawText(QPainter &p, int x, int y, const QString &text, int alpha = 255);
+  mat4 getFrameMatrix() override;
 
   QVBoxLayout *main_layout;
   ExperimentalButton *experimental_btn;
@@ -39,7 +40,6 @@ protected:
   void paintGL() override;
   void initializeGL() override;
   void showEvent(QShowEvent *event) override;
-  void updateFrameMat() override;
   void drawLaneLines(QPainter &painter, const UIState *s);
   void drawLead(QPainter &painter, const cereal::RadarState::LeadData::Reader &lead_data, const QPointF &vd);
   void drawHud(QPainter &p);
@@ -50,4 +50,5 @@ protected:
 
   double prev_draw_t = 0;
   FirstOrderFilter fps_filter;
+  mat3 calibration = DEFAULT_CALIBRATION;
 };

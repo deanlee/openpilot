@@ -10,7 +10,8 @@
 #include "selfdrive/ui/qt/util.h"
 
 // Window that shows camera view and variety of info drawn on top
-AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget* parent) : fps_filter(UI_FREQ, 3, 1. / UI_FREQ), CameraWidget("camerad", type, true, parent) {
+AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *parent)
+    : fps_filter(UI_FREQ, 3, 1. / UI_FREQ), CameraWidget("camerad", type, parent) {
   pm = std::make_unique<PubMaster, const std::initializer_list<const char *>>({"uiDebug"});
 
   main_layout = new QVBoxLayout(this);
@@ -132,13 +133,33 @@ void AnnotatedCameraWidget::initializeGL() {
   setBackgroundColor(bg_colors[STATUS_DISENGAGED]);
 }
 
-void AnnotatedCameraWidget::updateFrameMat() {
-  CameraWidget::updateFrameMat();
-  UIState *s = uiState();
-  int w = width(), h = height();
+mat4 AnnotatedCameraWidget::getFrameMatrix() {
+  auto [w, h] = std::pair{glWidth(), glHeight()};
+  // Project point at "infinity" to compute x and y offsets
+  // to ensure this ends up in the middle of the screen
+  // for narrow come and a little lower for wide cam.
+  // TODO: use proper perspective transform?
+  double zoom = active_stream_type == VISION_STREAM_ROAD ? 2.0 : 1.1;
+  mat3 intrinsic_matrix = active_stream_type == VISION_STREAM_ROAD ? FCAM_INTRINSIC_MATRIX : ECAM_INTRINSIC_MATRIX;
+  const vec3 inf = {{1000., 0., 0.}};
+  const vec3 Ep = matvecmul3(calibration, inf);
+  const vec3 Kep = matvecmul3(intrinsic_matrix, Ep);
 
-  s->fb_w = w;
-  s->fb_h = h;
+  float x_offset = (Kep.v[0] / Kep.v[2] - intrinsic_matrix.v[2]) * zoom;
+  float y_offset = (Kep.v[1] / Kep.v[2] - intrinsic_matrix.v[5]) * zoom;
+
+  float max_x_offset = intrinsic_matrix.v[2] * zoom - w / 2 - 5;
+  float max_y_offset = intrinsic_matrix.v[5] * zoom - h / 2 - 5;
+
+  x_offset = std::clamp(x_offset, -max_x_offset, max_x_offset);
+  y_offset = std::clamp(y_offset, -max_y_offset, max_y_offset);
+
+  float zx = zoom * 2 * intrinsic_matrix.v[2] / w;
+  float zy = zoom * 2 * intrinsic_matrix.v[5] / h;
+
+  UIState *s = uiState();
+  s->fb_w = width();
+  s->fb_h = height();
 
   // Apply transformation such that video pixel coordinates match video
   // 1) Put (0, 0) in the middle of the video
@@ -148,6 +169,13 @@ void AnnotatedCameraWidget::updateFrameMat() {
   s->car_space_transform.translate(w / 2 - x_offset, h / 2 - y_offset)
       .scale(zoom, zoom)
       .translate(-intrinsic_matrix.v[2], -intrinsic_matrix.v[5]);
+
+  return mat4{{
+    zx, 0.0, 0.0, -x_offset / w * 2,
+    0.0, zy, 0.0, y_offset / h * 2,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0,
+  }};
 }
 
 void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s) {
@@ -325,10 +353,9 @@ void AnnotatedCameraWidget::paintGL() {
 
     s->scene.wide_cam = CameraWidget::getStreamType() == VISION_STREAM_WIDE_ROAD;
     if (s->scene.calibration_valid) {
-      auto calib = s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib;
-      CameraWidget::updateCalibration(calib);
+      calibration = s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib;
     } else {
-      CameraWidget::updateCalibration(DEFAULT_CALIBRATION);
+      calibration = DEFAULT_CALIBRATION;
     }
     CameraWidget::setFrameId(model.getFrameId());
     CameraWidget::paintGL();
