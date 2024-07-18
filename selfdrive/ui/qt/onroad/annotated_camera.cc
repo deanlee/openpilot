@@ -318,18 +318,10 @@ void AnnotatedCameraWidget::paintGL() {
         wide_cam_requested = false;
       }
       wide_cam_requested = wide_cam_requested && sm["controlsState"].getControlsState().getExperimentalMode();
-      // for replay of old routes, never go to widecam
-      wide_cam_requested = wide_cam_requested && s->scene.calibration_wide_valid;
     }
     CameraWidget::setStreamType(wide_cam_requested ? VISION_STREAM_WIDE_ROAD : VISION_STREAM_ROAD);
 
-    s->scene.wide_cam = CameraWidget::getStreamType() == VISION_STREAM_WIDE_ROAD;
-    if (s->scene.calibration_valid) {
-      auto calib = s->scene.wide_cam ? s->scene.view_from_wide_calib : s->scene.view_from_calib;
-      CameraWidget::updateCalibration(calib);
-    } else {
-      CameraWidget::updateCalibration(DEFAULT_CALIBRATION);
-    }
+    s->scene.calibration.setWideFrame(CameraWidget::getStreamType() == VISION_STREAM_WIDE_ROAD);
     CameraWidget::setFrameId(model.getFrameId());
     CameraWidget::paintGL();
   }

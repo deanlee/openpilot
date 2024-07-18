@@ -82,13 +82,6 @@ protected:
   std::set<VisionStreamType> available_streams;
   QThread *vipc_thread = nullptr;
 
-  // Calibration
-  float x_offset = 0;
-  float y_offset = 0;
-  float zoom = 1.0;
-  mat3 calibration = DEFAULT_CALIBRATION;
-  mat3 intrinsic_matrix = FCAM_INTRINSIC_MATRIX;
-
   std::recursive_mutex frame_lock;
   std::deque<std::pair<uint32_t, VisionBuf*>> frames;
   uint32_t draw_frame_id = 0;
