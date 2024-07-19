@@ -57,6 +57,7 @@ protected:
   virtual void updateFrameMat();
   void updateCalibration(const mat3 &calib);
   void vipcThread();
+  void ensureConnection();
   void clearFrames();
 
   int glWidth();

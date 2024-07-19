@@ -385,34 +385,35 @@ void CameraWidget::vipcFrameReceived() {
   update();
 }
 
+bool CameraWidget::ensureConnection() {
+  // Reconnect if the client is not initialized or the stream type has changed
+  if (!vipc_client || vipc_client->type != requested_stream_type) {
+    qDebug() << "connecting to stream" << requested_stream_type;
+    vipc_client.reset(new VisionIpcClient(stream_name, requested_stream_type, false));
+  }
+
+  active_stream_type = requested_stream_type;
+  // Re-establish connection if not connected
+  if (!vipc_client->connected) {
+    clearFrames();
+    available_streams = VisionIpcClient::getAvailableStreams(stream_name, false);
+    if (available_streams.empty() || !vipc_client->connect(false)) {
+      return false;
+    }
+    emit vipcAvailableStreamsUpdated();
+    emit vipcThreadConnected(vipc_client.get());
+  }
+  return true;
+}
+
 void CameraWidget::vipcThread() {
-  VisionStreamType cur_stream = requested_stream_type;
   std::unique_ptr<VisionIpcClient> vipc_client;
   VisionIpcBufExtra meta_main = {0};
 
   while (!QThread::currentThread()->isInterruptionRequested()) {
-    if (!vipc_client || cur_stream != requested_stream_type) {
-      clearFrames();
-      qDebug().nospace() << "connecting to stream " << requested_stream_type << ", was connected to " << cur_stream;
-      cur_stream = requested_stream_type;
-      vipc_client.reset(new VisionIpcClient(stream_name, cur_stream, false));
-    }
-    active_stream_type = cur_stream;
-
-    if (!vipc_client->connected) {
-      clearFrames();
-      auto streams = VisionIpcClient::getAvailableStreams(stream_name, false);
-      if (streams.empty()) {
-        QThread::msleep(100);
-        continue;
-      }
-      emit vipcAvailableStreamsUpdated(streams);
-
-      if (!vipc_client->connect(false)) {
-        QThread::msleep(100);
-        continue;
-      }
-      emit vipcThreadConnected(vipc_client.get());
+    if (!ensureConnection()) {
+      QThread::msleep(100);
+      continue;
     }
 
     if (VisionBuf *buf = vipc_client->recv(&meta_main, 1000)) {
