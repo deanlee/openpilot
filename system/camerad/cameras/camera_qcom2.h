@@ -51,7 +51,6 @@ class CameraState {
 public:
   MultiCameraState *multi_cam_state = nullptr;
   std::unique_ptr<const SensorInfo> ci;
-  bool enabled = true;
   VisionStreamType stream_type;
   const char *publish_name = nullptr;
   cereal::FrameData::Builder (cereal::Event::Builder::*init_camera_state)() = nullptr;
