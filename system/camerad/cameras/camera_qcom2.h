@@ -88,7 +88,7 @@ public:
 private:
   bool openSensor();
   void configISP();
-  void configCSIPHY();
+  bool configCSIPHY();
   void linkDevices();
 
   // for debugging

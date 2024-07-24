@@ -589,44 +589,61 @@ void CameraState::configISP() {
   config_isp(0, 0, 1, buf0_handle, 0);
 }
 
-void CameraState::configCSIPHY() {
+bool CameraState::configCSIPHY() {
+  // Open CSIPHY device
   csiphy_fd = open_v4l_by_name_and_index("cam-csiphy-driver", camera_num);
-  assert(csiphy_fd >= 0);
-  LOGD("opened csiphy for %d", camera_num);
-
-  struct cam_csiphy_acquire_dev_info csiphy_acquire_dev_info = {.combo_mode = 0};
-  auto csiphy_dev_handle_ = device_acquire(csiphy_fd, session_handle, &csiphy_acquire_dev_info);
-  assert(csiphy_dev_handle_);
-  csiphy_dev_handle = *csiphy_dev_handle_;
-  LOGD("acquire csiphy dev");
-
-  // config csiphy
-  LOG("-- Config CSI PHY");
-  {
-    uint32_t cam_packet_handle = 0;
-    int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1;
-    auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-    pkt->num_cmd_buf = 1;
-    pkt->kmd_cmd_buf_index = -1;
-    pkt->header.size = size;
-    struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
-
-    buf_desc[0].size = buf_desc[0].length = sizeof(struct cam_csiphy_info);
-    buf_desc[0].type = CAM_CMD_BUF_GENERIC;
-
-    auto csiphy_info = mm.alloc<struct cam_csiphy_info>(buf_desc[0].size, (uint32_t*)&buf_desc[0].mem_handle);
-    csiphy_info->lane_mask = 0x1f;
-    csiphy_info->lane_assign = 0x3210;// skip clk. How is this 16 bit for 5 channels??
-    csiphy_info->csiphy_3phase = 0x0; // no 3 phase, only 2 conductors per lane
-    csiphy_info->combo_mode = 0x0;
-    csiphy_info->lane_cnt = 0x4;
-    csiphy_info->secure_mode = 0x0;
-    csiphy_info->settle_time = MIPI_SETTLE_CNT * 200000000ULL;
-    csiphy_info->data_rate = 48000000;  // Calculated by camera_freqs.py
-
-    int ret_ = device_config(csiphy_fd, session_handle, csiphy_dev_handle, cam_packet_handle);
-    assert(ret_ == 0);
+  if (csiphy_fd < 0) {
+    LOGE("Failed to open CSIPHY for %d", camera_num);
+    return false;
   }
+
+  // Acquire CSIPHY device
+  cam_csiphy_acquire_dev_info acquire_info = {.combo_mode = 0};
+  auto csiphy_dev = device_acquire(csiphy_fd, session_handle, &acquire_info);
+  if (!csiphy_dev) {
+    LOGE("Failed to acquire CSIPHY device");
+    return false;
+  }
+  csiphy_dev_handle = *csiphy_dev;
+
+  // Configure CSIPHY
+  uint32_t packet_handle = 0;
+  int packet_size = sizeof(struct cam_packet) + sizeof(struct cam_cmd_buf_desc);
+  auto pkt = mm.alloc<struct cam_packet>(packet_size, &packet_handle);
+  *pkt = {
+    .num_cmd_buf = 1,
+    .kmd_cmd_buf_index = -1,
+    .header.size = packet_size,
+  };
+
+  auto buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
+  *buf_desc = {
+    .size = sizeof(struct cam_csiphy_info),
+    .length = sizeof(struct cam_csiphy_info),
+    .type = CAM_CMD_BUF_GENERIC,
+  };
+
+  // Fill CSIPHY info
+  auto csiphy_info = mm.alloc<struct cam_csiphy_info>(buf_desc[0].size, (uint32_t *)&buf_desc[0].mem_handle);
+  *csiphy_info = {
+    .lane_mask = 0x1f,
+    .lane_assign = 0x3210,  // skip clk. How is this 16 bit for 5 channels??
+    .csiphy_3phase = 0x0,   // no 3 phase, only 2 conductors per lane
+    .combo_mode = 0x0,
+    .lane_cnt = 0x4,
+    .secure_mode = 0x0,
+    .settle_time = MIPI_SETTLE_CNT * 200000000ULL,
+    .data_rate = 48000000,  // Calculated by camera_freqs.py
+  };
+
+  // Send configuration
+  int ret = device_config(csiphy_fd, session_handle, csiphy_dev_handle, packet_handle);
+  if (ret != 0) {
+    LOGE("Failed to configure CSIPHY: %d", ret);
+    return false;
+  }
+
+  return true;
 }
 
 void CameraState::linkDevices() {
