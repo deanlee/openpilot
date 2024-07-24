@@ -39,30 +39,26 @@ I2CBus::~I2CBus() {
 int I2CBus::read_register(uint8_t device_address, uint register_address, uint8_t *buffer, uint8_t len) {
   std::lock_guard lk(m);
 
-  int ret = 0;
+  int ret = HANDLE_EINTR(ioctl(i2c_fd, I2C_SLAVE, device_address));
+  if (ret < 0) return ret;
 
-  ret = HANDLE_EINTR(ioctl(i2c_fd, I2C_SLAVE, device_address));
-  if (ret < 0) { goto fail; }
+  do {
+    ret = i2c_smbus_read_i2c_block_data(i2c_fd, register_address, len, buffer);
+  } while (ret == -EINTR);
 
-  ret = i2c_smbus_read_i2c_block_data(i2c_fd, register_address, len, buffer);
-  if ((ret < 0) || (ret != len)) { goto fail; }
-
-fail:
   return ret;
 }
 
 int I2CBus::set_register(uint8_t device_address, uint register_address, uint8_t data) {
   std::lock_guard lk(m);
 
-  int ret = 0;
+  int ret = HANDLE_EINTR(ioctl(i2c_fd, I2C_SLAVE, device_address));
+  if (ret < 0) return ret;
 
-  ret = HANDLE_EINTR(ioctl(i2c_fd, I2C_SLAVE, device_address));
-  if (ret < 0) { goto fail; }
+  do {
+    ret = i2c_smbus_write_byte_data(i2c_fd, register_address, data);
+  } while (ret == -EINTR);
 
-  ret = i2c_smbus_write_byte_data(i2c_fd, register_address, data);
-  if (ret < 0) { goto fail; }
-
-fail:
   return ret;
 }
 
