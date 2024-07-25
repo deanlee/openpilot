@@ -19,11 +19,11 @@ const uint32_t SWAGLOG_NO_FRAME_ID = std::numeric_limits<uint32_t>::max();
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
                 bool log_timestamp, uint32_t frame_id, const char* fmt, ...) SWAG_LOG_CHECK_FMT(7, 8);
 
-#define cloudlog(lvl, fmt, ...) cloudlog_e(lvl, __FILE__, __LINE__, \
-                                           __func__, false, SWAGLOG_NO_FRAME_ID, fmt, ## __VA_ARGS__)
+#define cloudlog(lvl, fmt, ...) cloudlog_e(lvl, __FILE__, __LINE__, __func__, \
+                                           false, SWAGLOG_NO_FRAME_ID, fmt, ## __VA_ARGS__)
 
 #define cloudlog_t(lvl, frame_id, fmt, ...) cloudlog_e(lvl, __FILE__, __LINE__, __func__, \
-                                                        frame_id, fmt, true, frame_id, ## __VA_ARGS__)
+                                                       true, frame_id, fmt, ## __VA_ARGS__)
 
 
 #define cloudlog_rl(burst, millis, lvl, fmt, ...)   \

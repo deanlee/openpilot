@@ -1,3 +1,7 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include "common/swaglog.h"
 
 #include <cassert>
@@ -112,14 +116,14 @@ void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func
 
   json11::Json::object tspt_j;
   if (log_timestamp) {
-    tspt_j = json11::Json::object{
+    json11::Json::object time_info = {
         {"event", msg_buf},
         {"time", std::to_string(nanos_since_boot())},
     };
     if (frame_id < SWAGLOG_NO_FRAME_ID) {
       tspt_j["frame_id"] = std::to_string(frame_id);
     }
-    tspt_j = json11::Json::object{{"timestamp", tspt_j}};
+    tspt_j = json11::Json::object{{"timestamp", time_info}};
   }
 
   cloudlog_common(levelnum, filename, lineno, func, msg_buf, tspt_j);
