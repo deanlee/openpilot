@@ -484,11 +484,7 @@ bool CameraState::openSensor() {
 
   auto init_sensor_lambda = [this](SensorInfo *sensor) {
     ci.reset(sensor);
-    int ret = sensors_init();
-    if (ret == 0) {
-      sensor_set_parameters();
-    }
-    return ret == 0;
+    return sensors_init();
   };
 
   // Try different sensors one by one until it success.
@@ -498,6 +494,7 @@ bool CameraState::openSensor() {
     LOGE("** sensor %d FAILED bringup, disabling", camera_num);
     return false;
   }
+  sensor_set_parameters();
   LOGD("-- Probing sensor %d success", camera_num);
 
   // create session
@@ -732,7 +729,6 @@ CameraState::~CameraState() {
     release(multi_cam_state->video0_fd, buf_handle[i]);
   }
 
-  LOGD("released buffers");
   ret = device_control(sensor_fd, CAM_RELEASE_DEV, session_handle, sensor_dev_handle);
   LOGD("release sensor: %d", ret);
 
@@ -937,7 +933,7 @@ void CameraState::run() {
     // Send the message
     multi_cam_state->pm->send(publish_name, msg);
     if (stream_type == VISION_STREAM_ROAD && cnt % 100 == 3) {
-      publish_thumbnail(multi_cam_state->pm, &buf);  // this takes 10ms???
+      publish_thumbnail(multi_cam_state->pm.get(), &buf);  // this takes 10ms???
     }
   }
 }
