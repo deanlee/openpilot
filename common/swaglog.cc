@@ -5,7 +5,6 @@
 #include "common/swaglog.h"
 
 #include <cassert>
-#include <limits>
 #include <mutex>
 #include <string>
 
@@ -79,10 +78,9 @@ public:
 };
 
 bool LOG_TIMESTAMPS = getenv("LOG_TIMESTAMPS");
-uint32_t NO_FRAME_ID = std::numeric_limits<uint32_t>::max();
 
 static void cloudlog_common(int levelnum, const char* filename, int lineno, const char* func,
-                            char* msg_buf, const json11::Json::object &msg_j={}) {
+                            char* msg_buf, const json11::Json::object &msg_j) {
   static SwaglogState s;
 
   json11::Json::object log_j = json11::Json::object {
@@ -103,50 +101,31 @@ static void cloudlog_common(int levelnum, const char* filename, int lineno, cons
   log_s += (char)levelnum;
   ((json11::Json)log_j).dump(log_s);
   s.log(levelnum, filename, lineno, func, msg_buf, log_s);
-
-  free(msg_buf);
 }
 
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
-                const char* fmt, ...) {
+                bool log_timestamp, uint32_t frame_id, const char* fmt, ...) {
+  if (log_timestamp && !LOG_TIMESTAMPS) return;
+
   va_list args;
   va_start(args, fmt);
   char* msg_buf = nullptr;
   int ret = vasprintf(&msg_buf, fmt, args);
   va_end(args);
   if (ret <= 0 || !msg_buf) return;
-  cloudlog_common(levelnum, filename, lineno, func, msg_buf);
-}
 
-void cloudlog_t_common(int levelnum, const char* filename, int lineno, const char* func,
-                       uint32_t frame_id, const char* fmt, va_list args) {
-  if (!LOG_TIMESTAMPS) return;
-  char* msg_buf = nullptr;
-  int ret = vasprintf(&msg_buf, fmt, args);
-  if (ret <= 0 || !msg_buf) return;
-  json11::Json::object tspt_j = json11::Json::object{
-    {"event", msg_buf},
-    {"time", std::to_string(nanos_since_boot())}
-  };
-  if (frame_id < NO_FRAME_ID) {
-    tspt_j["frame_id"] = std::to_string(frame_id);
+  json11::Json::object tspt_j;
+  if (log_timestamp) {
+    tspt_j = json11::Json::object{
+        {"event", msg_buf},
+        {"time", std::to_string(nanos_since_boot())},
+    };
+    if (frame_id < SWAGLOG_NO_FRAME_ID) {
+      tspt_j["frame_id"] = std::to_string(frame_id);
+    }
+    tspt_j = json11::Json::object{{"timestamp", tspt_j}};
   }
-  tspt_j = json11::Json::object{{"timestamp", tspt_j}};
+
   cloudlog_common(levelnum, filename, lineno, func, msg_buf, tspt_j);
-}
-
-
-void cloudlog_te(int levelnum, const char* filename, int lineno, const char* func,
-                 const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  cloudlog_t_common(levelnum, filename, lineno, func, NO_FRAME_ID, fmt, args);
-  va_end(args);
-}
-void cloudlog_te(int levelnum, const char* filename, int lineno, const char* func,
-                 uint32_t frame_id, const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  cloudlog_t_common(levelnum, filename, lineno, func, frame_id, fmt, args);
-  va_end(args);
+  free(msg_buf);
 }
