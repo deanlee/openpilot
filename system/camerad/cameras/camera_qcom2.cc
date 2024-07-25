@@ -458,6 +458,8 @@ void CameraState::camera_init(VisionIpcServer * v, cl_device_id device_id, cl_co
 
   fl_pix = focal_len / ci->pixel_size_mm;
   set_exposure_rect();
+
+  thread = std::thread(&CameraState::run, this);
 }
 
 void CameraState::camera_open() {
@@ -646,7 +648,7 @@ void CameraState::linkDevices() {
   //LOGD("start sensor: %d", ret);
 }
 
-void MultiCameraState::init() {
+void MultiCameraState::initializeCameraDevices() {
   LOG("-- Opening devices");
   // video0 is req_mgr, the target of many ioctls
   video0_fd = HANDLE_EINTR(open("/dev/v4l/by-path/platform-soc:qcom_cam-req-mgr-video-index0", O_RDWR | O_NONBLOCK));
@@ -687,6 +689,11 @@ void MultiCameraState::init() {
 }
 
 void CameraState::camera_close() {
+  // Stop thread;
+  if (thread.joinable()) {
+    thread.join();
+  }
+
   // stop devices
   LOG("-- Stop devices %d", camera_num);
 
@@ -936,7 +943,7 @@ void CameraState::run() {
 }
 
 MultiCameraState::MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx) {
-  init();
+  initializeCameraDevices();
 
   for (const auto &camera_config : ALL_CAMERAS) {
     if (camera_config.enabled) {
@@ -944,21 +951,19 @@ MultiCameraState::MultiCameraState(VisionIpcServer *v, cl_device_id device_id, c
       camera->camera_open();
       camera->camera_init(v, device_id, ctx);
       LOGD("camera %d opened", camera_config.camera_num);
-
-      camera_threads.emplace_back(&CameraState::run, camera.get());
-      LOG("-- Starting devices");
-      camera->sensors_start();
     }
   }
+
+  for (auto &camera : cameras) {
+    LOG("-- Starting devices");
+    camera->sensors_start();
+  }
+
   pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
 }
 
 MultiCameraState::~MultiCameraState() {
   LOG(" ************** STOPPING **************");
-  for (auto &thread : camera_threads) {
-    thread.join();
-  }
-
   for (auto &camera : cameras) {
     camera->camera_close();
   }

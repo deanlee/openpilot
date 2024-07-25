@@ -60,6 +60,7 @@ public:
   float focal_len = 0;
 
   std::mutex exp_lock;
+  std::thread thread;
 
   int exposure_time = 5;
   bool dc_gain_enabled = false;
@@ -139,7 +140,7 @@ class MultiCameraState {
 public:
   MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   ~MultiCameraState();
-  void init();
+  void initializeCameraDevices();
 
   unique_fd video0_fd;
   unique_fd cam_sync_fd;
@@ -149,5 +150,4 @@ public:
 
   PubMaster *pm;
   std::vector<std::unique_ptr<CameraState>> cameras;
-  std::vector<std::thread> camera_threads;
 };
