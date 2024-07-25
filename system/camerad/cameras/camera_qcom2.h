@@ -84,6 +84,7 @@ public:
   float fl_pix = 0;
 
   CameraState(MultiCameraState *multi_camera_state, const CameraConfig &config);
+  ~CameraState();
   void handle_camera_event(void *evdat);
   void update_exposure_score(float desired_ev, int exp_t, int exp_g_idx, float exp_gain);
   void set_camera_exposure(float grey_frac);
@@ -139,7 +140,6 @@ private:
 class MultiCameraState {
 public:
   MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
-  ~MultiCameraState();
   void initializeCameraDevices();
 
   unique_fd video0_fd;
@@ -148,6 +148,6 @@ public:
   int device_iommu = -1;
   int cdm_iommu = -1;
 
-  PubMaster *pm;
+  std::unique_ptr<PubMaster> pm;
   std::vector<std::unique_ptr<CameraState>> cameras;
 };

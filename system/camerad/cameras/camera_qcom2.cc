@@ -9,7 +9,6 @@
 #include <cmath>
 #include <cstring>
 #include <string>
-#include <vector>
 
 #include "media/cam_defs.h"
 #include "media/cam_isp.h"
@@ -689,7 +688,7 @@ void MultiCameraState::initializeCameraDevices() {
   LOGD("req mgr subscribe: %d", ret);
 }
 
-void CameraState::camera_close() {
+CameraState::~CameraState() {
   // Stop thread;
   if (thread.joinable()) {
     thread.join();
@@ -959,19 +958,10 @@ MultiCameraState::MultiCameraState(VisionIpcServer *v, cl_device_id device_id, c
     camera->sensors_start();
   }
 
-  pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
-}
-
-MultiCameraState::~MultiCameraState() {
-  LOG(" ************** STOPPING **************");
-  for (auto &camera : cameras) {
-    camera->camera_close();
-  }
-  delete pm;
+  pm.reset(new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"}));
 }
 
 void cameras_run(MultiCameraState *s) {
-  LOG("-- Dequeueing Video events");
   while (!do_exit) {
     struct pollfd fds[1] = {{0}};
 
