@@ -8,14 +8,13 @@
 #define CLOUDLOG_WARNING 30
 #define CLOUDLOG_ERROR 40
 #define CLOUDLOG_CRITICAL 50
+const uint32_t SWAGLOG_NO_FRAME_ID = std::numeric_limits<uint32_t>::max();
 
 #ifdef __GNUC__
 #define SWAG_LOG_CHECK_FMT(a, b) __attribute__ ((format (printf, a, b)))
 #else
 #define SWAG_LOG_CHECK_FMT(a, b)
 #endif
-
-const uint32_t SWAGLOG_NO_FRAME_ID = std::numeric_limits<uint32_t>::max();
 
 void cloudlog_e(int levelnum, const char* filename, int lineno, const char* func,
                 bool log_timestamp, uint32_t frame_id, const char* fmt, ...) SWAG_LOG_CHECK_FMT(7, 8);

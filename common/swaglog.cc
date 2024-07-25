@@ -1,7 +1,3 @@
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include "common/swaglog.h"
 
 #include <cassert>
@@ -80,7 +76,7 @@ public:
 bool LOG_TIMESTAMPS = getenv("LOG_TIMESTAMPS");
 
 static void cloudlog_common(int levelnum, const char* filename, int lineno, const char* func,
-                            char* msg_buf, const json11::Json::object &msg_j) {
+                            char* msg_buf, const json11::Json::object &msg_j={}) {
   static SwaglogState s;
 
   json11::Json::object log_j = json11::Json::object {
