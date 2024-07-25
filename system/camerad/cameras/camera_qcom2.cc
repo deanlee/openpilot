@@ -27,11 +27,12 @@ const int MIPI_SETTLE_CNT = 33;  // Calculated by camera_freqs.py
 extern ExitHandler do_exit;
 
 int CameraState::clear_req_queue() {
-  struct cam_req_mgr_flush_info req_mgr_flush_request = {0};
-  req_mgr_flush_request.session_hdl = session_handle;
-  req_mgr_flush_request.link_hdl = link_handle;
-  req_mgr_flush_request.flush_type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
-  int ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_FLUSH_REQ, &req_mgr_flush_request, sizeof(req_mgr_flush_request));
+  cam_req_mgr_flush_info flush_req {
+    .session_hdl = session_handle,
+    .link_hdl = link_handle,
+    .flush_type = CAM_REQ_MGR_FLUSH_TYPE_ALL,
+  };
+  int ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_FLUSH_REQ, &flush_req, sizeof(flush_req));
   // LOGD("flushed all req: %d", ret);
   return ret;
 }
@@ -48,11 +49,15 @@ void CameraState::sensors_poke(int request_id) {
   uint32_t cam_packet_handle = 0;
   int size = sizeof(struct cam_packet);
   auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-  pkt->num_cmd_buf = 0;
-  pkt->kmd_cmd_buf_index = -1;
-  pkt->header.size = size;
-  pkt->header.op_code = CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP;
-  pkt->header.request_id = request_id;
+  *pkt = {
+    .num_cmd_buf = 0,
+    .kmd_cmd_buf_index = -1,
+    .header = {
+      .size = size,
+      .op_code = CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP,
+      .request_id = request_id,
+    },
+  };
 
   int ret = device_config(sensor_fd, session_handle, sensor_dev_handle, cam_packet_handle);
   if (ret != 0) {
@@ -67,21 +72,29 @@ void CameraState::sensors_i2c(const struct i2c_random_wr_payload* dat, int len, 
   uint32_t cam_packet_handle = 0;
   int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1;
   auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-  pkt->num_cmd_buf = 1;
-  pkt->kmd_cmd_buf_index = -1;
-  pkt->header.size = size;
-  pkt->header.op_code = op_code;
+  *pkt = {
+    .num_cmd_buf = 1,
+    .kmd_cmd_buf_index = -1,
+    .header = {
+      .size = size,
+      .op_code = op_code
+    },
+  };
   struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
 
   buf_desc[0].size = buf_desc[0].length = sizeof(struct i2c_rdwr_header) + len*sizeof(struct i2c_random_wr_payload);
   buf_desc[0].type = CAM_CMD_BUF_I2C;
 
   auto i2c_random_wr = mm.alloc<struct cam_cmd_i2c_random_wr>(buf_desc[0].size, (uint32_t*)&buf_desc[0].mem_handle);
-  i2c_random_wr->header.count = len;
-  i2c_random_wr->header.op_code = 1;
-  i2c_random_wr->header.cmd_type = CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR;
-  i2c_random_wr->header.data_type = data_word ? CAMERA_SENSOR_I2C_TYPE_WORD : CAMERA_SENSOR_I2C_TYPE_BYTE;
-  i2c_random_wr->header.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+  *i2c_random_wr = {
+    .header = {
+      .count = len,
+      .op_code = 1,
+      .cmd_type = CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR,
+      .data_type = data_word ? CAMERA_SENSOR_I2C_TYPE_WORD : CAMERA_SENSOR_I2C_TYPE_BYTE,
+      .addr_type = CAMERA_SENSOR_I2C_TYPE_WORD,
+    },
+  };
   memcpy(i2c_random_wr->random_wr_payload, dat, len*sizeof(struct i2c_random_wr_payload));
 
   int ret = device_config(sensor_fd, session_handle, sensor_dev_handle, cam_packet_handle);
@@ -437,11 +450,12 @@ void CameraState::sensor_set_parameters() {
 void CameraState::camera_map_bufs(MultiCameraState *s) {
   for (int i = 0; i < FRAME_BUF_COUNT; i++) {
     // configure ISP to put the image in place
-    struct cam_mem_mgr_map_cmd mem_mgr_map_cmd = {0};
-    mem_mgr_map_cmd.mmu_hdls[0] = s->device_iommu;
-    mem_mgr_map_cmd.num_hdl = 1;
-    mem_mgr_map_cmd.flags = CAM_MEM_FLAG_HW_READ_WRITE;
-    mem_mgr_map_cmd.fd = buf.camera_bufs[i].fd;
+    struct cam_mem_mgr_map_cmd mem_mgr_map_cmd = {
+      .mmu_hdls = {s->device_iommu},
+      .num_hdl = 1,
+      .flags = CAM_MEM_FLAG_HW_READ_WRITE,
+      .fd = buf.camera_bufs[i].fd,
+    };
     int ret = do_cam_control(s->video0_fd, CAM_REQ_MGR_MAP_BUF, &mem_mgr_map_cmd, sizeof(mem_mgr_map_cmd));
     LOGD("map buf req: (fd: %d) 0x%x %d", buf.camera_bufs[i].fd, mem_mgr_map_cmd.out.buf_handle, ret);
     buf_handle[i] = mem_mgr_map_cmd.out.buf_handle;
@@ -687,10 +701,11 @@ void cameras_open(MultiCameraState *s) {
   // query icp for MMU handles
   LOG("-- Query ICP for MMU handles");
   struct cam_isp_query_cap_cmd isp_query_cap_cmd = {0};
-  struct cam_query_cap_cmd query_cap_cmd = {0};
-  query_cap_cmd.handle_type = 1;
-  query_cap_cmd.caps_handle = (uint64_t)&isp_query_cap_cmd;
-  query_cap_cmd.size = sizeof(isp_query_cap_cmd);
+  struct cam_query_cap_cmd query_cap_cmd = {
+    .handle_type = 1,
+    .caps_handle = (uint64_t)&isp_query_cap_cmd,
+    .size = sizeof(isp_query_cap_cmd)
+  };
   int ret = do_cam_control(s->isp_fd, CAM_QUERY_CAP, &query_cap_cmd, sizeof(query_cap_cmd));
   assert(ret == 0);
   LOGD("using MMU handle: %x", isp_query_cap_cmd.device_iommu.non_secure);
@@ -727,19 +742,21 @@ void CameraState::camera_close() {
     LOGD("stop csiphy: %d", ret);
     // link control stop
     LOG("-- Stop link control");
-    struct cam_req_mgr_link_control req_mgr_link_control = {0};
-    req_mgr_link_control.ops = CAM_REQ_MGR_LINK_DEACTIVATE;
-    req_mgr_link_control.session_hdl = session_handle;
-    req_mgr_link_control.num_links = 1;
-    req_mgr_link_control.link_hdls[0] = link_handle;
+    struct cam_req_mgr_link_control req_mgr_link_control = {
+      .ops = CAM_REQ_MGR_LINK_DEACTIVATE,
+      .session_hdl = session_handle,
+      .num_links = 1,
+      .link_hdls = {link_handle},
+    };
     ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
     LOGD("link control stop: %d", ret);
 
     // unlink
     LOG("-- Unlink");
-    struct cam_req_mgr_unlink_info req_mgr_unlink_info = {0};
-    req_mgr_unlink_info.session_hdl = session_handle;
-    req_mgr_unlink_info.link_hdl = link_handle;
+    struct cam_req_mgr_unlink_info req_mgr_unlink_info = {
+      .session_hdl = session_handle,
+      .link_hdl = link_handle,
+    }
     ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_UNLINK, &req_mgr_unlink_info, sizeof(req_mgr_unlink_info));
     LOGD("unlink: %d", ret);
 
