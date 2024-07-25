@@ -90,7 +90,7 @@ public:
 
   void sensors_start();
 
-  void camera_open();
+  void camera_open(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   void set_exposure_rect();
   void sensor_set_parameters();
   void camera_map_bufs();

@@ -462,7 +462,7 @@ void CameraState::camera_init(VisionIpcServer * v, cl_device_id device_id, cl_co
   thread = std::thread(&CameraState::run, this);
 }
 
-void CameraState::camera_open() {
+void CameraState::camera_open(VisionIpcServer * v, cl_device_id device_id, cl_context ctx) {
   if (!openSensor()) {
     return;
   }
@@ -470,6 +470,7 @@ void CameraState::camera_open() {
   configISP();
   configCSIPHY();
   linkDevices();
+  camera_init(v, device_id, ctx);
 }
 
 bool CameraState::openSensor() {
@@ -948,14 +949,13 @@ MultiCameraState::MultiCameraState(VisionIpcServer *v, cl_device_id device_id, c
   for (const auto &camera_config : ALL_CAMERAS) {
     if (camera_config.enabled) {
       auto &camera = cameras.emplace_back(std::make_unique<CameraState>(this, camera_config));
-      camera->camera_open();
-      camera->camera_init(v, device_id, ctx);
+      camera->camera_open(v, device_id, ctx);
       LOGD("camera %d opened", camera_config.camera_num);
     }
   }
 
+  LOG("-- Starting cameras");
   for (auto &camera : cameras) {
-    LOG("-- Starting devices");
     camera->sensors_start();
   }
 
