@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "system/camerad/cameras/camera_common.h"
 #include "system/camerad/cameras/camera_util.h"
@@ -46,6 +47,8 @@ const CameraConfig DRIVER_CAMERA_CONFIG = {
   .init_camera_state = &cereal::Event::Builder::initDriverCameraState,
   .enabled = !getenv("DISABLE_DRIVER"),
 };
+
+const CameraConfig ALL_CAMERAS[] = {DRIVER_CAMERA_CONFIG, ROAD_CAMERA_CONFIG, WIDE_ROAD_CAMERA_CONFIG};
 
 class CameraState {
 public:
@@ -134,7 +137,9 @@ private:
 
 class MultiCameraState {
 public:
-  MultiCameraState();
+  MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+  ~MultiCameraState();
+  void init();
 
   unique_fd video0_fd;
   unique_fd cam_sync_fd;
@@ -142,9 +147,7 @@ public:
   int device_iommu = -1;
   int cdm_iommu = -1;
 
-  CameraState road_cam;
-  CameraState wide_road_cam;
-  CameraState driver_cam;
-
   PubMaster *pm;
+  std::vector<std::unique_ptr<CameraState>> cameras;
+  std::vector<std::thread> camera_threads;
 };

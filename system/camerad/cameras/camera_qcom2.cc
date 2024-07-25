@@ -32,8 +32,7 @@ CameraState::CameraState(MultiCameraState *multi_camera_state, const CameraConfi
     stream_type(config.stream_type),
     focal_len(config.focal_len),
     publish_name(config.publish_name),
-    init_camera_state(config.init_camera_state),
-    enabled(config.enabled) {
+    init_camera_state(config.init_camera_state) {
 }
 
 int CameraState::clear_req_queue() {
@@ -49,7 +48,6 @@ int CameraState::clear_req_queue() {
 // ************** high level camera helpers ****************
 
 void CameraState::sensors_start() {
-  if (!enabled) return;
   LOGD("starting sensor %d", camera_num);
   sensors_i2c(ci->start_reg_array.data(), ci->start_reg_array.size(), CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG, ci->data_word);
 }
@@ -67,7 +65,6 @@ void CameraState::sensors_poke(int request_id) {
   int ret = device_config(sensor_fd, session_handle, sensor_dev_handle, cam_packet_handle);
   if (ret != 0) {
     LOGE("** sensor %d FAILED poke, disabling", camera_num);
-    enabled = false;
     return;
   }
 }
@@ -97,7 +94,6 @@ void CameraState::sensors_i2c(const struct i2c_random_wr_payload* dat, int len, 
   int ret = device_config(sensor_fd, session_handle, sensor_dev_handle, cam_packet_handle);
   if (ret != 0) {
     LOGE("** sensor %d FAILED i2c, disabling", camera_num);
-    enabled = false;
     return;
   }
 }
@@ -456,8 +452,6 @@ void CameraState::camera_map_bufs() {
 }
 
 void CameraState::camera_init(VisionIpcServer * v, cl_device_id device_id, cl_context ctx) {
-  if (!enabled) return;
-
   LOGD("camera init %d", camera_num);
   buf.init(device_id, ctx, this, v, FRAME_BUF_COUNT, stream_type);
   camera_map_bufs();
@@ -467,8 +461,6 @@ void CameraState::camera_init(VisionIpcServer * v, cl_device_id device_id, cl_co
 }
 
 void CameraState::camera_open() {
-  if (!enabled) return;
-
   if (!openSensor()) {
     return;
   }
@@ -502,7 +494,6 @@ bool CameraState::openSensor() {
       !init_sensor_lambda(new OX03C10) &&
       !init_sensor_lambda(new OS04C10)) {
     LOGE("** sensor %d FAILED bringup, disabling", camera_num);
-    enabled = false;
     return false;
   }
   LOGD("-- Probing sensor %d success", camera_num);
@@ -526,10 +517,6 @@ bool CameraState::openSensor() {
 }
 
 void CameraState::configISP() {
-  // NOTE: to be able to disable road and wide road, we still have to configure the sensor over i2c
-  // If you don't do this, the strobe GPIO is an output (even in reset it seems!)
-  if (!enabled) return;
-
   struct cam_isp_in_port_info in_port_info = {
     .res_type = (uint32_t[]){CAM_ISP_IFE_IN_RES_PHY_0, CAM_ISP_IFE_IN_RES_PHY_1, CAM_ISP_IFE_IN_RES_PHY_2}[camera_num],
 
@@ -659,29 +646,21 @@ void CameraState::linkDevices() {
   //LOGD("start sensor: %d", ret);
 }
 
-void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_id, cl_context ctx) {
-  s->driver_cam.camera_init(v, device_id, ctx);
-  s->road_cam.camera_init(v, device_id, ctx);
-  s->wide_road_cam.camera_init(v, device_id, ctx);
-
-  s->pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
-}
-
-void cameras_open(MultiCameraState *s) {
+void MultiCameraState::init() {
   LOG("-- Opening devices");
   // video0 is req_mgr, the target of many ioctls
-  s->video0_fd = HANDLE_EINTR(open("/dev/v4l/by-path/platform-soc:qcom_cam-req-mgr-video-index0", O_RDWR | O_NONBLOCK));
-  assert(s->video0_fd >= 0);
+  video0_fd = HANDLE_EINTR(open("/dev/v4l/by-path/platform-soc:qcom_cam-req-mgr-video-index0", O_RDWR | O_NONBLOCK));
+  assert(video0_fd >= 0);
   LOGD("opened video0");
 
   // video1 is cam_sync, the target of some ioctls
-  s->cam_sync_fd = HANDLE_EINTR(open("/dev/v4l/by-path/platform-cam_sync-video-index0", O_RDWR | O_NONBLOCK));
-  assert(s->cam_sync_fd >= 0);
+  cam_sync_fd = HANDLE_EINTR(open("/dev/v4l/by-path/platform-cam_sync-video-index0", O_RDWR | O_NONBLOCK));
+  assert(cam_sync_fd >= 0);
   LOGD("opened video1 (cam_sync)");
 
   // looks like there's only one of these
-  s->isp_fd = open_v4l_by_name_and_index("cam-isp");
-  assert(s->isp_fd >= 0);
+  isp_fd = open_v4l_by_name_and_index("cam-isp");
+  assert(isp_fd >= 0);
   LOGD("opened isp");
 
   // query icp for MMU handles
@@ -691,72 +670,63 @@ void cameras_open(MultiCameraState *s) {
   query_cap_cmd.handle_type = 1;
   query_cap_cmd.caps_handle = (uint64_t)&isp_query_cap_cmd;
   query_cap_cmd.size = sizeof(isp_query_cap_cmd);
-  int ret = do_cam_control(s->isp_fd, CAM_QUERY_CAP, &query_cap_cmd, sizeof(query_cap_cmd));
+  int ret = do_cam_control(isp_fd, CAM_QUERY_CAP, &query_cap_cmd, sizeof(query_cap_cmd));
   assert(ret == 0);
   LOGD("using MMU handle: %x", isp_query_cap_cmd.device_iommu.non_secure);
   LOGD("using MMU handle: %x", isp_query_cap_cmd.cdm_iommu.non_secure);
-  s->device_iommu = isp_query_cap_cmd.device_iommu.non_secure;
-  s->cdm_iommu = isp_query_cap_cmd.cdm_iommu.non_secure;
+  device_iommu = isp_query_cap_cmd.device_iommu.non_secure;
+  cdm_iommu = isp_query_cap_cmd.cdm_iommu.non_secure;
 
   // subscribe
   LOG("-- Subscribing");
   struct v4l2_event_subscription sub = {0};
   sub.type = V4L_EVENT_CAM_REQ_MGR_EVENT;
   sub.id = V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS;
-  ret = HANDLE_EINTR(ioctl(s->video0_fd, VIDIOC_SUBSCRIBE_EVENT, &sub));
+  ret = HANDLE_EINTR(ioctl(video0_fd, VIDIOC_SUBSCRIBE_EVENT, &sub));
   LOGD("req mgr subscribe: %d", ret);
-
-  s->driver_cam.camera_open();
-  LOGD("driver camera opened");
-  s->road_cam.camera_open();
-  LOGD("road camera opened");
-  s->wide_road_cam.camera_open();
-  LOGD("wide road camera opened");
 }
 
 void CameraState::camera_close() {
   // stop devices
   LOG("-- Stop devices %d", camera_num);
 
-  if (enabled) {
-    // ret = device_control(sensor_fd, CAM_STOP_DEV, session_handle, sensor_dev_handle);
-    // LOGD("stop sensor: %d", ret);
-    int ret = device_control(multi_cam_state->isp_fd, CAM_STOP_DEV, session_handle, isp_dev_handle);
-    LOGD("stop isp: %d", ret);
-    ret = device_control(csiphy_fd, CAM_STOP_DEV, session_handle, csiphy_dev_handle);
-    LOGD("stop csiphy: %d", ret);
-    // link control stop
-    LOG("-- Stop link control");
-    struct cam_req_mgr_link_control req_mgr_link_control = {0};
-    req_mgr_link_control.ops = CAM_REQ_MGR_LINK_DEACTIVATE;
-    req_mgr_link_control.session_hdl = session_handle;
-    req_mgr_link_control.num_links = 1;
-    req_mgr_link_control.link_hdls[0] = link_handle;
-    ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
-    LOGD("link control stop: %d", ret);
+  // ret = device_control(sensor_fd, CAM_STOP_DEV, session_handle, sensor_dev_handle);
+  // LOGD("stop sensor: %d", ret);
+  int ret = device_control(multi_cam_state->isp_fd, CAM_STOP_DEV, session_handle, isp_dev_handle);
+  LOGD("stop isp: %d", ret);
+  ret = device_control(csiphy_fd, CAM_STOP_DEV, session_handle, csiphy_dev_handle);
+  LOGD("stop csiphy: %d", ret);
+  // link control stop
+  LOG("-- Stop link control");
+  struct cam_req_mgr_link_control req_mgr_link_control = {0};
+  req_mgr_link_control.ops = CAM_REQ_MGR_LINK_DEACTIVATE;
+  req_mgr_link_control.session_hdl = session_handle;
+  req_mgr_link_control.num_links = 1;
+  req_mgr_link_control.link_hdls[0] = link_handle;
+  ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
+  LOGD("link control stop: %d", ret);
 
-    // unlink
-    LOG("-- Unlink");
-    struct cam_req_mgr_unlink_info req_mgr_unlink_info = {0};
-    req_mgr_unlink_info.session_hdl = session_handle;
-    req_mgr_unlink_info.link_hdl = link_handle;
-    ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_UNLINK, &req_mgr_unlink_info, sizeof(req_mgr_unlink_info));
-    LOGD("unlink: %d", ret);
+  // unlink
+  LOG("-- Unlink");
+  struct cam_req_mgr_unlink_info req_mgr_unlink_info = {0};
+  req_mgr_unlink_info.session_hdl = session_handle;
+  req_mgr_unlink_info.link_hdl = link_handle;
+  ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_UNLINK, &req_mgr_unlink_info, sizeof(req_mgr_unlink_info));
+  LOGD("unlink: %d", ret);
 
-    // release devices
-    LOGD("-- Release devices");
-    ret = device_control(multi_cam_state->isp_fd, CAM_RELEASE_DEV, session_handle, isp_dev_handle);
-    LOGD("release isp: %d", ret);
-    ret = device_control(csiphy_fd, CAM_RELEASE_DEV, session_handle, csiphy_dev_handle);
-    LOGD("release csiphy: %d", ret);
+  // release devices
+  LOGD("-- Release devices");
+  ret = device_control(multi_cam_state->isp_fd, CAM_RELEASE_DEV, session_handle, isp_dev_handle);
+  LOGD("release isp: %d", ret);
+  ret = device_control(csiphy_fd, CAM_RELEASE_DEV, session_handle, csiphy_dev_handle);
+  LOGD("release csiphy: %d", ret);
 
-    for (int i = 0; i < FRAME_BUF_COUNT; i++) {
-      release(multi_cam_state->video0_fd, buf_handle[i]);
-    }
-    LOGD("released buffers");
+  for (int i = 0; i < FRAME_BUF_COUNT; i++) {
+    release(multi_cam_state->video0_fd, buf_handle[i]);
   }
 
-  int ret = device_control(sensor_fd, CAM_RELEASE_DEV, session_handle, sensor_dev_handle);
+  LOGD("released buffers");
+  ret = device_control(sensor_fd, CAM_RELEASE_DEV, session_handle, sensor_dev_handle);
   LOGD("release sensor: %d", ret);
 
   // destroyed session
@@ -765,16 +735,7 @@ void CameraState::camera_close() {
   LOGD("destroyed session %d: %d", camera_num, ret);
 }
 
-void cameras_close(MultiCameraState *s) {
-  s->driver_cam.camera_close();
-  s->road_cam.camera_close();
-  s->wide_road_cam.camera_close();
-
-  delete s->pm;
-}
-
 void CameraState::handle_camera_event(void *evdat) {
-  if (!enabled) return;
   struct cam_req_mgr_message *event_data = (struct cam_req_mgr_message *)evdat;
   assert(event_data->session_hdl == session_handle);
   assert(event_data->u.frame_msg.link_hdl == link_handle);
@@ -842,7 +803,6 @@ void CameraState::update_exposure_score(float desired_ev, int exp_t, int exp_g_i
 }
 
 void CameraState::set_camera_exposure(float grey_frac) {
-  if (!enabled) return;
   const float dt = 0.05;
 
   const float ts_grey = 10.0;
@@ -975,26 +935,37 @@ void CameraState::run() {
   }
 }
 
-MultiCameraState::MultiCameraState()
-  : driver_cam(this, DRIVER_CAMERA_CONFIG),
-    road_cam(this, ROAD_CAMERA_CONFIG),
-    wide_road_cam(this, WIDE_ROAD_CAMERA_CONFIG) {
+MultiCameraState::MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx) {
+  init();
+
+  for (const auto &camera_config : ALL_CAMERAS) {
+    if (camera_config.enabled) {
+      auto &camera = cameras.emplace_back(std::make_unique<CameraState>(this, camera_config));
+      camera->camera_open();
+      camera->camera_init(v, device_id, ctx);
+      LOGD("camera %d opened", camera_config.camera_num);
+
+      camera_threads.emplace_back(&CameraState::run, camera.get());
+      LOG("-- Starting devices");
+      camera->sensors_start();
+    }
+  }
+  pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
+}
+
+MultiCameraState::~MultiCameraState() {
+  LOG(" ************** STOPPING **************");
+  for (auto &thread : camera_threads) {
+    thread.join();
+  }
+
+  for (auto &camera : cameras) {
+    camera->camera_close();
+  }
+  delete pm;
 }
 
 void cameras_run(MultiCameraState *s) {
-  LOG("-- Starting threads");
-  std::vector<std::thread> threads;
-  if (s->driver_cam.enabled) threads.emplace_back(&CameraState::run, &s->driver_cam);
-  if (s->road_cam.enabled) threads.emplace_back(&CameraState::run, &s->road_cam);
-  if (s->wide_road_cam.enabled) threads.emplace_back(&CameraState::run, &s->wide_road_cam);
-
-  // start devices
-  LOG("-- Starting devices");
-  s->driver_cam.sensors_start();
-  s->road_cam.sensors_start();
-  s->wide_road_cam.sensors_start();
-
-  // poll events
   LOG("-- Dequeueing Video events");
   while (!do_exit) {
     struct pollfd fds[1] = {{0}};
@@ -1023,16 +994,11 @@ void cameras_run(MultiCameraState *s) {
 
         // for debugging
         //do_exit = do_exit || event_data->u.frame_msg.frame_id > (30*20);
-
-        if (event_data->session_hdl == s->road_cam.session_handle) {
-          s->road_cam.handle_camera_event(event_data);
-        } else if (event_data->session_hdl == s->wide_road_cam.session_handle) {
-          s->wide_road_cam.handle_camera_event(event_data);
-        } else if (event_data->session_hdl == s->driver_cam.session_handle) {
-          s->driver_cam.handle_camera_event(event_data);
-        } else {
-          LOGE("Unknown vidioc event source");
-          assert(false);
+        for (auto &camera : s->cameras) {
+          if (event_data->session_hdl == camera->session_handle) {
+            camera->handle_camera_event(event_data);
+            break;
+          }
         }
       } else {
         LOGE("unhandled event %d\n", ev.type);
@@ -1041,10 +1007,4 @@ void cameras_run(MultiCameraState *s) {
       LOGE("VIDIOC_DQEVENT failed, errno=%d", errno);
     }
   }
-
-  LOG(" ************** STOPPING **************");
-
-  for (auto &t : threads) t.join();
-
-  cameras_close(s);
 }
