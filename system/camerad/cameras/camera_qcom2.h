@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <utility>
-#include <vector>
 
 #include "system/camerad/cameras/camera_common.h"
 #include "system/camerad/cameras/camera_exposure.h"
@@ -108,7 +107,6 @@ private:
   void configCSIPHY();
   void linkDevices();
 
-  // for debugging
   std::unique_ptr<CameraExposure> exposure;
 };
 
