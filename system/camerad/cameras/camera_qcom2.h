@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "system/camerad/cameras/camera_common.h"
 #include "system/camerad/cameras/camera_util.h"
@@ -47,16 +48,14 @@ const CameraConfig DRIVER_CAMERA_CONFIG = {
   .enabled = !getenv("DISABLE_DRIVER"),
 };
 
-class CameraState {
+class CameraExposure {
 public:
-  MultiCameraState *multi_cam_state = nullptr;
-  std::unique_ptr<const SensorInfo> ci;
-  bool enabled = true;
-  VisionStreamType stream_type;
-  const char *publish_name = nullptr;
-  cereal::FrameData::Builder (cereal::Event::Builder::*init_camera_state)() = nullptr;
-  float focal_len = 0;
+  CameraExposure(int camera_num, const SensorInfo *sensor_info, int width, int height, float focal_len);
+  void updateFrameMetaData(FrameMetadata&meta_data);
+  void updateScore(float desired_ev, int exp_t, int exp_g_idx, float exp_gain);
+  std::vector<i2c_random_wr_payload> getExposureRegisters(const CameraBuf &buf, int x_skip, int y_skip);
 
+private:
   std::mutex exp_lock;
 
   int exposure_time = 5;
@@ -73,23 +72,32 @@ public:
   Rect ae_xywh = {};
   float measured_grey_fraction = 0;
   float target_grey_fraction = 0.3;
+  float fl_pix = 0;
+  Params params;
+  const SensorInfo *ci = nullptr;
+};
+
+class CameraState {
+public:
+  MultiCameraState *multi_cam_state = nullptr;
+  std::unique_ptr<const SensorInfo> ci;
+  bool enabled = true;
+  VisionStreamType stream_type;
+  const char *publish_name = nullptr;
+  cereal::FrameData::Builder (cereal::Event::Builder::*init_camera_state)() = nullptr;
+  float focal_len = 0;
 
   unique_fd sensor_fd;
   unique_fd csiphy_fd;
-
   int camera_num = 0;
-  float fl_pix = 0;
 
   CameraState(MultiCameraState *multi_camera_state, const CameraConfig &config);
   void handle_camera_event(void *evdat);
   void update_exposure_score(float desired_ev, int exp_t, int exp_g_idx, float exp_gain);
-  void set_camera_exposure(float grey_frac);
 
   void sensors_start();
 
   void camera_open();
-  void set_exposure_rect();
-  void sensor_set_parameters();
   void camera_map_bufs();
   void camera_init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   void camera_close();
@@ -130,7 +138,7 @@ private:
   void linkDevices();
 
   // for debugging
-  Params params;
+  std::unique_ptr<CameraExposure> exposure;
 };
 
 class MultiCameraState {
