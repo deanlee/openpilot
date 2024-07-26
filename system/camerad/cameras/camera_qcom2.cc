@@ -694,39 +694,41 @@ CameraState::~CameraState() {
   // stop devices
   LOG("-- Stop devices %d", camera_num);
 
-  // ret = device_control(sensor_fd, CAM_STOP_DEV, session_handle, sensor_dev_handle);
-  // LOGD("stop sensor: %d", ret);
-  int ret = device_control(multi_cam_state->isp_fd, CAM_STOP_DEV, session_handle, isp_dev_handle);
-  LOGD("stop isp: %d", ret);
-  ret = device_control(csiphy_fd, CAM_STOP_DEV, session_handle, csiphy_dev_handle);
-  LOGD("stop csiphy: %d", ret);
-  // link control stop
-  LOG("-- Stop link control");
-  struct cam_req_mgr_link_control req_mgr_link_control = {0};
-  req_mgr_link_control.ops = CAM_REQ_MGR_LINK_DEACTIVATE;
-  req_mgr_link_control.session_hdl = session_handle;
-  req_mgr_link_control.num_links = 1;
-  req_mgr_link_control.link_hdls[0] = link_handle;
-  ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
-  LOGD("link control stop: %d", ret);
+  {
+    // ret = device_control(sensor_fd, CAM_STOP_DEV, session_handle, sensor_dev_handle);
+    // LOGD("stop sensor: %d", ret);
+    int ret = device_control(multi_cam_state->isp_fd, CAM_STOP_DEV, session_handle, isp_dev_handle);
+    LOGD("stop isp: %d", ret);
+    ret = device_control(csiphy_fd, CAM_STOP_DEV, session_handle, csiphy_dev_handle);
+    LOGD("stop csiphy: %d", ret);
+    // link control stop
+    LOG("-- Stop link control");
+    struct cam_req_mgr_link_control req_mgr_link_control = {0};
+    req_mgr_link_control.ops = CAM_REQ_MGR_LINK_DEACTIVATE;
+    req_mgr_link_control.session_hdl = session_handle;
+    req_mgr_link_control.num_links = 1;
+    req_mgr_link_control.link_hdls[0] = link_handle;
+    ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
+    LOGD("link control stop: %d", ret);
 
-  // unlink
-  LOG("-- Unlink");
-  struct cam_req_mgr_unlink_info req_mgr_unlink_info = {0};
-  req_mgr_unlink_info.session_hdl = session_handle;
-  req_mgr_unlink_info.link_hdl = link_handle;
-  ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_UNLINK, &req_mgr_unlink_info, sizeof(req_mgr_unlink_info));
-  LOGD("unlink: %d", ret);
+    // unlink
+    LOG("-- Unlink");
+    struct cam_req_mgr_unlink_info req_mgr_unlink_info = {0};
+    req_mgr_unlink_info.session_hdl = session_handle;
+    req_mgr_unlink_info.link_hdl = link_handle;
+    ret = do_cam_control(multi_cam_state->video0_fd, CAM_REQ_MGR_UNLINK, &req_mgr_unlink_info, sizeof(req_mgr_unlink_info));
+    LOGD("unlink: %d", ret);
 
-  // release devices
-  LOGD("-- Release devices");
-  ret = device_control(multi_cam_state->isp_fd, CAM_RELEASE_DEV, session_handle, isp_dev_handle);
-  LOGD("release isp: %d", ret);
-  ret = device_control(csiphy_fd, CAM_RELEASE_DEV, session_handle, csiphy_dev_handle);
-  LOGD("release csiphy: %d", ret);
+    // release devices
+    LOGD("-- Release devices");
+    ret = device_control(multi_cam_state->isp_fd, CAM_RELEASE_DEV, session_handle, isp_dev_handle);
+    LOGD("release isp: %d", ret);
+    ret = device_control(csiphy_fd, CAM_RELEASE_DEV, session_handle, csiphy_dev_handle);
+    LOGD("release csiphy: %d", ret);
 
-  for (int i = 0; i < FRAME_BUF_COUNT; i++) {
-    release(multi_cam_state->video0_fd, buf_handle[i]);
+    for (int i = 0; i < FRAME_BUF_COUNT; i++) {
+      release(multi_cam_state->video0_fd, buf_handle[i]);
+    }
   }
 
   ret = device_control(sensor_fd, CAM_RELEASE_DEV, session_handle, sensor_dev_handle);

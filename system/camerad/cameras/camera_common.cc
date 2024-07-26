@@ -294,7 +294,6 @@ void camerad_thread() {
 #endif
 
   {
-
     VisionIpcServer vipc_server("camerad", device_id, context);
     MultiCameraState cameras(&vipc_server, device_id, context);
     vipc_server.start_listener();
