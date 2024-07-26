@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "media/cam_defs.h"
 #include "media/cam_isp.h"
@@ -404,11 +405,7 @@ void CameraState::enqueue_req_multi(int start, int n, bool dp) {
 
 CameraExposure::CameraExposure(int camera_num, const SensorInfo *sensor_info, int width, int height, float focal_len)
     : ci(sensor_info) {
-  fl_pix = focal_len / ci->pixel_size_mm;
-  dc_gain_weight = ci->dc_gain_min_weight;
-  gain_idx = ci->analog_gain_rec_idx;
-  cur_ev[0] = cur_ev[1] = cur_ev[2] = (1 + dc_gain_weight * (ci->dc_gain_factor-1) / ci->dc_gain_max_weight) * ci->sensor_analog_gains[gain_idx] * exposure_time;
-
+  sensor_set_parameters();
   // set areas for each camera, shouldn't be changed
   std::vector<std::pair<Rect, float>> ae_targets = {
     // (Rect, F)
@@ -435,6 +432,13 @@ CameraExposure::CameraExposure(int camera_num, const SensorInfo *sensor_info, in
     std::min((int)(fl_pix / fl_ref * xywh_ref.w), width / 2 + (int)(fl_pix / fl_ref * xywh_ref.w / 2)),
     std::min((int)(fl_pix / fl_ref * xywh_ref.h), height / 2 + (int)(fl_pix / fl_ref * (h_ref / 2 - xywh_ref.y)))
   };
+}
+
+void CameraExposure::sensor_set_parameters() {
+  fl_pix = focal_len / ci->pixel_size_mm;
+  dc_gain_weight = ci->dc_gain_min_weight;
+  gain_idx = ci->analog_gain_rec_idx;
+  cur_ev[0] = cur_ev[1] = cur_ev[2] = (1 + dc_gain_weight * (ci->dc_gain_factor-1) / ci->dc_gain_max_weight) * ci->sensor_analog_gains[gain_idx] * exposure_time;
 }
 
 void CameraExposure::updateFrameMetaData(FrameMetadata &meta_data) {
@@ -829,7 +833,7 @@ void CameraState::handle_camera_event(void *evdat) {
   }
 }
 
-void CameraExposure::updateScore(float desired_ev, int exp_t, int exp_g_idx, float exp_gain) {
+void CameraExposure::update_exposure_score(float desired_ev, int exp_t, int exp_g_idx, float exp_gain) {
   float score = ci->getExposureScore(desired_ev, exp_t, exp_g_idx, exp_gain, gain_idx);
   if (score < best_ev_score) {
     new_exp_t = exp_t;
@@ -909,7 +913,7 @@ std::vector<i2c_random_wr_payload> CameraExposure::getExposureRegisters(const Ca
         continue;
       }
 
-      updateScore(desired_ev, t, g, gain);
+      update_exposure_score(desired_ev, t, g, gain);
     }
   }
 

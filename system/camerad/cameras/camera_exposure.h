@@ -9,11 +9,12 @@
 class CameraExposure {
 public:
   CameraExposure(int camera_num, const SensorInfo *sensor_info, int width, int height, float focal_len);
-  void updateFrameMetaData(FrameMetadata&meta_data);
-  void updateScore(float desired_ev, int exp_t, int exp_g_idx, float exp_gain);
+  void updateFrameMetaData(FrameMetadata &meta_data);
   std::vector<i2c_random_wr_payload> getExposureRegisters(const CameraBuf &buf, int x_skip, int y_skip);
 
 private:
+  void update_exposure_score(float desired_ev, int exp_t, int exp_g_idx, float exp_gain);
+
   std::mutex exp_lock;
 
   int exposure_time = 5;
