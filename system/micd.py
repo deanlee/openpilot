@@ -46,7 +46,8 @@ class Mic:
     self.rk = Ratekeeper(RATE)
     self.pm = messaging.PubMaster(['microphone'])
 
-    self.measurements = np.empty(0)
+    self.measurements = np.zeros(FFT_SAMPLES)
+    self.buffer_index = 0
 
     self.sound_pressure = 0
     self.sound_pressure_weighted = 0
@@ -70,16 +71,25 @@ class Mic:
     Logged A-weighted equivalents are rough approximations of the human-perceived loudness.
     """
 
-    self.measurements = np.concatenate((self.measurements, indata[:, 0]))
 
-    while self.measurements.size >= FFT_SAMPLES:
-      measurements = self.measurements[:FFT_SAMPLES]
+     # Fill the buffer with new data
+    remaining_space = FFT_SAMPLES - self.buffer_index
+    indata_flat = indata[:, 0]
 
-      self.sound_pressure, _ = calculate_spl(measurements)
-      measurements_weighted = apply_a_weighting(measurements)
-      self.sound_pressure_weighted, self.sound_pressure_level_weighted = calculate_spl(measurements_weighted)
+    while len(indata_flat) > 0:
+      copy_size = min(remaining_space, len(indata_flat))
+      self.measurements[self.buffer_index:self.buffer_index + copy_size] = indata_flat[:copy_size]
+      self.buffer_index += copy_size
+      indata_flat = indata_flat[copy_size:]
 
-      self.measurements = self.measurements[FFT_SAMPLES:]
+      # If the buffer is full, process the data
+      if self.buffer_index == FFT_SAMPLES:
+        self.sound_pressure, _ = calculate_spl(self.measurements)
+        measurements_weighted = apply_a_weighting(self.measurements)
+        self.sound_pressure_weighted, self.sound_pressure_level_weighted = calculate_spl(measurements_weighted)
+
+        # Reset the buffer index for new data
+        self.buffer_index = 0
 
   @retry(attempts=7, delay=3)
   def get_stream(self, sd):
