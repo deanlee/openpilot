@@ -65,12 +65,7 @@ auto create_packet(MemoryManager &mm, int num_cmd_buf) {
 }
 
 void CameraState::sensors_poke(int request_id) {
-  uint32_t cam_packet_handle = 0;
-  int size = sizeof(struct cam_packet);
-  auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-  pkt->num_cmd_buf = 0;
-  pkt->kmd_cmd_buf_index = -1;
-  pkt->header.size = size;
+  auto [pkt, cam_packet_handle] = create_packet(0);
   pkt->header.op_code = CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP;
   pkt->header.request_id = request_id;
 
@@ -83,13 +78,7 @@ void CameraState::sensors_poke(int request_id) {
 }
 
 void CameraState::sensors_i2c(const struct i2c_random_wr_payload* dat, int len, int op_code, bool data_word) {
-  // LOGD("sensors_i2c: %d", len);
-  uint32_t cam_packet_handle = 0;
-  int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1;
-  auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-  pkt->num_cmd_buf = 1;
-  pkt->kmd_cmd_buf_index = -1;
-  pkt->header.size = size;
+  auto [pkt, cam_packet_handle] = create_packet(1);
   pkt->header.op_code = op_code;
   struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
 
@@ -121,13 +110,8 @@ static cam_cmd_power *power_set_wait(cam_cmd_power *power, int16_t delay_ms) {
 }
 
 int CameraState::sensors_init() {
-  uint32_t cam_packet_handle = 0;
-  int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*2;
-  auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-  pkt->num_cmd_buf = 2;
-  pkt->kmd_cmd_buf_index = -1;
+  auto [pkt, cam_packet_handle] = create_packet(mm, 2);
   pkt->header.op_code = 0x1000000 | CAM_SENSOR_PACKET_OPCODE_SENSOR_PROBE;
-  pkt->header.size = size;
   struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
 
   buf_desc[0].size = buf_desc[0].length = sizeof(struct cam_cmd_i2c_info) + sizeof(struct cam_cmd_probe);
@@ -613,14 +597,8 @@ void CameraState::configCSIPHY() {
   // config csiphy
   LOG("-- Config CSI PHY");
   {
-    uint32_t cam_packet_handle = 0;
-    int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1;
-    auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-    pkt->num_cmd_buf = 1;
-    pkt->kmd_cmd_buf_index = -1;
-    pkt->header.size = size;
+    auto [pkt, cam_packet_handle] = create_packet(mm, 1);
     struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
-
     buf_desc[0].size = buf_desc[0].length = sizeof(struct cam_csiphy_info);
     buf_desc[0].type = CAM_CMD_BUF_GENERIC;
 
