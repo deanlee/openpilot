@@ -54,6 +54,16 @@ void CameraState::sensors_start() {
   sensors_i2c(ci->start_reg_array.data(), ci->start_reg_array.size(), CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG, ci->data_word);
 }
 
+auto create_packet(MemoryManager &mm, int num_cmd_buf) {
+  uint32_t cam_packet_handle = 0;
+  int size = sizeof(struct cam_packet) + sizeof(struct cam_cmd_buf_desc) * num_cmd_buf;
+  auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
+  pkt->num_cmd_buf = num_cmd_buf;
+  pkt->kmd_cmd_buf_index = -1;
+  pkt->header.size = size;
+  return std::make_pair(std::move(pkt, cam_packet_handle));
+}
+
 void CameraState::sensors_poke(int request_id) {
   uint32_t cam_packet_handle = 0;
   int size = sizeof(struct cam_packet);
