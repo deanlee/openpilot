@@ -117,7 +117,8 @@ bool CameraBuf::acquire() {
 
   double start_time = millis_since_boot();
   cl_event event;
-  imgproc->queue(q, camera_bufs[cur_buf_idx].buf_cl, cur_yuv_buf->buf_cl, rgb_width, rgb_height, &event, cur_frame_data.integ_lines);
+
+  imgproc->queue(q, camera_bufs[cur_buf_idx].buf_cl, cur_yuv_buf->buf_cl, rgb_width, rgb_height, &event, c->exposure_time);
   clWaitForEvents(1, &event);
   CL_CHECK(clReleaseEvent(event));
   cur_frame_data.processing_time = (millis_since_boot() - start_time) / 1000.0;
@@ -144,6 +145,14 @@ void fill_frame_data(cereal::FrameData::Builder &framed, const FrameMetadata &fr
   framed.setRequestId(frame_data.request_id);
   framed.setTimestampEof(frame_data.timestamp_eof);
   framed.setTimestampSof(frame_data.timestamp_sof);
+
+  /*
+    meta_data.gain = analog_gain_frac * (1 + dc_gain_weight * (ci->dc_gain_factor-1) / ci->dc_gain_max_weight);
+    meta_data.high_conversion_gain = dc_gain_enabled;
+    meta_data.integ_lines = exposure_time;
+    meta_data.measured_grey_fraction = measured_grey_fraction;
+    meta_data.target_grey_fraction = target_grey_fraction;
+  */
   framed.setIntegLines(frame_data.integ_lines);
   framed.setGain(frame_data.gain);
   framed.setHighConversionGain(frame_data.high_conversion_gain);
