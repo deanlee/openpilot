@@ -29,13 +29,6 @@ typedef struct FrameMetadata {
   uint64_t timestamp_sof;
   uint64_t timestamp_eof;
 
-  // Exposure
-  unsigned int integ_lines;
-  bool high_conversion_gain;
-  float gain;
-  float measured_grey_fraction;
-  float target_grey_fraction;
-
   float processing_time;
 } FrameMetadata;
 

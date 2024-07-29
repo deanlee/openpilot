@@ -57,8 +57,6 @@ public:
   cereal::FrameData::Builder (cereal::Event::Builder::*init_camera_state)() = nullptr;
   float focal_len = 0;
 
-  std::mutex exp_lock;
-
   int exposure_time = 5;
   bool dc_gain_enabled = false;
   int dc_gain_weight = 0;

@@ -811,13 +811,6 @@ void CameraState::handle_camera_event(void *evdat) {
     meta_data.frame_id = main_id - idx_offset;
     meta_data.request_id = real_id;
     meta_data.timestamp_sof = timestamp;
-    exp_lock.lock();
-    meta_data.gain = analog_gain_frac * (1 + dc_gain_weight * (ci->dc_gain_factor-1) / ci->dc_gain_max_weight);
-    meta_data.high_conversion_gain = dc_gain_enabled;
-    meta_data.integ_lines = exposure_time;
-    meta_data.measured_grey_fraction = measured_grey_fraction;
-    meta_data.target_grey_fraction = target_grey_fraction;
-    exp_lock.unlock();
 
     // dispatch
     enqueue_req_multi(real_id + FRAME_BUF_COUNT, 1, 1);
@@ -916,8 +909,6 @@ void CameraState::set_camera_exposure(float grey_frac) {
     }
   }
 
-  exp_lock.lock();
-
   measured_grey_fraction = grey_frac;
   target_grey_fraction = target_grey;
 
@@ -928,8 +919,6 @@ void CameraState::set_camera_exposure(float grey_frac) {
 
   float gain = analog_gain_frac * (1 + dc_gain_weight * (ci->dc_gain_factor-1) / ci->dc_gain_max_weight);
   cur_ev[buf.cur_frame_data.frame_id % 3] = exposure_time * gain;
-
-  exp_lock.unlock();
 
   // Processing a frame takes right about 50ms, so we need to wait a few ms
   // so we don't send i2c commands around the frame start.
