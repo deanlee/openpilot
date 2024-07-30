@@ -57,7 +57,7 @@ struct  RemoteEncoder {
   std::unique_ptr<VideoWriter> writer;
   int encoderd_segment_offset = -1;
   int current_segment = -1;
-  std::vector<Message *> q;
+  std::vector<std::unique_ptr<Message>> q;
   bool marked_ready_to_rotate = false;
 };
 
@@ -66,35 +66,35 @@ int write_encoder(LoggerdState *s, const cereal::Event::Reader event, std::strin
   const auto idx = edata.getIdx();
 
   if (!re.writer && encoder_info.record) {
-    if (idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME) {
-      // init writer and write header
-      re.writer = std::make_unique<VideoWriter>(s->logger.segmentPath().c_str(),
-                                                encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
-                                                edata.getWidth(), edata.getHeight(), encoder_info.fps, idx.getType());
-      auto header = edata.getHeader();
-      re.writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof() / 1000, true, false);
-    } else {
+    if (!(idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME)) {
       LOGW("%s: dropped non iframe packets before init", name.c_str());
       return 0;
     }
+    // init writer and write header
+    auto header = edata.getHeader();
+    re.writer = std::make_unique<VideoWriter>(s->logger.segmentPath().c_str(),
+                                              encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
+                                              edata.getWidth(), edata.getHeight(), encoder_info.fps, idx.getType());
+    re.writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof() / 1000, true, false);
   }
 
   if (re.writer) {
     auto data = edata.getData();
-    re.writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof() / 1000, false, flags & V4L2_BUF_FLAG_KEYFRAME);
+    re.writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof() / 1000, false, idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME);
   }
 
   // put it in log stream as the idx packet
-  MessageBuilder bmsg;
-  auto evt = bmsg.initEvent(event.getValid());
+  MessageBuilder msg;
+  auto evt = msg.initEvent(event.getValid());
   evt.setLogMonoTime(event.getLogMonoTime());
   (evt.*(encoder_info.set_encode_idx_func))(idx);
-  auto new_msg = bmsg.toBytes();
+  auto new_msg = msg.toBytes();
   s->logger.write((uint8_t *)new_msg.begin(), new_msg.size(), true);  // always in qlog?
   return new_msg.size();
 }
 
-int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct RemoteEncoder &re, const EncoderInfo &encoder_info) {
+int handle_encoder_msg(LoggerdState *s, Message *raw_msg, std::string &name, struct RemoteEncoder &re, const EncoderInfo &encoder_info) {
+  std::unique_ptr<Message> msg(raw_msg);
   int bytes_count = 0;
 
   // extract the message
@@ -122,15 +122,12 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
         for (auto &qmsg : re.q) {
           capnp::FlatArrayMessageReader msg_reader({(capnp::word *)qmsg->getData(), qmsg->getSize() / sizeof(capnp::word)});
           bytes_count += write_encoder(s, msg_reader.getRoot<cereal::Event>(), name, re, encoder_info);
-          delete qmsg;
         }
         re.q.clear();
       }
     }
 
     bytes_count += write_encoder(s, event, name, re, encoder_info);
-    // free the message, we used it
-    delete msg;
   } else if (offset_segment_num > s->logger.segment()) {
     // encoderd packet has a newer segment, this means encoderd has rolled over
     if (!re.marked_ready_to_rotate) {
@@ -141,14 +138,13 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
         s->ready_to_rotate.load(), s->max_waiting, name.c_str());
     }
     // queue up all the new segment messages, they go in after the rotate
-    re.q.push_back(msg);
+    re.q.emplace_back(msg.release());
   } else {
     LOGE("%s: encoderd packet has a older segment!!! idx.getSegmentNum():%d s->logger.segment():%d re.encoderd_segment_offset:%d",
       name.c_str(), idx.getSegmentNum(), s->logger.segment(), re.encoderd_segment_offset);
     // free the message, it's useless. this should never happen
     // actually, this can happen if you restart encoderd
     re.encoderd_segment_offset = -s->logger.segment();
-    delete msg;
   }
 
   return bytes_count;
