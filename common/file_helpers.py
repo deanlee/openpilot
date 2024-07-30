@@ -17,8 +17,9 @@ class CallbackReader:
 
   def read(self, *args, **kwargs):
     chunk = self.f.read(*args, **kwargs)
-    self.total_read += len(chunk)
-    self.callback(*self.cb_args, self.total_read)
+    if chunk:
+      self.total_read += len(chunk)
+      self.callback(*self.cb_args, self.total_read)
     return chunk
 
 
