@@ -58,39 +58,27 @@ struct  RemoteEncoder {
   int encoderd_segment_offset = -1;
   int current_segment = -1;
   std::vector<Message *> q;
-  int dropped_frames = 0;
   bool marked_ready_to_rotate = false;
 };
 
 int write_encoder(LoggerdState *s, const cereal::Event::Reader event, std::string &name, struct RemoteEncoder &re, const EncoderInfo &encoder_info) {
   auto edata = (event.*(encoder_info.get_encode_data_func))();
   const auto idx = edata.getIdx();
-  const bool is_key_frame = idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME;
-  if (!re.writer && encoder_info.record) {
-    if (is_key_frame) {
-      // only create on iframe
-      if (re.dropped_frames) {
-        // this should only happen for the first segment, maybe
-        LOGW("%s: dropped %d non iframe packets before init", name.c_str(), re.dropped_frames);
-        re.dropped_frames = 0;
-      }
 
-      assert(encoder_info.filename != NULL);
-      re.writer.reset(new VideoWriter(s->logger.segmentPath().c_str(),
-                                      encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
-                                      edata.getWidth(), edata.getHeight(), encoder_info.fps, idx.getType()));
-      // write the header
+  if (!re.writer && encoder_info.record) {
+    if (idx.getFlags() & V4L2_BUF_FLAG_KEYFRAME) {
+      // init writer and write header
+      re.writer = std::make_unique<VideoWriter>(s->logger.segmentPath().c_str(),
+                                                encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
+                                                edata.getWidth(), edata.getHeight(), encoder_info.fps, idx.getType());
       auto header = edata.getHeader();
       re.writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof() / 1000, true, false);
     } else {
-      // this is a sad case when we aren't recording, but don't have an iframe
-      // nothing we can do but drop the frame
-      ++re.dropped_frames;
+      LOGW("%s: dropped non iframe packets before init", name.c_str());
       return 0;
     }
   }
 
-  // if we are actually writing the video file, do so
   if (re.writer) {
     auto data = edata.getData();
     re.writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof() / 1000, false, flags & V4L2_BUF_FLAG_KEYFRAME);
