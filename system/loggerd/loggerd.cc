@@ -95,9 +95,6 @@ int write_encoder(LoggerdState *s, const cereal::Event::Reader event, std::strin
 
 int handle_encoder_msg(LoggerdState *s, Message *raw_msg, std::string &name, struct RemoteEncoder &re, const EncoderInfo &encoder_info) {
   std::unique_ptr<Message> msg(raw_msg);
-  int bytes_count = 0;
-
-  // extract the message
   capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
   auto event = cmsg.getRoot<cereal::Event>();
   auto idx = (event.*(encoder_info.get_encode_data_func))().getIdx();
@@ -112,6 +109,7 @@ int handle_encoder_msg(LoggerdState *s, Message *raw_msg, std::string &name, str
   if (offset_segment_num == s->logger.segment()) {
     // loggerd is now on the segment that matches this packet
 
+    int bytes_count = 0;
     // if this is a new segment, we close any possible old segments, move to the new, and process any queued packets
     if (re.current_segment != s->logger.segment()) {
       re.writer.reset();
@@ -147,7 +145,7 @@ int handle_encoder_msg(LoggerdState *s, Message *raw_msg, std::string &name, str
     re.encoderd_segment_offset = -s->logger.segment();
   }
 
-  return bytes_count;
+  return 0;
 }
 
 void handle_user_flag(LoggerdState *s) {
