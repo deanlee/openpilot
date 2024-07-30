@@ -53,8 +53,7 @@ void rotate_if_needed(LoggerdState *s) {
   }
 }
 
-class RemoteEncoder {
-public:
+struct  RemoteEncoder {
   std::unique_ptr<VideoWriter> writer;
   int encoderd_segment_offset = -1;
   int current_segment = -1;
