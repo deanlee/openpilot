@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "cereal/messaging/messaging.h"
 #include "common/params.h"
 #include "selfdrive/pandad/panda.h"
 
@@ -32,10 +33,13 @@ public:
   bool send_panda_states(PubMaster *pm, const std::vector<health_t> &healths);
   void process_panda_state(PubMaster *pm);
 
+  bool needAbort();
+
 private:
   SubMaster sm_;
   std::vector<Panda *> pandas_;
   bool spoofing_started_ = false;
   bool red_panda_comma_three_ = false;
   std::vector<std::string> connected_serials_;
+  bool ignition_ = false;
 };
