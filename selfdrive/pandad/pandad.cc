@@ -131,43 +131,77 @@ void can_recv(std::vector<Panda *> &pandas, PubMaster *pm) {
   }
 }
 
-std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool spoofing_started) {
-  bool ignition_local = false;
-  const uint32_t pandas_cnt = pandas.size();
+void set_state(cereal::PandaState::Builder ps, cereal::PandaState::PandaType hw_type, const health_t &health) {
+  ps.setVoltage(health.voltage_pkt);
+  ps.setCurrent(health.current_pkt);
+  ps.setUptime(health.uptime_pkt);
+  ps.setSafetyTxBlocked(health.safety_tx_blocked_pkt);
+  ps.setSafetyRxInvalid(health.safety_rx_invalid_pkt);
+  ps.setIgnitionLine(health.ignition_line_pkt);
+  ps.setIgnitionCan(health.ignition_can_pkt);
+  ps.setControlsAllowed(health.controls_allowed_pkt);
+  ps.setTxBufferOverflow(health.tx_buffer_overflow_pkt);
+  ps.setRxBufferOverflow(health.rx_buffer_overflow_pkt);
+  ps.setPandaType(hw_type);
+  ps.setSafetyModel(cereal::CarParams::SafetyModel(health.safety_mode_pkt));
+  ps.setSafetyParam(health.safety_param_pkt);
+  ps.setFaultStatus(cereal::PandaState::FaultStatus(health.fault_status_pkt));
+  ps.setPowerSaveEnabled((bool)(health.power_save_enabled_pkt));
+  ps.setHeartbeatLost((bool)(health.heartbeat_lost_pkt));
+  ps.setAlternativeExperience(health.alternative_experience_pkt);
+  ps.setHarnessStatus(cereal::PandaState::HarnessStatus(health.car_harness_status_pkt));
+  ps.setInterruptLoad(health.interrupt_load_pkt);
+  ps.setFanPower(health.fan_power);
+  ps.setFanStallCount(health.fan_stall_count);
+  ps.setSafetyRxChecksInvalid((bool)(health.safety_rx_checks_invalid_pkt));
+  ps.setSpiChecksumErrorCount(health.spi_checksum_error_count_pkt);
+  ps.setSbu1Voltage(health.sbu1_voltage_mV / 1000.0f);
+  ps.setSbu2Voltage(health.sbu2_voltage_mV / 1000.0f);
+}
 
-  // build msg
-  MessageBuilder msg;
-  auto evt = msg.initEvent();
-  auto pss = evt.initPandaStates(pandas_cnt);
+void set_panda_state(cereal::PandaState::PandaCanState::Builder cs, const can_health_t &can_health) {
+  cs.setBusOff((bool)can_health.bus_off);
+  cs.setBusOffCnt(can_health.bus_off_cnt);
+  cs.setErrorWarning((bool)can_health.error_warning);
+  cs.setErrorPassive((bool)can_health.error_passive);
+  cs.setLastError(cereal::PandaState::PandaCanState::LecErrorCode(can_health.last_error));
+  cs.setLastStoredError(cereal::PandaState::PandaCanState::LecErrorCode(can_health.last_stored_error));
+  cs.setLastDataError(cereal::PandaState::PandaCanState::LecErrorCode(can_health.last_data_error));
+  cs.setLastDataStoredError(cereal::PandaState::PandaCanState::LecErrorCode(can_health.last_data_stored_error));
+  cs.setReceiveErrorCnt(can_health.receive_error_cnt);
+  cs.setTransmitErrorCnt(can_health.transmit_error_cnt);
+  cs.setTotalErrorCnt(can_health.total_error_cnt);
+  cs.setTotalTxLostCnt(can_health.total_tx_lost_cnt);
+  cs.setTotalRxLostCnt(can_health.total_rx_lost_cnt);
+  cs.setTotalTxCnt(can_health.total_tx_cnt);
+  cs.setTotalRxCnt(can_health.total_rx_cnt);
+  cs.setTotalFwdCnt(can_health.total_fwd_cnt);
+  cs.setCanSpeed(can_health.can_speed);
+  cs.setCanDataSpeed(can_health.can_data_speed);
+  cs.setCanfdEnabled(can_health.canfd_enabled);
+  cs.setBrsEnabled(can_health.brs_enabled);
+  cs.setCanfdNonIso(can_health.canfd_non_iso);
+  cs.setIrq0CallRate(can_health.irq0_call_rate);
+  cs.setIrq1CallRate(can_health.irq1_call_rate);
+  cs.setIrq2CallRate(can_health.irq2_call_rate);
+  cs.setCanCoreResetCnt(can_health.can_core_reset_cnt);
+}
 
-  std::vector<health_t> pandaStates;
-  pandaStates.reserve(pandas_cnt);
-
-  std::vector<std::array<can_health_t, PANDA_CAN_CNT>> pandaCanStates;
-  pandaCanStates.reserve(pandas_cnt);
-
+std::vector<health_t> get_healths(const std::vector<Panda *> &pandas, bool spoofing_started) {
   const bool red_panda_comma_three = (pandas.size() == 2) &&
                                      (pandas[0]->hw_type == cereal::PandaState::PandaType::DOS) &&
                                      (pandas[1]->hw_type == cereal::PandaState::PandaType::RED_PANDA);
+  std::vector<health_t> healths;
+  healths.reserve(pandas.size());
 
-  for (const auto& panda : pandas){
+  for (int i = 0; i < pandas.size(); ++i) {
+    auto panda = pandas[i];
     auto health_opt = panda->get_state();
     if (!health_opt) {
-      return std::nullopt;
+      return {};
     }
 
     health_t health = *health_opt;
-
-    std::array<can_health_t, PANDA_CAN_CNT> can_health{};
-    for (uint32_t i = 0; i < PANDA_CAN_CNT; i++) {
-      auto can_health_opt = panda->get_can_state(i);
-      if (!can_health_opt) {
-        return std::nullopt;
-      }
-      can_health[i] = *can_health_opt;
-    }
-    pandaCanStates.push_back(can_health);
-
     if (spoofing_started) {
       health.ignition_line_pkt = 1;
     }
@@ -178,96 +212,37 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     if (red_panda_comma_three && (panda->hw_type == cereal::PandaState::PandaType::DOS)) {
       health.ignition_line_pkt = 0;
     }
-
-    ignition_local |= ((health.ignition_line_pkt != 0) || (health.ignition_can_pkt != 0));
-
-    pandaStates.push_back(health);
+    healths.emplace_back(health);
   }
+  return healths;
+}
 
-  for (uint32_t i = 0; i < pandas_cnt; i++) {
+std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, const std::vector<health_t> &healths, bool spoofing_started) {
+  MessageBuilder msg;
+  auto evt = msg.initEvent();
+  auto pss = evt.initPandaStates(pandas.size());
+  bool ignition_local = false;
+
+  for (int i = 0; i < pandas.size(); ++i) {
     auto panda = pandas[i];
-    const auto &health = pandaStates[i];
-
-    // Make sure CAN buses are live: safety_setter_thread does not work if Panda CAN are silent and there is only one other CAN node
-    if (health.safety_mode_pkt == (uint8_t)(cereal::CarParams::SafetyModel::SILENT)) {
-      panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
-    }
-
-    bool power_save_desired = !ignition_local;
-    if (health.power_save_enabled_pkt != power_save_desired) {
-      panda->set_power_saving(power_save_desired);
-    }
-
-    // set safety mode to NO_OUTPUT when car is off. ELM327 is an alternative if we want to leverage athenad/connect
-    if (!ignition_local && (health.safety_mode_pkt != (uint8_t)(cereal::CarParams::SafetyModel::NO_OUTPUT))) {
-      panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
-    }
-
     if (!panda->comms_healthy()) {
       evt.setValid(false);
     }
+    set_state(pss[i], panda->hw_type, healths[i]);
 
-    auto ps = pss[i];
-    ps.setVoltage(health.voltage_pkt);
-    ps.setCurrent(health.current_pkt);
-    ps.setUptime(health.uptime_pkt);
-    ps.setSafetyTxBlocked(health.safety_tx_blocked_pkt);
-    ps.setSafetyRxInvalid(health.safety_rx_invalid_pkt);
-    ps.setIgnitionLine(health.ignition_line_pkt);
-    ps.setIgnitionCan(health.ignition_can_pkt);
-    ps.setControlsAllowed(health.controls_allowed_pkt);
-    ps.setTxBufferOverflow(health.tx_buffer_overflow_pkt);
-    ps.setRxBufferOverflow(health.rx_buffer_overflow_pkt);
-    ps.setPandaType(panda->hw_type);
-    ps.setSafetyModel(cereal::CarParams::SafetyModel(health.safety_mode_pkt));
-    ps.setSafetyParam(health.safety_param_pkt);
-    ps.setFaultStatus(cereal::PandaState::FaultStatus(health.fault_status_pkt));
-    ps.setPowerSaveEnabled((bool)(health.power_save_enabled_pkt));
-    ps.setHeartbeatLost((bool)(health.heartbeat_lost_pkt));
-    ps.setAlternativeExperience(health.alternative_experience_pkt);
-    ps.setHarnessStatus(cereal::PandaState::HarnessStatus(health.car_harness_status_pkt));
-    ps.setInterruptLoad(health.interrupt_load_pkt);
-    ps.setFanPower(health.fan_power);
-    ps.setFanStallCount(health.fan_stall_count);
-    ps.setSafetyRxChecksInvalid((bool)(health.safety_rx_checks_invalid_pkt));
-    ps.setSpiChecksumErrorCount(health.spi_checksum_error_count_pkt);
-    ps.setSbu1Voltage(health.sbu1_voltage_mV / 1000.0f);
-    ps.setSbu2Voltage(health.sbu2_voltage_mV / 1000.0f);
 
-    std::array<cereal::PandaState::PandaCanState::Builder, PANDA_CAN_CNT> cs = {ps.initCanState0(), ps.initCanState1(), ps.initCanState2()};
-
+    std::array<cereal::PandaState::PandaCanState::Builder, PANDA_CAN_CNT> cs = {pss[i].initCanState0(), pss[i].initCanState1(), pss[i].initCanState2()};
     for (uint32_t j = 0; j < PANDA_CAN_CNT; j++) {
-      const auto &can_health = pandaCanStates[i][j];
-      cs[j].setBusOff((bool)can_health.bus_off);
-      cs[j].setBusOffCnt(can_health.bus_off_cnt);
-      cs[j].setErrorWarning((bool)can_health.error_warning);
-      cs[j].setErrorPassive((bool)can_health.error_passive);
-      cs[j].setLastError(cereal::PandaState::PandaCanState::LecErrorCode(can_health.last_error));
-      cs[j].setLastStoredError(cereal::PandaState::PandaCanState::LecErrorCode(can_health.last_stored_error));
-      cs[j].setLastDataError(cereal::PandaState::PandaCanState::LecErrorCode(can_health.last_data_error));
-      cs[j].setLastDataStoredError(cereal::PandaState::PandaCanState::LecErrorCode(can_health.last_data_stored_error));
-      cs[j].setReceiveErrorCnt(can_health.receive_error_cnt);
-      cs[j].setTransmitErrorCnt(can_health.transmit_error_cnt);
-      cs[j].setTotalErrorCnt(can_health.total_error_cnt);
-      cs[j].setTotalTxLostCnt(can_health.total_tx_lost_cnt);
-      cs[j].setTotalRxLostCnt(can_health.total_rx_lost_cnt);
-      cs[j].setTotalTxCnt(can_health.total_tx_cnt);
-      cs[j].setTotalRxCnt(can_health.total_rx_cnt);
-      cs[j].setTotalFwdCnt(can_health.total_fwd_cnt);
-      cs[j].setCanSpeed(can_health.can_speed);
-      cs[j].setCanDataSpeed(can_health.can_data_speed);
-      cs[j].setCanfdEnabled(can_health.canfd_enabled);
-      cs[j].setBrsEnabled(can_health.brs_enabled);
-      cs[j].setCanfdNonIso(can_health.canfd_non_iso);
-      cs[j].setIrq0CallRate(can_health.irq0_call_rate);
-      cs[j].setIrq1CallRate(can_health.irq1_call_rate);
-      cs[j].setIrq2CallRate(can_health.irq2_call_rate);
-      cs[j].setCanCoreResetCnt(can_health.can_core_reset_cnt);
+      auto can_health_opt = panda->get_can_state(j);
+      if (!can_health_opt) {
+        return std::nullopt;
+      }
+      set_panda_state(cs[j], *can_health_opt);
     }
 
     // Convert faults bitset to capnp list
-    std::bitset<sizeof(health.faults_pkt) * 8> fault_bits(health.faults_pkt);
-    auto faults = ps.initFaults(fault_bits.count());
+    std::bitset<sizeof(healths[i].faults_pkt) * 8> fault_bits(healths[i].faults_pkt);
+    auto faults = pss[i].initFaults(fault_bits.count());
 
     size_t j = 0;
     for (size_t f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
@@ -277,6 +252,24 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
         j++;
       }
     }
+  }
+
+  for (int i = 0; i < pandas.size(); ++i) {
+    // Make sure CAN buses are live: safety_setter_thread does not work if Panda CAN are silent and there is only one other CAN node
+    if (healths[i].safety_mode_pkt == (uint8_t)(cereal::CarParams::SafetyModel::SILENT)) {
+      pandas[i]->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
+    }
+
+    bool power_save_desired = !ignition_local;
+    if (healths[i].power_save_enabled_pkt != power_save_desired) {
+      pandas[i]->set_power_saving(power_save_desired);
+    }
+
+    // set safety mode to NO_OUTPUT when car is off. ELM327 is an alternative if we want to leverage athenad/connect
+    if (!ignition_local && (healths[i].safety_mode_pkt != (uint8_t)(cereal::CarParams::SafetyModel::NO_OUTPUT))) {
+      pandas[i]->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
+    }
+
   }
 
   pm->send("pandaStates", msg);
@@ -313,42 +306,46 @@ void process_panda_state(std::vector<Panda *> &pandas, PubMaster *pm, bool spoof
   for (Panda *p : pandas) {
     connected_serials.push_back(p->hw_serial());
   }
+  auto healths = get_healths(pandas, spoofing_started);
+  if (healths.empty()) {
+    LOGE("Failed to get ignition_opt");
+    return;
+  }
 
-  {
-    auto ignition_opt = send_panda_states(pm, pandas, spoofing_started);
-    if (!ignition_opt) {
-      LOGE("Failed to get ignition_opt");
-      return;
+  bool ignition_local = false;
+  for (const auto &health : healths) {
+    ignition_local |= ((health.ignition_line_pkt != 0) || (health.ignition_can_pkt != 0));
+  }
+
+  send_panda_states(pm, pandas, healths, spoofing_started);
+
+  // check if we should have pandad reconnect
+  if (!ignition_local) {
+    bool comms_healthy = true;
+    for (const auto &panda : pandas) {
+      comms_healthy &= panda->comms_healthy();
     }
 
-    // check if we should have pandad reconnect
-    if (!ignition_opt.value()) {
-      bool comms_healthy = true;
-      for (const auto &panda : pandas) {
-        comms_healthy &= panda->comms_healthy();
-      }
+    if (!comms_healthy) {
+      LOGE("Reconnecting, communication to pandas not healthy");
+      do_exit = true;
 
-      if (!comms_healthy) {
-        LOGE("Reconnecting, communication to pandas not healthy");
-        do_exit = true;
-
-      } else {
-        // check for new pandas
-        for (std::string &s : Panda::list(true)) {
-          if (!std::count(connected_serials.begin(), connected_serials.end(), s)) {
-            LOGW("Reconnecting to new panda: %s", s.c_str());
-            do_exit = true;
-            break;
-          }
+    } else {
+      // check for new pandas
+      for (std::string &s : Panda::list(true)) {
+        if (!std::count(connected_serials.begin(), connected_serials.end(), s)) {
+          LOGW("Reconnecting to new panda: %s", s.c_str());
+          do_exit = true;
+          break;
         }
       }
     }
+  }
 
-    sm.update(0);
-    const bool engaged = sm.allAliveAndValid({"controlsState"}) && sm["controlsState"].getControlsState().getEnabled();
-    for (const auto &panda : pandas) {
-      panda->send_heartbeat(engaged);
-    }
+  sm.update(0);
+  const bool engaged = sm.allAliveAndValid({"controlsState"}) && sm["controlsState"].getControlsState().getEnabled();
+  for (const auto &panda : pandas) {
+    panda->send_heartbeat(engaged);
   }
 }
 
