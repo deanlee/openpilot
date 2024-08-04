@@ -300,7 +300,7 @@ void send_peripheral_state(Panda *panda, PubMaster *pm) {
 }
 
 void process_panda_state(std::vector<Panda *> &pandas, PubMaster *pm, bool spoofing_started) {
-  static SubMaster sm({"controlsState"});
+  static SubMaster sm({""});
 
   std::vector<std::string> connected_serials;
   for (Panda *p : pandas) {

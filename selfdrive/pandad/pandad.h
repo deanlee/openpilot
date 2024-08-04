@@ -24,3 +24,12 @@ private:
   std::vector<Panda *> pandas_;
   Params params_;
 };
+
+class PandaState {
+public:
+  PandaState(const std::vector<Panda *> &pandas);
+
+private:
+  SubMaster sm_;
+  std::vector<Panda *> pandas_;
+};
