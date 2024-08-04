@@ -23,14 +23,5 @@
     "system/**",
     "third_party/**",
     "tools/**",
-  ],
-  "files.associations": {
-    "*.py": "python",
-    "array": "cpp",
-    "bitset": "cpp",
-    "string_view": "cpp",
-    "initializer_list": "cpp",
-    "regex": "cpp",
-    "utility": "cpp"
-  }
+  ]
 }

@@ -15,19 +15,25 @@ PandaState::PandaState(const std::vector<Panda *> &pandas, bool spoofing_started
 }
 
 void PandaState::processPandaStates(PubMaster *pm) {
+  // Retrieve the health statuses of all pandas
   auto healths = retrieveHealthStatuses();
   if (healths.empty()) {
-    LOGE("Failed to get ignition_opt");
+    LOGE("Failed to get panda health status");
     return;
   }
 
-  ignition_ = std::any_of(healths.begin(), healths.end(), [](auto &h) {
+  // Determine if ignition is on by checking health statuses
+  ignition_ = std::any_of(healths.begin(), healths.end(), [](const auto &h) {
     return h.ignition_line_pkt != 0 || h.ignition_can_pkt != 0;
   });
 
+  // Update the safety mode and power settings for each panda
   updateSafetyModeAndPower(healths);
+
+  // Publish the states of all pandas to the PubMaster
   publishPandaStates(pm, healths);
 
+  // Send heartbeat to all pandas
   sm_.update(0);
   const bool engaged = sm_.allAliveAndValid({"controlsState"}) && sm_["controlsState"].getControlsState().getEnabled();
   for (const auto &panda : pandas_) {
@@ -36,20 +42,22 @@ void PandaState::processPandaStates(PubMaster *pm) {
 }
 
 bool PandaState::needReconnect() {
+  // If ignition is on, no need to reconnect
   if (ignition_) {
     return false;
   }
 
+  // Check if all pandas have healthy communication
   bool comms_healthy = std::all_of(pandas_.begin(), pandas_.end(), [](auto &p) { return p->comms_healthy(); });
   if (!comms_healthy) {
     LOGE("Reconnecting, communication to pandas not healthy");
     return false;
   }
 
-  // check for new pandas
-  for (const auto &s : Panda::list(true)) {
-    if (!std::count(connected_serials_.begin(), connected_serials_.end(), s)) {
-      LOGW("Reconnecting to new panda: %s", s.c_str());
+  // Check for new pandas
+  for (const auto &serial : Panda::list(true)) {
+    if (!connected_serials_.count(serial)) {
+      LOGW("Reconnecting to new panda: %s", serial.c_str());
       return true;
     }
   }
@@ -111,27 +119,27 @@ bool PandaState::publishPandaStates(PubMaster *pm, const std::vector<health_t> &
     if (!panda->comms_healthy()) {
       evt.setValid(false);
     }
+
     setPandaState(pss[i], panda->hw_type, healths[i]);
 
-    std::array<cereal::PandaState::PandaCanState::Builder, PANDA_CAN_CNT> cs = {pss[i].initCanState0(), pss[i].initCanState1(), pss[i].initCanState2()};
-    for (uint32_t j = 0; j < PANDA_CAN_CNT; j++) {
+    auto can_states = std::array{pss[i].initCanState0(), pss[i].initCanState1(), pss[i].initCanState2()};
+    for (uint32_t j = 0; j < can_states.size(); j++) {
       auto can_health_opt = panda->get_can_state(j);
       if (!can_health_opt) {
         return false;
       }
-      setCanState(cs[j], *can_health_opt);
+      setCanState(can_states[j], *can_health_opt);
     }
 
     // Convert faults bitset to capnp list
     std::bitset<sizeof(healths[i].faults_pkt) * 8> fault_bits(healths[i].faults_pkt);
     auto faults = pss[i].initFaults(fault_bits.count());
 
-    size_t j = 0;
+    size_t fault_index = 0;
     for (size_t f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
          f <= size_t(cereal::PandaState::FaultType::HEARTBEAT_LOOP_WATCHDOG); f++) {
       if (fault_bits.test(f)) {
-        faults.set(j, cereal::PandaState::FaultType(f));
-        j++;
+        faults.set(fault_index++, cereal::PandaState::FaultType(f));
       }
     }
   }
@@ -140,7 +148,7 @@ bool PandaState::publishPandaStates(PubMaster *pm, const std::vector<health_t> &
   return true;
 }
 
-void PandaState::setPandaState(cereal::PandaState::Builder &ps, cereal::PandaState::PandaType hw_type, const health_t &health) {
+void PandaState::setPandaState(cereal::PandaState::Builder ps, cereal::PandaState::PandaType hw_type, const health_t &health) {
   ps.setVoltage(health.voltage_pkt);
   ps.setCurrent(health.current_pkt);
   ps.setUptime(health.uptime_pkt);

@@ -228,7 +228,7 @@ void pandad_run(std::vector<Panda *> &pandas) {
 
     // Process panda state at 10 Hz
     if (rk.frame() % 10 == 0) {
-      panda_state.process_panda_state(&pm);
+      panda_state.processPandaStates(&pm);
       panda_safety.configureSafetyMode();
     }
 

@@ -37,7 +37,7 @@ private:
   std::vector<health_t> retrieveHealthStatuses();
   bool publishPandaStates(PubMaster *pm, const std::vector<health_t> &healths);
   void updateSafetyModeAndPower(const std::vector<health_t> &healths);
-  void setPandaState(cereal::PandaState::Builder &ps, cereal::PandaState::PandaType hw_type, const health_t &health);
+  void setPandaState(cereal::PandaState::Builder ps, cereal::PandaState::PandaType hw_type, const health_t &health);
   void setCanState(cereal::PandaState::PandaCanState::Builder &cs, const can_health_t &can_health);
 
   SubMaster sm_;
