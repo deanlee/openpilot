@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <string>
 #include <vector>
 
@@ -29,18 +30,20 @@ private:
 class PandaState {
 public:
   PandaState(const std::vector<Panda *> &pandas, bool spoofing_started);
-  void process_panda_state(PubMaster *pm);
-  bool needReconnece();
+  void processPandaStates(PubMaster *pm);
+  bool needReconnect();
 
 private:
-  std::vector<health_t> get_healths();
-  bool send_panda_states(PubMaster *pm, const std::vector<health_t> &healths);
+  std::vector<health_t> retrieveHealthStatuses();
+  bool publishPandaStates(PubMaster *pm, const std::vector<health_t> &healths);
   void updateSafetyModeAndPower(const std::vector<health_t> &healths);
+  void setPandaState(cereal::PandaState::Builder &ps, cereal::PandaState::PandaType hw_type, const health_t &health);
+  void setCanState(cereal::PandaState::PandaCanState::Builder &cs, const can_health_t &can_health);
 
   SubMaster sm_;
   std::vector<Panda *> pandas_;
   bool spoofing_started_ = false;
   bool red_panda_comma_three_ = false;
-  std::vector<std::string> connected_serials_;
+  std::set<std::string> connected_serials_;
   bool ignition_ = false;
 };
