@@ -146,6 +146,17 @@ void PandaState::process_panda_state(PubMaster *pm) {
     return h.ignition_line_pkt != 0 || h.ignition_can_pkt != 0;
   });
 
+  updateSafetyModeAndPower(healths);
+  send_panda_states(pm, healths);
+
+  sm_.update(0);
+  const bool engaged = sm_.allAliveAndValid({"controlsState"}) && sm_["controlsState"].getControlsState().getEnabled();
+  for (const auto &panda : pandas_) {
+    panda->send_heartbeat(engaged);
+  }
+}
+
+void PandaState::updateSafetyModeAndPower(const std::vector<health_t> &healths) {
   for (int i = 0; i < pandas_.size(); ++i) {
     // Make sure CAN buses are live: safety_setter_thread does not work if Panda CAN are silent and there is only one other CAN node
     if (healths[i].safety_mode_pkt == (uint8_t)(cereal::CarParams::SafetyModel::SILENT)) {
@@ -162,16 +173,7 @@ void PandaState::process_panda_state(PubMaster *pm) {
       pandas_[i]->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
     }
   }
-
-  send_panda_states(pm, healths);
-
-  sm_.update(0);
-  const bool engaged = sm_.allAliveAndValid({"controlsState"}) && sm_["controlsState"].getControlsState().getEnabled();
-  for (const auto &panda : pandas_) {
-    panda->send_heartbeat(engaged);
-  }
 }
-
 bool PandaState::needReconnece() {
   if (ignition_) {
     return false;

@@ -29,13 +29,14 @@ private:
 class PandaState {
 public:
   PandaState(const std::vector<Panda *> &pandas, bool spoofing_started);
-  std::vector<health_t> get_healths();
-  bool send_panda_states(PubMaster *pm, const std::vector<health_t> &healths);
   void process_panda_state(PubMaster *pm);
-
   bool needReconnece();
 
 private:
+  std::vector<health_t> get_healths();
+  bool send_panda_states(PubMaster *pm, const std::vector<health_t> &healths);
+  void updateSafetyModeAndPower(const std::vector<health_t> &healths);
+
   SubMaster sm_;
   std::vector<Panda *> pandas_;
   bool spoofing_started_ = false;
