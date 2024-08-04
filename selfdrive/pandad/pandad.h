@@ -33,7 +33,7 @@ public:
   bool send_panda_states(PubMaster *pm, const std::vector<health_t> &healths);
   void process_panda_state(PubMaster *pm);
 
-  bool needAbort();
+  bool needReconnece();
 
 private:
   SubMaster sm_;

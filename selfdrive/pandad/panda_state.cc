@@ -77,7 +77,7 @@ std::vector<health_t> PandaState::get_healths() {
   for (auto &panda : pandas_) {
     auto health_opt = panda->get_state();
     if (!health_opt) {
-      return {};
+      return {};  // Return empty vector if any health state is missing
     }
 
     health_t health = *health_opt;
@@ -100,7 +100,6 @@ bool PandaState::send_panda_states(PubMaster *pm, const std::vector<health_t> &h
   MessageBuilder msg;
   auto evt = msg.initEvent();
   auto pss = evt.initPandaStates(pandas_.size());
-  bool ignition_local = false;
 
   for (int i = 0; i < pandas_.size(); ++i) {
     auto panda = pandas_[i];
@@ -173,27 +172,23 @@ void PandaState::process_panda_state(PubMaster *pm) {
   }
 }
 
-bool PandaState::needAbort() {
-  // check if we should have pandad reconnect
-  if (!ignition_) {
-    bool comms_healthy = true;
-    for (const auto &panda : pandas_) {
-      comms_healthy &= panda->comms_healthy();
-    }
+bool PandaState::needReconnece() {
+  if (ignition_) {
+    return false;
+  }
 
-    if (!comms_healthy) {
-      LOGE("Reconnecting, communication to pandas not healthy");
-      // do_exit = true;
+  bool comms_healthy = std::all_of(pandas_.begin(), pandas_.end(), [](auto &p) { return p->comms_healthy(); });
+  if (!comms_healthy) {
+    LOGE("Reconnecting, communication to pandas not healthy");
+    return false;
+  }
 
-    } else {
-      // check for new pandas
-      for (std::string &s : Panda::list(true)) {
-        if (!std::count(connected_serials_.begin(), connected_serials_.end(), s)) {
-          LOGW("Reconnecting to new panda: %s", s.c_str());
-          // do_exit = true;
-          break;
-        }
-      }
+  // check for new pandas
+  for (const auto &s : Panda::list(true)) {
+    if (!std::count(connected_serials_.begin(), connected_serials_.end(), s)) {
+      LOGW("Reconnecting to new panda: %s", s.c_str());
+      return true;
     }
   }
+  return false;
 }
