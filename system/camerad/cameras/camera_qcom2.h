@@ -140,9 +140,11 @@ private:
 class MultiCameraState {
 public:
   MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+  ~MultiCameraState();
   void initializeCameraDevices();
   void run();
 
+  cl_context opencl_ctx = nullptr;
   unique_fd video0_fd;
   unique_fd cam_sync_fd;
   unique_fd isp_fd;

@@ -954,15 +954,21 @@ void CameraState::run() {
   }
 }
 
-MultiCameraState::MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx)
+MultiCameraState::MultiCameraState()
     : pm(new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"})) {
+
   // Initialize camera devices
   initializeCameraDevices();
+
+  cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
+   const cl_context_properties props[] = {CL_CONTEXT_PRIORITY_HINT_QCOM, CL_PRIORITY_HINT_HIGH_QCOM, 0};
+   opencl_ctx = CL_CHECK_ERR(clCreateContext(props, 1, &device_id, NULL, NULL, &err));
+   vipc_server = std::makeUnique<VisionIpcServer>("camerad", device_id, context);
 
   // Open each camera
   for (const auto &camera_config : ALL_CAMERAS) {
     auto &camera = cameras.emplace_back(std::make_unique<CameraState>(this, camera_config));
-    camera->camera_open(v, device_id, ctx);
+    camera->camera_open(vipc_server.get(), device_id, ctx);
     LOGD("camera %d opened", camera_config.camera_num);
   }
 
@@ -971,6 +977,12 @@ MultiCameraState::MultiCameraState(VisionIpcServer *v, cl_device_id device_id, c
   for (auto &camera : cameras) {
     camera->sensors_start();
   }
+
+  vipc_server->start_listener();
+}
+
+MultiCameraState::~MultiCameraState() {
+  CL_CHECK(clReleaseContext(opencl_ctx));
 }
 
 void MultiCameraState::run() {
