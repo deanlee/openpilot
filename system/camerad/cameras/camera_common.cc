@@ -6,14 +6,9 @@
 #include "third_party/libyuv/include/libyuv.h"
 #include <jpeglib.h>
 
-#include "common/clutil.h"
 #include "common/swaglog.h"
 #include "third_party/linux/include/msm_media_info.h"
-
 #include "system/camerad/cameras/camera_qcom2.h"
-#ifdef QCOM2
-#include "CL/cl_ext_qcom.h"
-#endif
 
 class ImgProc {
 public:

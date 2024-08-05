@@ -7,6 +7,7 @@
 #include "system/camerad/cameras/camera_common.h"
 #include "system/camerad/cameras/camera_util.h"
 #include "system/camerad/sensors/sensor.h"
+#include "common/clutil.h"
 #include "common/params.h"
 #include "common/util.h"
 
@@ -139,7 +140,7 @@ private:
 
 class MultiCameraState {
 public:
-  MultiCameraState(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+  MultiCameraState();
   ~MultiCameraState();
   void initializeCameraDevices();
   void run();
@@ -155,4 +156,5 @@ public:
 
   // Placed at the bottom to ensure it is destructed first
   std::vector<std::unique_ptr<CameraState>> cameras;
+  std::unique_ptr<VisionIpcServer> vipc_server;
 };

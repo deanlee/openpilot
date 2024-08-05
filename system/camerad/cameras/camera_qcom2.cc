@@ -9,14 +9,17 @@
 #include <cmath>
 #include <cstring>
 #include <string>
-
 #include "media/cam_defs.h"
 #include "media/cam_isp.h"
 #include "media/cam_isp_ife.h"
 #include "media/cam_req_mgr.h"
 #include "media/cam_sensor_cmn_header.h"
 #include "media/cam_sync.h"
+
 #include "common/swaglog.h"
+#ifdef QCOM2
+#include "CL/cl_ext_qcom.h"
+#endif
 
 const int MIPI_SETTLE_CNT = 33;  // Calculated by camera_freqs.py
 
@@ -961,9 +964,9 @@ MultiCameraState::MultiCameraState()
   initializeCameraDevices();
 
   cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
-   const cl_context_properties props[] = {CL_CONTEXT_PRIORITY_HINT_QCOM, CL_PRIORITY_HINT_HIGH_QCOM, 0};
-   opencl_ctx = CL_CHECK_ERR(clCreateContext(props, 1, &device_id, NULL, NULL, &err));
-   vipc_server = std::makeUnique<VisionIpcServer>("camerad", device_id, context);
+  const cl_context_properties props[] = {CL_CONTEXT_PRIORITY_HINT_QCOM, CL_PRIORITY_HINT_HIGH_QCOM, 0};
+  opencl_ctx = CL_CHECK_ERR(clCreateContext(props, 1, &device_id, NULL, NULL, &err));
+  vipc_server = std::makeUnique<VisionIpcServer>("camerad", device_id, context);
 
   // Open each camera
   for (const auto &camera_config : ALL_CAMERAS) {
