@@ -111,6 +111,7 @@ AR0231::AR0231() {
   analog_gain_cost_delta = 0;
   analog_gain_cost_low = 0.1;
   analog_gain_cost_high = 5.0;
+  sensor_analog_gains.assign(sensor_analog_gains_AR0231, )
   for (int i = 0; i <= analog_gain_max_idx; i++) {
     sensor_analog_gains[i] = sensor_analog_gains_AR0231[i];
   }
