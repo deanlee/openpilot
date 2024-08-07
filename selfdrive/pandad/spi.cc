@@ -56,17 +56,6 @@ private:
       } while (0)
 
 PandaSpiHandle::PandaSpiHandle(std::string serial) : PandaCommsHandle(serial) {
-  int ret;
-  const int uid_len = 12;
-  uint8_t uid[uid_len] = {0};
-
-  uint32_t spi_mode = SPI_MODE_0;
-  uint8_t spi_bits_per_word = 8;
-
-  // 50MHz is the max of the 845. note that some older
-  // revs of the comma three may not support this speed
-  uint32_t spi_speed = 50000000;
-
   if (!util::file_exists(SPI_DEVICE)) {
     throw std::runtime_error("Error connecting to panda");
   }
@@ -77,38 +66,40 @@ PandaSpiHandle::PandaSpiHandle(std::string serial) : PandaCommsHandle(serial) {
     throw std::runtime_error("Error connecting to panda");
   }
 
+  uint32_t spi_mode = SPI_MODE_0;
+  uint32_t spi_speed = 50000000;
+  uint8_t spi_bits_per_word = 8;
   // SPI settings
-  ret = util::safe_ioctl(spi_fd, SPI_IOC_WR_MODE, &spi_mode);
+  int ret = util::safe_ioctl(spi_fd, SPI_IOC_WR_MODE, &spi_mode);
   if (ret < 0) {
-    LOGE("failed setting SPI mode %d", ret);
-    throw std::runtime_error("Error connecting to panda");
+    throw std::runtime_error("failed setting SPI mode " + std::to_string(ret));
   }
 
+  // 50MHz is the max of the 845. note that some older
+  // revs of the comma three may not support this speed
   ret = util::safe_ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &spi_speed);
   if (ret < 0) {
-    LOGE("failed setting SPI speed");
-    throw std::runtime_error("Error connecting to panda");
+    throw std::runtime_error("failed setting SPI speed");
   }
 
   ret = util::safe_ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &spi_bits_per_word);
   if (ret < 0) {
-    LOGE("failed setting SPI bits per word");
-    throw std::runtime_error("Error connecting to panda");
+    throw std::runtime_error("failed setting SPI bits per word");
   }
 
   // get hw UID/serial
+  const int uid_len = 12;
+  uint8_t uid[uid_len] = {0};
   ret = control_read(0xc3, 0, 0, uid, uid_len, 100);
-  if (ret == uid_len) {
-    std::stringstream stream;
-    for (int i = 0; i < uid_len; i++) {
-      stream << std::hex << std::setw(2) << std::setfill('0') << int(uid[i]);
-    }
-    hw_serial = stream.str();
-  } else {
-    LOGD("failed to get serial %d", ret);
-    throw std::runtime_error("Error connecting to panda");
+  if (ret != uid_len) {
+    throw std::runtime_error("failed to get serial " + std::to_string(ret));
   }
 
+  std::stringstream stream;
+  for (int i = 0; i < uid_len; i++) {
+    stream << std::hex << std::setw(2) << std::setfill('0') << int(uid[i]);
+  }
+  hw_serial = stream.str();
   if (!serial.empty() && (serial != hw_serial)) {
     throw std::runtime_error("Error connecting to panda");
   }
