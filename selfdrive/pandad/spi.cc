@@ -129,6 +129,7 @@ int PandaSpiHandle::control_read(uint8_t request, uint16_t param1, uint16_t para
 int PandaSpiHandle::bulk_write(unsigned char endpoint, unsigned char* data, int length, unsigned int timeout) {
   return bulk_transfer(endpoint, data, length, NULL, 0, timeout);
 }
+
 int PandaSpiHandle::bulk_read(unsigned char endpoint, unsigned char* data, int length, unsigned int timeout) {
   return bulk_transfer(endpoint, NULL, 0, data, length, timeout);
 }
