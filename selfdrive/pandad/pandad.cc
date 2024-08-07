@@ -312,6 +312,23 @@ void send_peripheral_state(Panda *panda, PubMaster *pm) {
   pm->send("peripheralState", msg);
 }
 
+bool reconnect(std::vector<Panda *> &pandas) {
+  bool comms_healthy = std::all_of(pandas.begin(), pandas.end(), [](Panda *p) { return p->comms_healthy(); });
+  if (!comms_healthy) {
+    LOGE("Reconnecting, communication to pandas not healthy");
+    return true;
+  }
+
+  // check for new pandas
+  for (std::string &s : Panda::list(true)) {
+    if (std::find_if(pandas.begin(), pandas.end(), [&s](Panda *p) { return p->hw_serial() == s; }) == pandas.end()) {
+      LOGW("Reconnecting to new panda: %s", s.c_str());
+      return true;
+    }
+  }
+  return false;
+}
+
 void process_panda_state(std::vector<Panda *> &pandas, PubMaster *pm, bool spoofing_started) {
   static SubMaster sm({"controlsState"});
   {
@@ -322,21 +339,8 @@ void process_panda_state(std::vector<Panda *> &pandas, PubMaster *pm, bool spoof
     }
 
     // check if we should have pandad reconnect
-    if (!ignition_opt.value()) {
-      bool comms_healthy = std::all_of(pandas.begin(), pandas.end(), [](Panda *p) { return p->comms_healthy(); });
-      if (!comms_healthy) {
-        LOGE("Reconnecting, communication to pandas not healthy");
-        do_exit = true;
-      } else {
-        // check for new pandas
-        for (std::string &s : Panda::list(true)) {
-          if (std::find_if(pandas.begin(), pandas.end(), [&s](Panda *p) { return p->hw_serial() == s; }) == pandas.end()) {
-            LOGW("Reconnecting to new panda: %s", s.c_str());
-            do_exit = true;
-            break;
-          }
-        }
-      }
+    if (!ignition_opt.value() && reconnect) {
+      do_exit = true;
     }
 
     sm.update(0);
