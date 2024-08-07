@@ -21,7 +21,6 @@ class PandaCommsHandle {
 public:
   PandaCommsHandle(std::string serial) {}
   virtual ~PandaCommsHandle() {}
-  virtual void cleanup() = 0;
 
   std::string hw_serial;
   std::atomic<bool> connected = true;
