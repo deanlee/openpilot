@@ -5,13 +5,12 @@
 #include <mutex>
 #include <string>
 #include <vector>
-
 #ifndef __APPLE__
 #include <linux/spi/spidev.h>
 #endif
 
 #include <libusb-1.0/libusb.h>
-
+#include "common/util.h"
 
 #define TIMEOUT 0
 #define SPI_BUF_SIZE 2048
@@ -66,17 +65,16 @@ struct __attribute__((packed)) spi_header {
 class PandaSpiHandle : public PandaCommsHandle {
 public:
   PandaSpiHandle(std::string serial);
-  ~PandaSpiHandle();
+  ~PandaSpiHandle() {}
   int control_write(uint8_t request, uint16_t param1, uint16_t param2, unsigned int timeout=TIMEOUT);
   int control_read(uint8_t request, uint16_t param1, uint16_t param2, unsigned char *data, uint16_t length, unsigned int timeout=TIMEOUT);
   int bulk_write(unsigned char endpoint, unsigned char* data, int length, unsigned int timeout=TIMEOUT);
   int bulk_read(unsigned char endpoint, unsigned char* data, int length, unsigned int timeout=TIMEOUT);
-  void cleanup();
 
   static std::vector<std::string> list();
 
 private:
-  int spi_fd = -1;
+  unique_fd spi_fd;
   uint8_t tx_buf[SPI_BUF_SIZE];
   uint8_t rx_buf[SPI_BUF_SIZE];
   inline static std::recursive_mutex hw_lock;

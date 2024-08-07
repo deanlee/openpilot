@@ -68,32 +68,32 @@ PandaSpiHandle::PandaSpiHandle(std::string serial) : PandaCommsHandle(serial) {
   uint32_t spi_speed = 50000000;
 
   if (!util::file_exists(SPI_DEVICE)) {
-    goto fail;
+    throw std::runtime_error("Error connecting to panda");
   }
 
   spi_fd = open(SPI_DEVICE.c_str(), O_RDWR);
   if (spi_fd < 0) {
-    LOGE("failed opening SPI device %d", spi_fd);
-    goto fail;
+    LOGE("failed opening SPI device %s", SPI_DEVICE.c_str());
+    throw std::runtime_error("Error connecting to panda");
   }
 
   // SPI settings
   ret = util::safe_ioctl(spi_fd, SPI_IOC_WR_MODE, &spi_mode);
   if (ret < 0) {
     LOGE("failed setting SPI mode %d", ret);
-    goto fail;
+    throw std::runtime_error("Error connecting to panda");
   }
 
   ret = util::safe_ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &spi_speed);
   if (ret < 0) {
     LOGE("failed setting SPI speed");
-    goto fail;
+    throw std::runtime_error("Error connecting to panda");
   }
 
   ret = util::safe_ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &spi_bits_per_word);
   if (ret < 0) {
     LOGE("failed setting SPI bits per word");
-    goto fail;
+    throw std::runtime_error("Error connecting to panda");
   }
 
   // get hw UID/serial
@@ -106,33 +106,13 @@ PandaSpiHandle::PandaSpiHandle(std::string serial) : PandaCommsHandle(serial) {
     hw_serial = stream.str();
   } else {
     LOGD("failed to get serial %d", ret);
-    goto fail;
+    throw std::runtime_error("Error connecting to panda");
   }
 
   if (!serial.empty() && (serial != hw_serial)) {
-    goto fail;
-  }
-
-  return;
-
-fail:
-  cleanup();
-  throw std::runtime_error("Error connecting to panda");
-}
-
-PandaSpiHandle::~PandaSpiHandle() {
-  std::lock_guard lk(hw_lock);
-  cleanup();
-}
-
-void PandaSpiHandle::cleanup() {
-  if (spi_fd != -1) {
-    close(spi_fd);
-    spi_fd = -1;
+    throw std::runtime_error("Error connecting to panda");
   }
 }
-
-
 
 int PandaSpiHandle::control_write(uint8_t request, uint16_t param1, uint16_t param2, unsigned int timeout) {
   ControlPacket_t packet = {
