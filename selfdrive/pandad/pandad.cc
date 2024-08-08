@@ -188,42 +188,23 @@ void fill_panda_can_state(cereal::PandaState::PandaCanState::Builder &cs, const 
 }
 
 std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool spoofing_started) {
-  bool ignition_local = false;
-  const uint32_t pandas_cnt = pandas.size();
-
-  // build msg
   MessageBuilder msg;
   auto evt = msg.initEvent();
-  auto pss = evt.initPandaStates(pandas_cnt);
-
-  std::vector<health_t> pandaStates;
-  pandaStates.reserve(pandas_cnt);
-
-  std::vector<std::array<can_health_t, PANDA_CAN_CNT>> pandaCanStates;
-  pandaCanStates.reserve(pandas_cnt);
-
+  auto pss = evt.initPandaStates(pandas.size());
   const bool red_panda_comma_three = (pandas.size() == 2) &&
                                      (pandas[0]->hw_type == cereal::PandaState::PandaType::DOS) &&
                                      (pandas[1]->hw_type == cereal::PandaState::PandaType::RED_PANDA);
 
-  for (const auto& panda : pandas){
+  bool ignition_local = false;
+  std::vector<health_t> panda_states(pandas.size());
+  for (int i = 0; i < pandas.size(); ++i){
+    Panda *panda = pandas[i];
     auto health_opt = panda->get_state();
     if (!health_opt) {
       return std::nullopt;
     }
 
-    health_t health = *health_opt;
-
-    std::array<can_health_t, PANDA_CAN_CNT> can_health{};
-    for (uint32_t i = 0; i < PANDA_CAN_CNT; i++) {
-      auto can_health_opt = panda->get_can_state(i);
-      if (!can_health_opt) {
-        return std::nullopt;
-      }
-      can_health[i] = *can_health_opt;
-    }
-    pandaCanStates.push_back(can_health);
-
+    health_t &health = panda_states.emplace_back(*health_opt);
     if (spoofing_started) {
       health.ignition_line_pkt = 1;
     }
@@ -237,12 +218,39 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
 
     ignition_local |= ((health.ignition_line_pkt != 0) || (health.ignition_can_pkt != 0));
 
-    pandaStates.push_back(health);
+    if (!panda->comms_healthy()) {
+      evt.setValid(false);
+    }
+
+    auto ps = pss[i];
+    fill_panda_state(ps, panda->hw_type, health);
+
+    auto cs = std::array{ps.initCanState0(), ps.initCanState1(), ps.initCanState2()};
+    for (uint32_t j = 0; j < PANDA_CAN_CNT; j++) {
+      // fill_panda_can_state(cs[j], pandaCanStates[i][j]);
+      auto can_health_opt = panda->get_can_state(j);
+      if (!can_health_opt) {
+        return std::nullopt;
+      }
+      fill_panda_can_state(cs[j], *can_health_opt);
+    }
+
+    // Convert faults bitset to capnp list
+    std::bitset<sizeof(health.faults_pkt) * 8> fault_bits(health.faults_pkt);
+    auto faults = ps.initFaults(fault_bits.count());
+
+    size_t j = 0;
+    for (size_t f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
+         f <= size_t(cereal::PandaState::FaultType::HEARTBEAT_LOOP_WATCHDOG); f++) {
+      if (fault_bits.test(f)) {
+        faults.set(j++, cereal::PandaState::FaultType(f));
+      }
+    }
   }
 
-  for (uint32_t i = 0; i < pandas_cnt; i++) {
+  for (int i = 0; i < pandas.size(); ++i) {
     auto panda = pandas[i];
-    const auto &health = pandaStates[i];
+    const auto &health = panda_states[i];
 
     // Make sure CAN buses are live: safety_setter_thread does not work if Panda CAN are silent and there is only one other CAN node
     if (health.safety_mode_pkt == (uint8_t)(cereal::CarParams::SafetyModel::SILENT)) {
@@ -259,32 +267,7 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
       panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
     }
 
-    if (!panda->comms_healthy()) {
-      evt.setValid(false);
-    }
-
-    auto ps = pss[i];
-    fill_panda_state(ps, panda->hw_type, health);
-
-    auto cs = std::array{ps.initCanState0(), ps.initCanState1(), ps.initCanState2()};
-    for (uint32_t j = 0; j < PANDA_CAN_CNT; j++) {
-      fill_panda_can_state(cs[j], pandaCanStates[i][j]);
-    }
-
-    // Convert faults bitset to capnp list
-    std::bitset<sizeof(health.faults_pkt) * 8> fault_bits(health.faults_pkt);
-    auto faults = ps.initFaults(fault_bits.count());
-
-    size_t j = 0;
-    for (size_t f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
-         f <= size_t(cereal::PandaState::FaultType::HEARTBEAT_LOOP_WATCHDOG); f++) {
-      if (fault_bits.test(f)) {
-        faults.set(j, cereal::PandaState::FaultType(f));
-        j++;
-      }
-    }
   }
-
   pm->send("pandaStates", msg);
   return ignition_local;
 }
