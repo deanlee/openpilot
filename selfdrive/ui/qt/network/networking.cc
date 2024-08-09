@@ -242,8 +242,7 @@ WifiUI::WifiUI(QWidget *parent, WifiManager* wifi) : QWidget(parent), wifi(wifi)
   checkmark = QPixmap(ASSET_PATH + "offroad/icon_checkmark.svg").scaledToWidth(ICON_WIDTH, Qt::SmoothTransformation);
   circled_slash = QPixmap(ASSET_PATH + "img_circled_slash.svg").scaledToWidth(ICON_WIDTH, Qt::SmoothTransformation);
 
-  scanningLabel = new QLabel(tr("Scanning for networks..."));
-  scanningLabel->setStyleSheet("font-size: 65px;");
+  scanningLabel = createLabel(tr("Scanning for networks..."), 65);
   main_layout->addWidget(scanningLabel, 0, Qt::AlignCenter);
 
   wifi_list_widget = new ListWidget(this);

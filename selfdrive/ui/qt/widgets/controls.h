@@ -294,3 +294,5 @@ public:
     setLayout(l);
   }
 };
+
+QLabel* createLabel(const QString &text, int fontSize, bool bold);

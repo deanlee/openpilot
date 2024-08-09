@@ -94,8 +94,7 @@ void TermsPage::showEvent(QShowEvent *event) {
   main_layout->setContentsMargins(45, 35, 45, 45);
   main_layout->setSpacing(0);
 
-  QLabel *title = new QLabel(tr("Terms & Conditions"));
-  title->setStyleSheet("font-size: 90px; font-weight: 600;");
+  QLabel *title = createLabel(tr("Terms & Conditions"), 90, true);
   main_layout->addWidget(title);
 
   main_layout->addSpacing(30);

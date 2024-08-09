@@ -139,3 +139,9 @@ void ParamControl::toggleClicked(bool state) {
     toggle.togglePosition();
   }
 }
+
+QLabel* createLabel(const QString &text, int fontSize, bool bold) {
+  QLabel *label = new QLabel(text);
+  label->setStyleSheet(QString("font-size: %1px; font-weight: %2;").arg(fontSize).arg(bold ? "bold" : "normal"));
+  return label;
+}
