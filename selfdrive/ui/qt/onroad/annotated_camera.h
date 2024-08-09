@@ -6,6 +6,14 @@
 #include "selfdrive/ui/qt/onroad/buttons.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 
+class TextDraw {
+public:
+  void draw(QPainter &p, const QRect &rect, const QString &text, const QFont &font, const QColor &color);
+  QRect cached_text_rect;
+  QString cached_text;
+  QPixmap pixmap;
+};
+
 class AnnotatedCameraWidget : public CameraWidget {
   Q_OBJECT
 
@@ -50,4 +58,8 @@ protected:
 
   double prev_draw_t = 0;
   FirstOrderFilter fps_filter;
+  TextDraw max_text_draw;
+  TextDraw speed_text_draw;
+  TextDraw unit_text_draw;
+  TextDraw set_speed_text_draw;
 };

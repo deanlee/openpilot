@@ -9,6 +9,17 @@
 #include "selfdrive/ui/qt/onroad/buttons.h"
 #include "selfdrive/ui/qt/util.h"
 
+
+void TextDraw::draw(QPainter &p, const QRect &rect, const QString &text, const QFont &font, const QColor &color) {
+  if (text != cached_text) {
+    cached_text_rect = QFontMetrics(font).boundingRect(text);
+    cached_text = text;
+  }
+  p.setFont(font);
+  p.setPen(color);
+  p.drawText(rect.left(), rect.top(), text);
+}
+
 // Window that shows camera view and variety of info drawn on top
 AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget* parent) : fps_filter(UI_FREQ, 3, 1. / UI_FREQ), CameraWidget("camerad", type, true, parent) {
   pm = std::make_unique<PubMaster, const std::initializer_list<const char *>>({"uiDebug"});
@@ -97,18 +108,23 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
     max_color = QColor(0xa6, 0xa6, 0xa6, 0xff);
     set_speed_color = QColor(0x72, 0x72, 0x72, 0xff);
   }
-  p.setFont(InterFont(40, QFont::DemiBold));
-  p.setPen(max_color);
-  p.drawText(set_speed_rect.adjusted(0, 27, 0, 0), Qt::AlignTop | Qt::AlignHCenter, tr("MAX"));
-  p.setFont(InterFont(90, QFont::Bold));
-  p.setPen(set_speed_color);
-  p.drawText(set_speed_rect.adjusted(0, 77, 0, 0), Qt::AlignTop | Qt::AlignHCenter, setSpeedStr);
+  // p.drawText(set_speed_rect.adjusted(0, 27, 0, 0), Qt::AlignTop | Qt::AlignHCenter, tr("MAX"));
+  max_text_draw.draw(p, set_speed_rect.adjusted(0, 27, 0, 0), tr("MAX"), InterFont(40, QFont::DemiBold), max_color);
+  // p.setFont(InterFont(90, QFont::Bold));
+  // p.setPen(set_speed_color);
+  // p.drawText(set_speed_rect.adjusted(0, 77, 0, 0), Qt::AlignTop | Qt::AlignHCenter, setSpeedStr);
+  set_speed_text_draw.draw(p, set_speed_rect.adjusted(0, 77, 0, 0), setSpeedStr, InterFont(90, QFont::Bold), set_speed_color);
 
   // current speed
-  p.setFont(InterFont(176, QFont::Bold));
-  drawText(p, rect().center().x(), 210, speedStr);
-  p.setFont(InterFont(66));
-  drawText(p, rect().center().x(), 290, speedUnit, 200);
+  // p.setFont(InterFont(176, QFont::Bold));
+  // drawText(p, rect().center().x(), 210, speedStr);
+  // p.setFont(InterFont(66));
+  // drawText(p, rect().center().x(), 290, speedUnit, 200);
+  QRect rc = rect();
+  rc.setTop(110);
+  speed_text_draw.draw(p, rc, speedStr, InterFont(176, QFont::Bold), QColor(0xff, 0xff, 0xff));
+  rc.setTop(190);
+  speed_text_draw.draw(p, rc, speedUnit, InterFont(66), QColor(0xff, 0xff, 0xff, 200));
 
   p.restore();
 }
