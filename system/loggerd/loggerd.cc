@@ -17,14 +17,19 @@ struct RemoteEncoder {
   RemoteEncoder(const EncoderInfo &info) : encoder_info(info) {
 
   }
+
+  void rotate();
+
   std::unique_ptr<VideoWriter> writer;
   int current_segment = -1;
+  uint64_t frame_count = 0;
   int prev_encoder_segment_num = -1;
   std::vector<std::unique_ptr<Message>> q;
   int dropped_frames = 0;
   bool marked_ready_to_rotate = false;
   EncoderInfo encoder_info;
 };
+
 
 struct LoggerdState {
   LoggerState logger;
@@ -40,6 +45,9 @@ void logger_rotate(LoggerdState *s) {
   assert(ret);
   s->ready_to_rotate = 0;
   s->last_rotate_tms = millis_since_boot();
+  for (auto &encoder : s->remote_encoders) {
+    encoder->rotate();
+  }
   LOGW((s->logger.segment() == 0) ? "logging to %s" : "rotated to %s", s->logger.segmentPath().c_str());
 }
 
@@ -82,7 +90,6 @@ size_t write_encode_data(LoggerdState *s, cereal::Event::Reader event, struct Re
         re.dropped_frames = 0;
       }
       // if we aren't actually recording, don't create the writer
-      assert(re.encoder_info.filename != NULL);
       re.writer.reset(new VideoWriter(s->logger.segmentPath().c_str(),
                                       re.encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
                                       edata.getWidth(), edata.getHeight(), re.encoder_info.fps, idx.getType()));
@@ -107,6 +114,7 @@ size_t write_encode_data(LoggerdState *s, cereal::Event::Reader event, struct Re
   MessageBuilder bmsg;
   auto evt = bmsg.initEvent(event.getValid());
   evt.setLogMonoTime(event.getLogMonoTime());
+  // todo modify segnum
   (evt.*(re.encoder_info.set_encode_idx_func))(idx);
   auto new_msg = bmsg.toBytes();
   s->logger.write((uint8_t *)new_msg.begin(), new_msg.size(), true);  // always in qlog?
@@ -119,6 +127,10 @@ size_t write_encode_data(LoggerdState *s, Message *msg, struct RemoteEncoder &re
   return write_encode_data(s, event, re);
 }
 
+void RemoteEncoder::rotate() {
+  marked_ready_to_rotate = false;
+}
+
 int handle_encoder_msg(LoggerdState *s, Message *raw_msg, struct RemoteEncoder &re) {
   std::unique_ptr<Message> msg(raw_msg);
 
@@ -126,26 +138,11 @@ int handle_encoder_msg(LoggerdState *s, Message *raw_msg, struct RemoteEncoder &
   auto event = cmsg.getRoot<cereal::Event>();
   auto idx = (event.*(re.encoder_info.get_encode_data_func))().getIdx();
 
-  if (re.prev_encoder_segment_num != idx.getSegmentNum()) {
-    re.prev_encoder_segment_num = idx.getSegmentNum();
-    ++re.current_segment;
-  }
-
-  if (re.current_segment != s->logger.segment()) {
-    // encoderd packet has a newer segment, this means encoderd has rolled over
-    if (!re.marked_ready_to_rotate) {
-      re.writer.reset(nullptr);
-      re.marked_ready_to_rotate = true;
-      ++s->ready_to_rotate;
-      LOGD("rotate %d -> %d ready %d/%d for %s", s->logger.segment(), re.current_segment,
-          s->ready_to_rotate.load(), s->max_waiting, re.encoder_info.publish_name);
-    }
+  if (re.marked_ready_to_rotate) {
     // queue up all the new segment messages, they go in after the rotate
     re.q.emplace_back(std::move(msg));
     return 0;
   }
-
-  // loggerd is now on the segment that matches this packet
 
   int bytes_count = 0;
   if (!re.q.empty()) {
@@ -153,8 +150,16 @@ int handle_encoder_msg(LoggerdState *s, Message *raw_msg, struct RemoteEncoder &
       bytes_count += write_encode_data(s, qmsg.get(), re);
     }
     re.q.clear();
+    re.frame_count += re.q.size();
   }
   bytes_count += write_encode_data(s, event, re);
+  if ((++re.frame_count % (SEGMENT_LENGTH * MAIN_FPS)) == 0) {
+    re.marked_ready_to_rotate = true;
+    re.writer.reset(nullptr);
+    ++s->ready_to_rotate;
+    LOGD("rotate %d -> %d ready %d/%d for %s", s->logger.segment(), re.current_segment,
+          s->ready_to_rotate.load(), s->max_waiting, re.encoder_info.publish_name);
+  }
   return bytes_count;
 }
 
@@ -259,8 +264,7 @@ void loggerd_thread() {
           LOGD("%" PRIu64 " messages, %.2f msg/sec, %.2f KB/sec", msg_count, msg_count / seconds, bytes_count * 0.001 / seconds);
         }
 
-        count++;
-        if (count >= 200) {
+        if (++count >= 200) {
           LOGD("large volume of '%s' messages", service.name.c_str());
           break;
         }
