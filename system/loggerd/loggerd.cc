@@ -32,7 +32,7 @@ struct LoggerdState {
   std::atomic<int> ready_to_rotate{0};  // count of encoders ready to rotate
   int max_waiting = 0;
   double last_rotate_tms = 0.;      // last rotate time in ms
-  std::unordered_map<SubSocket*, struct RemoteEncoder> remote_encoders;
+  std::unordered_map<SubSocket*, std::unique_ptr<RemoteEncoder>> remote_encoders;
 };
 
 void logger_rotate(LoggerdState *s) {
@@ -193,6 +193,7 @@ void loggerd_thread() {
   std::unique_ptr<Context> ctx(Context::create());
   std::unique_ptr<Poller> poller(Poller::create());
 
+  LoggerdState s;
   // subscribe to all socks
   for (const auto& [_, it] : services) {
     const bool encoder = util::ends_with(it.name, "EncodeData");
@@ -210,19 +211,20 @@ void loggerd_thread() {
       .encoder = encoder,
       .user_flag = it.name == "userFlag",
     };
+
+    for (const auto &cam : cameras_logged) {
+      for (const auto &encoder_info : cam.encoder_infos) {
+        if (encoder_info.publish_name == it.name) {
+          s.remote_encoders[sock] = std::make_unique<RemoteEncoder>(encoder_info);
+          break;
+        }
+      }
+    }
   }
 
-  LoggerdState s;
   // init logger
   logger_rotate(&s);
   Params().put("CurrentRoute", s.logger.routeName());
-
-  for (const auto &cam : cameras_logged) {
-    for (const auto &encoder_info : cam.encoder_infos) {
-      s.logger.remote_encoders.emplace_back(encoder_info.publish_name, encoder_info);
-      s.max_waiting++;
-    }
-  }
 
   uint64_t msg_count = 0, bytes_count = 0;
   double start_ts = millis_since_boot();
@@ -243,7 +245,7 @@ void loggerd_thread() {
         const bool in_qlog = service.freq != -1 && (service.counter++ % service.freq == 0);
         if (service.encoder) {
           s.last_camera_seen_tms = millis_since_boot();
-          bytes_count += handle_encoder_msg(&s, msg, s.logger.remote_encoders[sock]);
+          bytes_count += handle_encoder_msg(&s, msg, *(s.remote_encoders[sock]));
         } else {
           s.logger.write((uint8_t *)msg->getData(), msg->getSize(), in_qlog);
           bytes_count += msg->getSize();
