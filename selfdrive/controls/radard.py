@@ -218,26 +218,18 @@ class RadarD:
       self.v_ego_hist.append(self.v_ego)
       self.last_v_ego_frame = sm.recv_frame['carState']
 
-    ar_pts = {}
-    for pt in rr.points:
-      ar_pts[pt.trackId] = [pt.dRel, pt.yRel, pt.vRel, pt.measured]
-
     # *** remove missing points from meta data ***
-    for ids in list(self.tracks.keys()):
-      if ids not in ar_pts:
-        self.tracks.pop(ids, None)
+    current_track_ids = {pt.trackId for pt in rr.points}
+    self.tracks = {track_id: track for track_id, track in self.tracks.items() if track_id in current_track_ids}
 
     # *** compute the tracks ***
-    for ids in ar_pts:
-      rpt = ar_pts[ids]
-
+    for pt in rr.points:
       # align v_ego by a fixed time to align it with the radar measurement
-      v_lead = rpt[2] + self.v_ego_hist[0]
-
+      v_lead = pt.vRel + self.v_ego_hist[0]
       # create the track if it doesn't exist or it's a new track
-      if ids not in self.tracks:
-        self.tracks[ids] = Track(ids, v_lead, self.kalman_params)
-      self.tracks[ids].update(rpt[0], rpt[1], rpt[2], v_lead, rpt[3])
+      if pt.trackId not in self.tracks:
+        self.tracks[pt.trackId] = Track(pt.trackId, v_lead, self.kalman_params)
+      self.tracks[pt.trackId].update(pt.dRel, pt.yRel, pt.vRel, v_lead, pt.measured)
 
     # *** publish radarState ***
     self.radar_state_valid = sm.all_checks() and len(rr.errors) == 0
