@@ -1,6 +1,6 @@
 import glob
 
-Import('env', 'envCython', 'arch', 'cereal', 'messaging', 'common', 'gpucommon', 'visionipc', 'transformations')
+Import('env', 'envCython', 'arch', 'common', 'gpucommon', 'transformations')
 lenv = env.Clone()
 lenvCython = envCython.Clone()
 
