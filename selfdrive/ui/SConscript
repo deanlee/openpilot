@@ -1,5 +1,6 @@
 import os
 import json
+from SCons.Util import Unique
 Import('qt_env', 'arch', 'common', 'messaging', 'visionipc', 'transformations')
 
 base_libs = [common, messaging, visionipc, transformations,
@@ -15,6 +16,8 @@ if arch == "Darwin":
 # FIXME: remove this once we're on 5.15 (24.04)
 qt_env['CXXFLAGS'] += ["-Wno-deprecated-declarations"]
 
+qt_env['LIBPATH'] = Unique(qt_env['LIBPATH']) # remove dup -L/usr/lib from qt3_
+
 qt_util = qt_env.Library("qt_util", ["#selfdrive/ui/qt/api.cc", "#selfdrive/ui/qt/util.cc"], LIBS=base_libs)
 widgets_src = ["ui.cc", "qt/widgets/input.cc", "qt/widgets/wifi.cc",
                "qt/widgets/ssh_keys.cc", "qt/widgets/toggle.cc", "qt/widgets/controls.cc",
@@ -24,7 +27,7 @@ widgets_src = ["ui.cc", "qt/widgets/input.cc", "qt/widgets/wifi.cc",
 
 widgets = qt_env.Library("qt_widgets", widgets_src, LIBS=base_libs)
 Export('widgets')
-qt_libs = [widgets, qt_util] + base_libs
+qt_libs = Unique([widgets, qt_util] + base_libs)
 
 qt_src = ["main.cc", "qt/sidebar.cc", "qt/body.cc",
           "qt/window.cc", "qt/home.cc", "qt/offroad/settings.cc",
