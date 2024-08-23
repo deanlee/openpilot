@@ -91,15 +91,15 @@
     <name>AnnotatedCameraWidget</name>
     <message>
         <source>km/h</source>
-        <translation>km/h</translation>
+        <translation type="vanished">km/h</translation>
     </message>
     <message>
         <source>mph</source>
-        <translation>mph</translation>
+        <translation type="vanished">mph</translation>
     </message>
     <message>
         <source>MAX</source>
-        <translation>MAX</translation>
+        <translation type="vanished">MAX</translation>
     </message>
 </context>
 <context>
@@ -275,7 +275,7 @@
     <name>DriverViewWindow</name>
     <message>
         <source>camera starting</source>
-        <translation>카메라 시작 중</translation>
+        <translation type="vanished">카메라 시작 중</translation>
     </message>
 </context>
 <context>
@@ -287,6 +287,17 @@
     <message>
         <source>CHILL MODE ON</source>
         <translation>안정 모드 사용</translation>
+    </message>
+</context>
+<context>
+    <name>HudView</name>
+    <message>
+        <source>km/h</source>
+        <translation type="obsolete">km/h</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="obsolete">mph</translation>
     </message>
 </context>
 <context>
@@ -411,23 +422,23 @@
     <name>OnroadAlerts</name>
     <message>
         <source>openpilot Unavailable</source>
-        <translation>오픈파일럿을 사용할수없습니다</translation>
+        <translation type="vanished">오픈파일럿을 사용할수없습니다</translation>
     </message>
     <message>
         <source>Waiting for controls to start</source>
-        <translation>프로세스가 준비중입니다</translation>
+        <translation type="vanished">프로세스가 준비중입니다</translation>
     </message>
     <message>
         <source>TAKE CONTROL IMMEDIATELY</source>
-        <translation>핸들을 잡아주세요</translation>
+        <translation type="vanished">핸들을 잡아주세요</translation>
     </message>
     <message>
         <source>Controls Unresponsive</source>
-        <translation>프로세스가 응답하지않습니다</translation>
+        <translation type="vanished">프로세스가 응답하지않습니다</translation>
     </message>
     <message>
         <source>Reboot Device</source>
-        <translation>장치를 재부팅하세요</translation>
+        <translation type="vanished">장치를 재부팅하세요</translation>
     </message>
 </context>
 <context>

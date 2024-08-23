@@ -59,6 +59,8 @@ void update_line_data(const UIState *s, const cereal::XYZTData::Reader &line,
   const auto line_x = line.getX(), line_y = line.getY(), line_z = line.getZ();
   QPointF left, right;
   pvd->clear();
+  QPolygonF left_line;
+  QPolygonF right_line;
   for (int i = 0; i <= max_idx; i++) {
     // highly negative x positions  are drawn above the frame and cause flickering, clip to zy plane of camera
     if (line_x[i] < 0) continue;
@@ -70,10 +72,19 @@ void update_line_data(const UIState *s, const cereal::XYZTData::Reader &line,
       if (!allow_invert && pvd->size() && left.y() > pvd->back().y()) {
         continue;
       }
-      pvd->push_back(left);
-      pvd->push_front(right);
+
+      left_line.push_back(left);
+      right_line.push_back(right);
+      // pvd->push_back(left);
+      // pvd->push_front(right);
+
     }
   }
+  std::reverse(left_line.begin(), left_line.end());
+  // std::reverse(right_line.begin(), right_line.end());
+  *pvd = left_line + right_line;
+  // qWarning() << *pvd;
+  // assert(0);
 }
 
 void update_model(UIState *s,
@@ -279,7 +290,7 @@ void UIState::setPrimeType(PrimeType type) {
     bool prev_prime = hasPrime();
 
     prime_type = type;
-    Params().put("PrimeType", std::to_string(prime_type));
+    Params().put("PrimeType", std::to_string((int)prime_type));
     emit primeTypeChanged(prime_type);
 
     bool prime = hasPrime();

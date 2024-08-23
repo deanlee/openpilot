@@ -91,15 +91,15 @@
     <name>AnnotatedCameraWidget</name>
     <message>
         <source>km/h</source>
-        <translation>km/h</translation>
+        <translation type="vanished">km/h</translation>
     </message>
     <message>
         <source>mph</source>
-        <translation>mph</translation>
+        <translation type="vanished">mph</translation>
     </message>
     <message>
         <source>MAX</source>
-        <translation>MAX</translation>
+        <translation type="vanished">MAX</translation>
     </message>
 </context>
 <context>
@@ -275,7 +275,7 @@
     <name>DriverViewWindow</name>
     <message>
         <source>camera starting</source>
-        <translation>iniciando cámara</translation>
+        <translation type="vanished">iniciando cámara</translation>
     </message>
 </context>
 <context>
@@ -287,6 +287,17 @@
     <message>
         <source>CHILL MODE ON</source>
         <translation>MODO CHILL</translation>
+    </message>
+</context>
+<context>
+    <name>HudView</name>
+    <message>
+        <source>km/h</source>
+        <translation type="obsolete">km/h</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="obsolete">mph</translation>
     </message>
 </context>
 <context>
@@ -412,23 +423,23 @@
     <name>OnroadAlerts</name>
     <message>
         <source>openpilot Unavailable</source>
-        <translation>openpilot no disponible</translation>
+        <translation type="vanished">openpilot no disponible</translation>
     </message>
     <message>
         <source>Waiting for controls to start</source>
-        <translation>Esperando que los controles inicien</translation>
+        <translation type="vanished">Esperando que los controles inicien</translation>
     </message>
     <message>
         <source>TAKE CONTROL IMMEDIATELY</source>
-        <translation>TOME CONTROL INMEDIATAMENTE</translation>
+        <translation type="vanished">TOME CONTROL INMEDIATAMENTE</translation>
     </message>
     <message>
         <source>Controls Unresponsive</source>
-        <translation>Controles no responden</translation>
+        <translation type="vanished">Controles no responden</translation>
     </message>
     <message>
         <source>Reboot Device</source>
-        <translation>Reiniciar Dispositivo</translation>
+        <translation type="vanished">Reiniciar Dispositivo</translation>
     </message>
 </context>
 <context>

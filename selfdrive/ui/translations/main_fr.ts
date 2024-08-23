@@ -91,15 +91,15 @@
     <name>AnnotatedCameraWidget</name>
     <message>
         <source>km/h</source>
-        <translation>km/h</translation>
+        <translation type="vanished">km/h</translation>
     </message>
     <message>
         <source>mph</source>
-        <translation>mi/h</translation>
+        <translation type="vanished">mi/h</translation>
     </message>
     <message>
         <source>MAX</source>
-        <translation>MAX</translation>
+        <translation type="vanished">MAX</translation>
     </message>
 </context>
 <context>
@@ -275,7 +275,7 @@
     <name>DriverViewWindow</name>
     <message>
         <source>camera starting</source>
-        <translation>démarrage de la caméra</translation>
+        <translation type="vanished">démarrage de la caméra</translation>
     </message>
 </context>
 <context>
@@ -287,6 +287,17 @@
     <message>
         <source>CHILL MODE ON</source>
         <translation>MODE DÉTENTE ACTIVÉ</translation>
+    </message>
+</context>
+<context>
+    <name>HudView</name>
+    <message>
+        <source>km/h</source>
+        <translation type="obsolete">km/h</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="obsolete">mi/h</translation>
     </message>
 </context>
 <context>
@@ -406,29 +417,6 @@
     <message>
         <source> ALERT</source>
         <translation> ALERTE</translation>
-    </message>
-</context>
-<context>
-    <name>OnroadAlerts</name>
-    <message>
-        <source>openpilot Unavailable</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Waiting for controls to start</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>TAKE CONTROL IMMEDIATELY</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Controls Unresponsive</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Reboot Device</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

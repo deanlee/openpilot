@@ -1,65 +1,71 @@
 #include "selfdrive/ui/qt/onroad/onroad_home.h"
 
-#include <QPainter>
-#include <QStackedLayout>
-
-#include "selfdrive/ui/qt/util.h"
+#include <raylib.h>
 
 OnroadWindow::OnroadWindow(QWidget *parent) : QWidget(parent) {
-  QVBoxLayout *main_layout  = new QVBoxLayout(this);
-  main_layout->setMargin(UI_BORDER_SIZE);
-  QStackedLayout *stacked_layout = new QStackedLayout;
-  stacked_layout->setStackingMode(QStackedLayout::StackAll);
-  main_layout->addLayout(stacked_layout);
+  setAttribute(Qt::WA_TranslucentBackground, true);
+  SetConfigFlags(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_HIDDEN | FLAG_MSAA_4X_HINT | FLAG_BORDERLESS_WINDOWED_MODE);
+  InitWindow(width(), height(), "");
+  auto winid = winId();
+  embedRaylibInQtWidget(&winid, GetWindowHandle());
 
-  nvg = new AnnotatedCameraWidget(VISION_STREAM_ROAD, this);
-
-  QWidget * split_wrapper = new QWidget;
-  split = new QHBoxLayout(split_wrapper);
-  split->setContentsMargins(0, 0, 0, 0);
-  split->setSpacing(0);
-  split->addWidget(nvg);
-
-  if (getenv("DUAL_CAMERA_VIEW")) {
-    CameraWidget *arCam = new CameraWidget("camerad", VISION_STREAM_ROAD, true, this);
-    split->insertWidget(0, arCam);
-  }
-
-  stacked_layout->addWidget(split_wrapper);
-
-  alerts = new OnroadAlerts(this);
-  alerts->setAttribute(Qt::WA_TransparentForMouseEvents, true);
-  stacked_layout->addWidget(alerts);
-
-  // setup stacking order
-  alerts->raise();
-
-  setAttribute(Qt::WA_OpaquePaintEvent);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &OnroadWindow::updateState);
   QObject::connect(uiState(), &UIState::offroadTransition, this, &OnroadWindow::offroadTransition);
+
+  camera = std::make_unique<AnnotatedCamera>();
+  // QObject::connect(nvg, &AnnotatedCameraWidget::clicked, this, &OnroadWindow::clicked);
+}
+
+OnroadWindow::~OnroadWindow() {
+  CloseWindow();
 }
 
 void OnroadWindow::updateState(const UIState &s) {
   if (!s.scene.started) {
     return;
   }
-
-  alerts->updateState(s);
-  nvg->updateState(s);
-
+  if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    emit clicked();
+  }
   QColor bgColor = bg_colors[s.status];
   if (bg != bgColor) {
     // repaint border
     bg = bgColor;
-    update();
   }
+
+  camera->updateState(s);
+  BeginDrawing();
+  ClearBackground(RAYWHITE);
+  camera->draw();
+  EndDrawing();
+
+  update();
 }
 
 void OnroadWindow::offroadTransition(bool offroad) {
-  alerts->clear();
+  // alerts->clear();
 }
 
-void OnroadWindow::paintEvent(QPaintEvent *event) {
-  QPainter p(this);
-  p.fillRect(rect(), QColor(bg.red(), bg.green(), bg.blue(), 255));
+void OnroadWindow::showEvent(QShowEvent *event) {
+  QRect rect = geometry();
+  QPoint pt = mapToGlobal(rect.topLeft());
+  // TODO only resize if pt/rect changed
+  SetWindowSize(rect.width(), rect.height());
+  SetWindowPosition(pt.x(), pt.y());
+  ClearWindowState(FLAG_WINDOW_HIDDEN);
+   auto winid = winId();
+  embedRaylibInQtWidget(&winid, GetWindowHandle());
+  camera->draw();
+}
+
+void OnroadWindow::hideEvent(QHideEvent *event) {
+  SetWindowState(FLAG_WINDOW_HIDDEN);
+}
+
+void OnroadWindow::resizeEvent(QResizeEvent *event) {
+  QRect rect = geometry();
+  QPoint pt = mapToGlobal(rect.topLeft());
+  SetWindowSize(rect.width(), rect.height());
+  SetWindowPosition(pt.x(), pt.y());
+  camera->draw();
 }

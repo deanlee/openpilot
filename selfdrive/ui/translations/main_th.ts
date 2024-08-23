@@ -91,15 +91,15 @@
     <name>AnnotatedCameraWidget</name>
     <message>
         <source>km/h</source>
-        <translation>กม./ชม.</translation>
+        <translation type="vanished">กม./ชม.</translation>
     </message>
     <message>
         <source>mph</source>
-        <translation>ไมล์/ชม.</translation>
+        <translation type="vanished">ไมล์/ชม.</translation>
     </message>
     <message>
         <source>MAX</source>
-        <translation>สูงสุด</translation>
+        <translation type="vanished">สูงสุด</translation>
     </message>
 </context>
 <context>
@@ -275,7 +275,7 @@
     <name>DriverViewWindow</name>
     <message>
         <source>camera starting</source>
-        <translation>กำลังเปิดกล้อง</translation>
+        <translation type="vanished">กำลังเปิดกล้อง</translation>
     </message>
 </context>
 <context>
@@ -287,6 +287,17 @@
     <message>
         <source>CHILL MODE ON</source>
         <translation>คุณกำลังใช้โหมดชิล</translation>
+    </message>
+</context>
+<context>
+    <name>HudView</name>
+    <message>
+        <source>km/h</source>
+        <translation type="obsolete">กม./ชม.</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="obsolete">ไมล์/ชม.</translation>
     </message>
 </context>
 <context>
@@ -411,23 +422,23 @@
     <name>OnroadAlerts</name>
     <message>
         <source>openpilot Unavailable</source>
-        <translation>openpilot ไม่สามารถใช้งานได้</translation>
+        <translation type="vanished">openpilot ไม่สามารถใช้งานได้</translation>
     </message>
     <message>
         <source>Waiting for controls to start</source>
-        <translation>กำลังรอให้ controls เริ่มทำงาน</translation>
+        <translation type="vanished">กำลังรอให้ controls เริ่มทำงาน</translation>
     </message>
     <message>
         <source>TAKE CONTROL IMMEDIATELY</source>
-        <translation>เข้าควบคุมรถเดี๋ยวนี้</translation>
+        <translation type="vanished">เข้าควบคุมรถเดี๋ยวนี้</translation>
     </message>
     <message>
         <source>Controls Unresponsive</source>
-        <translation>Controls ไม่ตอบสนอง</translation>
+        <translation type="vanished">Controls ไม่ตอบสนอง</translation>
     </message>
     <message>
         <source>Reboot Device</source>
-        <translation>รีบูตอุปกรณ์</translation>
+        <translation type="vanished">รีบูตอุปกรณ์</translation>
     </message>
 </context>
 <context>

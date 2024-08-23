@@ -91,15 +91,15 @@
     <name>AnnotatedCameraWidget</name>
     <message>
         <source>km/h</source>
-        <translation>كم/س</translation>
+        <translation type="vanished">كم/س</translation>
     </message>
     <message>
         <source>mph</source>
-        <translation>ميل/س</translation>
+        <translation type="vanished">ميل/س</translation>
     </message>
     <message>
         <source>MAX</source>
-        <translation>MAX</translation>
+        <translation type="vanished">MAX</translation>
     </message>
 </context>
 <context>
@@ -275,7 +275,7 @@
     <name>DriverViewWindow</name>
     <message>
         <source>camera starting</source>
-        <translation>بدء تشغيل الكاميرا</translation>
+        <translation type="vanished">بدء تشغيل الكاميرا</translation>
     </message>
 </context>
 <context>
@@ -287,6 +287,17 @@
     <message>
         <source>CHILL MODE ON</source>
         <translation>تشغيل وضع الراحة</translation>
+    </message>
+</context>
+<context>
+    <name>HudView</name>
+    <message>
+        <source>km/h</source>
+        <translation type="obsolete">كم/س</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="obsolete">ميل/س</translation>
     </message>
 </context>
 <context>
@@ -416,23 +427,23 @@
     <name>OnroadAlerts</name>
     <message>
         <source>openpilot Unavailable</source>
-        <translation>openpilot غير متوفر</translation>
+        <translation type="vanished">openpilot غير متوفر</translation>
     </message>
     <message>
         <source>Waiting for controls to start</source>
-        <translation>في انتظار بدء عناصر التحكم</translation>
+        <translation type="vanished">في انتظار بدء عناصر التحكم</translation>
     </message>
     <message>
         <source>TAKE CONTROL IMMEDIATELY</source>
-        <translation>تحكم على الفور</translation>
+        <translation type="vanished">تحكم على الفور</translation>
     </message>
     <message>
         <source>Controls Unresponsive</source>
-        <translation>الضوابط غير مستجيبة</translation>
+        <translation type="vanished">الضوابط غير مستجيبة</translation>
     </message>
     <message>
         <source>Reboot Device</source>
-        <translation>إعادة التشغيل</translation>
+        <translation type="vanished">إعادة التشغيل</translation>
     </message>
 </context>
 <context>

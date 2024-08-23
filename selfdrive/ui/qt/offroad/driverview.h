@@ -2,20 +2,15 @@
 
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 
-class DriverViewWindow : public CameraWidget {
-  Q_OBJECT
-
+class DriverViewWindow : public CameraView {
 public:
-  explicit DriverViewWindow(QWidget *parent);
-
-signals:
-  void done();
+  // DriverViewWindow();
 
 protected:
-  void showEvent(QShowEvent *event) override;
-  void hideEvent(QHideEvent *event) override;
-  void paintGL() override;
+  // void showEvent(QShowEvent *event)
+  // void hideEvent(QHideEvent *event)
+  // void paintGL();
 
-  Params params;
-  QPixmap face_img;
+  // Params params;
+  // QPixmap face_img;
 };

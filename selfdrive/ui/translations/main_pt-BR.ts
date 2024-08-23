@@ -91,15 +91,15 @@
     <name>AnnotatedCameraWidget</name>
     <message>
         <source>km/h</source>
-        <translation>km/h</translation>
+        <translation type="vanished">km/h</translation>
     </message>
     <message>
         <source>mph</source>
-        <translation>mph</translation>
+        <translation type="vanished">mph</translation>
     </message>
     <message>
         <source>MAX</source>
-        <translation>LIMITE</translation>
+        <translation type="vanished">LIMITE</translation>
     </message>
 </context>
 <context>
@@ -275,7 +275,7 @@
     <name>DriverViewWindow</name>
     <message>
         <source>camera starting</source>
-        <translation>câmera iniciando</translation>
+        <translation type="vanished">câmera iniciando</translation>
     </message>
 </context>
 <context>
@@ -287,6 +287,17 @@
     <message>
         <source>CHILL MODE ON</source>
         <translation>MODO CHILL ON</translation>
+    </message>
+</context>
+<context>
+    <name>HudView</name>
+    <message>
+        <source>km/h</source>
+        <translation type="obsolete">km/h</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="obsolete">mph</translation>
     </message>
 </context>
 <context>
@@ -412,23 +423,23 @@
     <name>OnroadAlerts</name>
     <message>
         <source>openpilot Unavailable</source>
-        <translation>openpilot Indisponível</translation>
+        <translation type="vanished">openpilot Indisponível</translation>
     </message>
     <message>
         <source>Waiting for controls to start</source>
-        <translation>Aguardando controles para iniciar</translation>
+        <translation type="vanished">Aguardando controles para iniciar</translation>
     </message>
     <message>
         <source>TAKE CONTROL IMMEDIATELY</source>
-        <translation>ASSUMA IMEDIATAMENTE</translation>
+        <translation type="vanished">ASSUMA IMEDIATAMENTE</translation>
     </message>
     <message>
         <source>Controls Unresponsive</source>
-        <translation>Controles Não Respondem</translation>
+        <translation type="vanished">Controles Não Respondem</translation>
     </message>
     <message>
         <source>Reboot Device</source>
-        <translation>Reinicie o Dispositivo</translation>
+        <translation type="vanished">Reinicie o Dispositivo</translation>
     </message>
 </context>
 <context>

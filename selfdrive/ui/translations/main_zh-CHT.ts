@@ -91,15 +91,15 @@
     <name>AnnotatedCameraWidget</name>
     <message>
         <source>km/h</source>
-        <translation>km/h</translation>
+        <translation type="vanished">km/h</translation>
     </message>
     <message>
         <source>mph</source>
-        <translation>mph</translation>
+        <translation type="vanished">mph</translation>
     </message>
     <message>
         <source>MAX</source>
-        <translation>最高</translation>
+        <translation type="vanished">最高</translation>
     </message>
 </context>
 <context>
@@ -275,7 +275,7 @@
     <name>DriverViewWindow</name>
     <message>
         <source>camera starting</source>
-        <translation>開啟相機中</translation>
+        <translation type="vanished">開啟相機中</translation>
     </message>
 </context>
 <context>
@@ -287,6 +287,17 @@
     <message>
         <source>CHILL MODE ON</source>
         <translation>輕鬆模式 ON</translation>
+    </message>
+</context>
+<context>
+    <name>HudView</name>
+    <message>
+        <source>km/h</source>
+        <translation type="obsolete">km/h</translation>
+    </message>
+    <message>
+        <source>mph</source>
+        <translation type="obsolete">mph</translation>
     </message>
 </context>
 <context>
@@ -411,23 +422,23 @@
     <name>OnroadAlerts</name>
     <message>
         <source>openpilot Unavailable</source>
-        <translation>無法使用 openpilot</translation>
+        <translation type="vanished">無法使用 openpilot</translation>
     </message>
     <message>
         <source>Waiting for controls to start</source>
-        <translation>等待操控服務開始</translation>
+        <translation type="vanished">等待操控服務開始</translation>
     </message>
     <message>
         <source>TAKE CONTROL IMMEDIATELY</source>
-        <translation>立即接管</translation>
+        <translation type="vanished">立即接管</translation>
     </message>
     <message>
         <source>Controls Unresponsive</source>
-        <translation>操控服務沒有反應</translation>
+        <translation type="vanished">操控服務沒有反應</translation>
     </message>
     <message>
         <source>Reboot Device</source>
-        <translation>請重新啟裝置</translation>
+        <translation type="vanished">請重新啟裝置</translation>
     </message>
 </context>
 <context>

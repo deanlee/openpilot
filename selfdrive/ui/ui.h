@@ -52,15 +52,15 @@ typedef enum UIStatus {
   STATUS_ENGAGED,
 } UIStatus;
 
-enum PrimeType {
+enum class PrimeType {
   UNKNOWN = -2,
   UNPAIRED = -1,
   NONE = 0,
-  MAGENTA = 1,
+  PRIME_TYPE_MAGENTA = 1,
   LITE = 2,
-  BLUE = 3,
-  MAGENTA_NEW = 4,
-  PURPLE = 5,
+  PRIME_TYPE_BLUE = 3,
+  PRIME_TYPE_MAGENTA_NEW = 4,
+  PRIME_TYPE_PURPLE = 5,
 };
 
 const QColor bg_colors [] = {
