@@ -181,11 +181,9 @@ env = Environment(
     "-Wunused",
     "-Werror",
     "-Wshadow",
-    "-Wno-unknown-warning-option",
     "-Wno-inconsistent-missing-override",
     "-Wno-c99-designator",
     "-Wno-reorder-init-list",
-    "-Wno-vla-cxx-extension",
   ] + cflags + ccflags,
 
   CPPPATH=cpppath + [
