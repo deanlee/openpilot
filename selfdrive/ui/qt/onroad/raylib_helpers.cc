@@ -57,3 +57,17 @@ void drawHCenterText(Rectangle &rec, const std::string &text, float font_size, c
 void draw_text(const std::string &text, float x, float y, float font_size, const Color &color, FontWeight weight) {
   DrawTextEx(get_font(weight), text.c_str(), (Vector2){x, y}, font_size, 1.0f, color);
 }
+
+Texture2D LoadTextureResized(const char *fileName, int size) {
+  Image img = LoadImage(fileName);
+  ImageResize(&img, size, size);
+  Texture2D texture = LoadTextureFromImage(img);
+  UnloadImage(img);
+  return texture;
+}
+
+void drawCircleTexture(Texture2D *texture, int x, int y, uint8_t opacity) {
+  Vector2 center = {(float)(x + texture->width / 2.0), (float)(y + texture->height / 2.0)};
+  DrawCircleV(center, (float)(texture->width / 2.0), {0, 0, 0, 166});
+  DrawTexture(*texture, x, y, {255, 255, 255, opacity});
+}
