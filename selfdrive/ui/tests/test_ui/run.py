@@ -34,7 +34,6 @@ DATA: dict[str, capnp.lib.capnp._DynamicStructBuilder] = dict.fromkeys(
   "driverStateV2", "roadCameraState", "wideRoadCameraState", "driverCameraState"], None)
 
 def setup_common(click, pm: PubMaster):
-  Params().put("DongleId", "123456789012345")
   pm.send('deviceState', DATA['deviceState'])
 
 def setup_homescreen(click, pm: PubMaster):
@@ -80,7 +79,6 @@ def setup_onroad_wide_sidebar(click, pm: PubMaster):
   click(500, 500)
 
 def setup_driver_camera(click, pm: PubMaster):
-  setup_settings_device(click, pm)
   click(1950, 435)
   DATA['deviceState'].deviceState.started = False
   setup_onroad(click, pm)
@@ -131,6 +129,9 @@ def setup_update_available(click, pm: PubMaster):
 CASES = {
   "homescreen": setup_homescreen,
   "settings_device": setup_settings_device,
+  "driver_camera": setup_driver_camera,
+  "offroad_alert": setup_offorad_alert,
+  "update_available": setup_update_available,
   "onroad": setup_onroad,
   "onroad_sidebar": setup_onroad_sidebar,
   "onroad_alert_small": setup_onroad_alert_small,
@@ -138,9 +139,6 @@ CASES = {
   "onroad_alert_full": setup_onroad_alert_full,
   "onroad_wide": setup_onroad_wide,
   "onroad_wide_sidebar": setup_onroad_wide_sidebar,
-  "driver_camera": setup_driver_camera,
-  "offroad_alert": setup_offorad_alert,
-  "update_available": setup_update_available
 }
 
 TEST_DIR = pathlib.Path(__file__).parent
@@ -180,7 +178,6 @@ class TestUI:
     pyautogui.click(self.ui.left + x, self.ui.top + y, *args, **kwargs)
     time.sleep(UI_DELAY) # give enough time for the UI to react
 
-  @with_processes(["ui"])
   def test_ui(self, name, setup_case):
     self.setup()
 
@@ -204,12 +201,14 @@ def create_html_report():
   with open(OUTPUT_FILE, "w") as f:
     f.write(template.render(cases=cases))
 
+@with_processes(["ui"])
 def create_screenshots():
   if TEST_OUTPUT_DIR.exists():
     shutil.rmtree(TEST_OUTPUT_DIR)
 
   SCREENSHOTS_DIR.mkdir(parents=True)
 
+  Params().put("DongleId", "123456789012345")
   route = Route(TEST_ROUTE)
 
   segnum = 2
