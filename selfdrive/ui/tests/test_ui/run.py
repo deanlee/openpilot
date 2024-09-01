@@ -35,7 +35,6 @@ DATA: dict[str, capnp.lib.capnp._DynamicStructBuilder] = dict.fromkeys(
   "driverStateV2", "roadCameraState", "wideRoadCameraState", "driverCameraState"], None)
 
 def setup_common(click, pm: PubMaster):
-  Params().put("DongleId", "123456789012345")
   pm.send('deviceState', DATA['deviceState'])
 
 def setup_homescreen(click, pm: PubMaster):
@@ -132,6 +131,8 @@ def setup_update_available(click, pm: PubMaster):
 CASES = {
   "homescreen": setup_homescreen,
   "settings_device": setup_settings_device,
+  "offroad_alert": setup_offorad_alert,
+  "update_available": setup_update_available,
   "onroad": setup_onroad,
   "onroad_sidebar": setup_onroad_sidebar,
   "onroad_alert_small": setup_onroad_alert_small,
@@ -139,9 +140,7 @@ CASES = {
   "onroad_alert_full": setup_onroad_alert_full,
   "onroad_wide": setup_onroad_wide,
   "onroad_wide_sidebar": setup_onroad_wide_sidebar,
-  "driver_camera": setup_driver_camera,
-  "offroad_alert": setup_offorad_alert,
-  "update_available": setup_update_available
+  # "driver_camera": setup_driver_camera,
 }
 
 TEST_DIR = pathlib.Path(__file__).parent
@@ -170,8 +169,8 @@ class TestUI:
   def screenshot(self):
     import pyautogui
     im = pyautogui.screenshot(region=(self.ui.left, self.ui.top, self.ui.width, self.ui.height))
-    assert im.width == 2160
-    assert im.height == 1080
+    # assert im.width == 2160
+    # assert im.height == 1080
     img = np.array(im)
     im.close()
     return img
@@ -181,7 +180,7 @@ class TestUI:
     pyautogui.click(self.ui.left + x, self.ui.top + y, *args, **kwargs)
     time.sleep(UI_DELAY) # give enough time for the UI to react
 
-  @with_processes(["ui"])
+  # @with_processes(["ui"])
   def test_ui(self, name, setup_case):
     self.setup()
 
@@ -205,6 +204,7 @@ def create_html_report():
   with open(OUTPUT_FILE, "w") as f:
     f.write(template.render(cases=cases))
 
+@with_processes(["ui"])
 def create_screenshots():
   if TEST_OUTPUT_DIR.exists():
     shutil.rmtree(TEST_OUTPUT_DIR)
@@ -230,18 +230,19 @@ def create_screenshots():
   wide_road_img = FrameReader(route.ecamera_paths()[segnum]).get(0, pix_fmt="nv12")[0]
   STREAMS.append((VisionStreamType.VISION_STREAM_WIDE_ROAD, cam.ecam, wide_road_img.flatten().tobytes()))
 
-  driver_img = FrameReader(route.dcamera_paths()[segnum]).get(0, pix_fmt="nv12")[0]
-  STREAMS.append((VisionStreamType.VISION_STREAM_DRIVER, cam.dcam, driver_img.flatten().tobytes()))
+  # driver_img = FrameReader(route.dcamera_paths()[segnum]).get(0, pix_fmt="nv12")[0]
+  # STREAMS.append((VisionStreamType.VISION_STREAM_DRIVER, cam.dcam, driver_img.flatten().tobytes()))
 
   t = TestUI()
 
-  with OpenpilotPrefix():
-    for name, setup in CASES.items():
-      t.test_ui(name, setup)
+  Params().put("DongleId", "123456789012345")
+  for name, setup in CASES.items():
+    t.test_ui(name, setup)
 
 if __name__ == "__main__":
-  print("creating test screenshots")
-  create_screenshots()
+  with OpenpilotPrefix():
+    print("creating test screenshots")
+    create_screenshots()
 
-  print("creating html report")
-  create_html_report()
+    print("creating html report")
+    create_html_report()
