@@ -34,20 +34,13 @@ DATA: dict[str, capnp.lib.capnp._DynamicStructBuilder] = dict.fromkeys(
   "liveCalibration", "modelV2", "radarState", "driverMonitoringState", "carState",
   "driverStateV2", "roadCameraState", "wideRoadCameraState", "driverCameraState"], None)
 
-def setup_common(click, pm: PubMaster):
-  pm.send('deviceState', DATA['deviceState'])
-
 def setup_homescreen(click, pm: PubMaster):
-  setup_common(click, pm)
+  pass
 
 def setup_settings_device(click, pm: PubMaster):
-  setup_common(click, pm)
-
   click(100, 100)
 
 def setup_onroad(click, pm: PubMaster):
-  setup_common(click, pm)
-
   vipc_server = VisionIpcServer("camerad")
   for stream_type, cam, _ in STREAMS:
     vipc_server.create_buffers(stream_type, 5, False, cam.width, cam.height)
@@ -160,6 +153,7 @@ class TestUI:
     while not self.sm.valid["uiDebug"]:
       self.sm.update(1)
     time.sleep(UI_DELAY) # wait a bit more for the UI to start rendering
+    self.pm.send('deviceState', DATA['deviceState'])
     try:
       self.ui = pywinctl.getWindowsWithTitle("ui")[0]
     except Exception as e:
