@@ -281,8 +281,13 @@ void CameraWidget::paintGL() {
     for (frame_idx = 0; frame_idx < frames.size() - 1; ++frame_idx) {
       if (frames[frame_idx].first == draw_frame_id) break;
     }
+    if (frames[frame_idx].first != draw_frame_id) {
+      qDebug() << "Frame synchronization error: Model frame ID =" << draw_frame_id
+               << ", Camera frame ID =" << frames[frame_idx].first;
+    }
   }
 
+  qDebug() << "here";
   // Log duplicate/dropped frames
   if (frames[frame_idx].first == prev_frame_id) {
     qDebug() << "Drawing same frame twice" << frames[frame_idx].first;
