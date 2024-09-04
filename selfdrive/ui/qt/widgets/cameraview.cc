@@ -276,27 +276,25 @@ void CameraWidget::paintGL() {
   std::lock_guard lk(frame_lock);
   if (frames.empty()) return;
 
-  int frame_idx = frames.size() - 1;
+  auto frame = frames.back();
   if (draw_frame_id >= 0) {
-    for (frame_idx = 0; frame_idx < frames.size() - 1; ++frame_idx) {
-      if (frames[frame_idx].first == draw_frame_id) break;
-    }
-    if (frames[frame_idx].first != draw_frame_id) {
+    auto it = std::find_if(frames.begin(), frames.end(), [this](auto &f) { return f->get_frame_id() == draw_frame_id; });
+    if (it != frames.end()) {
+      frame = *it;
+    } else {
       qDebug() << "Frame synchronization error: Model frame ID =" << draw_frame_id
-               << ", Camera frame ID =" << frames[frame_idx].first;
+               << ", Camera frame ID =" << frame->get_frame_id();
     }
   }
 
-  qDebug() << "here";
+  uint64_t frame_id = frame->get_frame_id();
   // Log duplicate/dropped frames
-  if (frames[frame_idx].first == prev_frame_id) {
-    qDebug() << "Drawing same frame twice" << frames[frame_idx].first;
-  } else if (frames[frame_idx].first != prev_frame_id + 1) {
-    qDebug() << "Skipped frame" << frames[frame_idx].first;
+  if (frame_id == prev_frame_id) {
+    qDebug() << "Drawing same frame twice" << frame_id;
+  } else if (frame_id != prev_frame_id + 1) {
+    qDebug() << "Skipped frame" << frame_id;
   }
-  prev_frame_id = frames[frame_idx].first;
-  VisionBuf *frame = frames[frame_idx].second;
-  assert(frame != nullptr);
+  prev_frame_id = frame_id;
 
   updateFrameMat();
 
@@ -423,7 +421,7 @@ void CameraWidget::vipcThread() {
     if (VisionBuf *buf = vipc_client->recv(&meta_main, 1000)) {
       {
         std::lock_guard lk(frame_lock);
-        frames.push_back(std::make_pair(meta_main.frame_id, buf));
+        frames.push_back(buf);
         while (frames.size() > FRAME_BUFFER_SIZE) {
           frames.pop_front();
         }

@@ -91,7 +91,7 @@ protected:
   mat3 intrinsic_matrix = FCAM_INTRINSIC_MATRIX;
 
   std::recursive_mutex frame_lock;
-  std::deque<std::pair<uint32_t, VisionBuf*>> frames;
+  std::deque<VisionBuf*> frames;
   bool update_on_frame = true;
   uint32_t draw_frame_id = -1;
   uint32_t prev_frame_id = 0;
