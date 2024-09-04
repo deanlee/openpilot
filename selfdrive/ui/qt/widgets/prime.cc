@@ -23,7 +23,7 @@ PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
   hlayout->setContentsMargins(0, 0, 0, 0);
   hlayout->setSpacing(0);
 
-  setStyleSheet("PairingPopup { background-color: #E0E0E0; }");
+  // setStyleSheet("PairingPopup { background-color: #E0E0E0; }");
 
   // text
   QVBoxLayout *vlayout = new QVBoxLayout();
