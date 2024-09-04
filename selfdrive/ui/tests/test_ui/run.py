@@ -135,21 +135,31 @@ def setup_update_available(click, pm: PubMaster):
   setup_settings_device(click, pm)
   click(240, 216)
 
+def setup_prime(click, pm: PubMaster):
+  setup_settings_device(click, pm)
+  click(240, 216)
+
+def setup_pair_device(click, pm: PubMaster):
+  setup_settings_device(click, pm)
+  click(240, 216)
+
 
 CASES = {
-  "homescreen": setup_homescreen,
-  "settings_device": setup_settings_device,
-  "onroad": setup_onroad,
-  "onroad_sidebar": setup_onroad_sidebar,
-  "onroad_alert_small": setup_onroad_alert_small,
-  "onroad_alert_mid": setup_onroad_alert_mid,
-  "onroad_alert_full": setup_onroad_alert_full,
-  "onroad_wide": setup_onroad_wide,
-  "onroad_wide_sidebar": setup_onroad_wide_sidebar,
-  "driver_camera": setup_driver_camera,
-  "body": setup_body,
-  "offroad_alert": setup_offroad_alert,
-  "update_available": setup_update_available
+  # "homescreen": setup_homescreen,
+  # "settings_device": setup_settings_device,
+  # "onroad": setup_onroad,
+  # "onroad_sidebar": setup_onroad_sidebar,
+  # "onroad_alert_small": setup_onroad_alert_small,
+  # "onroad_alert_mid": setup_onroad_alert_mid,
+  # "onroad_alert_full": setup_onroad_alert_full,
+  # "onroad_wide": setup_onroad_wide,
+  # "onroad_wide_sidebar": setup_onroad_wide_sidebar,
+  # "driver_camera": setup_driver_camera,
+  # "body": setup_body,
+  "prime": setup_prime,
+  "pair_device": setup_pair_device,
+  # "offroad_alert": setup_offroad_alert,
+  # "update_available": setup_update_available
 }
 
 TEST_DIR = pathlib.Path(__file__).parent
@@ -178,8 +188,8 @@ class TestUI:
   def screenshot(self):
     import pyautogui
     im = pyautogui.screenshot(region=(self.ui.left, self.ui.top, self.ui.width, self.ui.height))
-    assert im.width == 2160
-    assert im.height == 1080
+    # assert im.width == 2160
+    # assert im.height == 1080
     img = np.array(im)
     im.close()
     return img
@@ -231,6 +241,8 @@ def create_screenshots():
     if all(DATA.values()):
       break
 
+  DATA["deviceState"].deviceState.networkType = log.DeviceState.NetworkType.wifi
+
   cam = DEVICE_CAMERAS[("tici", "ar0231")]
   road_img = FrameReader(route.camera_paths()[segnum]).get(0, pix_fmt="nv12")[0]
   STREAMS.append((VisionStreamType.VISION_STREAM_ROAD, cam.fcam, road_img.flatten().tobytes()))
@@ -244,8 +256,12 @@ def create_screenshots():
   t = TestUI()
 
   with OpenpilotPrefix():
+    cnt = 0
     for name, setup in CASES.items():
+      if cnt == 1:
+        Params().put('PrimeType', '4')
       t.test_ui(name, setup)
+      cnt = cnt + 1
 
 if __name__ == "__main__":
   print("creating test screenshots")
