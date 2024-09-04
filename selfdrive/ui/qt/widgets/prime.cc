@@ -18,56 +18,6 @@
 
 using qrcodegen::QrCode;
 
-PairingQRWidget::PairingQRWidget(QWidget* parent) : QWidget(parent) {
-  timer = new QTimer(this);
-  connect(timer, &QTimer::timeout, this, &PairingQRWidget::refresh);
-}
-
-void PairingQRWidget::showEvent(QShowEvent *event) {
-  refresh();
-  timer->start(5 * 60 * 1000);
-  device()->setOffroadBrightness(100);
-}
-
-void PairingQRWidget::hideEvent(QHideEvent *event) {
-  timer->stop();
-  device()->setOffroadBrightness(BACKLIGHT_OFFROAD);
-}
-
-void PairingQRWidget::refresh() {
-  QString pairToken = CommaApi::create_jwt({{"pair", true}});
-  QString qrString = "https://connect.comma.ai/?pair=" + pairToken;
-  this->updateQrCode(qrString);
-  update();
-}
-
-void PairingQRWidget::updateQrCode(const QString &text) {
-  QrCode qr = QrCode::encodeText(text.toUtf8().data(), QrCode::Ecc::LOW);
-  qint32 sz = qr.getSize();
-  QImage im(sz, sz, QImage::Format_RGB32);
-
-  QRgb black = qRgb(0, 0, 0);
-  QRgb white = qRgb(255, 255, 255);
-  for (int y = 0; y < sz; y++) {
-    for (int x = 0; x < sz; x++) {
-      im.setPixel(x, y, qr.getModule(x, y) ? black : white);
-    }
-  }
-
-  // Integer division to prevent anti-aliasing
-  int final_sz = ((width() / sz) - 1) * sz;
-  img = QPixmap::fromImage(im.scaled(final_sz, final_sz, Qt::KeepAspectRatio), Qt::MonoOnly);
-}
-
-void PairingQRWidget::paintEvent(QPaintEvent *e) {
-  QPainter p(this);
-  p.fillRect(rect(), Qt::white);
-
-  QSize s = (size() - img.size()) / 2;
-  p.drawPixmap(s.width(), s.height(), img);
-}
-
-
 PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
   QHBoxLayout *hlayout = new QHBoxLayout(this);
   hlayout->setContentsMargins(0, 0, 0, 0);
@@ -112,10 +62,42 @@ PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
   }
 
   // QR code
-  PairingQRWidget *qr = new PairingQRWidget(this);
-  hlayout->addWidget(qr, 1);
+  hlayout->addWidget(qr_label = new QLabel(this), 1);
+  timer = new QTimer(this);
+  connect(timer, &QTimer::timeout, this, &PairingPopup::updateQrCode);
 }
 
+void PairingPopup::showEvent(QShowEvent *event) {
+  updateQrCode();
+  timer->start(5 * 60 * 1000);
+  device()->setOffroadBrightness(100);
+}
+
+void PairingPopup::hideEvent(QHideEvent *event) {
+  timer->stop();
+  device()->setOffroadBrightness(BACKLIGHT_OFFROAD);
+}
+
+void PairingPopup::updateQrCode() {
+  QString pairToken = CommaApi::create_jwt({{"pair", true}});
+  QString text = "https://connect.comma.ai/?pair=" + pairToken;
+  QrCode qr = QrCode::encodeText(text.toUtf8().data(), QrCode::Ecc::LOW);
+  qint32 sz = qr.getSize();
+  QImage im(sz, sz, QImage::Format_RGB32);
+
+  QRgb black = qRgb(0, 0, 0);
+  QRgb white = qRgb(255, 255, 255);
+  for (int y = 0; y < sz; y++) {
+    for (int x = 0; x < sz; x++) {
+      im.setPixel(x, y, qr.getModule(x, y) ? black : white);
+    }
+  }
+
+  // Integer division to prevent anti-aliasing
+  int final_sz = ((width() / sz) - 1) * sz;
+  img = QPixmap::fromImage(im.scaled(final_sz, final_sz, Qt::KeepAspectRatio), Qt::MonoOnly);
+  qr_label->setPixmap(img);
+}
 
 PrimeUserWidget::PrimeUserWidget(QWidget *parent) : QFrame(parent) {
   setObjectName("primeWidget");
