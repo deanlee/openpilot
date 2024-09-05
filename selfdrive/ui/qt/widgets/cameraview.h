@@ -1,12 +1,8 @@
 #pragma once
 
-#include <deque>
 #include <map>
 #include <memory>
-#include <mutex>
 #include <set>
-#include <string>
-#include <utility>
 
 #include <QOpenGLFunctions>
 #include <QOpenGLShaderProgram>
@@ -26,9 +22,6 @@
 #include "system/camerad/cameras/camera_common.h"
 #include "selfdrive/ui/ui.h"
 
-const int FRAME_BUFFER_SIZE = 5;
-static_assert(FRAME_BUFFER_SIZE <= YUV_BUFFER_COUNT);
-
 class CameraWidget : public QOpenGLWidget, protected QOpenGLFunctions {
   Q_OBJECT
 
@@ -37,31 +30,23 @@ public:
   explicit CameraWidget(std::string stream_name, VisionStreamType stream_type, bool zoom, QWidget* parent = nullptr);
   ~CameraWidget();
   void setBackgroundColor(const QColor &color) { bg = color; }
-  void setUpdateOnFrame(bool v) { update_on_frame = v; }
-  void setFrameId(int frame_id) { draw_frame_id = frame_id; }
   void setStreamType(VisionStreamType type) { requested_stream_type = type; }
-  VisionStreamType getStreamType() { return active_stream_type; }
-  void stopVipcThread();
+  VisionStreamType getStreamType() { return requested_stream_type; }
 
 signals:
   void clicked();
-  void vipcThreadConnected(VisionIpcClient *);
-  void vipcThreadFrameReceived();
   void vipcAvailableStreamsUpdated(std::set<VisionStreamType>);
 
 protected:
   void paintGL() override;
   void initializeGL() override;
-  void resizeGL(int w, int h) override { updateFrameMat(); }
-  void showEvent(QShowEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override { emit clicked(); }
   virtual void updateFrameMat();
-  void updateCalibration(const mat3 &calib);
-  void vipcThread();
-  void clearFrames();
-
-  int glWidth();
-  int glHeight();
+  void updateCalibration(const mat3 &calib) { calibration = calib; }
+  void vipcConnected();
+  VisionBuf *receiveFrame();
+  int glWidth() { return width() * devicePixelRatio(); }
+  int glHeight() { return height() * devicePixelRatio(); }
 
   bool zoomed_view;
   GLuint frame_vao, frame_vbo, frame_ibo;
@@ -69,6 +54,7 @@ protected:
   mat4 frame_mat = {};
   std::unique_ptr<QOpenGLShaderProgram> program;
   QColor bg = QColor("#000000");
+  VisionBuf *frame  = nullptr;
 
 #ifdef QCOM2
   std::map<int, EGLImageKHR> egl_images;
@@ -77,11 +63,9 @@ protected:
   std::string stream_name;
   int stream_width = 0;
   int stream_height = 0;
-  int stream_stride = 0;
-  std::atomic<VisionStreamType> active_stream_type;
-  std::atomic<VisionStreamType> requested_stream_type;
+  VisionStreamType requested_stream_type;
   std::set<VisionStreamType> available_streams;
-  QThread *vipc_thread = nullptr;
+  std::unique_ptr<VisionIpcClient> vipc_client;
 
   // Calibration
   float x_offset = 0;
@@ -89,17 +73,4 @@ protected:
   float zoom = 1.0;
   mat3 calibration = DEFAULT_CALIBRATION;
   mat3 intrinsic_matrix = FCAM_INTRINSIC_MATRIX;
-
-  std::recursive_mutex frame_lock;
-  std::deque<std::pair<uint32_t, VisionBuf*>> frames;
-  bool update_on_frame = true;
-  uint32_t draw_frame_id = -1;
-  uint32_t prev_frame_id = 0;
-
-protected slots:
-  void vipcConnected(VisionIpcClient *vipc_client);
-  void vipcFrameReceived();
-  void availableStreamsUpdated(std::set<VisionStreamType> streams);
 };
-
-Q_DECLARE_METATYPE(std::set<VisionStreamType>);

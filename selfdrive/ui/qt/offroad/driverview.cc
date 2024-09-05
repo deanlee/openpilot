@@ -25,17 +25,15 @@ void DriverViewWindow::showEvent(QShowEvent* event) {
 
 void DriverViewWindow::hideEvent(QHideEvent* event) {
   params.putBool("IsDriverViewEnabled", false);
-  stopVipcThread();
   CameraWidget::hideEvent(event);
 }
 
 void DriverViewWindow::paintGL() {
   CameraWidget::paintGL();
 
-  std::lock_guard lk(frame_lock);
   QPainter p(this);
   // startup msg
-  if (frames.empty()) {
+  if (!frame) {
     p.setPen(Qt::white);
     p.setRenderHint(QPainter::TextAntialiasing);
     p.setFont(InterFont(100, QFont::Bold));
