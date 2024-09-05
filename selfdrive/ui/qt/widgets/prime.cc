@@ -110,7 +110,6 @@ PrimeUserWidget::PrimeUserWidget(QWidget *parent) : QFrame(parent) {
   mainLayout->addWidget(commaPrime);
 }
 
-
 PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(80, 90, 80, 60);

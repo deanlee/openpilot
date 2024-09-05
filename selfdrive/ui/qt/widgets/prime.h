@@ -21,23 +21,6 @@ public:
   QTimer *timer;
 };
 
-// widget for paired users with prime
-class PrimeUserWidget : public QFrame {
-  Q_OBJECT
-
-public:
-  explicit PrimeUserWidget(QWidget* parent = 0);
-};
-
-
-// widget for paired users without prime
-class PrimeAdWidget : public QFrame {
-  Q_OBJECT
-public:
-  explicit PrimeAdWidget(QWidget* parent = 0);
-};
-
-
 // container widget
 class SetupWidget : public QFrame {
   Q_OBJECT
