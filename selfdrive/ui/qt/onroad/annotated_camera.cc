@@ -53,6 +53,7 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
 
   // update DM icon
   dmon.updateState(s);
+  update();
 }
 
 void AnnotatedCameraWidget::drawHud(QPainter &p) {
@@ -246,21 +247,6 @@ void AnnotatedCameraWidget::paintGL() {
 
   // draw camera frame
   {
-    std::lock_guard lk(frame_lock);
-
-    if (frames.empty()) {
-      if (skip_frame_count > 0) {
-        skip_frame_count--;
-        qDebug() << "skipping frame, not ready";
-        return;
-      }
-    } else {
-      // skip drawing up to this many frames if we're
-      // missing camera frames. this smooths out the
-      // transitions from the narrow and wide cameras
-      skip_frame_count = 5;
-    }
-
     // Wide or narrow cam dependent on speed
     bool has_wide_cam = available_streams.count(VISION_STREAM_WIDE_ROAD);
     if (has_wide_cam) {
@@ -283,7 +269,6 @@ void AnnotatedCameraWidget::paintGL() {
     } else {
       CameraWidget::updateCalibration(DEFAULT_CALIBRATION);
     }
-    CameraWidget::setFrameId(model.getFrameId());
     CameraWidget::paintGL();
   }
 
@@ -310,7 +295,6 @@ void AnnotatedCameraWidget::paintGL() {
   }
 
   dmon.draw(painter, rect());
-
   drawHud(painter);
 
   double cur_draw_t = millis_since_boot();
