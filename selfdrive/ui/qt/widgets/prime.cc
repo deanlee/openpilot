@@ -65,16 +65,12 @@ PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
   hlayout->addWidget(qr_label = new QLabel(this), 1);
   timer = new QTimer(this);
   connect(timer, &QTimer::timeout, this, &PairingPopup::updateQrCode);
-}
-
-void PairingPopup::showEvent(QShowEvent *event) {
   updateQrCode();
-  timer->start(5 * 60 * 1000);
   device()->setOffroadBrightness(100);
+  timer->start(5 * 60 * 1000);
 }
 
 void PairingPopup::hideEvent(QHideEvent *event) {
-  timer->stop();
   device()->setOffroadBrightness(BACKLIGHT_OFFROAD);
 }
 

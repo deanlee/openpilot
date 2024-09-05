@@ -13,7 +13,6 @@ class PairingPopup : public DialogBase {
 
 public:
   explicit PairingPopup(QWidget* parent);
-  void showEvent(QShowEvent *event) override;
   void hideEvent(QHideEvent *event) override;
   void updateQrCode();
 
