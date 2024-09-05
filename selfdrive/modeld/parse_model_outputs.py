@@ -39,10 +39,11 @@ class Parser:
   def parse_mdn(self, name, outs, in_N=0, out_N=1, out_shape=None):
     if self.check_missing(outs, name):
       return
+
     raw = outs[name]
     raw = raw.reshape((raw.shape[0], max(in_N, 1), -1))
-
     n_values = (raw.shape[2] - out_N)//2
+
     pred_mu = raw[:,:,:n_values]
     pred_std = np.exp(raw[:,:,n_values: 2*n_values])
 
@@ -57,18 +58,18 @@ class Parser:
           weights[fidx] = weights[fidx][idxs]
           pred_mu[fidx] = pred_mu[fidx][idxs]
           pred_std[fidx] = pred_std[fidx][idxs]
+        # idxs1 = np.argsort(weights[:, :, 0], axis=-1)[:, ::-1]
+        # pred_mu1 = np.take_along_axis(pred_mu, idxs1[:, :, None], axis=1)
+        # pred_std1 = np.take_along_axis(pred_std, idxs1[:, :, None], axis=1)
       full_shape = tuple([raw.shape[0], in_N] + list(out_shape))
       outs[name + '_weights'] = weights
       outs[name + '_hypotheses'] = pred_mu.reshape(full_shape)
       outs[name + '_stds_hypotheses'] = pred_std.reshape(full_shape)
 
-      pred_mu_final = np.zeros((raw.shape[0], out_N, n_values), dtype=raw.dtype)
-      pred_std_final = np.zeros((raw.shape[0], out_N, n_values), dtype=raw.dtype)
-      for fidx in range(weights.shape[0]):
-        for hidx in range(out_N):
-          idxs = np.argsort(weights[fidx,:,hidx])[::-1]
-          pred_mu_final[fidx, hidx] = pred_mu[fidx, idxs[0]]
-          pred_std_final[fidx, hidx] = pred_std[fidx, idxs[0]]
+      # Final outputs using top weights, hypotheses, and stds
+      top_idxs = np.argsort(weights, axis=1)[:, :, -1]
+      pred_mu_final = np.take_along_axis(pred_mu, top_idxs[:, :, np.newaxis], axis=1)
+      pred_std_final = np.take_along_axis(pred_std, top_idxs[:, :, np.newaxis], axis=1)
     else:
       pred_mu_final = pred_mu
       pred_std_final = pred_std
