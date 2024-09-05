@@ -7,7 +7,6 @@
 
 #include "selfdrive/ui/qt/widgets/input.h"
 
-// pairing popup widget
 class PairingPopup : public DialogBase {
   Q_OBJECT
 
