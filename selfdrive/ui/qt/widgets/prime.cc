@@ -5,7 +5,6 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QPushButton>
-#include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -18,30 +17,22 @@
 
 using qrcodegen::QrCode;
 
-PairingQRWidget::PairingQRWidget(QWidget* parent) : QWidget(parent) {
-  timer = new QTimer(this);
-  connect(timer, &QTimer::timeout, this, &PairingQRWidget::refresh);
-}
 
-void PairingQRWidget::showEvent(QShowEvent *event) {
-  refresh();
-  timer->start(5 * 60 * 1000);
-  device()->setOffroadBrightness(100);
-}
+// void PairingQRWidget::showEvent(QShowEvent *event) {
+//   refresh();
+//   timer->start(5 * 60 * 1000);
+//   device()->setOffroadBrightness(100);
+// }
 
-void PairingQRWidget::hideEvent(QHideEvent *event) {
-  timer->stop();
-  device()->setOffroadBrightness(BACKLIGHT_OFFROAD);
-}
+// void PairingQRWidget::hideEvent(QHideEvent *event) {
+//   timer->stop();
+//   device()->setOffroadBrightness(BACKLIGHT_OFFROAD);
+// }
 
-void PairingQRWidget::refresh() {
+void PairingPopup::updateQrCode() {
   QString pairToken = CommaApi::create_jwt({{"pair", true}});
-  QString qrString = "https://connect.comma.ai/?pair=" + pairToken;
-  this->updateQrCode(qrString);
-  update();
-}
+  QString text = "https://connect.comma.ai/?pair=" + pairToken;
 
-void PairingQRWidget::updateQrCode(const QString &text) {
   QrCode qr = QrCode::encodeText(text.toUtf8().data(), QrCode::Ecc::LOW);
   qint32 sz = qr.getSize();
   QImage im(sz, sz, QImage::Format_RGB32);
@@ -56,17 +47,9 @@ void PairingQRWidget::updateQrCode(const QString &text) {
 
   // Integer division to prevent anti-aliasing
   int final_sz = ((width() / sz) - 1) * sz;
-  img = QPixmap::fromImage(im.scaled(final_sz, final_sz, Qt::KeepAspectRatio), Qt::MonoOnly);
+  auto img = QPixmap::fromImage(im.scaled(final_sz, final_sz, Qt::KeepAspectRatio), Qt::MonoOnly);
+  label->setPixmap(img);
 }
-
-void PairingQRWidget::paintEvent(QPaintEvent *e) {
-  QPainter p(this);
-  p.fillRect(rect(), Qt::white);
-
-  QSize s = (size() - img.size()) / 2;
-  p.drawPixmap(s.width(), s.height(), img);
-}
-
 
 PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
   QHBoxLayout *hlayout = new QHBoxLayout(this);
@@ -112,8 +95,10 @@ PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
   }
 
   // QR code
-  PairingQRWidget *qr = new PairingQRWidget(this);
-  hlayout->addWidget(qr, 1);
+  hlayout->addWidget(label = new QLabel(this), 1);
+  timer = new QTimer(this);
+  updateQrCode();
+  // connect(timer, &QTimer::timeout, this, &PrimeUserWidget::refresh);
 }
 
 
@@ -232,7 +217,7 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
 
   mainLayout->addWidget(content);
 
-  mainLayout->setCurrentIndex(1);
+  mainLayout->setCurrentIndex(0);
 
   setStyleSheet(R"(
     #primeWidget {

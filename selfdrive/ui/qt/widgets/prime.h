@@ -2,30 +2,8 @@
 
 #include <QLabel>
 #include <QStackedWidget>
-#include <QVBoxLayout>
-#include <QWidget>
 
 #include "selfdrive/ui/qt/widgets/input.h"
-
-// pairing QR code
-class PairingQRWidget : public QWidget {
-  Q_OBJECT
-
-public:
-  explicit PairingQRWidget(QWidget* parent = 0);
-  void paintEvent(QPaintEvent*) override;
-
-private:
-  QPixmap img;
-  QTimer *timer;
-  void updateQrCode(const QString &text);
-  void showEvent(QShowEvent *event) override;
-  void hideEvent(QHideEvent *event) override;
-
-private slots:
-  void refresh();
-};
-
 
 // pairing popup widget
 class PairingPopup : public DialogBase {
@@ -33,8 +11,10 @@ class PairingPopup : public DialogBase {
 
 public:
   explicit PairingPopup(QWidget* parent);
+  void updateQrCode();
+  QTimer *timer;
+  QLabel *label;
 };
-
 
 // widget for paired users with prime
 class PrimeUserWidget : public QFrame {
