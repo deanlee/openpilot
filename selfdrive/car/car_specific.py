@@ -37,15 +37,36 @@ class CarSpecificEvents:
     self.no_steer_warning = False
     self.silent_steer_warning = True
 
+    # Map car names to their specific handling functions
+    self.car_event_handlers = {
+      'body': self.handle_body,
+      'mock': self.handle_body,
+      'subaru': self.handle_subaru,
+      'ford': self.handle_ford,
+      'nissan': self.handle_nissan,
+      'mazda': self.handle_mazda,
+      'chrysler': self.handle_chrysler,
+      'honda': self.handle_honda,
+      'toyota': self.handle_toyota,
+      'gm': self.handle_gm,
+      'volkswagen': self.handle_volkswagen,
+      'hyundai': self.handle_hyundai
+    }
+
   def update(self, CS: CarStateBase, CS_prev: car.CarState, CC: CarControllerBase, CC_prev: car.CarControl):
-    if self.CP.carName in ('body', 'mock'):
-      events = Events()
+    if self.CP.carName not in self.car_event_handlers:
+      raise ValueError(f"Unsupported car: {self.CP.carName}")
 
-    elif self.CP.carName == 'subaru':
-      events = self.create_common_events(CS.out, CS_prev)
+    return self.car_event_handlers[self.CP.carName](CS, CS_prev, CC, CC_prev)
 
-    elif self.CP.carName == 'ford':
-      events = self.create_common_events(CS.out, CS_prev, extra_gears=[GearShifter.manumatic])
+  def handle_body(self, CS, CS_prev, CC, CC_prev):
+    return Events()
+
+  def handle_subaru(self, CS, CS_prev, CC, CC_prev):
+    return self.create_common_events(CS.out, CS_prev)
+
+  def handle_ford(CS, CS_prev, CC, CC_prev):
+    return self.create_common_events(CS.out, CS_prev, extra_gears=[GearShifter.manumatic])
 
     elif self.CP.carName == 'nissan':
       events = self.create_common_events(CS.out, CS_prev, extra_gears=[GearShifter.brake])
