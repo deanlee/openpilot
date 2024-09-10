@@ -38,7 +38,7 @@ def obd_callback(params: Params) -> ObdCallback:
       cloudlog.warning(f"Setting OBD multiplexing to {obd_multiplexing}")
       params.remove("ObdMultiplexingChanged")
       params.put_bool("ObdMultiplexingEnabled", obd_multiplexing)
-      params.get_bool("ObdMultiplexingChanged", block=True)
+      params.get_bool("ObdMultiplexingChanged", block=False)
       cloudlog.warning("OBD multiplexing set successfully")
   return set_obd_multiplexing
 
@@ -281,23 +281,36 @@ class Car:
       time.sleep(0.1)
 
   def card_thread(self):
+    idx = 0
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:
       t.start()
       while True:
+        if idx == 1000:
+          break
         self.step()
         self.rk.monitor_time()
     finally:
       e.set()
       t.join()
 
+import cProfile
 
+import pstats
 def main():
   config_realtime_process(4, Priority.CTRL_HIGH)
+
   car = Car()
+  profiler = cProfile.Profile()
+  profiler.enable()
   car.card_thread()
 
+  profiler.disable()
+
+  # Print out the profiling stats
+  stats = pstats.Stats(profiler)
+  stats.strip_dirs().sort_stats('cumtime').print_stats()
 
 if __name__ == "__main__":
   main()

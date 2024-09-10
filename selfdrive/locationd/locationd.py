@@ -276,9 +276,13 @@ def main():
     x_initial = np.array(initial_pose["x"], dtype=np.float64)
     P_initial = np.diag(np.array(initial_pose["P"], dtype=np.float64))
     estimator.reset(None, x_initial, P_initial)
-
+  idx = 0
   while True:
+    idx += 1
+    if idx == 500:
+      return
     sm.update()
+    # print(idx)
 
     acc_msgs, gyro_msgs = (messaging.drain_sock(sock) for sock in sensor_sockets)
 
@@ -317,5 +321,16 @@ def main():
       pm.send("livePose", msg)
 
 
+import cProfile
+
+import pstats
 if __name__ == "__main__":
+  profiler = cProfile.Profile()
+  profiler.enable()
   main()
+  profiler.disable()
+
+  # Print out the profiling stats
+  stats = pstats.Stats(profiler)
+  stats.strip_dirs().sort_stats('cumtime').print_stats()
+
