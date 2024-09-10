@@ -31,14 +31,12 @@ def new_message(service: Optional[str], size: Optional[int] = None, **kwargs) ->
   args = {
     'valid': False,
     'logMonoTime': int(time.monotonic() * 1e9),
-    **kwargs
   }
+  args.update(kwargs)
+
   dat = log.Event.new_message(**args)
   if service is not None:
-    if size is None:
-      dat.init(service)
-    else:
-      dat.init(service, size)
+    dat.init(service, size)
   return dat
 
 
@@ -195,7 +193,8 @@ class SubMaster:
 
   def update_msgs(self, cur_time: float, msgs: List[capnp.lib.capnp._DynamicStructReader]) -> None:
     self.frame += 1
-    self.updated = dict.fromkeys(self.services, False)
+    self.updated.update((key, False) for key in self.updated)
+
     for msg in msgs:
       if msg is None:
         continue
