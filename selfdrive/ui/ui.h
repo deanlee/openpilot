@@ -4,7 +4,6 @@
 #include <memory>
 #include <string>
 
-#include <QObject>
 #include <QColor>
 #include <QFuture>
 #include <QThread>
