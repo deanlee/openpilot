@@ -1,5 +1,6 @@
 # distutils: language = c++
 # cython: language_level=3
+from cpython.object cimport PyObject
 from cython.operator cimport dereference as deref, preincrement as preinc
 from libcpp.vector cimport vector
 from libcpp.string cimport string
@@ -24,7 +25,7 @@ cdef extern from "opendbc/can/common.h":
 
 cdef extern from "can_list_to_can_capnp.cc":
   void can_list_to_can_capnp_cpp(const vector[can_frame] &can_list, string &out, bool sendcan, bool valid)
-  void can_capnp_to_can_list_cpp(const vector[string] &strings, vector[CanData] &can_data, bool sendcan)
+  PyObject* can_capnp_to_can_list_cpp(const vector[string] &strings, bool sendcan)
 
 def can_list_to_can_capnp(can_msgs, msgtype='can', valid=True):
   cdef can_frame *f
@@ -41,16 +42,8 @@ def can_list_to_can_capnp(can_msgs, msgtype='can', valid=True):
   can_list_to_can_capnp_cpp(can_list, out, msgtype == 'sendcan', valid)
   return out
 
-def can_capnp_to_list(strings, msgtype='can'):
-  cdef vector[CanData] data
-  can_capnp_to_can_list_cpp(strings, data, msgtype == 'sendcan')
-
-  result = []
-  cdef CanData *d
-  cdef vector[CanData].iterator it = data.begin()
-  while it != data.end():
-    d = &deref(it)
-    frames = [(f.address, (<char *>&f.dat[0])[:f.dat.size()], f.src) for f in d.frames]
-    result.append((d.nanos, frames))
-    preinc(it)
-  return result
+def can_capnp_to_list(list_of_strings, msgtype='can'):
+  cdef vector[string] strings
+  for s in list_of_strings:
+    strings.push_back(s)
+  return <object>can_capnp_to_can_list_cpp(strings, msgtype == 'sendcan')

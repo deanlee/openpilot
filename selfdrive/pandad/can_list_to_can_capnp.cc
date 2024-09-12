@@ -1,6 +1,7 @@
 #include "cereal/messaging/messaging.h"
 #include "selfdrive/pandad/panda.h"
 #include "opendbc/can/common.h"
+#include "Python.h"
 
 void can_list_to_can_capnp_cpp(const std::vector<can_frame> &can_list, std::string &out, bool sendcan, bool valid) {
   MessageBuilder msg;
@@ -21,10 +22,10 @@ void can_list_to_can_capnp_cpp(const std::vector<can_frame> &can_list, std::stri
 }
 
 // Converts a vector of Cap'n Proto serialized can strings into a vector of CanData structures.
-void can_capnp_to_can_list_cpp(const std::vector<std::string> &strings, std::vector<CanData> &can_list, bool sendcan) {
+PyObject* can_capnp_to_can_list_cpp(const std::vector<std::string> &strings, bool sendcan) {
   AlignedBuffer aligned_buf;
-  can_list.reserve(strings.size());
 
+  PyObject* result_list = PyList_New(0);
   for (const auto &str : strings) {
     // extract the messages
     capnp::FlatArrayMessageReader reader(aligned_buf.align(str.data(), str.size()));
@@ -32,20 +33,33 @@ void can_capnp_to_can_list_cpp(const std::vector<std::string> &strings, std::vec
 
     auto frames = sendcan ? event.getSendcan() : event.getCan();
 
-    // Add new CanData entry
-    CanData &can_data = can_list.emplace_back();
-    can_data.nanos = event.getLogMonoTime();
-    can_data.frames.reserve(frames.size());
-
+    PyObject* frame_list = PyList_New(0);
     // Populate CAN frames
     for (const auto &frame : frames) {
-      CanFrame &can_frame = can_data.frames.emplace_back();
-      can_frame.src = frame.getSrc();
-      can_frame.address = frame.getAddress();
+      // Create a tuple for each frame (address, data, src)
+      PyObject* address = PyLong_FromUnsignedLong(frame.getAddress());
+      PyObject* data_bytes = PyBytes_FromStringAndSize((const char*)frame.getDat().begin(), frame.getDat().size());
+      PyObject* src = PyLong_FromUnsignedLong(frame.getSrc());
 
-      // Copy CAN data
-      auto dat = frame.getDat();
-      can_frame.dat.assign(dat.begin(), dat.end());
+      // Create a tuple (address, data, src) and add it to frame_list
+      PyObject* frame_tuple = PyTuple_Pack(3, address, data_bytes, src);
+      PyList_Append(frame_list, frame_tuple);
+      // Decrease reference counts
+      Py_DECREF(address);
+      Py_DECREF(data_bytes);
+      Py_DECREF(src);
+      Py_DECREF(frame_tuple);
     }
+
+     // Create a tuple for each CanData (nanos, frame_list) and add it to result_list
+    PyObject* nanos = PyLong_FromUnsignedLongLong(event.getLogMonoTime());
+    PyObject* data_tuple = PyTuple_Pack(2, nanos, frame_list);
+    PyList_Append(result_list, data_tuple);
+
+    // Decrease reference counts
+    Py_DECREF(nanos);
+    Py_DECREF(frame_list);
+    Py_DECREF(data_tuple);
   }
+  return result_list;
 }
