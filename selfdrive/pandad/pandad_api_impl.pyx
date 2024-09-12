@@ -43,7 +43,4 @@ def can_list_to_can_capnp(can_msgs, msgtype='can', valid=True):
   return out
 
 def can_capnp_to_list(list_of_strings, msgtype='can'):
-  cdef vector[string] strings
-  for s in list_of_strings:
-    strings.push_back(s)
-  return <object>can_capnp_to_can_list_cpp(strings, msgtype == 'sendcan')
+  return <object>can_capnp_to_can_list_cpp(list_of_strings, msgtype == 'sendcan')
