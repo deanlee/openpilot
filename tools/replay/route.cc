@@ -19,7 +19,7 @@ Route::Route(const QString &route, const QString &data_dir) : data_dir_(data_dir
 
 RouteIdentifier Route::parseRoute(const QString &str) {
   RouteIdentifier identifier = {};
-  QRegularExpression rx(R"(^((?<dongle_id>[a-z0-9]{16})[|_/])?(?<timestamp>.{20})((?<separator>--|/)(?<range>((-?\d+(:(-?\d+)?)?)|(:-?\d+))))?$)");
+  QRegularExpression rx(R"(^((?<dongle_id>[a-z0-9]{16})[|_/])?(?<timestamp>\d{4}-\d{2}-\d{2}--\d{2}-\d{2}-\d{2})((?<separator>--|/)(?<range>((-?\d+(:(-?\d+)?)?)|(:-?\d+))))?$)");
   if (auto match = rx.match(str); match.hasMatch()) {
     identifier.dongle_id = match.captured("dongle_id");
     identifier.timestamp = match.captured("timestamp");
@@ -57,6 +57,10 @@ bool Route::load() {
       }
     }
   }
+  for (auto &[k, v] : segments_) {
+    printf("%d ",k);
+  }
+  printf("\n");
   return !segments_.empty();
 }
 
