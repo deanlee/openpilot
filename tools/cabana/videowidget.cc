@@ -140,6 +140,7 @@ QWidget *VideoWidget::createCameraWidget() {
   l->addWidget(slider = new Slider(w));
   slider->setSingleStep(0);
   slider->setTimeRange(can->minSeconds(), can->maxSeconds());
+  thumbnail_label = new InfoLabel(this);
 
   QObject::connect(slider, &QSlider::sliderReleased, [this]() { can->seekTo(slider->currentSecond()); });
   QObject::connect(can, &AbstractStream::paused, cam_widget, [c = cam_widget]() { c->showPausedOverlay(); });
@@ -214,7 +215,6 @@ void VideoWidget::updatePlayBtnState() {
 // Slider
 
 Slider::Slider(QWidget *parent) : QSlider(Qt::Horizontal, parent) {
-  thumbnail_label = new InfoLabel(parent);
   setMouseTracking(true);
 }
 

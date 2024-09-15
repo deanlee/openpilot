@@ -48,10 +48,6 @@ private:
   void mouseMoveEvent(QMouseEvent *e) override;
   bool event(QEvent *event) override;
   void paintEvent(QPaintEvent *ev) override;
-
-  std::map<uint64_t, QPixmap> thumbnails;
-  std::map<uint64_t, AlertInfo> alerts;
-  InfoLabel *thumbnail_label;
 };
 
 class StreamCameraView : public CameraWidget {
@@ -99,4 +95,8 @@ protected:
   ToolButton *skip_to_end_btn = nullptr;
   Slider *slider = nullptr;
   QTabBar *camera_tab = nullptr;
+
+  std::map<uint64_t, QPixmap> thumbnails;
+  std::map<uint64_t, AlertInfo> alerts;
+  InfoLabel *thumbnail_label;
 };
