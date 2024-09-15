@@ -395,11 +395,13 @@ void StreamCameraView::paintGL() {
   if (!can->isPaused() && alert_.text1.isEmpty()) return;
 
   QPainter p(this);
+  if (!alert_.text1.isEmpty()) {
+    p.setPen(QPen(palette().color(QPalette::BrightText), 2));
+    drawAlert(p, rect(), alert_);
+  }
   if (can->isPaused()) {
     p.setPen(QColor(200, 200, 200, static_cast<int>(255 * overlay_opacity)));
     p.setFont(QFont(font().family(), 16, QFont::Bold));
     p.drawText(rect(), Qt::AlignCenter, tr("PAUSED"));
   }
-  p.setPen(QPen(palette().color(QPalette::BrightText), 2));
-  drawAlert(p, rect(), alert_);
 }
