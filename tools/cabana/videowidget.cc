@@ -306,8 +306,8 @@ void Slider::paintEvent(QPaintEvent *ev) {
 
   auto replay = getReplay();
   if (replay) {
-    for (auto [begin, end, type] : replay->getTimeline()) {
-      fillRange(begin, end, timeline_colors[(int)type]);
+    for (const auto &timeline : replay->getTimeline()) {
+      fillRange(timeline.start_ts, timeline.end_ts, timeline_colors[(int)timeline.type]);
     }
 
     QColor empty_color = palette().color(QPalette::Window);

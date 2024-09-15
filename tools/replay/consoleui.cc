@@ -263,7 +263,7 @@ void ConsoleUI::updateTimeline() {
   wattroff(win, COLOR_PAIR(Color::Disengaged));
 
   const int total_sec = replay->maxSeconds() - replay->minSeconds();
-  for (auto [begin, end, type] : replay->getTimeline()) {
+  for (auto [type, begin, end] : replay->getTimeline()) {
     int start_pos = ((begin - replay->minSeconds()) / total_sec) * width;
     int end_pos = ((end - replay->minSeconds()) / total_sec) * width;
     if (type == TimelineType::Engaged) {

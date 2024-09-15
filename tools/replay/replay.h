@@ -42,6 +42,13 @@ enum class FindFlag {
 };
 
 enum class TimelineType { None, Engaged, AlertInfo, AlertWarning, AlertCritical, UserFlag };
+
+struct Timeline {
+  TimelineType type;
+  double start_ts;
+  double end_ts;
+};
+
 typedef bool (*replayEventFilter)(const Event *, void *);
 Q_DECLARE_METATYPE(std::shared_ptr<LogReader>);
 
@@ -85,7 +92,7 @@ public:
   inline const std::vector<Event> *events() const { return &events_; }
   inline const std::map<int, std::unique_ptr<Segment>> &segments() const { return segments_; }
   inline const std::string &carFingerprint() const { return car_fingerprint_; }
-  inline const std::vector<std::tuple<double, double, TimelineType>> getTimeline() {
+  inline const std::vector<Timeline> getTimeline() {
     std::lock_guard lk(timeline_lock);
     return timeline_;
   }
@@ -149,7 +156,7 @@ protected:
 
   std::mutex timeline_lock;
   QFuture<void> timeline_future;
-  std::vector<std::tuple<double, double, TimelineType>> timeline_;
+  std::vector<Timeline> timeline_;
   std::string car_fingerprint_;
   std::atomic<float> speed_ = 1.0;
   replayEventFilter event_filter = nullptr;
