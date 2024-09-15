@@ -153,7 +153,7 @@ QWidget *VideoWidget::createCameraWidget() {
   });
 
   auto replay = static_cast<ReplayStream*>(can)->getReplay();
-  QObject::connect(replay, &Replay::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
+  QObject::connect(replay, &Replay::qLogLoaded, this, &VideoWidget::parseQLog, Qt::QueuedConnection);
   QObject::connect(replay, &Replay::minMaxTimeChanged, this, &VideoWidget::timeRangeChanged, Qt::QueuedConnection);
   return w;
 }
