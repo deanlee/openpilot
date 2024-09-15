@@ -304,9 +304,9 @@ void Slider::mousePressEvent(QMouseEvent *e) {
 void Slider::mouseMoveEvent(QMouseEvent *e) {
   int pos = std::clamp(e->pos().x(), 0, width());
   double seconds = (minimum() + pos * ((maximum() - minimum()) / (double)width())) / factor;
-  auto thumb_it = thumbnails.lowerBound(can->toMonoTime(seconds));
+  auto thumb_it = thumbnails.lower_bound(can->toMonoTime(seconds));
   if (thumb_it != thumbnails.end()) {
-    const auto &thumb = thumb_it.value();
+    const auto &thumb = thumb_it->second;
     int x = std::clamp(pos - thumb.width() / 2, THUMBNAIL_MARGIN, width() - thumb.width() - THUMBNAIL_MARGIN + 1);
     int y = -thumb.height() - THUMBNAIL_MARGIN;
     thumbnail_label->showPixmap(mapToParent(QPoint(x, y)), utils::formatSeconds(seconds), thumb, alertInfo(seconds));
