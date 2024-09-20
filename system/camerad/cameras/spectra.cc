@@ -93,10 +93,8 @@ void *alloc_w_mmu_hdl(int video0_fd, int len, uint32_t *handle, int align, int f
 }
 
 void release(int video0_fd, uint32_t handle) {
-  struct cam_mem_mgr_release_cmd mem_mgr_release_cmd = {0};
-  mem_mgr_release_cmd.buf_handle = handle;
-
-  int ret = do_cam_control(video0_fd, CAM_REQ_MGR_RELEASE_BUF, &mem_mgr_release_cmd, sizeof(mem_mgr_release_cmd));
+  cam_mem_mgr_release_cmd release_cmd = {.buf_handle = handle};
+  int ret = do_cam_control(video0_fd, CAM_REQ_MGR_RELEASE_BUF, &release_cmd, sizeof(release_cmd));
   assert(ret == 0);
 }
 
@@ -172,11 +170,12 @@ void SpectraMaster::init() {
 
   // query icp for MMU handles
   LOG("-- Query ICP for MMU handles");
-  struct cam_isp_query_cap_cmd isp_query_cap_cmd = {0};
-  struct cam_query_cap_cmd query_cap_cmd = {0};
-  query_cap_cmd.handle_type = 1;
-  query_cap_cmd.caps_handle = (uint64_t)&isp_query_cap_cmd;
-  query_cap_cmd.size = sizeof(isp_query_cap_cmd);
+  struct cam_isp_query_cap_cmd isp_query_cap_cmd = {};
+  struct cam_query_cap_cmd query_cap_cmd = {
+    .handle_type = 1,
+    .caps_handle = (uint64_t)&isp_query_cap_cmd,
+    .size = sizeof(isp_query_cap_cmd),
+  }
   int ret = do_cam_control(isp_fd, CAM_QUERY_CAP, &query_cap_cmd, sizeof(query_cap_cmd));
   assert(ret == 0);
   LOGD("using MMU handle: %x", isp_query_cap_cmd.device_iommu.non_secure);
@@ -186,9 +185,10 @@ void SpectraMaster::init() {
 
   // subscribe
   LOG("-- Subscribing");
-  struct v4l2_event_subscription sub = {0};
-  sub.type = V4L_EVENT_CAM_REQ_MGR_EVENT;
-  sub.id = V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS;
+  struct v4l2_event_subscription sub = {
+    .type = V4L_EVENT_CAM_REQ_MGR_EVENT,
+    .id = V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS,
+  }
   ret = HANDLE_EINTR(ioctl(video0_fd, VIDIOC_SUBSCRIBE_EVENT, &sub));
   LOGD("req mgr subscribe: %d", ret);
 }
@@ -209,11 +209,12 @@ SpectraCamera::~SpectraCamera() {
 }
 
 int SpectraCamera::clear_req_queue() {
-  struct cam_req_mgr_flush_info req_mgr_flush_request = {0};
-  req_mgr_flush_request.session_hdl = session_handle;
-  req_mgr_flush_request.link_hdl = link_handle;
-  req_mgr_flush_request.flush_type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
-  int ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_FLUSH_REQ, &req_mgr_flush_request, sizeof(req_mgr_flush_request));
+  cam_req_mgr_flush_info flush_request = {
+    .session_hdl = session_handle,
+    .link_hdl = link_handle,
+    .flush_type = CAM_REQ_MGR_FLUSH_TYPE_ALL,
+  };
+  int ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_FLUSH_REQ, &flush_request, sizeof(flush_request));
   // LOGD("flushed all req: %d", ret);
   return ret;
 }
@@ -555,9 +556,10 @@ void SpectraCamera::enqueue_buffer(int i, bool dp) {
 
   if (buf_handle[i] && sync_objs[i]) {
     // wait
-    struct cam_sync_wait sync_wait = {0};
-    sync_wait.sync_obj = sync_objs[i];
-    sync_wait.timeout_ms = 50; // max dt tolerance, typical should be 23
+    cam_sync_wait sync_wait = {
+      .sync_obj = sync_objs[i],
+      .timeout_ms = 50, // max dt tolerance, typical should be 23
+    };
     ret = do_cam_control(m->cam_sync_fd, CAM_SYNC_WAIT, &sync_wait, sizeof(sync_wait));
     if (ret != 0) {
       LOGE("failed to wait for sync: %d %d", ret, sync_wait.sync_obj);
@@ -568,8 +570,7 @@ void SpectraCamera::enqueue_buffer(int i, bool dp) {
     if (dp) buf.queue(i);
 
     // destroy old output fence
-    struct cam_sync_info sync_destroy = {0};
-    sync_destroy.sync_obj = sync_objs[i];
+    cam_sync_info sync_destroy = {.sync_obj = sync_objs[i]};
     ret = do_cam_control(m->cam_sync_fd, CAM_SYNC_DESTROY, &sync_destroy, sizeof(sync_destroy));
     if (ret != 0) {
       LOGE("failed to destroy sync object: %d %d", ret, sync_destroy.sync_obj);
@@ -577,7 +578,7 @@ void SpectraCamera::enqueue_buffer(int i, bool dp) {
   }
 
   // create output fence
-  struct cam_sync_info sync_create = {0};
+  struct cam_sync_info sync_create = {};
   strcpy(sync_create.name, "NodeOutputPortFence");
   ret = do_cam_control(m->cam_sync_fd, CAM_SYNC_CREATE, &sync_create, sizeof(sync_create));
   if (ret != 0) {
@@ -586,11 +587,12 @@ void SpectraCamera::enqueue_buffer(int i, bool dp) {
   sync_objs[i] = sync_create.sync_obj;
 
   // schedule request with camera request manager
-  struct cam_req_mgr_sched_request req_mgr_sched_request = {0};
-  req_mgr_sched_request.session_hdl = session_handle;
-  req_mgr_sched_request.link_hdl = link_handle;
-  req_mgr_sched_request.req_id = request_id;
-  ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_SCHED_REQ, &req_mgr_sched_request, sizeof(req_mgr_sched_request));
+  struct cam_req_mgr_sched_request sched_request = {
+    .session_hdl = session_handle,
+    .link_hdl = link_handle,
+    .req_id = request_id,
+  };
+  ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_SCHED_REQ, &sched_request, sizeof(sched_request));
   if (ret != 0) {
     LOGE("failed to schedule cam mgr request: %d %lu", ret, request_id);
   }
@@ -605,11 +607,12 @@ void SpectraCamera::enqueue_buffer(int i, bool dp) {
 void SpectraCamera::camera_map_bufs() {
   for (int i = 0; i < FRAME_BUF_COUNT; i++) {
     // configure ISP to put the image in place
-    struct cam_mem_mgr_map_cmd mem_mgr_map_cmd = {0};
-    mem_mgr_map_cmd.mmu_hdls[0] = m->device_iommu;
-    mem_mgr_map_cmd.num_hdl = 1;
-    mem_mgr_map_cmd.flags = CAM_MEM_FLAG_HW_READ_WRITE;
-    mem_mgr_map_cmd.fd = buf.camera_bufs[i].fd;
+    struct cam_mem_mgr_map_cmd mem_mgr_map_cmd = {
+      .mmu_hdls[0] = m->device_iommu,
+      .num_hdl = 1,
+      .flags = CAM_MEM_FLAG_HW_READ_WRITE,
+      .fd = buf.camera_bufs[i].fd,
+    };
     int ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_MAP_BUF, &mem_mgr_map_cmd, sizeof(mem_mgr_map_cmd));
     LOGD("map buf req: (fd: %d) 0x%x %d", buf.camera_bufs[i].fd, mem_mgr_map_cmd.out.buf_handle, ret);
     buf_handle[i] = mem_mgr_map_cmd.out.buf_handle;
@@ -763,21 +766,23 @@ void SpectraCamera::configCSIPHY() {
 
 void SpectraCamera::linkDevices() {
   LOG("-- Link devices");
-  struct cam_req_mgr_link_info req_mgr_link_info = {0};
-  req_mgr_link_info.session_hdl = session_handle;
-  req_mgr_link_info.num_devices = 2;
-  req_mgr_link_info.dev_hdls[0] = isp_dev_handle;
-  req_mgr_link_info.dev_hdls[1] = sensor_dev_handle;
-  int ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_LINK, &req_mgr_link_info, sizeof(req_mgr_link_info));
-  link_handle = req_mgr_link_info.link_hdl;
+  cam_req_mgr_link_info link_info = {
+    .session_hdl = session_handle,
+    .num_devices = 2,
+    .dev_hdls[0] = isp_dev_handle,
+    .dev_hdls[1] = sensor_dev_handle,
+  };
+  int ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_LINK, &link_info, sizeof(link_info));
+  link_handle = link_info.link_hdl;
   LOGD("link: %d session: 0x%X isp: 0x%X sensors: 0x%X link: 0x%X", ret, session_handle, isp_dev_handle, sensor_dev_handle, link_handle);
 
-  struct cam_req_mgr_link_control req_mgr_link_control = {0};
-  req_mgr_link_control.ops = CAM_REQ_MGR_LINK_ACTIVATE;
-  req_mgr_link_control.session_hdl = session_handle;
-  req_mgr_link_control.num_links = 1;
-  req_mgr_link_control.link_hdls[0] = link_handle;
-  ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
+  cam_req_mgr_link_control link_control = {
+    .ops = CAM_REQ_MGR_LINK_ACTIVATE,
+    .session_hdl = session_handle,
+    .num_links = 1,
+    .link_hdls[0] = link_handle,
+  };
+  ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &link_control, sizeof(link_control));
   LOGD("link control: %d", ret);
 
   ret = device_control(csiphy_fd, CAM_START_DEV, session_handle, csiphy_dev_handle);
@@ -799,20 +804,19 @@ void SpectraCamera::camera_close() {
     LOGD("stop csiphy: %d", ret);
     // link control stop
     LOG("-- Stop link control");
-    struct cam_req_mgr_link_control req_mgr_link_control = {0};
-    req_mgr_link_control.ops = CAM_REQ_MGR_LINK_DEACTIVATE;
-    req_mgr_link_control.session_hdl = session_handle;
-    req_mgr_link_control.num_links = 1;
-    req_mgr_link_control.link_hdls[0] = link_handle;
-    ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
+    cam_req_mgr_link_control link_control = {
+      .ops = CAM_REQ_MGR_LINK_DEACTIVATE,
+      .session_hdl = session_handle,
+      .num_links = 1,
+      .link_hdls[0] = link_handle,
+    };
+    ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &link_control, sizeof(link_control));
     LOGD("link control stop: %d", ret);
 
     // unlink
     LOG("-- Unlink");
-    struct cam_req_mgr_unlink_info req_mgr_unlink_info = {0};
-    req_mgr_unlink_info.session_hdl = session_handle;
-    req_mgr_unlink_info.link_hdl = link_handle;
-    ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_UNLINK, &req_mgr_unlink_info, sizeof(req_mgr_unlink_info));
+    cam_req_mgr_unlink_info unlink_info = {.session_hdl = session_handle, .link_hdl = link_handle};
+    ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_UNLINK, &unlink_info, sizeof(unlink_info));
     LOGD("unlink: %d", ret);
 
     // release devices
