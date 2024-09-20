@@ -50,9 +50,12 @@ public:
   ~CameraState();
   void init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   void set_camera_exposure(float grey_frac);
-  void set_exposure_rect();
   void run();
 
+private:
+  void set_exposure_rect();
+  float get_desire_exposure_value(float grey_frac);
+  void calculate_best_exposure(float desired_ev, int &new_exp_g, int &new_exp_t);
   float get_gain_factor() const {
     return (1 + dc_gain_weight * (camera.sensor->dc_gain_factor-1) / camera.sensor->dc_gain_max_weight);
   }
@@ -104,15 +107,13 @@ void CameraState::set_exposure_rect() {
   };
 }
 
-void CameraState::set_camera_exposure(float grey_frac) {
-  if (!camera.enabled) return;
-  const float dt = 0.05;
+float CameraState::get_desire_exposure_value(float grey_frac) {
+  constexpr float dt = 0.05;
+  constexpr float ts_grey = 10.0;
+  constexpr float ts_ev = 0.05;
 
-  const float ts_grey = 10.0;
-  const float ts_ev = 0.05;
-
-  const float k_grey = (dt / ts_grey) / (1.0 + dt / ts_grey);
-  const float k_ev = (dt / ts_ev) / (1.0 + dt / ts_ev);
+  constexpr float k_grey = (dt / ts_grey) / (1.0 + dt / ts_grey);
+  constexpr float k_ev = (dt / ts_ev) / (1.0 + dt / ts_ev);
 
   // It takes 3 frames for the commanded exposure settings to take effect. The first frame is already started by the time
   // we reach this function, the other 2 are due to the register buffering in the sensor.
@@ -120,29 +121,34 @@ void CameraState::set_camera_exposure(float grey_frac) {
   // TODO: Lower latency to 2 frames, by using the histogram outputted by the sensor we can do AE before the debayering is complete
 
   const float cur_ev_ = cur_ev[camera.buf.cur_frame_data.frame_id % 3];
-  const auto &sensor = camera.sensor;
 
   // Scale target grey between 0.1 and 0.4 depending on lighting conditions
-  float new_target_grey = std::clamp(0.4 - 0.3 * log2(1.0 + sensor->target_grey_factor*cur_ev_) / log2(6000.0), 0.1, 0.4);
+  float new_target_grey = std::clamp(0.4 - 0.3 * log2(1.0 + camera.sensor->target_grey_factor * cur_ev_) / log2(6000.0), 0.1, 0.4);
   target_grey_fraction = (1.0 - k_grey) * target_grey_fraction + k_grey * new_target_grey;
   measured_grey_fraction = grey_frac;
 
-  float desired_ev = std::clamp(cur_ev_ * target_grey_fraction / grey_frac, sensor->min_ev, sensor->max_ev);
+  float desired_ev = std::clamp(cur_ev_ * target_grey_fraction / grey_frac, camera.sensor->min_ev, camera.sensor->max_ev);
   float k = (1.0 - k_ev) / 3.0;
-  desired_ev = (k * cur_ev[0]) + (k * cur_ev[1]) + (k * cur_ev[2]) + (k_ev * desired_ev);
+  return (k * cur_ev[0]) + (k * cur_ev[1]) + (k * cur_ev[2]) + (k_ev * desired_ev);
+}
+
+void CameraState::set_camera_exposure(float grey_frac) {
+  if (!camera.enabled) return;
+
+  float desired_ev = get_desire_exposure_value(grey_frac);
 
   // Hysteresis around high conversion gain
   // We usually want this on since it results in lower noise, but turn off in very bright day scenes
-  if (!dc_gain_enabled && target_grey_fraction < sensor->dc_gain_on_grey) {
+  if (!dc_gain_enabled && target_grey_fraction < camera.sensor->dc_gain_on_grey) {
     dc_gain_enabled = true;
-    dc_gain_weight = sensor->dc_gain_min_weight;
-  } else if (dc_gain_enabled && target_grey_fraction > sensor->dc_gain_off_grey) {
+    dc_gain_weight = camera.sensor->dc_gain_min_weight;
+  } else if (dc_gain_enabled && target_grey_fraction > camera.sensor->dc_gain_off_grey) {
     dc_gain_enabled = false;
-    dc_gain_weight = sensor->dc_gain_max_weight;
+    dc_gain_weight = camera.sensor->dc_gain_max_weight;
   }
 
-  if (dc_gain_enabled && dc_gain_weight < sensor->dc_gain_max_weight) {dc_gain_weight += 1;}
-  if (!dc_gain_enabled && dc_gain_weight > sensor->dc_gain_min_weight) {dc_gain_weight -= 1;}
+  if (dc_gain_enabled && dc_gain_weight < camera.sensor->dc_gain_max_weight) {dc_gain_weight += 1;}
+  if (!dc_gain_enabled && dc_gain_weight > camera.sensor->dc_gain_min_weight) {dc_gain_weight -= 1;}
 
   std::string gain_bytes, time_bytes;
   if (env_ctrl_exp_from_params) {
@@ -163,7 +169,7 @@ void CameraState::set_camera_exposure(float grey_frac) {
     exposure_time = new_exp_t;
   }
 
-  analog_gain_frac = sensor->sensor_analog_gains[gain_idx];
+  analog_gain_frac = camera.sensor->sensor_analog_gains[gain_idx];
   float gain = analog_gain_frac * get_gain_factor();
   cur_ev[camera.buf.cur_frame_data.frame_id % 3] = exposure_time * gain;
 
@@ -175,24 +181,24 @@ void CameraState::set_camera_exposure(float grey_frac) {
   }
   // LOGE("ae - camera %d, cur_t %.5f, sof %.5f, dt %.5f", camera.cc.camera_num, 1e-9 * nanos_since_boot(), 1e-9 * camera.buf.cur_frame_data.timestamp_sof, 1e-9 * (nanos_since_boot() - camera.buf.cur_frame_data.timestamp_sof));
 
-  auto exp_reg_array = sensor->getExposureRegisters(exposure_time, gain_idx, dc_gain_enabled);
+  auto exp_reg_array = camera.sensor->getExposureRegisters(exposure_time, gain_idx, dc_gain_enabled);
   camera.sensors_i2c(exp_reg_array.data(), exp_reg_array.size(), CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG, camera.sensor->data_word);
 }
 
 void CameraState::calculate_best_exposure(float desired_ev, int &new_exp_g, int &new_exp_t) {
   float best_ev_score = 1e6;
-  for (int g = std::max((int)sensor->analog_gain_min_idx, gain_idx - 1); g <= std::min((int)sensor->analog_gain_max_idx, gain_idx + 1); g++) {
-    float gain = sensor->sensor_analog_gains[g] * get_gain_factor();
+  for (int g = std::max((int)camera.sensor->analog_gain_min_idx, gain_idx - 1); g <= std::min((int)camera.sensor->analog_gain_max_idx, gain_idx + 1); g++) {
+    float gain = camera.sensor->sensor_analog_gains[g] * get_gain_factor();
 
     // Compute optimal time for given gain
-    int t = std::clamp(int(std::round(desired_ev / gain)), sensor->exposure_time_min, sensor->exposure_time_max);
+    int t = std::clamp(int(std::round(desired_ev / gain)), camera.sensor->exposure_time_min, camera.sensor->exposure_time_max);
 
     // Only go below recommended gain when absolutely necessary to not overexpose
-    if (g < sensor->analog_gain_rec_idx && t > 20 && g < gain_idx) {
+    if (g < camera.sensor->analog_gain_rec_idx && t > 20 && g < gain_idx) {
       continue;
     }
 
-    float score = sensor->getExposureScore(desired_ev, t, g, gain, gain_idx);
+    float score = camera.sensor->getExposureScore(desired_ev, t, g, gain, gain_idx);
     if (score < best_ev_score) {
       new_exp_t = t;
       new_exp_g = g;
