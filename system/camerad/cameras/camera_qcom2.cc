@@ -48,6 +48,7 @@ public:
   CameraState(SpectraMaster *master, const CameraConfig &config) : camera(master, config) {};
   ~CameraState();
   void init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+  void calculate_best_exposure(float desire_expose_value);
   void set_camera_exposure(float grey_frac);
   void set_exposure_rect();
   void run();
