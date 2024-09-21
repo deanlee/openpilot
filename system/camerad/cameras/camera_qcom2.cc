@@ -49,6 +49,7 @@ public:
   ~CameraState();
   void init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   void set_camera_exposure(float grey_frac);
+  void calc_best_expose(float desire_expose_value) {
   void set_exposure_rect();
   void run();
 
@@ -142,46 +143,6 @@ void CameraState::set_camera_exposure(float grey_frac) {
   dc_gain_weight += dc_gain_enabled ? 1 : -1;
   dc_gain_weight = std::clamp(dc_gain_weight, sensor->dc_gain_min_weight, sensor->dc_gain_max_weight);
 
-  std::string gain_bytes, time_bytes;
-  if (env_ctrl_exp_from_params) {
-    static Params params;
-    gain_bytes = params.get("CameraDebugExpGain");
-    time_bytes = params.get("CameraDebugExpTime");
-  }
-
-  if (gain_bytes.size() > 0 && time_bytes.size() > 0) {
-    // Override gain and exposure time
-    gain_idx = std::stoi(gain_bytes);
-    exposure_time = std::stoi(time_bytes);
-    dc_gain_enabled = false;
-  } else {
-    float best_ev_score = 1e6;
-    int new_exp_g = 0;
-    int new_exp_t = 0;
-
-    // Simple brute force optimizer to choose sensor parameters
-    // to reach desired EV
-    for (int g = std::max((int)sensor->analog_gain_min_idx, gain_idx - 1); g <= std::min((int)sensor->analog_gain_max_idx, gain_idx + 1); g++) {
-      float gain = sensor->sensor_analog_gains[g] * get_gain_factor();
-
-      // Compute optimal time for given gain
-      int t = std::clamp(int(std::round(desired_ev / gain)), sensor->exposure_time_min, sensor->exposure_time_max);
-
-      // Only go below recommended gain when absolutely necessary to not overexpose
-      if (g < sensor->analog_gain_rec_idx && t > 20 && g < gain_idx) {
-        continue;
-      }
-
-      float score = camera.sensor->getExposureScore(desired_ev, t, g, gain, gain_idx);
-      if (score < best_ev_score) {
-        new_exp_t = t;
-        new_exp_g = g;
-        best_ev_score = score;
-      }
-      exposure_time = new_exp_t;
-      gain_idx = new_exp_g;
-    }
-  }
 
   analog_gain_frac = sensor->sensor_analog_gains[gain_idx];
   float gain = analog_gain_frac * get_gain_factor();
@@ -197,6 +158,48 @@ void CameraState::set_camera_exposure(float grey_frac) {
 
   auto exp_reg_array = sensor->getExposureRegisters(exposure_time, gain_idx, dc_gain_enabled);
   camera.sensors_i2c(exp_reg_array.data(), exp_reg_array.size(), CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG, camera.sensor->data_word);
+}
+
+void CameraState::calc_best_expose(float desire_expose_value) {
+  if (env_ctrl_exp_from_params) {
+    static Params params;
+    std::string gain_bytes = params.get("CameraDebugExpGain");
+    std::string  time_bytes = params.get("CameraDebugExpTime");
+    if (gain_bytes.size() > 0 && time_bytes.size() > 0) {
+      // Override gain and exposure time
+      gain_idx = std::stoi(gain_bytes);
+      exposure_time = std::stoi(time_bytes);
+      dc_gain_enabled = false;
+      return;
+    }
+  }
+
+  float best_ev_score = 1e6;
+  int new_exp_g = 0;
+  int new_exp_t = 0;
+
+  // Simple brute force optimizer to choose sensor parameters
+  // to reach desired EV
+  for (int g = std::max((int)sensor->analog_gain_min_idx, gain_idx - 1); g <= std::min((int)sensor->analog_gain_max_idx, gain_idx + 1); g++) {
+    float gain = sensor->sensor_analog_gains[g] * get_gain_factor();
+
+    // Compute optimal time for given gain
+    int t = std::clamp(int(std::round(desired_ev / gain)), sensor->exposure_time_min, sensor->exposure_time_max);
+
+    // Only go below recommended gain when absolutely necessary to not overexpose
+    if (g < sensor->analog_gain_rec_idx && t > 20 && g < gain_idx) {
+      continue;
+    }
+
+    float score = camera.sensor->getExposureScore(desired_ev, t, g, gain, gain_idx);
+    if (score < best_ev_score) {
+      new_exp_t = t;
+      new_exp_g = g;
+      best_ev_score = score;
+    }
+    exposure_time = new_exp_t;
+    gain_idx = new_exp_g;
+  }
 }
 
 void CameraState::run() {
