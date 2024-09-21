@@ -49,7 +49,7 @@ public:
   ~CameraState();
   void init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   void set_camera_exposure(float grey_frac);
-  void calc_best_expose(float desire_expose_value) {
+  void calculate_best_exposure(float desire_expose_value) {
   void set_exposure_rect();
   void run();
 
@@ -160,11 +160,11 @@ void CameraState::set_camera_exposure(float grey_frac) {
   camera.sensors_i2c(exp_reg_array.data(), exp_reg_array.size(), CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG, camera.sensor->data_word);
 }
 
-void CameraState::calc_best_expose(float desire_expose_value) {
+void CameraState::calculate_best_exposure(float desire_expose_value) {
   if (env_ctrl_exp_from_params) {
     static Params params;
     std::string gain_bytes = params.get("CameraDebugExpGain");
-    std::string  time_bytes = params.get("CameraDebugExpTime");
+    std::string time_bytes = params.get("CameraDebugExpTime");
     if (gain_bytes.size() > 0 && time_bytes.size() > 0) {
       // Override gain and exposure time
       gain_idx = std::stoi(gain_bytes);
