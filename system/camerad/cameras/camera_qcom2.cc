@@ -9,6 +9,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -124,15 +125,15 @@ void CameraState::set_camera_exposure(float grey_frac) {
 
   // Scale target grey between 0.1 and 0.4 depending on lighting conditions
   float new_target_grey = std::clamp(0.4 - 0.3 * log2(1.0 + sensor->target_grey_factor*cur_ev_) / log2(6000.0), 0.1, 0.4);
-  float target_grey = (1.0 - k_grey) * target_grey_fraction + k_grey * new_target_grey;
+  float target_grey_fraction = (1.0 - k_grey) * target_grey_fraction + k_grey * new_target_grey;
 
   // Hysteresis around high conversion gain
   // We usually want this on since it results in lower noise, but turn off in very bright day scenes
   bool enable_dc_gain = dc_gain_enabled;
-  if (!enable_dc_gain && target_grey < sensor->dc_gain_on_grey) {
+  if (!enable_dc_gain && target_grey_fraction < sensor->dc_gain_on_grey) {
     enable_dc_gain = true;
     dc_gain_weight = sensor->dc_gain_min_weight;
-  } else if (enable_dc_gain && target_grey > sensor->dc_gain_off_grey) {
+  } else if (enable_dc_gain && target_grey_fraction > sensor->dc_gain_off_grey) {
     enable_dc_gain = false;
     dc_gain_weight = sensor->dc_gain_max_weight;
   }
@@ -140,7 +141,7 @@ void CameraState::set_camera_exposure(float grey_frac) {
   if (enable_dc_gain && dc_gain_weight < sensor->dc_gain_max_weight) {dc_gain_weight += 1;}
   if (!enable_dc_gain && dc_gain_weight > sensor->dc_gain_min_weight) {dc_gain_weight -= 1;}
 
-  float desired_ev = std::clamp(cur_ev_ * target_grey / grey_frac, sensor->min_ev, sensor->max_ev);
+  float desired_ev = std::clamp(cur_ev_ * target_grey_fraction / grey_frac, sensor->min_ev, sensor->max_ev);
   float k = (1.0 - k_ev) / 3.0;
   desired_ev = (k * cur_ev[0]) + (k * cur_ev[1]) + (k * cur_ev[2]) + (k_ev * desired_ev);
   calculate_best_exposure(desired_ev);
@@ -179,13 +180,14 @@ void CameraState::calculate_best_exposure(float desire_expose_value) {
     }
   }
 
-  float best_ev_score = 1e6;
+  float best_ev_score = std::numeric_limits<float>::max();;
   int new_exp_g = 0, new_exp_t = 0;
 
   // Simple brute force optimizer to choose sensor parameters
   // to reach desired EV
   int min_g = std::max(gain_idx - 1, sensor->analog_gain_min_idx);
   int max_g = std::min(gain_idx + 1, sensor->analog_gain_max_idx);
+
   for (int g = min_g; g <= max_g; ++g) {
     float gain = sensor->sensor_analog_gains[g] * get_gain_factor();
 
@@ -204,6 +206,7 @@ void CameraState::calculate_best_exposure(float desire_expose_value) {
       best_ev_score = score;
     }
   }
+
   exposure_time = new_exp_t;
   gain_idx = new_exp_g;
 }
