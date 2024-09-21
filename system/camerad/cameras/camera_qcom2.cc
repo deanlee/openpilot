@@ -127,7 +127,7 @@ void CameraState::set_camera_exposure(float grey_frac) {
 
   float desired_ev = std::clamp(cur_ev_ * target_grey_fraction / grey_frac, sensor->min_ev, sensor->max_ev);
   float k = (1.0 - k_ev) / 3.0;
-  desired_ev = (k * cur_ev[0]) + (k * cur_ev[1]) + (k * cur_ev[2]) + (k_ev * desired_ev);
+  desired_ev = k * (cur_ev[0] + cur_ev[1] + cur_ev[2]) + k_ev * desired_ev;
 
   // Hysteresis around high conversion gain
   // We usually want this on since it results in lower noise, but turn off in very bright day scenes
@@ -139,8 +139,8 @@ void CameraState::set_camera_exposure(float grey_frac) {
     dc_gain_weight = sensor->dc_gain_max_weight;
   }
 
-  if (dc_gain_enabled && dc_gain_weight < sensor->dc_gain_max_weight) {dc_gain_weight += 1;}
-  if (!dc_gain_enabled && dc_gain_weight > sensor->dc_gain_min_weight) {dc_gain_weight -= 1;}
+  dc_gain_weight += dc_gain_enabled ? 1 : -1;
+  dc_gain_weight = std::clamp(dc_gain_weight, sensor->dc_gain_min_weight, sensor->dc_gain_max_weight);
 
   std::string gain_bytes, time_bytes;
   if (env_ctrl_exp_from_params) {
