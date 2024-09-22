@@ -104,6 +104,7 @@ public:
   const int buf0_alignment = 0x20;
 
   int buf0_handle = 0;
+  void *buf0_ptr = nullptr;
   int buf_handle[FRAME_BUF_COUNT] = {};
   int sync_objs[FRAME_BUF_COUNT] = {};
   uint64_t request_ids[FRAME_BUF_COUNT] = {};
