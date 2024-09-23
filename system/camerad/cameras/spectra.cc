@@ -64,19 +64,13 @@ int device_control(int fd, int op_code, int session_handle, int dev_handle) {
 }
 
 void *alloc_w_mmu_hdl(int video0_fd, int len, uint32_t *handle, int align, int flags, int mmu_hdl, int mmu_hdl2) {
-  struct cam_mem_mgr_alloc_cmd mem_mgr_alloc_cmd = {0};
-  mem_mgr_alloc_cmd.len = len;
-  mem_mgr_alloc_cmd.align = align;
-  mem_mgr_alloc_cmd.flags = flags;
-  mem_mgr_alloc_cmd.num_hdl = 0;
-  if (mmu_hdl != 0) {
-    mem_mgr_alloc_cmd.mmu_hdls[0] = mmu_hdl;
-    mem_mgr_alloc_cmd.num_hdl++;
-  }
-  if (mmu_hdl2 != 0) {
-    mem_mgr_alloc_cmd.mmu_hdls[1] = mmu_hdl2;
-    mem_mgr_alloc_cmd.num_hdl++;
-  }
+  struct cam_mem_mgr_alloc_cmd mem_mgr_alloc_cmd = {
+    .len = len,
+    .align = align,
+    .flags = flags,
+    .num_hdl = (mmu_hdl != 0) + (mmu_hdl2 != 0),
+    .mmu_hdls = { mmu_hdl, mmu_hdl2 },
+  };
 
   do_cam_control(video0_fd, CAM_REQ_MGR_ALLOC_BUF, &mem_mgr_alloc_cmd, sizeof(mem_mgr_alloc_cmd));
   *handle = mem_mgr_alloc_cmd.out.buf_handle;
@@ -272,21 +266,29 @@ void SpectraCamera::sensors_i2c(const struct i2c_random_wr_payload* dat, int len
   uint32_t cam_packet_handle = 0;
   int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1;
   auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-  pkt->num_cmd_buf = 1;
-  pkt->kmd_cmd_buf_index = -1;
-  pkt->header.size = size;
-  pkt->header.op_code = op_code;
-  struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
+  *pkt = {
+    .num_cmd_buf = 1,
+    .kmd_cmd_buf_index = -1,
+    .header = { .size = size, .op_code = op_code }
+  };
 
-  buf_desc[0].size = buf_desc[0].length = sizeof(struct i2c_rdwr_header) + len*sizeof(struct i2c_random_wr_payload);
-  buf_desc[0].type = CAM_CMD_BUF_I2C;
+  struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
+  buf_desc = {
+    .size = sizeof(struct i2c_rdwr_header) + len * sizeof(struct i2c_random_wr_payload),
+    .length = buf_desc.size,
+    .type = CAM_CMD_BUF_I2C
+  };
 
   auto i2c_random_wr = mm.alloc<struct cam_cmd_i2c_random_wr>(buf_desc[0].size, (uint32_t*)&buf_desc[0].mem_handle);
-  i2c_random_wr->header.count = len;
-  i2c_random_wr->header.op_code = 1;
-  i2c_random_wr->header.cmd_type = CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR;
-  i2c_random_wr->header.data_type = data_word ? CAMERA_SENSOR_I2C_TYPE_WORD : CAMERA_SENSOR_I2C_TYPE_BYTE;
-  i2c_random_wr->header.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
+  *i2c_random_wr = {
+    .header = {
+      .count = len,
+      .op_code = 1,
+      .cmd_type = CAMERA_SENSOR_CMD_TYPE_I2C_RNDM_WR,
+      .data_type = data_word ? CAMERA_SENSOR_I2C_TYPE_WORD : CAMERA_SENSOR_I2C_TYPE_BYTE,
+      .addr_type = CAMERA_SENSOR_I2C_TYPE_WORD
+    }
+  };
   memcpy(i2c_random_wr->random_wr_payload, dat, len*sizeof(struct i2c_random_wr_payload));
 
   int ret = device_config(sensor_fd, session_handle, sensor_dev_handle, cam_packet_handle);
@@ -427,12 +429,14 @@ void SpectraCamera::config_ife(int io_mem_handle, int fence, int request_id, int
 
     // *** first command ***
     // TODO: support MMU
-    buf_desc[0].size = buf0_size;
-    buf_desc[0].length = 0;
-    buf_desc[0].type = CAM_CMD_BUF_DIRECT;
-    buf_desc[0].meta_data = 3;
-    buf_desc[0].mem_handle = buf0_handle;
-    buf_desc[0].offset = ALIGNED_SIZE(buf0_size, buf0_alignment)*buf0_idx;
+    buf_desc[0] = {
+      .size = buf0_size,
+      .length = 0,
+      .type = CAM_CMD_BUF_DIRECT,
+      .meta_data = 3,
+      .mem_handle = buf0_handle,
+      .offset = ALIGNED_SIZE(buf0_size, buf0_alignment) * buf0_idx
+    };
 
     // *** second command ***
     // parsed by cam_isp_packet_generic_blob_handler
@@ -494,11 +498,13 @@ void SpectraCamera::config_ife(int io_mem_handle, int fence, int request_id, int
 
     static_assert(offsetof(struct isp_packet, type_2) == 0x60);
 
-    buf_desc[1].size = sizeof(tmp);
-    buf_desc[1].offset = io_mem_handle != 0 ? 0x60 : 0;
-    buf_desc[1].length = buf_desc[1].size - buf_desc[1].offset;
-    buf_desc[1].type = CAM_CMD_BUF_GENERIC;
-    buf_desc[1].meta_data = CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON;
+    buf_desc[1] = {
+      .size = sizeof(tmp),
+      .offset = io_mem_handle != 0 ? 0x60 : 0,
+      .length = sizeof(tmp) - buf_desc[1].offset,
+      .type = CAM_CMD_BUF_GENERIC,
+      .meta_data = CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON
+    };
     auto buf2 = mm.alloc<uint32_t>(buf_desc[1].size, (uint32_t*)&buf_desc[1].mem_handle);
     memcpy(buf2.get(), &tmp, sizeof(tmp));
   }
@@ -741,23 +747,28 @@ void SpectraCamera::configCSIPHY() {
     uint32_t cam_packet_handle = 0;
     int size = sizeof(struct cam_packet)+sizeof(struct cam_cmd_buf_desc)*1;
     auto pkt = mm.alloc<struct cam_packet>(size, &cam_packet_handle);
-    pkt->num_cmd_buf = 1;
-    pkt->kmd_cmd_buf_index = -1;
-    pkt->header.size = size;
+    *pkt = {
+      .num_cmd_buf = 1,
+      .kmd_cmd_buf_index = -1,
+      .header = {.size = size}
+    };
+
     struct cam_cmd_buf_desc *buf_desc = (struct cam_cmd_buf_desc *)&pkt->payload;
 
     buf_desc[0].size = buf_desc[0].length = sizeof(struct cam_csiphy_info);
     buf_desc[0].type = CAM_CMD_BUF_GENERIC;
 
-    auto csiphy_info = mm.alloc<struct cam_csiphy_info>(buf_desc[0].size, (uint32_t*)&buf_desc[0].mem_handle);
-    csiphy_info->lane_mask = 0x1f;
-    csiphy_info->lane_assign = 0x3210;// skip clk. How is this 16 bit for 5 channels??
-    csiphy_info->csiphy_3phase = 0x0; // no 3 phase, only 2 conductors per lane
-    csiphy_info->combo_mode = 0x0;
-    csiphy_info->lane_cnt = 0x4;
-    csiphy_info->secure_mode = 0x0;
-    csiphy_info->settle_time = MIPI_SETTLE_CNT * 200000000ULL;
-    csiphy_info->data_rate = 48000000;  // Calculated by camera_freqs.py
+    auto csiphy_info = mm.alloc<struct cam_csiphy_info>(buf_desc[0].size, (uint32_t *)&buf_desc[0].mem_handle);
+    *csiphy_info = {
+      .lane_mask = 0x1f,
+      .lane_assign = 0x3210,  // Assign lanes, skipping clock
+      .csiphy_3phase = 0x0,   // 2 conductors per lane, no 3 phase
+      .combo_mode = 0x0,
+      .lane_cnt = 0x4,
+      .secure_mode = 0x0,
+      .settle_time = MIPI_SETTLE_CNT * 200000000ULL,
+      .data_rate = 48000000  // From camera frequency calculation
+    };
 
     int ret_ = device_config(csiphy_fd, session_handle, csiphy_dev_handle, cam_packet_handle);
     assert(ret_ == 0);
