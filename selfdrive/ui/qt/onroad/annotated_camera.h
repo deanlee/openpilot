@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QVBoxLayout>
 #include <memory>
 #include "selfdrive/ui/qt/onroad/hud.h"
 #include "selfdrive/ui/qt/onroad/buttons.h"
@@ -15,8 +14,6 @@ public:
   void updateState(const UIState &s);
 
 private:
-  QVBoxLayout *main_layout;
-  ExperimentalButton *experimental_btn;
   DriverMonitorRenderer dmon;
   HudRenderer hud;
   std::unique_ptr<PubMaster> pm;

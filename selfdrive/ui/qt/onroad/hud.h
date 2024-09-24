@@ -8,6 +8,7 @@ public:
   HudRenderer();
   void updateState(const UIState &s);
   void draw(QPainter &p, const QRect &surface_rect);
+  void changeMode();
 
 private:
   void drawSetSpeed(QPainter &p, const QRect &surface_rect);
@@ -20,4 +21,10 @@ private:
   bool is_metric = false;
   bool v_ego_cluster_seen = false;
   int status = STATUS_DISENGAGED;
+  Params params;
+  QPixmap engage_img;
+  QPixmap experimental_img;
+  bool experimental_mode;
+  bool engageable;
+
 };
