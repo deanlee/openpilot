@@ -14,27 +14,3 @@ void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrus
   p.drawPixmap(center - QPoint(img.width() / 2, img.height() / 2), img);
   p.setOpacity(1.0);
 }
-
-// void ExperimentalButton::changeMode() {
-//   const auto cp = (*uiState()->sm)["carParams"].getCarParams();
-//   bool can_change = hasLongitudinalControl(cp) && params.getBool("ExperimentalModeConfirmed");
-//   if (can_change) {
-//     params.putBool("ExperimentalMode", !experimental_mode);
-//   }
-// }
-
-// void ExperimentalButton::updateState(const UIState &s) {
-//   const auto cs = (*s.sm)["selfdriveState"].getSelfdriveState();
-//   bool eng = cs.getEngageable() || cs.getEnabled();
-//   if ((cs.getExperimentalMode() != experimental_mode) || (eng != engageable)) {
-//     engageable = eng;
-//     experimental_mode = cs.getExperimentalMode();
-//     update();
-//   }
-// }
-
-// void ExperimentalButton::paintEvent(QPaintEvent *event) {
-//   QPainter p(this);
-//   QPixmap img = experimental_mode ? experimental_img : engage_img;
-//   drawIcon(p, QPoint(btn_size / 2, btn_size / 2), img, QColor(0, 0, 0, 166), (isDown() || !engageable) ? 0.6 : 1.0);
-// }
