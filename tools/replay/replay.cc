@@ -150,68 +150,54 @@ void Replay::seekToFlag(FindFlag flag) {
 }
 
 void Replay::buildTimeline() {
-  uint64_t engaged_begin = 0;
-  bool engaged = false;
+  const TimelineType timeline_types[] = {TimelineType::AlertInfo, TimelineType::AlertWarning, TimelineType::AlertCritical};
+  std::vector<std::tuple<double, double, TimelineType>> timeline;
+  std::optional<size_t> engaged_idx, alert_idx;
 
-  auto alert_status = cereal::SelfdriveState::AlertStatus::NORMAL;
-  auto alert_size = cereal::SelfdriveState::AlertSize::NONE;
-  uint64_t alert_begin = 0;
-  std::string alert_type;
-
-  const TimelineType timeline_types[] = {
-    [(int)cereal::SelfdriveState::AlertStatus::NORMAL] = TimelineType::AlertInfo,
-    [(int)cereal::SelfdriveState::AlertStatus::USER_PROMPT] = TimelineType::AlertWarning,
-    [(int)cereal::SelfdriveState::AlertStatus::CRITICAL] = TimelineType::AlertCritical,
+  // Helper lambda to update the timeline
+  auto update_timeline = [&](std::optional<size_t> &idx, double seconds, TimelineType type) {
+    if (idx && std::get<2>(timeline[*idx]) == type) {
+      std::get<1>(timeline[*idx]) = seconds;
+    } else {
+      idx = timeline.size();
+      timeline.emplace_back(seconds, seconds, type);
+    }
   };
 
   const auto &route_segments = route_->segments();
   for (auto it = route_segments.cbegin(); it != route_segments.cend() && !exit_; ++it) {
-    std::shared_ptr<LogReader> log(new LogReader());
+    auto log = std::make_shared<LogReader>();
     if (!log->load(it->second.qlog.toStdString(), &exit_, !hasFlag(REPLAY_FLAG_NO_FILE_CACHE), 0, 3) || log->events.empty()) continue;
 
-    std::vector<std::tuple<double, double, TimelineType>> timeline;
     for (const Event &e : log->events) {
+      double seconds = toSeconds(e.mono_time);
       if (e.which == cereal::Event::Which::SELFDRIVE_STATE) {
         capnp::FlatArrayMessageReader reader(e.data);
-        auto event = reader.getRoot<cereal::Event>();
-        auto cs = event.getSelfdriveState();
+        auto cs = reader.getRoot<cereal::Event>().getSelfdriveState();
 
-        if (engaged != cs.getEnabled()) {
-          if (engaged) {
-            timeline.push_back({toSeconds(engaged_begin), toSeconds(e.mono_time), TimelineType::Engaged});
-          }
-          engaged_begin = e.mono_time;
-          engaged = cs.getEnabled();
+        if (cs.getEnabled()) {
+          update_timeline(engaged_idx, seconds, TimelineType::Engaged);
+        } else {
+          engaged_idx.reset();
         }
 
-        if (alert_type != cs.getAlertType().cStr() || alert_status != cs.getAlertStatus()) {
-          if (!alert_type.empty() && alert_size != cereal::SelfdriveState::AlertSize::NONE) {
-            timeline.push_back({toSeconds(alert_begin), toSeconds(e.mono_time), timeline_types[(int)alert_status]});
-          }
-          alert_begin = e.mono_time;
-          alert_type = cs.getAlertType().cStr();
-          alert_size = cs.getAlertSize();
-          alert_status = cs.getAlertStatus();
+        if (cs.getAlertSize() != cereal::SelfdriveState::AlertSize::NONE) {
+          update_timeline(alert_idx, seconds, timeline_types[(int)cs.getAlertStatus()]);
+        } else {
+          alert_idx.reset();
         }
       } else if (e.which == cereal::Event::Which::USER_FLAG) {
-        timeline.push_back({toSeconds(e.mono_time), toSeconds(e.mono_time), TimelineType::UserFlag});
+        timeline.emplace_back(seconds, seconds, TimelineType::UserFlag);
       }
     }
 
     if (it->first == route_segments.rbegin()->first) {
-      if (engaged) {
-        timeline.push_back({toSeconds(engaged_begin), toSeconds(log->events.back().mono_time), TimelineType::Engaged});
-      }
-      if (!alert_type.empty() && alert_size != cereal::SelfdriveState::AlertSize::NONE) {
-        timeline.push_back({toSeconds(alert_begin), toSeconds(log->events.back().mono_time), timeline_types[(int)alert_status]});
-      }
-
       max_seconds_ = std::ceil(toSeconds(log->events.back().mono_time));
       emit minMaxTimeChanged(route_segments.cbegin()->first * 60.0, max_seconds_);
     }
     {
       std::lock_guard lk(timeline_lock);
-      timeline_.insert(timeline_.end(), timeline.begin(), timeline.end());
+      timeline_ = timeline;
       std::sort(timeline_.begin(), timeline_.end(), [](auto &l, auto &r) { return std::get<2>(l) < std::get<2>(r); });
     }
     emit qLogLoaded(log);
