@@ -63,7 +63,7 @@ public:
   SpectraCamera(SpectraMaster *master, const CameraConfig &config);
   ~SpectraCamera();
 
-  void camera_open(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+  bool camera_open(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   void handle_camera_event(const cam_req_mgr_message *event_data);
   void camera_close();
   void camera_map_bufs();
@@ -86,7 +86,7 @@ public:
   // *** state ***
 
   bool open = false;
-  bool enabled = true;
+  bool failed = false;
   CameraConfig cc;
   std::unique_ptr<const SensorInfo> sensor;
 

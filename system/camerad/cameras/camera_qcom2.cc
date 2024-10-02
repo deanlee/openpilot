@@ -52,7 +52,7 @@ public:
 
   CameraState(SpectraMaster *master, const CameraConfig &config) : camera(master, config) {};
   ~CameraState();
-  void init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
+  bool init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   void update_exposure_score(float desired_ev, int exp_t, int exp_g_idx, float exp_gain);
   void set_camera_exposure(float grey_frac);
   void set_exposure_rect();
@@ -63,8 +63,10 @@ public:
   }
 };
 
-void CameraState::init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx) {
-  camera.camera_open(v, device_id, ctx);
+bool CameraState::init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx) {
+  if (!camera.camera_open(v, device_id, ctx)) {
+    return false;
+  }
 
   fl_pix = camera.cc.focal_len / camera.sensor->pixel_size_mm;
   set_exposure_rect();
@@ -73,7 +75,8 @@ void CameraState::init(VisionIpcServer *v, cl_device_id device_id, cl_context ct
   gain_idx = camera.sensor->analog_gain_rec_idx;
   cur_ev[0] = cur_ev[1] = cur_ev[2] = get_gain_factor() * camera.sensor->sensor_analog_gains[gain_idx] * exposure_time;
 
-  if (camera.enabled) thread = std::thread(&CameraState::run, this);
+  thread = std::thread(&CameraState::run, this);
+  return true;
 }
 
 CameraState::~CameraState() {
@@ -119,7 +122,6 @@ void CameraState::update_exposure_score(float desired_ev, int exp_t, int exp_g_i
 }
 
 void CameraState::set_camera_exposure(float grey_frac) {
-  if (!camera.enabled) return;
   const float dt = 0.05;
 
   const float ts_grey = 10.0;
@@ -266,8 +268,6 @@ void CameraState::run() {
 }
 
 void camerad_thread() {
-  // TODO: centralize enabled handling
-
   cl_device_id device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT);
   const cl_context_properties props[] = {CL_CONTEXT_PRIORITY_HINT_QCOM, CL_PRIORITY_HINT_HIGH_QCOM, 0};
   cl_context ctx = CL_CHECK_ERR(clCreateContext(props, 1, &device_id, NULL, NULL, &err));
@@ -281,9 +281,12 @@ void camerad_thread() {
   // *** per-cam init ***
   std::vector<std::unique_ptr<CameraState>> cams;
   for (const auto &config : {ROAD_CAMERA_CONFIG, WIDE_ROAD_CAMERA_CONFIG, DRIVER_CAMERA_CONFIG}) {
-    auto cam = std::make_unique<CameraState>(&m, config);
-    cam->init(&v, device_id ,ctx);
-    cams.emplace_back(std::move(cam));
+    if (config.enabled) {
+      auto cam = std::make_unique<CameraState>(&m, config);
+      if (cam->init(&v, device_id ,ctx)) {
+        cams.emplace_back(std::move(cam));
+      }
+    }
   }
 
   v.start_listener();
