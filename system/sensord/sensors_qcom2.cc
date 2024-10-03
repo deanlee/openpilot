@@ -1,5 +1,6 @@
 #include <sys/resource.h>
 
+#include <cassert>
 #include <chrono>
 #include <thread>
 #include <vector>
@@ -28,15 +29,13 @@
 
 ExitHandler do_exit;
 
-void interrupt_loop(std::vector<std::tuple<Sensor *, std::string>> sensors) {
+void interrupt_loop(std::vector<std::tuple<I2CSensor *, std::string>> sensors) {
   PubMaster pm({"gyroscope", "accelerometer"});
 
-  int fd = -1;
-  for (auto &[sensor, msg_name] : sensors) {
-    if (sensor->has_interrupt_enabled()) {
-      fd = sensor->gpio_fd;
-      break;
-    }
+  int fd = gpiochip_get_ro_value_fd("sensord", GPIOCHIP_INT, GPIO_LSM_INT);
+  if (fd < 0) {
+    assert(0);
+    return;
   }
 
   struct pollfd fd_list[1] = {0};
@@ -73,25 +72,17 @@ void interrupt_loop(std::vector<std::tuple<Sensor *, std::string>> sensors) {
     uint64_t ts = evdata[num_events - 1].timestamp - offset;
 
     for (auto &[sensor, msg_name] : sensors) {
-      if (!sensor->has_interrupt_enabled()) {
-        continue;
-      }
-
       MessageBuilder msg;
-      if (!sensor->get_event(msg, ts)) {
-        continue;
+      if (sensor->get_event(msg, ts) && sensor->is_data_valid(ts)) {
+        pm.send(msg_name.c_str(), msg);
       }
-
-      if (!sensor->is_data_valid(ts)) {
-        continue;
-      }
-
-      pm.send(msg_name.c_str(), msg);
     }
   }
+
+  close(fd);
 }
 
-void polling_loop(Sensor *sensor, std::string msg_name) {
+void polling_loop(I2CSensor *sensor, std::string msg_name) {
   PubMaster pm({msg_name.c_str()});
   RateKeeper rk(msg_name, services.at(msg_name).frequency);
   while (!do_exit) {
@@ -105,30 +96,32 @@ void polling_loop(Sensor *sensor, std::string msg_name) {
 
 int sensor_loop(I2CBus *i2c_bus_imu) {
   // Sensor init
-  std::vector<std::tuple<Sensor *, std::string>> sensors_init = {
+  std::vector<std::tuple<I2CSensor *, std::string>> polling_service = {
     {new BMX055_Accel(i2c_bus_imu), "accelerometer2"},
     {new BMX055_Gyro(i2c_bus_imu), "gyroscope2"},
     {new BMX055_Magn(i2c_bus_imu), "magnetometer"},
     {new BMX055_Temp(i2c_bus_imu), "temperatureSensor2"},
-
-    {new LSM6DS3_Accel(i2c_bus_imu, GPIO_LSM_INT), "accelerometer"},
-    {new LSM6DS3_Gyro(i2c_bus_imu, GPIO_LSM_INT, true), "gyroscope"},
     {new LSM6DS3_Temp(i2c_bus_imu), "temperatureSensor"},
-
     {new MMC5603NJ_Magn(i2c_bus_imu), "magnetometer"},
   };
 
+  std::vector<std::tuple<I2CSensor *, std::string>> gpio_service = {
+    {new LSM6DS3_Accel(i2c_bus_imu), "accelerometer"},
+    {new LSM6DS3_Gyro(i2c_bus_imu), "gyroscope"},
+  }
+
   // Initialize sensors
   std::vector<std::thread> threads;
-  for (auto &[sensor, msg_name] : sensors_init) {
+  for (auto &[sensor, msg_name] : polling_service) {
     int err = sensor->init();
     if (err < 0) {
       continue;
     }
+    threads.emplace_back(polling_loop, sensor, msg_name);
+  }
 
-    if (!sensor->has_interrupt_enabled()) {
-      threads.emplace_back(polling_loop, sensor, msg_name);
-    }
+  for (auto &[sensor, msg_name] : gpio_service) {
+    sensor->init();
   }
 
   // increase interrupt quality by pinning interrupt and process to core 1
@@ -143,7 +136,7 @@ int sensor_loop(I2CBus *i2c_bus_imu) {
   std::system(util::string_format("sudo su -c 'echo 1 > %s'", irq_path.c_str()).c_str());
 
   // thread for reading events via interrupts
-  threads.emplace_back(&interrupt_loop, std::ref(sensors_init));
+  threads.emplace_back(&interrupt_loop, std::ref(gpio_service));
 
   // wait for all threads to finish
   for (auto &t : threads) {

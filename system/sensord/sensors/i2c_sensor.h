@@ -7,7 +7,6 @@
 
 #include "common/i2c.h"
 #include "common/gpio.h"
-
 #include "common/swaglog.h"
 #include "system/sensord/sensors/constants.h"
 #include "system/sensord/sensors/sensor.h"
@@ -17,20 +16,16 @@ int16_t read_16_bit(uint8_t lsb, uint8_t msb);
 int32_t read_20_bit(uint8_t b2, uint8_t b1, uint8_t b0);
 
 
-class I2CSensor : public Sensor {
+class I2CSensor {
 private:
   I2CBus *bus;
-  int gpio_nr;
-  bool shared_gpio;
   virtual uint8_t get_device_address() = 0;
 
 public:
-  I2CSensor(I2CBus *bus, int gpio_nr = 0, bool shared_gpio = false);
-  ~I2CSensor();
+  I2CSensor(I2CBus *bus);
+  virtual ~I2CSensor() {};
   int read_register(uint register_address, uint8_t *buffer, uint8_t len);
   int set_register(uint register_address, uint8_t data);
-  int init_gpio();
-  bool has_interrupt_enabled();
   virtual int init() = 0;
   virtual bool get_event(MessageBuilder &msg, uint64_t ts = 0) = 0;
   virtual int shutdown() = 0;
@@ -48,4 +43,14 @@ public:
     LOGE("Chip ID wrong. Got: %d, Expected %d", chip_id, expected_ids[0]);
     return -1;
   }
+
+   virtual bool is_data_valid(uint64_t current_ts) {
+    if (start_ts == 0) {
+      start_ts = current_ts;
+    }
+    return (current_ts - start_ts) > init_delay;
+  }
+
+  uint64_t start_ts = 0;
+  uint64_t init_delay = 500e6; // default dealy 500ms
 };

@@ -10,8 +10,7 @@
 
 #define DEG2RAD(x) ((x) * M_PI / 180.0)
 
-LSM6DS3_Gyro::LSM6DS3_Gyro(I2CBus *bus, int gpio_nr, bool shared_gpio) :
-  I2CSensor(bus, gpio_nr, shared_gpio) {}
+LSM6DS3_Gyro::LSM6DS3_Gyro(I2CBus *bus) : I2CSensor(bus) {}
 
 void LSM6DS3_Gyro::wait_for_data_ready() {
   uint8_t drdy = 0;
@@ -120,11 +119,6 @@ int LSM6DS3_Gyro::init() {
 
   if (ret == LSM6DS3TRC_GYRO_CHIP_ID) {
     source = cereal::SensorEventData::SensorSource::LSM6DS3TRC;
-  }
-
-  ret = init_gpio();
-  if (ret < 0) {
-    goto fail;
   }
 
   ret = self_test(LSM6DS3_GYRO_POSITIVE_TEST);

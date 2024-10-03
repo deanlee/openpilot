@@ -8,8 +8,7 @@
 #include "common/timing.h"
 #include "common/util.h"
 
-LSM6DS3_Accel::LSM6DS3_Accel(I2CBus *bus, int gpio_nr, bool shared_gpio) :
-  I2CSensor(bus, gpio_nr, shared_gpio) {}
+LSM6DS3_Accel::LSM6DS3_Accel(I2CBus *bus) : I2CSensor(bus) {}
 
 void LSM6DS3_Accel::wait_for_data_ready() {
   uint8_t drdy = 0;
@@ -143,11 +142,6 @@ int LSM6DS3_Accel::init() {
   if (ret < 0) {
     LOGE("LSM6DS3 accel negative self-test failed!");
     if (do_self_test) goto fail;
-  }
-
-  ret = init_gpio();
-  if (ret < 0) {
-    goto fail;
   }
 
   // enable continuous update, and automatic increase
