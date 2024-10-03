@@ -1,9 +1,9 @@
 #include <sys/resource.h>
 
+#include <cassert>
 #include <chrono>
 #include <thread>
 #include <vector>
-#include <map>
 #include <poll.h>
 #include <linux/gpio.h>
 
@@ -28,17 +28,24 @@
 
 ExitHandler do_exit;
 
-void interrupt_loop(std::vector<std::tuple<Sensor *, std::string>> sensors) {
-  PubMaster pm({"gyroscope", "accelerometer"});
-
-  int fd = -1;
-  for (auto &[sensor, msg_name] : sensors) {
-    if (sensor->has_interrupt_enabled()) {
-      fd = sensor->gpio_fd;
-      break;
-    }
+struct SensorState {
+  SensorState(Sensor *sensor, const char *name)
+      : sensor(sensor), name(name), freq(services.at(name).frequency) {
+    sensor->init();
   }
 
+  ~SensorState() {
+    sensor->shutdown();
+    delete sensor;
+  }
+
+  Sensor *sensor;
+  const char *name;
+  int freq;
+};
+
+void interrupt_loop(PubMaster &pm, std::vector<SensorState> &sensors) {
+  int fd = sensors[0].sensor->gpio_fd;
   struct pollfd fd_list[1] = {0};
   fd_list[0].fd = fd;
   fd_list[0].events = POLLIN | POLLPRI;
@@ -72,32 +79,32 @@ void interrupt_loop(std::vector<std::tuple<Sensor *, std::string>> sensors) {
     uint64_t offset = nanos_since_epoch() - nanos_since_boot();
     uint64_t ts = evdata[num_events - 1].timestamp - offset;
 
-    for (auto &[sensor, msg_name] : sensors) {
-      if (!sensor->has_interrupt_enabled()) {
-        continue;
-      }
-
+    for (auto &s : sensors) {
       MessageBuilder msg;
-      if (!sensor->get_event(msg, ts)) {
-        continue;
+      if (s.sensor->get_event(msg, ts) && s.sensor->is_data_valid(ts)) {
+        pm.send(s.name, msg);
       }
-
-      if (!sensor->is_data_valid(ts)) {
-        continue;
-      }
-
-      pm.send(msg_name.c_str(), msg);
     }
   }
 }
 
-void polling_loop(Sensor *sensor, std::string msg_name) {
-  PubMaster pm({msg_name.c_str()});
-  RateKeeper rk(msg_name, services.at(msg_name).frequency);
+void polling_loop(PubMaster &pm, std::vector<SensorState> &sensors) {
+  const int max_freq = 100;
+  // Ensure that each sensor's frequency divides max_freq evenly for single-threaded operation
+  for (const auto &s : sensors) {
+    assert((max_freq % s.freq) == 0 && "Sensor frequency must evenly divide max_freq");
+  }
+
+  RateKeeper rk("sensord", max_freq);
   while (!do_exit) {
-    MessageBuilder msg;
-    if (sensor->get_event(msg) && sensor->is_data_valid(nanos_since_boot())) {
-      pm.send(msg_name.c_str(), msg);
+    for (auto &s : sensors) {
+      // Check if it's time to poll the sensor based on its frequency
+      if ((rk.frame() % (max_freq / s.freq)) == 0) {
+        MessageBuilder msg;
+        if (s.sensor->get_event(msg) && s.sensor->is_data_valid(nanos_since_boot())) {
+          pm.send(s.name, msg);
+        }
+      }
     }
     rk.keepTime();
   }
@@ -105,31 +112,19 @@ void polling_loop(Sensor *sensor, std::string msg_name) {
 
 int sensor_loop(I2CBus *i2c_bus_imu) {
   // Sensor init
-  std::vector<std::tuple<Sensor *, std::string>> sensors_init = {
+  std::vector<SensorState> poll_sensors = {
     {new BMX055_Accel(i2c_bus_imu), "accelerometer2"},
     {new BMX055_Gyro(i2c_bus_imu), "gyroscope2"},
     {new BMX055_Magn(i2c_bus_imu), "magnetometer"},
     {new BMX055_Temp(i2c_bus_imu), "temperatureSensor2"},
-
-    {new LSM6DS3_Accel(i2c_bus_imu, GPIO_LSM_INT), "accelerometer"},
-    {new LSM6DS3_Gyro(i2c_bus_imu, GPIO_LSM_INT, true), "gyroscope"},
     {new LSM6DS3_Temp(i2c_bus_imu), "temperatureSensor"},
-
     {new MMC5603NJ_Magn(i2c_bus_imu), "magnetometer"},
   };
 
-  // Initialize sensors
-  std::vector<std::thread> threads;
-  for (auto &[sensor, msg_name] : sensors_init) {
-    int err = sensor->init();
-    if (err < 0) {
-      continue;
-    }
-
-    if (!sensor->has_interrupt_enabled()) {
-      threads.emplace_back(polling_loop, sensor, msg_name);
-    }
-  }
+  std::vector<SensorState> interrupt_sensors = {
+    {new LSM6DS3_Accel(i2c_bus_imu, GPIO_LSM_INT), "accelerometer"},
+    {new LSM6DS3_Gyro(i2c_bus_imu, GPIO_LSM_INT, true), "gyroscope"},
+  };
 
   // increase interrupt quality by pinning interrupt and process to core 1
   setpriority(PRIO_PROCESS, 0, -18);
@@ -142,18 +137,18 @@ int sensor_loop(I2CBus *i2c_bus_imu) {
   }
   std::system(util::string_format("sudo su -c 'echo 1 > %s'", irq_path.c_str()).c_str());
 
+
+  std::vector<const char*> pub_names;
+  for (const auto &s : poll_sensors) pub_names.push_back(s.name);
+  for (const auto &s : interrupt_sensors) pub_names.push_back(s.name);
+
+  PubMaster pm(pub_names);
   // thread for reading events via interrupts
-  threads.emplace_back(&interrupt_loop, std::ref(sensors_init));
+  std::thread thread = std::thread(&interrupt_loop, std::ref(pm), std::ref(interrupt_sensors));
 
-  // wait for all threads to finish
-  for (auto &t : threads) {
-    t.join();
-  }
+  polling_loop(pm, poll_sensors);
 
-  for (auto &[sensor, msg_name] : sensors_init) {
-    sensor->shutdown();
-    delete sensor;
-  }
+  thread.join();
   return 0;
 }
 
