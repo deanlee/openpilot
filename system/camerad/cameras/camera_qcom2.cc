@@ -40,10 +40,6 @@ public:
   float analog_gain_frac = 0;
 
   float cur_ev[3] = {};
-  float best_ev_score = 0;
-  int new_exp_g = 0;
-  int new_exp_t = 0;
-
   Rect ae_xywh = {};
   float measured_grey_fraction = 0;
   float target_grey_fraction = 0.3;
@@ -53,7 +49,6 @@ public:
   CameraState(SpectraMaster *master, const CameraConfig &config) : camera(master, config) {};
   ~CameraState();
   void init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
-  void update_exposure_score(float desired_ev, int exp_t, int exp_g_idx, float exp_gain);
   void set_camera_exposure(float grey_frac);
   void set_exposure_rect();
   void run();
@@ -109,15 +104,6 @@ void CameraState::set_exposure_rect() {
   };
 }
 
-void CameraState::update_exposure_score(float desired_ev, int exp_t, int exp_g_idx, float exp_gain) {
-  float score = camera.sensor->getExposureScore(desired_ev, exp_t, exp_g_idx, exp_gain, gain_idx);
-  if (score < best_ev_score) {
-    new_exp_t = exp_t;
-    new_exp_g = exp_g_idx;
-    best_ev_score = score;
-  }
-}
-
 void CameraState::set_camera_exposure(float grey_frac) {
   if (!camera.enabled) return;
   const float dt = 0.05;
@@ -144,10 +130,6 @@ void CameraState::set_camera_exposure(float grey_frac) {
   float k = (1.0 - k_ev) / 3.0;
   desired_ev = (k * cur_ev[0]) + (k * cur_ev[1]) + (k * cur_ev[2]) + (k_ev * desired_ev);
 
-  best_ev_score = 1e6;
-  new_exp_g = 0;
-  new_exp_t = 0;
-
   // Hysteresis around high conversion gain
   // We usually want this on since it results in lower noise, but turn off in very bright day scenes
   bool enable_dc_gain = dc_gain_enabled;
@@ -173,12 +155,11 @@ void CameraState::set_camera_exposure(float grey_frac) {
     // Override gain and exposure time
     gain_idx = std::stoi(gain_bytes);
     exposure_time = std::stoi(time_bytes);
-
-    new_exp_g = gain_idx;
-    new_exp_t = exposure_time;
     enable_dc_gain = false;
   } else {
     // Simple brute force optimizer to choose sensor parameters to reach desired EV
+    float best_ev_score = 1e6;
+    int new_exp_g = 0, new_exp_t = 0;
     int min_g = std::max(gain_idx - 1, sensor->analog_gain_min_idx);
     int max_g = std::min(gain_idx + 1, sensor->analog_gain_max_idx);
     for (int g = min_g; g <= max_g; g++) {
@@ -192,16 +173,21 @@ void CameraState::set_camera_exposure(float grey_frac) {
         continue;
       }
 
-      update_exposure_score(desired_ev, t, g, gain);
+      float score = camera.sensor->getExposureScore(desired_ev, t, g, gain, gain_idx);
+      if (score < best_ev_score) {
+        new_exp_t = t;
+        new_exp_g = g;
+        best_ev_score = score;
+      }
     }
+    gain_idx = new_exp_g;
+    exposure_time = new_exp_t;
   }
 
   measured_grey_fraction = grey_frac;
   target_grey_fraction = target_grey;
 
-  analog_gain_frac = sensor->sensor_analog_gains[new_exp_g];
-  gain_idx = new_exp_g;
-  exposure_time = new_exp_t;
+  analog_gain_frac = sensor->sensor_analog_gains[gain_idx];
   dc_gain_enabled = enable_dc_gain;
 
   float gain = analog_gain_frac * get_gain_factor();
@@ -215,7 +201,7 @@ void CameraState::set_camera_exposure(float grey_frac) {
   }
   // LOGE("ae - camera %d, cur_t %.5f, sof %.5f, dt %.5f", camera.cc.camera_num, 1e-9 * nanos_since_boot(), 1e-9 * camera.buf.cur_frame_data.timestamp_sof, 1e-9 * (nanos_since_boot() - camera.buf.cur_frame_data.timestamp_sof));
 
-  auto exp_reg_array = sensor->getExposureRegisters(exposure_time, new_exp_g, dc_gain_enabled);
+  auto exp_reg_array = sensor->getExposureRegisters(exposure_time, gain_idx, dc_gain_enabled);
   camera.sensors_i2c(exp_reg_array.data(), exp_reg_array.size(), CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG, camera.sensor->data_word);
 }
 
