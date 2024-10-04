@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHBoxLayout>
 #include "selfdrive/ui/qt/onroad/alerts.h"
 #include "selfdrive/ui/qt/onroad/annotated_camera.h"
 

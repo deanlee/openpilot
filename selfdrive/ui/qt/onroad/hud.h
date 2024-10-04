@@ -22,4 +22,9 @@ private:
   bool is_metric = false;
   bool v_ego_cluster_seen = false;
   int status = STATUS_DISENGAGED;
+  Params params;
+  QPixmap engage_img;
+  QPixmap experimental_img;
+  bool experimental_mode = false;
+  bool engageable = false;
 };

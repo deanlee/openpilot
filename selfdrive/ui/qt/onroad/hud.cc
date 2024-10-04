@@ -3,10 +3,14 @@
 #include <cmath>
 
 #include "selfdrive/ui/qt/util.h"
+#include "selfdrive/ui/qt/onroad/buttons.h"
 
 constexpr int SET_SPEED_NA = 255;
 
-HudRenderer::HudRenderer() {}
+HudRenderer::HudRenderer() {
+  engage_img = loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size});
+  experimental_img = loadPixmap("../assets/img_experimental.svg", {img_size, img_size});
+}
 
 void HudRenderer::updateState(const UIState &s) {
   is_metric = s.scene.is_metric;
@@ -35,6 +39,14 @@ void HudRenderer::updateState(const UIState &s) {
   v_ego_cluster_seen = v_ego_cluster_seen || car_state.getVEgoCluster() != 0.0;
   float v_ego = v_ego_cluster_seen ? car_state.getVEgoCluster() : car_state.getVEgo();
   speed = std::max<float>(0.0f, v_ego * (is_metric ? MS_TO_KPH : MS_TO_MPH));
+
+  const auto cs = sm["selfdriveState"].getSelfdriveState();
+  bool eng = cs.getEngageable() || cs.getEnabled();
+  if ((cs.getExperimentalMode() != experimental_mode) || (eng != engageable)) {
+    engageable = eng;
+    experimental_mode = cs.getExperimentalMode();
+    // update();
+  }
 }
 
 void HudRenderer::draw(QPainter &p, const QRect &surface_rect) {
@@ -49,6 +61,10 @@ void HudRenderer::draw(QPainter &p, const QRect &surface_rect) {
 
   drawSetSpeed(p, surface_rect);
   drawCurrentSpeed(p, surface_rect);
+
+  const QPixmap &img = experimental_mode ? experimental_img : engage_img;
+  // drawIcon(p, QPoint(btn_size / 2, btn_size / 2), img, QColor(0, 0, 0, 166), (isDown() || !engageable) ? 0.6 : 1.0);
+  drawIcon(p, QPoint(btn_size / 2, btn_size / 2), img, QColor(0, 0, 0, 166), (!engageable) ? 0.6 : 1.0);
 
   p.restore();
 }
