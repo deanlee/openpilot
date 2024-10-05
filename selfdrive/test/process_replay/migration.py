@@ -2,6 +2,7 @@ from collections import defaultdict
 from collections.abc import Callable
 import functools
 import capnp
+import concurrent.futures
 
 from cereal import messaging, car, log
 from opendbc.car.fingerprints import MIGRATION
@@ -52,19 +53,34 @@ def migrate_all(lr: LogIterable, manager_states: bool = False, panda_states: boo
 
 def migrate(lr: LogIterable, migration_funcs: list[MigrationFunc]):
   lr = list(lr)
+
+  needed_message_types = set()
+  for migration in migration_funcs:
+    if hasattr(migration, "product") and hasattr(migration, "inputs"):
+      needed_message_types.update(migration.inputs)
+
   grouped = defaultdict(list)
   for i, msg in enumerate(lr):
-    grouped[msg.which()].append(i)
+    msg_type = msg.which()
+    if msg_type in needed_message_types:
+      grouped[msg_type].append(i)
 
-  replace_ops, add_ops, del_ops = [], [], []
-  for migration in migration_funcs:
+  def _apply_migration(lr, migration, grouped):
     assert hasattr(migration, "inputs") and hasattr(migration, "product"), "Migration functions must use @migration decorator"
     if migration.product in grouped: # skip if product already exists
-      continue
+      return [], [], []
 
     sorted_indices = sorted(ii for i in migration.inputs for ii in grouped[i])
     msg_gen = [(i, lr[i]) for i in sorted_indices]
-    r_ops, a_ops, d_ops = migration(msg_gen)
+    return migration(msg_gen)
+
+  with concurrent.futures.ThreadPoolExecutor() as executor:
+    futures = {executor.submit(_apply_migration, lr, migration, grouped) for migration in migration_funcs}
+    results = concurrent.futures.as_completed(futures)
+
+  replace_ops, add_ops, del_ops = [], [], []
+  for future in results:
+    r_ops, a_ops, d_ops = future.result()
     replace_ops.extend(r_ops)
     add_ops.extend(a_ops)
     del_ops.extend(d_ops)
@@ -73,11 +89,8 @@ def migrate(lr: LogIterable, migration_funcs: list[MigrationFunc]):
     lr[index] = msg
   for index in sorted(del_ops, reverse=True):
     del lr[index]
-  for msg in add_ops:
-    lr.append(msg)
-  lr = sorted(lr, key=lambda x: x.logMonoTime)
-
-  return lr
+  lr.extend(add_ops)
+  return sorted(lr, key=lambda x: x.logMonoTime)
 
 
 def migration(inputs: list[str], product: str|None=None):
