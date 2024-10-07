@@ -2,13 +2,9 @@
 
 #include "selfdrive/ui/raylib/util.h"
 #include "third_party/raylib/include/raylib.h"
-void DrawTextLines(const std::vector<std::string>& lines, float startX, float startY, float lineHeight, float scrollX, float scrollY, int fontSize, Color color) {
+void DrawTextLines(const std::string &text, float startX, float startY, float scrollX, float scrollY, int fontSize, Color color) {
   float yPos = startY - scrollY;
   float xPos = startX - scrollX;
-  std::string text;
-  for (const auto& line : lines) {
-    text += line + "\n";
-  }
   // for (const auto& line : lines) {
   // DrawText(text.c_str(), 10, yPos, fontSize, color);
   DrawTextEx(getFont(), text.c_str(), {xPos, yPos}, fontSize, 1.0, color);
@@ -24,8 +20,7 @@ int main(int argc, char* argv[]) {
 
   // Set up font size, line height, and text data
   const int fontSize = 60;
-  const float lineHeight = 30;
-  std::vector<std::string> lines = {
+  std::string text = R"(
       "This is a scrollable text area.",
       "Scroll with the mouse wheel or keyboard.",
       "Each line of text is drawn separately.",
@@ -45,7 +40,7 @@ int main(int argc, char* argv[]) {
       "Line 17",
       "Line 18",
       "Line 19",
-      "Line 20"};
+      "Line 20)";
 
   // Scrolling state
   float scrollY = 0;
@@ -53,7 +48,7 @@ int main(int argc, char* argv[]) {
   const float scrollSpeed = 20.0f;
 
   // Scrollable area dimensions
-  const Rectangle scrollArea = {50, 50, 700, 400};
+  const Rectangle scrollArea = {50, 50, screenWidth - 100, screenHeight - 100 - 100};
 
   // Variables for handling mouse drag scrolling
   bool dragging = false;
@@ -62,6 +57,10 @@ int main(int argc, char* argv[]) {
   // Reboot button settings
   const Rectangle rebootButton = {screenWidth / 2 - 50, screenHeight - 60, 100, 40};
   bool buttonHovered = false;
+
+  Vector2 textSize = MeasureTextEx(getFont(), text.c_str(), fontSize, 1.0);
+  float maxScrollX = std::max<float>(0, textSize.x - scrollArea.width);
+  float maxScrollY = textSize.y - scrollArea.height;
 
   // Main loop
   while (!WindowShouldClose()) {
@@ -87,12 +86,10 @@ int main(int argc, char* argv[]) {
     }
 
     // Ensure scrolling stays within bounds
-    float maxScrollY = lines.size() * lineHeight - scrollArea.height;
     if (scrollY < 0) scrollY = 0;
     if (scrollY > maxScrollY) scrollY = maxScrollY;
 
     // Adjust horizontal scrolling (optional)
-    float maxScrollX = 1000;  // You can set a limit based on your content width
     if (scrollX < 0) scrollX = 0;
     if (scrollX > maxScrollX) scrollX = maxScrollX;
 
@@ -116,7 +113,7 @@ int main(int argc, char* argv[]) {
     BeginScissorMode(scrollArea.x, scrollArea.y, scrollArea.width, scrollArea.height);
 
     // Draw the text lines within the scrollable area
-    DrawTextLines(lines, scrollArea.x, scrollArea.y, lineHeight, scrollX, scrollY, fontSize, BLACK);
+    DrawTextLines(text, scrollArea.x, scrollArea.y, scrollX, scrollY, fontSize, BLACK);
 
     EndScissorMode();
 
