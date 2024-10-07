@@ -5,11 +5,21 @@
 void DrawTextLines(const std::string &text, float startX, float startY, float scrollX, float scrollY, int fontSize, Color color) {
   float yPos = startY - scrollY;
   float xPos = startX - scrollX;
-  // for (const auto& line : lines) {
-  // DrawText(text.c_str(), 10, yPos, fontSize, color);
   DrawTextEx(getFont(), text.c_str(), {xPos, yPos}, fontSize, 1.0, color);
-  // yPos += lineHeight;
-  // }
+}
+
+int guiButton(Rectangle bounds, const char *text) {
+  int result = 0;
+  Vector2 mousePoint = GetMousePosition();
+  // Check button state
+  if (CheckCollisionPointRec(mousePoint, bounds)) {
+    if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+
+    }
+
+    if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) result = 1;
+  }
+  return result;
 }
 
 int main(int argc, char* argv[]) {
@@ -45,16 +55,19 @@ int main(int argc, char* argv[]) {
   // Scrolling state
   float scrollY = 0;
   float scrollX = 0;
+  const int margin = 50;
   const float scrollSpeed = 20.0f;
 
   // Scrollable area dimensions
-  const Rectangle scrollArea = {50, 50, screenWidth - 100, screenHeight - 100 - 100};
+  const Rectangle scrollArea = {margin, margin, screenWidth - margin * 2, screenHeight - margin * 2 - 100};
 
   // Variables for handling mouse drag scrolling
   bool dragging = false;
   Vector2 previousMousePos = {0, 0};
 
   // Reboot button settings
+  std::string buttonText = "Reboot";
+
   const Rectangle rebootButton = {screenWidth / 2 - 50, screenHeight - 60, 100, 40};
   bool buttonHovered = false;
 
@@ -70,19 +83,18 @@ int main(int argc, char* argv[]) {
 
     // Handle dragging with left mouse button or touch (vertical and horizontal)
     if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+      Vector2 currentMousePos = GetMousePosition();
       if (!dragging) {
         dragging = true;
-        previousMousePos = GetMousePosition();
       } else {
-        Vector2 currentMousePos = GetMousePosition();
-        float deltaX = currentMousePos.x - previousMousePos.x;  // Horizontal drag
-        float deltaY = currentMousePos.y - previousMousePos.y;  // Vertical drag
-        scrollX -= deltaX;
-        scrollY -= deltaY;
-        previousMousePos = currentMousePos;
+        scrollX -= (currentMousePos.x - previousMousePos.x);
+        scrollY -= (currentMousePos.y - previousMousePos.y);
       }
+      buttonHovered = CheckCollisionPointRec(currentMousePos, rebootButton);
+      previousMousePos = currentMousePos;
     } else {
       dragging = false;
+      buttonHovered = false;
     }
 
     // Ensure scrolling stays within bounds
@@ -93,10 +105,6 @@ int main(int argc, char* argv[]) {
     if (scrollX < 0) scrollX = 0;
     if (scrollX > maxScrollX) scrollX = maxScrollX;
 
-    // Check if the mouse is over the reboot button
-    Vector2 mousePos = GetMousePosition();
-    buttonHovered = CheckCollisionPointRec(mousePos, rebootButton);
-
     // Handle click on the reboot button
     if (buttonHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
       // Example: system("sudo reboot"); -- Linux command to reboot (requires sudo permission)
@@ -104,26 +112,16 @@ int main(int argc, char* argv[]) {
     }
 
     BeginDrawing();
-    ClearBackground(RAYWHITE);
+    ClearBackground(BLACK);
 
-    // Draw scrollable area background
-    DrawRectangleRec(scrollArea, LIGHTGRAY);
-
-    // Limit drawing to the scrollable area using scissor mode
     BeginScissorMode(scrollArea.x, scrollArea.y, scrollArea.width, scrollArea.height);
-
-    // Draw the text lines within the scrollable area
-    DrawTextLines(text, scrollArea.x, scrollArea.y, scrollX, scrollY, fontSize, BLACK);
-
+    DrawTextLines(text, scrollArea.x, scrollArea.y, scrollX, scrollY, fontSize, WHITE);
     EndScissorMode();
-
-    // Draw a border around the scroll area
-    DrawRectangleLinesEx(scrollArea, 2, DARKGRAY);
 
     // Draw the reboot button
     Color buttonColor = buttonHovered ? DARKGRAY : GRAY;
     DrawRectangleRec(rebootButton, buttonColor);
-    DrawText("Reboot", rebootButton.x + 10, rebootButton.y + 10, 20, WHITE);
+    DrawTextEx(getFont(), "Reboot", {rebootButton.x + 10, rebootButton.y + 10}, fontSize, 1.0, WHITE);
 
     EndDrawing();
   }
