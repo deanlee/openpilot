@@ -115,3 +115,4 @@ lib = env.Library("raylib_lib", ['raylib/util.cc'], LIBS='raylib')
 raylib_libs = ['raylib', lib]
 raylib_env['CPPPATH'].append('#third_party/raylib/{arch}/')
 raylib_env.Program("_spinner", ["raylib/spinner.cc"], LIBS=raylib_libs)
+raylib_env.Program("_text2", ["raylib/text.cc"], LIBS=raylib_libs)
