@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QPainter>
 #include "selfdrive/ui/ui.h"
 
 const int btn_size = 192;

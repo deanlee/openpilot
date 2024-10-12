@@ -1,7 +1,4 @@
 #include "selfdrive/ui/qt/onroad/buttons.h"
-
-#include <QPainter>
-
 #include "selfdrive/ui/qt/util.h"
 
 void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrush &bg, float opacity) {
@@ -32,6 +29,10 @@ void ExperimentalButton::changeMode() {
 }
 
 void ExperimentalButton::updateState(const UIState &s) {
+  is_down = QGuiApplication::mouseButtons() & Qt::LeftButton;
+  if (is_down && rect.contains(QCursor::pos())) {
+    changeMode();
+  }
   const auto cs = (*s.sm)["selfdriveState"].getSelfdriveState();
   bool eng = cs.getEngageable() || cs.getEnabled();
   if ((cs.getExperimentalMode() != experimental_mode) || (eng != engageable)) {
