@@ -1,4 +1,5 @@
 #include "selfdrive/ui/qt/onroad/buttons.h"
+#include <QApplication>
 #include "selfdrive/ui/qt/util.h"
 
 void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrush &bg, float opacity) {
@@ -12,12 +13,9 @@ void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrus
   p.setOpacity(1.0);
 }
 
-// ExperimentalButton
 ExperimentalButton::ExperimentalButton() : experimental_mode(false), engageable(false) {
-  // setFixedSize(btn_size, btn_size);
   engage_img = loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size});
   experimental_img = loadPixmap("../assets/img_experimental.svg", {img_size, img_size});
-  // QObject::connect(this, &QPushButton::clicked, this, &ExperimentalButton::changeMode);
 }
 
 void ExperimentalButton::changeMode() {
@@ -29,10 +27,6 @@ void ExperimentalButton::changeMode() {
 }
 
 void ExperimentalButton::updateState(const UIState &s) {
-  is_down = QGuiApplication::mouseButtons() & Qt::LeftButton;
-  if (is_down && rect.contains(QCursor::pos())) {
-    changeMode();
-  }
   const auto cs = (*s.sm)["selfdriveState"].getSelfdriveState();
   bool eng = cs.getEngageable() || cs.getEnabled();
   if ((cs.getExperimentalMode() != experimental_mode) || (eng != engageable)) {
@@ -42,6 +36,12 @@ void ExperimentalButton::updateState(const UIState &s) {
 }
 
 void ExperimentalButton::draw(QPainter &painter, const QRect &surface_rect) {
+  QRect rect(surface_rect.right() - btn_size - UI_BORDER_SIZE, UI_BORDER_SIZE, btn_size, btn_size);
+  bool left_button_down = QGuiApplication::mouseButtons() & Qt::LeftButton;
+  if (!left_button_down && is_down && rect.contains(QCursor::pos())) {
+    changeMode();
+  }
+  is_down = left_button_down;
   const QPixmap &img = experimental_mode ? experimental_img : engage_img;
-  drawIcon(painter, QPoint(btn_size / 2, btn_size / 2), img, QColor(0, 0, 0, 166), (is_down || !engageable) ? 0.6 : 1.0);
+  drawIcon(painter, rect.center(), img, QColor(0, 0, 0, 166), (is_down || !engageable) ? 0.6 : 1.0);
 }

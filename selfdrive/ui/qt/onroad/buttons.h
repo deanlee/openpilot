@@ -10,9 +10,9 @@ class ExperimentalButton {
 public:
   explicit ExperimentalButton();
   void updateState(const UIState &s);
+  void draw(QPainter &painer, const QRect &surface_rect);
 
 private:
-  void draw(QPainter &painer, const QRect &surface_rect);
   void changeMode();
 
   Params params;

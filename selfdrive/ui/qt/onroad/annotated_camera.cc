@@ -16,7 +16,7 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *par
 
 void AnnotatedCameraWidget::updateState(const UIState &s) {
   // update engageability/experimental mode button
-  experimental_btn->updateState(s);
+  experimental_btn.updateState(s);
   dmon.updateState(s);
 }
 
@@ -126,6 +126,7 @@ void AnnotatedCameraWidget::paintGL() {
   dmon.draw(painter, rect());
   hud.updateState(*s);
   hud.draw(painter, rect());
+  experimental_btn.draw(painter, rect());
 
   double cur_draw_t = millis_since_boot();
   double dt = cur_draw_t - prev_draw_t;
