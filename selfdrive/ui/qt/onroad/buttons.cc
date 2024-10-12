@@ -16,12 +16,11 @@ void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrus
 }
 
 // ExperimentalButton
-ExperimentalButton::ExperimentalButton(QWidget *parent) : experimental_mode(false), engageable(false), QPushButton(parent) {
-  setFixedSize(btn_size, btn_size);
-
+ExperimentalButton::ExperimentalButton() : experimental_mode(false), engageable(false) {
+  // setFixedSize(btn_size, btn_size);
   engage_img = loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size});
   experimental_img = loadPixmap("../assets/img_experimental.svg", {img_size, img_size});
-  QObject::connect(this, &QPushButton::clicked, this, &ExperimentalButton::changeMode);
+  // QObject::connect(this, &QPushButton::clicked, this, &ExperimentalButton::changeMode);
 }
 
 void ExperimentalButton::changeMode() {
@@ -38,12 +37,10 @@ void ExperimentalButton::updateState(const UIState &s) {
   if ((cs.getExperimentalMode() != experimental_mode) || (eng != engageable)) {
     engageable = eng;
     experimental_mode = cs.getExperimentalMode();
-    update();
   }
 }
 
-void ExperimentalButton::paintEvent(QPaintEvent *event) {
-  QPainter p(this);
-  QPixmap img = experimental_mode ? experimental_img : engage_img;
-  drawIcon(p, QPoint(btn_size / 2, btn_size / 2), img, QColor(0, 0, 0, 166), (isDown() || !engageable) ? 0.6 : 1.0);
+void ExperimentalButton::draw(QPainter &painter, const QRect &surface_rect) {
+  const QPixmap &img = experimental_mode ? experimental_img : engage_img;
+  drawIcon(painter, QPoint(btn_size / 2, btn_size / 2), img, QColor(0, 0, 0, 166), (is_down || !engageable) ? 0.6 : 1.0);
 }
