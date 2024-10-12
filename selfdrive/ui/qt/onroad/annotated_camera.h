@@ -1,6 +1,5 @@
 #pragma once
 
-#include <QVBoxLayout>
 #include <memory>
 #include "selfdrive/ui/qt/onroad/hud.h"
 #include "selfdrive/ui/qt/onroad/buttons.h"
@@ -16,7 +15,6 @@ public:
   void updateState(const UIState &s);
 
 private:
-  QVBoxLayout *main_layout;
   ExperimentalButton *experimental_btn;
   DriverMonitorRenderer dmon;
   HudRenderer hud;
@@ -30,6 +28,7 @@ protected:
   void paintGL() override;
   void initializeGL() override;
   void showEvent(QShowEvent *event) override;
+  void resizeEvent(QResizeEvent* event) override;
   mat4 calcFrameMatrix() override;
 
   double prev_draw_t = 0;

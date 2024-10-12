@@ -12,13 +12,7 @@
 AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget *parent)
     : fps_filter(UI_FREQ, 3, 1. / UI_FREQ), CameraWidget("camerad", type, parent) {
   pm = std::make_unique<PubMaster>(std::vector<const char*>{"uiDebug"});
-
-  main_layout = new QVBoxLayout(this);
-  main_layout->setMargin(UI_BORDER_SIZE);
-  main_layout->setSpacing(0);
-
   experimental_btn = new ExperimentalButton(this);
-  main_layout->addWidget(experimental_btn, 0, Qt::AlignTop | Qt::AlignRight);
 }
 
 void AnnotatedCameraWidget::updateState(const UIState &s) {
@@ -147,6 +141,11 @@ void AnnotatedCameraWidget::paintGL() {
   auto m = msg.initEvent().initUiDebug();
   m.setDrawTimeMillis(cur_draw_t - start_draw_t);
   pm->send("uiDebug", msg);
+}
+
+void AnnotatedCameraWidget::resizeEvent(QResizeEvent* event) {
+  experimental_btn->move(rect().topRight() - QPoint(UI_BORDER_SIZE + experimental_btn->width(), -UI_BORDER_SIZE));
+  CameraWidget::resizeEvent(event);
 }
 
 void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
