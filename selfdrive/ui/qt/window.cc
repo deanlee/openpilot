@@ -16,6 +16,7 @@ MainWindow::MainWindow(QWidget *parent) : QWidget(parent) {
   settingsWindow = new SettingsWindow(this);
   main_layout->addWidget(settingsWindow);
   QObject::connect(settingsWindow, &SettingsWindow::closeSettings, this, &MainWindow::closeSettings);
+  QObject::connect(settingsWindow, &SettingsWindow::tetheringStateChanged, homeWindow, &HomeWindow::tetheringStateChanged);
   QObject::connect(settingsWindow, &SettingsWindow::reviewTrainingGuide, [=]() {
     onboardingWindow->showTrainingGuide();
     main_layout->setCurrentWidget(onboardingWindow);

@@ -28,6 +28,7 @@ signals:
 public slots:
   void offroadTransition(bool offroad);
   void updateState(const UIState &s);
+  void tetheringStateChanged(bool on);
 
 protected:
   void paintEvent(QPaintEvent *event) override;
@@ -56,6 +57,7 @@ protected:
   ItemStatus connect_status, panda_status, temp_status;
   QString net_type;
   int net_strength = 0;
+  bool tethering_on = false;
 
 private:
   std::unique_ptr<PubMaster> pm;

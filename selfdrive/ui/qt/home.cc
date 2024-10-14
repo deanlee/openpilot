@@ -48,6 +48,10 @@ void HomeWindow::showSidebar(bool show) {
   sidebar->setVisible(show);
 }
 
+void HomeWindow::tetheringStateChanged(bool on) {
+  sidebar->tetheringStateChanged(on);
+}
+
 void HomeWindow::updateState(const UIState &s) {
   const SubMaster &sm = *(s.sm);
 

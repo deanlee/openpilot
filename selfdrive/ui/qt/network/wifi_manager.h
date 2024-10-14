@@ -91,6 +91,7 @@ private:
 signals:
   void wrongPassword(const QString &ssid);
   void refreshSignal();
+  void tetheringStateChanged(bool on);
 
 private slots:
   void stateChange(unsigned int new_state, unsigned int previous_state, unsigned int change_reason);

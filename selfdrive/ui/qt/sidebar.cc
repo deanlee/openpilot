@@ -64,6 +64,11 @@ void Sidebar::mouseReleaseEvent(QMouseEvent *event) {
   }
 }
 
+void Sidebar::tetheringStateChanged(bool on) {
+  tethering_on = on;
+  update();
+}
+
 void Sidebar::offroadTransition(bool offroad) {
   onroad = !offroad;
   update();

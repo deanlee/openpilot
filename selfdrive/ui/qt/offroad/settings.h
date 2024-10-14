@@ -30,6 +30,7 @@ signals:
   void reviewTrainingGuide();
   void showDriverView();
   void expandToggleDescription(const QString &param);
+  void tetheringStateChanged(bool on);
 
 private:
   QPushButton *sidebar_alert_widget;

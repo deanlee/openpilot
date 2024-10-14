@@ -53,6 +53,7 @@ signals:
 
 public slots:
   void offroadTransition(bool offroad);
+  void tetheringStateChanged(bool on);
   void showDriverView(bool show);
   void showSidebar(bool show);
 

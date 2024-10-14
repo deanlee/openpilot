@@ -447,6 +447,7 @@ void WifiManager::tetheringActivated(QDBusPendingCallWatcher *call) {
       std::system("sudo sysctl net.ipv4.ip_forward=0");
     });
   }
+  emit tetheringStateChanged(true);
   call->deleteLater();
 }
 
@@ -465,6 +466,7 @@ void WifiManager::setTetheringEnabled(bool enabled) {
 
   } else {
     deactivateConnectionBySsid(tethering_ssid);
+    emit tetheringStateChanged(false);
   }
 }
 
