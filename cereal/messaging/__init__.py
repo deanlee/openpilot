@@ -28,6 +28,8 @@ def log_from_bytes(dat: bytes, struct: capnp.lib.capnp._StructModule = log.Event
 
 
 def new_message(service: Optional[str], size: Optional[int] = None, **kwargs) -> capnp.lib.capnp._DynamicStructBuilder:
+  kwargs.setdefault('valid', False)
+  kwargs.setdefault('logMonoTime', int(time.monotonic() * 1e9))
   dat = log.Event.new_message(valid=False, logMonoTime=int(time.monotonic() * 1e9), **kwargs)
   if service is not None:
     dat.init(service, size)
