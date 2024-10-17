@@ -82,6 +82,10 @@ WifiManager::WifiManager(QObject *parent) : QObject(parent) {
   }
 }
 
+WifiManager::~WifiManager() {
+  dbus_connection_unref(dbus);
+}
+
 void WifiManager::setup() {
   auto bus = QDBusConnection::systemBus();
   bus.connect(NM_DBUS_SERVICE, adapter, NM_DBUS_INTERFACE_DEVICE, "StateChanged", this, SLOT(stateChange(unsigned int, unsigned int, unsigned int)));
@@ -262,10 +266,6 @@ void WifiManager::setCurrentConnecting(const QString &ssid) {
   emit refreshSignal();
 }
 
-uint WifiManager::getAdapterType(const QDBusObjectPath &path) {
-  return call<uint>(path.path(), NM_DBUS_INTERFACE_PROPERTIES, "Get", NM_DBUS_INTERFACE_DEVICE, "DeviceType");
-}
-
 uint WifiManager::getAdapterType(const std::string &path) {
   return sendMethodCall<uint32_t>(path.c_str(),NM_DBUS_INTERFACE_PROPERTIES, "Get", NM_DBUS_INTERFACE_DEVICE, "DeviceType");
 }
@@ -281,10 +281,10 @@ QByteArray WifiManager::get_property(const QString &network_path , const QString
 }
 
 QString WifiManager::getAdapter(const uint adapter_type) {
-  QDBusReply<QList<QDBusObjectPath>> response = call(NM_DBUS_PATH, NM_DBUS_INTERFACE, "GetDevices");
-  for (const QDBusObjectPath &path : response.value()) {
+  auto response = sendMethodCall<std::vector<std::string>>(NM_DBUS_PATH, NM_DBUS_INTERFACE, "GetDevices");
+  for (const auto &path : response) {
     if (getAdapterType(path) == adapter_type) {
-      return path.path();
+      return path.c_str();
     }
   }
   return "";
@@ -311,7 +311,7 @@ void WifiManager::propertyChange(const QString &interface, const QVariantMap &pr
 }
 
 void WifiManager::deviceAdded(const QDBusObjectPath &path) {
-  if (getAdapterType(path) == NM_DEVICE_TYPE_WIFI && emptyPath(adapter)) {
+  if (getAdapterType(path.path().toStdString()) == NM_DEVICE_TYPE_WIFI && emptyPath(adapter)) {
     adapter = path.path();
     setup();
   }

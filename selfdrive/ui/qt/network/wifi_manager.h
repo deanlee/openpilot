@@ -49,6 +49,7 @@ public:
   bool ipv4_forward = false;
 
   explicit WifiManager(QObject* parent);
+  ~WifiManager();
   void start();
   void stop();
   void requestScan();
@@ -164,7 +165,6 @@ private:
   QDBusObjectPath lteConnectionPath;
 
   QString getAdapter(const uint = NM_DEVICE_TYPE_WIFI);
-  uint getAdapterType(const QDBusObjectPath &path);
   uint getAdapterType(const std::string &path);
   QString getIp4Address();
   void deactivateConnectionBySsid(const QString &ssid);
