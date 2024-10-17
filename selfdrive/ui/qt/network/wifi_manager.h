@@ -31,8 +31,8 @@ enum class NetworkType {
 typedef QMap<QString, QVariantMap> Connection;
 typedef QVector<QVariantMap> IpConfig;
 
-using DBusVariant = std::variant<int32_t, uint32_t, double, std::string, bool>;
-
+using DBusVariant = std::variant<int32_t, uint32_t, double, std::string, bool,
+                                 std::map<std::string, std::variant<int32_t, uint32_t, double, std::string, bool>>>;
 
 struct Network {
   QString ssid;
@@ -144,7 +144,6 @@ private:
         dbus_message_iter_get_basic(&entry, &key);  // Get the key (property name)
 
         std::cout << "Property: " << key << std::endl;
-
         // Move to the value (skip key)
         dbus_message_iter_next(&entry);
 
