@@ -88,7 +88,7 @@ void Networking::connectToNetwork(const Network n) {
   } else if (n.security_type == SecurityType::OPEN) {
     wifi->connect(n, false);
   } else if (n.security_type == SecurityType::WPA) {
-    QString pass = InputDialog::getText(tr("Enter password"), this, tr("for \"%1\"").arg(QString::fromUtf8(n.ssid)), true, 8);
+    QString pass = InputDialog::getText(tr("Enter password"), this, tr("for \"%1\"").arg(n.ssid), true, 8);
     if (!pass.isEmpty()) {
       wifi->connect(n, false, pass);
     }
@@ -98,7 +98,7 @@ void Networking::connectToNetwork(const Network n) {
 void Networking::wrongPassword(const QString &ssid) {
   if (wifi->seenNetworks.contains(ssid)) {
     const Network &n = wifi->seenNetworks.value(ssid);
-    QString pass = InputDialog::getText(tr("Wrong password"), this, tr("for \"%1\"").arg(QString::fromUtf8(n.ssid)), true, 8);
+    QString pass = InputDialog::getText(tr("Wrong password"), this, tr("for \"%1\"").arg(n.ssid), true, 8);
     if (!pass.isEmpty()) {
       wifi->connect(n, false, pass);
     }
@@ -334,7 +334,7 @@ WifiItem *WifiUI::getItem(int n) {
   if (!item->parentWidget()) {
     QObject::connect(item, &WifiItem::connectToNetwork, this, &WifiUI::connectToNetwork);
     QObject::connect(item, &WifiItem::forgotNetwork, [this](const Network n) {
-      if (ConfirmationDialog::confirm(tr("Forget Wi-Fi Network \"%1\"?").arg(QString::fromUtf8(n.ssid)), tr("Forget"), this))
+      if (ConfirmationDialog::confirm(tr("Forget Wi-Fi Network \"%1\"?").arg(n.ssid), tr("Forget"), this))
         wifi->forgetConnection(n.ssid);
     });
     wifi_list_widget->addItem(item);
