@@ -89,7 +89,7 @@ ConsoleUI::ConsoleUI(Replay *replay, QObject *parent) : replay(replay), sm({"car
     emit updateProgressBarSignal(cur, total, success);
   });
 
-  QObject::connect(replay, &Replay::streamStarted, this, &ConsoleUI::updateSummary);
+  // QObject::connect(replay, &Replay::streamStarted, this, &ConsoleUI::updateSummary);
   QObject::connect(&notifier, SIGNAL(activated(int)), SLOT(readyRead()));
   QObject::connect(this, &ConsoleUI::updateProgressBarSignal, this, &ConsoleUI::updateProgressBar);
   QObject::connect(this, &ConsoleUI::logMessageSignal, this, &ConsoleUI::logMessage);

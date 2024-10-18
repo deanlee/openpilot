@@ -10,8 +10,6 @@
 #include <vector>
 #include <utility>
 
-#include <QThread>
-
 #include "tools/replay/camera.h"
 #include "tools/replay/route.h"
 
@@ -43,11 +41,8 @@ enum class FindFlag {
 
 enum class TimelineType { None, Engaged, AlertInfo, AlertWarning, AlertCritical, UserFlag };
 typedef bool (*replayEventFilter)(const Event *, void *);
-Q_DECLARE_METATYPE(std::shared_ptr<LogReader>);
 
-class Replay : public QObject {
-  Q_OBJECT
-
+class Replay {
 public:
   Replay(QString route, QStringList allow, QStringList block, SubMaster *sm = nullptr,
          uint32_t flags = REPLAY_FLAG_NONE, QString data_dir = "", QObject *parent = 0);
@@ -90,15 +85,13 @@ public:
     return timeline_;
   }
 
-signals:
-  void streamStarted();
-  void segmentsMerged();
-  void seeking(double sec);
-  void seekedTo(double sec);
-  void qLogLoaded(std::shared_ptr<LogReader> qlog);
-  void minMaxTimeChanged(double min_sec, double max_sec);
+  virtual void streamStarted() {};
+  virtual void segmentsMerged() {}
+  virtual void seeking(double sec) {}
+  virtual void seekedTo(double sec) {}
+  virtual void qLogLoaded(std::shared_ptr<LogReader> qlog) {}
+  virtual void minMaxTimeChanged(double min_sec, double max_sec) {}
 
-protected slots:
   void segmentLoadFinished(bool success);
 
 protected:
@@ -120,7 +113,7 @@ protected:
   inline bool isSegmentMerged(int n) const { return merged_segments_.count(n) > 0; }
 
   pthread_t stream_thread_id = 0;
-  QThread *stream_thread_ = nullptr;
+  std::thread stream_thread_;
   std::mutex stream_lock_;
   bool user_paused_ = false;
   std::condition_variable stream_cv_;
