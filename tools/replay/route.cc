@@ -13,14 +13,14 @@
 #include "tools/replay/replay.h"
 #include "tools/replay/util.h"
 
-Route::Route(const QString &route, const QString &data_dir) : data_dir_(data_dir) {
+Route::Route(const std::string &route, const std::string &data_dir) : data_dir_(data_dir) {
   route_ = parseRoute(route);
 }
 
-RouteIdentifier Route::parseRoute(const QString &str) {
+RouteIdentifier Route::parseRoute(const std::string &str) {
   RouteIdentifier identifier = {};
   QRegularExpression rx(R"(^((?<dongle_id>[a-z0-9]{16})[|_/])?(?<timestamp>.{20})((?<separator>--|/)(?<range>((-?\d+(:(-?\d+)?)?)|(:-?\d+))))?$)");
-  if (auto match = rx.match(str); match.hasMatch()) {
+  if (auto match = rx.match(str.c_str()); match.hasMatch()) {
     identifier.dongle_id = match.captured("dongle_id");
     identifier.timestamp = match.captured("timestamp");
     identifier.str = identifier.dongle_id + "|" + identifier.timestamp;
