@@ -10,6 +10,7 @@
 #include <vector>
 #include <utility>
 
+#include <QFuture>
 #include <QThread>
 
 #include "tools/replay/camera.h"

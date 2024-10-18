@@ -260,15 +260,15 @@ void Replay::pauseStreamThread() {
 }
 
 void Replay::segmentLoadFinished(bool success) {
-  if (!success) {
-    Segment *seg = qobject_cast<Segment *>(sender());
-    rWarning("failed to load segment %d, removing it from current replay list", seg->seg_num);
-    updateEvents([&]() {
-      segments_.erase(seg->seg_num);
-      return !segments_.empty();
-    });
-  }
-  updateSegmentsCache();
+  // if (!success) {
+  //   Segment *seg = qobject_cast<Segment *>(sender());
+  //   rWarning("failed to load segment %d, removing it from current replay list", seg->seg_num);
+  //   updateEvents([&]() {
+  //     segments_.erase(seg->seg_num);
+  //     return !segments_.empty();
+  //   });
+  // }
+  // updateSegmentsCache();
 }
 
 void Replay::updateSegmentsCache() {
@@ -300,7 +300,7 @@ void Replay::loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::iterator
     if (it != last && !it->second) {
       rDebug("loading segment %d...", it->first);
       it->second = std::make_unique<Segment>(it->first, route_->at(it->first), flags_, filters_);
-      QObject::connect(it->second.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
+      // QObject::connect(it->second.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
       return true;
     }
     return false;
