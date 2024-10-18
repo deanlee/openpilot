@@ -153,7 +153,7 @@ AbstractStream *OpenReplayWidget::open() {
     route = route.mid(idx + 1);
   }
 
-  bool is_valid_format = Route::parseRoute(route).str.size() > 0;
+  bool is_valid_format = Route::parseRoute(route.toStdString()).str.size() > 0;
   if (!is_valid_format) {
     QMessageBox::warning(nullptr, tr("Warning"), tr("Invalid route format: '%1'").arg(route));
   } else {

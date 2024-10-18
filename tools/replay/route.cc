@@ -4,9 +4,9 @@
 #include <QEventLoop>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QRegularExpression>
 #include <QtConcurrent>
 #include <array>
+#include <regex>
 
 #include "selfdrive/ui/qt/api.h"
 #include "system/hardware/hw.h"
@@ -19,20 +19,32 @@ Route::Route(const std::string &route, const std::string &data_dir) : data_dir_(
 
 RouteIdentifier Route::parseRoute(const std::string &str) {
   RouteIdentifier identifier = {};
-  QRegularExpression rx(R"(^((?<dongle_id>[a-z0-9]{16})[|_/])?(?<timestamp>.{20})((?<separator>--|/)(?<range>((-?\d+(:(-?\d+)?)?)|(:-?\d+))))?$)");
-  if (auto match = rx.match(str.c_str()); match.hasMatch()) {
-    identifier.dongle_id = match.captured("dongle_id");
-    identifier.timestamp = match.captured("timestamp");
+  std::regex pattern(R"(^(([a-z0-9]{16})[|_/])?(.{20})((--|/)((-?\d+(:(-?\d+)?)?)|(:-?\d+)))?$)");
+  std::smatch match;
+
+  if (std::regex_match(str, match, pattern)) {
+    // Extract the matched groups
+    identifier.dongle_id = match[2].str();  // dongle_id is group 2
+    identifier.timestamp = match[3].str();  // timestamp is group 3
     identifier.str = identifier.dongle_id + "|" + identifier.timestamp;
-    auto range_str = match.captured("range");
-    if (auto separator = match.captured("separator"); separator == "/" && !range_str.isEmpty()) {
-      auto range = range_str.split(":");
-      identifier.begin_segment = identifier.end_segment = range[0].toInt();
-      if (range.size() == 2) {
-        identifier.end_segment = range[1].isEmpty() ? -1 : range[1].toInt();
+
+    std::string range_str = match[6].str();  // range is group 6
+    std::string separator = match[5].str();  // separator is group 5
+
+    if (separator == "/" && !range_str.empty()) {
+      auto pos = range_str.find(":");
+      if (pos != std::string::npos) {
+        identifier.begin_segment = std::stoi(range_str.substr(0, pos));
+        if (pos + 1 < range_str.size()) {
+          identifier.end_segment = std::stoi(range_str.substr(pos + 1));
+        } else {
+          identifier.end_segment = -1;  // Empty case, set to -1
+        }
+      } else {
+        identifier.begin_segment = identifier.end_segment = std::stoi(range_str);
       }
     } else if (separator == "--") {
-      identifier.begin_segment = range_str.toInt();
+      identifier.begin_segment = std::stoi(range_str);
     }
   }
   return identifier;
@@ -40,12 +52,12 @@ RouteIdentifier Route::parseRoute(const std::string &str) {
 
 bool Route::load() {
   err_ = RouteLoadError::None;
-  if (route_.str.isEmpty() || (data_dir_.isEmpty() && route_.dongle_id.isEmpty())) {
+  if (route_.str.empty() || (data_dir_.empty() && route_.dongle_id.empty())) {
     rInfo("invalid route format");
     return false;
   }
-  date_time_ = QDateTime::fromString(route_.timestamp, "yyyy-MM-dd--HH-mm-ss");
-  bool ret = data_dir_.isEmpty() ? loadFromServer() : loadFromLocal();
+  date_time_ = QDateTime::fromString(route_.timestamp.c_str(), "yyyy-MM-dd--HH-mm-ss");
+  bool ret = data_dir_.empty() ? loadFromServer() : loadFromLocal();
   if (ret) {
     if (route_.begin_segment == -1) route_.begin_segment = segments_.rbegin()->first;
     if (route_.end_segment == -1) route_.end_segment = segments_.rbegin()->first;
@@ -69,7 +81,7 @@ bool Route::loadFromServer(int retries) {
       result = json;
       loop.exit((int)err);
     });
-    http.sendRequest(CommaApi::BASE_URL + "/v1/route/" + route_.str + "/files");
+    http.sendRequest(CommaApi::BASE_URL + "/v1/route/" + QString::fromStdString(route_.str) + "/files");
     auto err = (QNetworkReply::NetworkError)loop.exec();
     if (err == QNetworkReply::NoError) {
       return loadFromJson(result);
@@ -96,7 +108,7 @@ bool Route::loadFromJson(const QString &json) {
     for (const auto &url : value.toArray()) {
       QString url_str = url.toString();
       if (rx.indexIn(url_str) != -1) {
-        addFileToSegment(rx.cap(1).toInt(), url_str);
+        addFileToSegment(rx.cap(1).toInt(), url_str.toStdString());
       }
     }
   }
@@ -104,20 +116,20 @@ bool Route::loadFromJson(const QString &json) {
 }
 
 bool Route::loadFromLocal() {
-  QDirIterator it(data_dir_, {QString("%1--*").arg(route_.timestamp)}, QDir::Dirs | QDir::NoDotAndDotDot);
+  QDirIterator it(data_dir_.c_str(), {QString("%1--*").arg(route_.timestamp.c_str())}, QDir::Dirs | QDir::NoDotAndDotDot);
   while (it.hasNext()) {
     QString segment = it.next();
     const int seg_num = segment.mid(segment.lastIndexOf("--") + 2).toInt();
     QDir segment_dir(segment);
     for (const auto &f : segment_dir.entryList(QDir::Files)) {
-      addFileToSegment(seg_num, segment_dir.absoluteFilePath(f));
+      addFileToSegment(seg_num, segment_dir.absoluteFilePath(f).toStdString());
     }
   }
   return !segments_.empty();
 }
 
-void Route::addFileToSegment(int n, const QString &file) {
-  QString name = QUrl(file).fileName();
+void Route::addFileToSegment(int n, const std::string &file) {
+  QString name = QUrl(file.c_str()).fileName();
 
   const int pos = name.lastIndexOf("--");
   name = pos != -1 ? name.mid(pos + 2) : name;
@@ -143,15 +155,15 @@ Segment::Segment(int n, const SegmentFile &files, uint32_t flags, const std::vec
     : seg_num(n), flags(flags), filters_(filters) {
   // [RoadCam, DriverCam, WideRoadCam, log]. fallback to qcamera/qlog
   const std::array file_list = {
-      (flags & REPLAY_FLAG_QCAMERA) || files.road_cam.isEmpty() ? files.qcamera : files.road_cam,
+      (flags & REPLAY_FLAG_QCAMERA) || files.road_cam.empty() ? files.qcamera : files.road_cam,
       flags & REPLAY_FLAG_DCAM ? files.driver_cam : "",
       flags & REPLAY_FLAG_ECAM ? files.wide_road_cam : "",
-      files.rlog.isEmpty() ? files.qlog : files.rlog,
+      files.rlog.empty() ? files.qlog : files.rlog,
   };
   for (int i = 0; i < file_list.size(); ++i) {
-    if (!file_list[i].isEmpty() && (!(flags & REPLAY_FLAG_NO_VIPC) || i >= MAX_CAMERAS)) {
+    if (!file_list[i].empty() && (!(flags & REPLAY_FLAG_NO_VIPC) || i >= MAX_CAMERAS)) {
       ++loading_;
-      synchronizer_.addFuture(QtConcurrent::run(this, &Segment::loadFile, i, file_list[i].toStdString()));
+      synchronizer_.addFuture(QtConcurrent::run(this, &Segment::loadFile, i, file_list[i]));
     }
   }
 }

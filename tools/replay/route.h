@@ -54,7 +54,7 @@ protected:
   bool loadFromLocal();
   bool loadFromServer(int retries = 3);
   bool loadFromJson(const QString &json);
-  void addFileToSegment(int seg_num, const QString &file);
+  void addFileToSegment(int seg_num, const std::string &file);
   RouteIdentifier route_ = {};
   std::string data_dir_;
   std::map<int, SegmentFile> segments_;

@@ -42,7 +42,7 @@ Replay::Replay(QString route, QStringList allow, QStringList block, SubMaster *s
   if (sm == nullptr) {
     pm = std::make_unique<PubMaster>(s);
   }
-  route_ = std::make_unique<Route>(route, data_dir);
+  route_ = std::make_unique<Route>(route.toStdString(), data_dir.toStdString());
 }
 
 Replay::~Replay() {
@@ -68,23 +68,23 @@ void Replay::stop() {
 
 bool Replay::load() {
   if (!route_->load()) {
-    qCritical() << "failed to load route" << route_->name()
-                << "from" << (route_->dir().isEmpty() ? "server" : route_->dir());
+    rError("failed to load route %s from %s", route_->name().c_str(),
+           route_->dir().empty() ? "server" : route_->dir().c_str());
     return false;
   }
 
   for (auto &[n, f] : route_->segments()) {
-    bool has_log = !f.rlog.isEmpty() || !f.qlog.isEmpty();
-    bool has_video = !f.road_cam.isEmpty() || !f.qcamera.isEmpty();
+    bool has_log = !f.rlog.empty() || !f.qlog.empty();
+    bool has_video = !f.road_cam.empty() || !f.qcamera.empty();
     if (has_log && (has_video || hasFlag(REPLAY_FLAG_NO_VIPC))) {
       segments_.insert({n, nullptr});
     }
   }
   if (segments_.empty()) {
-    qCritical() << "no valid segments in route" << route_->name();
+    rInfo("no valid segments in route: %s", route_->name().c_str());
     return false;
   }
-  rInfo("load route %s with %zu valid segments", qPrintable(route_->name()), segments_.size());
+  rInfo("load route %s with %zu valid segments", route_->name().c_str(), segments_.size());
   max_seconds_ = (segments_.rbegin()->first + 1) * 60;
   return true;
 }
@@ -167,7 +167,7 @@ void Replay::buildTimeline() {
   const auto &route_segments = route_->segments();
   for (auto it = route_segments.cbegin(); it != route_segments.cend() && !exit_; ++it) {
     std::shared_ptr<LogReader> log(new LogReader());
-    if (!log->load(it->second.qlog.toStdString(), &exit_, !hasFlag(REPLAY_FLAG_NO_FILE_CACHE), 0, 3) || log->events.empty()) continue;
+    if (!log->load(it->second.qlog, &exit_, !hasFlag(REPLAY_FLAG_NO_FILE_CACHE), 0, 3) || log->events.empty()) continue;
 
     std::vector<std::tuple<double, double, TimelineType>> timeline;
     for (const Event &e : log->events) {
