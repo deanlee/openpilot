@@ -118,11 +118,11 @@ std::string download_demo_route() {
     char tmp_path[] = "/tmp/root_XXXXXX";
     data_dir = mkdtemp(tmp_path);
 
-    Route remote_route(DEMO_ROUTE.toStdString());
+    Route remote_route(DEMO_ROUTE);
     assert(remote_route.load());
 
     // Create a local route from remote for testing
-    const std::string route_name = DEMO_ROUTE.mid(17).toStdString();
+    const std::string route_name = std::string(DEMO_ROUTE).substr(17);
     for (int i = 0; i < 2; ++i) {
       std::string log_path = util::string_format("%s/%s--%d/", data_dir.c_str(), route_name.c_str(), i);
       util::create_directories(log_path, 0755);
@@ -139,7 +139,7 @@ TEST_CASE("Local route") {
   std::string data_dir = download_demo_route();
 
   auto flags = GENERATE(0, REPLAY_FLAG_QCAMERA);
-  Route route(DEMO_ROUTE.toStdString(), data_dir);
+  Route route(DEMO_ROUTE, data_dir);
   REQUIRE(route.load());
   REQUIRE(route.segments().size() == 2);
   for (int i = 0; i < TEST_REPLAY_SEGMENTS; ++i) {
@@ -149,7 +149,7 @@ TEST_CASE("Local route") {
 
 TEST_CASE("Remote route") {
   auto flags = GENERATE(0, REPLAY_FLAG_QCAMERA);
-  Route route(DEMO_ROUTE.toStdString());
+  Route route(DEMO_ROUTE);
   REQUIRE(route.load());
   REQUIRE(route.segments().size() == 13);
   for (int i = 0; i < TEST_REPLAY_SEGMENTS; ++i) {

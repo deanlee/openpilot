@@ -15,7 +15,7 @@
 #include "tools/replay/camera.h"
 #include "tools/replay/route.h"
 
-const QString DEMO_ROUTE = "a2a0ccea32023010|2023-07-27--13-01-19";
+#define DEMO_ROUTE "a2a0ccea32023010|2023-07-27--13-01-19"
 
 // one segment uses about 100M of memory
 constexpr int MIN_SEGMENTS_CACHE = 5;
