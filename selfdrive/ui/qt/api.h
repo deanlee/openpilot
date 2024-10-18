@@ -5,15 +5,8 @@
 #include <QString>
 #include <QTimer>
 
+#include "common/api.h"
 #include "common/util.h"
-
-namespace CommaApi {
-
-const QString BASE_URL = util::getenv("API_HOST", "https://api.commadotai.com").c_str();
-QByteArray rsa_sign(const QByteArray &data);
-QString create_jwt(const QJsonObject &payloads = {}, int expiry = 3600);
-
-}  // namespace CommaApi
 
 /**
  * Makes a request to the request endpoint.

@@ -35,7 +35,9 @@ void PairingQRWidget::hideEvent(QHideEvent *event) {
 }
 
 void PairingQRWidget::refresh() {
-  QString pairToken = CommaApi::create_jwt({{"pair", true}});
+  auto payload = json11::Json::object{};
+  payload["pair"] = true;
+  QString pairToken = QString::fromStdString(CommaApi::create_jwt(payload));
   QString qrString = "https://connect.comma.ai/?pair=" + pairToken;
   this->updateQrCode(qrString);
   update();
