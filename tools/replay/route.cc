@@ -139,8 +139,8 @@ void Route::addFileToSegment(int n, const QString &file) {
 
 // class Segment
 
-Segment::Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters)
-    : seg_num(n), flags(flags), filters_(filters) {
+Segment::Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters, std::function<void(int, bool)> callback)
+    : seg_num(n), flags(flags), filters_(filters), callback_(callback) {
   // [RoadCam, DriverCam, WideRoadCam, log]. fallback to qcamera/qlog
   const std::array file_list = {
       (flags & REPLAY_FLAG_QCAMERA) || files.road_cam.isEmpty() ? files.qcamera : files.road_cam,
@@ -180,6 +180,6 @@ void Segment::loadFile(int id, const std::string file) {
   }
 
   if (--loading_ == 0) {
-    // emit loadFinished(!abort_);
+    callback_(seg_num, !abort_);
   }
 }

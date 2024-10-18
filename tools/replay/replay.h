@@ -99,9 +99,6 @@ signals:
   void qLogLoaded(std::shared_ptr<LogReader> qlog);
   void minMaxTimeChanged(double min_sec, double max_sec);
 
-protected slots:
-  void segmentLoadFinished(bool success);
-
 protected:
   typedef std::map<int, std::unique_ptr<Segment>> SegmentMap;
   std::optional<uint64_t> find(FindFlag flag);
@@ -109,6 +106,7 @@ protected:
   void startStream(const Segment *cur_segment);
   void streamThread();
   void updateSegmentsCache();
+  void segmentLoadFinished(int seg_num, bool success);
   void loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::iterator cur, SegmentMap::iterator end);
   void mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::iterator &end);
   void updateEvents(const std::function<bool()>& update_events_function);

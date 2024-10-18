@@ -64,7 +64,7 @@ protected:
 
 class Segment {
 public:
-  Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters = {});
+  Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters, std::function<void(int, bool)> callback);
   ~Segment();
   inline bool isLoaded() const { return !loading_ && !abort_; }
 
@@ -77,7 +77,8 @@ protected:
 
   std::atomic<bool> abort_ = false;
   std::atomic<int> loading_ = 0;
-  std::vector<std::thread> threads_;
   uint32_t flags;
   std::vector<bool> filters_;
+  std::vector<std::thread> threads_;
+  std::function<void(int, bool)> callback_;
 };
