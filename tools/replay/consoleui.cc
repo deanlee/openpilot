@@ -1,6 +1,8 @@
 #include "tools/replay/consoleui.h"
 
 #include <initializer_list>
+#include <ctime>
+#include <iomanip>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -165,7 +167,12 @@ void ConsoleUI::updateStatus() {
   auto [status_str, status_color] = status_text[status];
   write_item(0, 0, "STATUS:    ", status_str, "      ", false, status_color);
   std::string current_segment = " - " + std::to_string((int)(replay->currentSeconds() / 60));
-  write_item(0, 25, "TIME:  ", replay->currentDateTime().toString("ddd MMMM dd hh:mm:ss").toStdString(), current_segment, true);
+
+  time_t tm =(time_t)(replay->currentDateTime());
+  struct tm *tm_info = localtime(&tm);
+  char time_str[64];
+  strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", tm_info);
+  write_item(0, 25, "TIME:  ", time_str, current_segment, true);
 
   auto p = sm["liveParameters"].getLiveParameters();
   write_item(1, 0, "STIFFNESS: ", util::string_format("%.2f %%", p.getStiffnessFactor() * 100), "  ");

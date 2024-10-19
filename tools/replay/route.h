@@ -41,7 +41,7 @@ public:
   bool load();
   RouteLoadError lastError() const { return err_; }
   inline const std::string &name() const { return route_.str; }
-  // inline const QDateTime datetime() const { return date_time_; }
+  inline const uint64_t datetime() const { return date_time_; }
   inline const std::string &dir() const { return data_dir_; }
   inline const RouteIdentifier &identifier() const { return route_; }
   inline const std::map<int, SegmentFile> &segments() const { return segments_; }
@@ -56,7 +56,7 @@ protected:
   RouteIdentifier route_ = {};
   std::string data_dir_;
   std::map<int, SegmentFile> segments_;
-  QDateTime date_time_;
+  uint64_t date_time_;
   RouteLoadError err_ = RouteLoadError::None;
 };
 

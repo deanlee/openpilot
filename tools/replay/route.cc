@@ -9,6 +9,7 @@
 
 // #include "selfdrive/ui/qt/api.h"
 #include <curl/curl.h>
+#include <time.h>
 #include "third_party/json11/json11.hpp"
 #include "system/hardware/hw.h"
 #include "tools/replay/replay.h"
@@ -53,7 +54,12 @@ bool Route::load() {
     rInfo("invalid route format");
     return false;
   }
-  date_time_ = QDateTime::fromString(route_.timestamp.c_str(), "yyyy-MM-dd--HH-mm-ss");
+
+  struct tm tm = {};
+  if (strptime(route_.timestamp.c_str(), "%Y-%m-%d--%H-%M-%S", &tm)) {
+    date_time_ = mktime(&tm);
+  }
+
   bool ret = data_dir_.empty() ? loadFromServer() : loadFromLocal();
   if (ret) {
     if (route_.begin_segment == -1) route_.begin_segment = segments_.rbegin()->first;
@@ -139,6 +145,7 @@ bool Route::loadFromJson(const std::string &json) {
       }
     }
   }
+  return true;
 }
 
 bool Route::loadFromLocal() {

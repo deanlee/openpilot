@@ -70,8 +70,8 @@ public:
   inline void removeFlag(REPLAY_FLAGS flag) { flags_ &= ~flag; }
   inline const Route* route() const { return route_.get(); }
   inline double currentSeconds() const { return double(cur_mono_time_ - route_start_ts_) / 1e9; }
-  inline QDateTime routeDateTime() const { return route_date_time_; }
-  inline QDateTime currentDateTime() const { return route_date_time_.addSecs(currentSeconds()); }
+  inline uint64_t routeDateTime() const { return route_date_time_; }
+  inline uint64_t currentDateTime() const { return route_date_time_ + currentSeconds(); }
   inline uint64_t routeStartNanos() const { return route_start_ts_; }
   inline double toSeconds(uint64_t mono_time) const { return (mono_time - route_start_ts_) / 1e9; }
   inline double minSeconds() const { return !segments_.empty() ? segments_.begin()->first * 60 : 0; }
@@ -133,7 +133,7 @@ private:
   std::atomic<bool> exit_ = false;
   std::atomic<bool> paused_ = false;
   bool events_ready_ = false;
-  QDateTime route_date_time_;
+  uint64_t route_date_time_;
   uint64_t route_start_ts_ = 0;
   std::atomic<uint64_t> cur_mono_time_ = 0;
   std::atomic<double> max_seconds_ = 0;
