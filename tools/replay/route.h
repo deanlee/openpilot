@@ -6,8 +6,6 @@
 #include <thread>
 #include <vector>
 
-#include <QDateTime>
-
 #include "tools/replay/framereader.h"
 #include "tools/replay/logreader.h"
 #include "tools/replay/util.h"
@@ -43,7 +41,7 @@ public:
   bool load();
   RouteLoadError lastError() const { return err_; }
   inline const std::string &name() const { return route_.str; }
-  inline const QDateTime datetime() const { return date_time_; }
+  // inline const QDateTime datetime() const { return date_time_; }
   inline const std::string &dir() const { return data_dir_; }
   inline const RouteIdentifier &identifier() const { return route_; }
   inline const std::map<int, SegmentFile> &segments() const { return segments_; }
@@ -53,7 +51,7 @@ public:
 protected:
   bool loadFromLocal();
   bool loadFromServer(int retries = 3);
-  bool loadFromJson(const QString &json);
+  bool loadFromJson(const std::string &json);
   void addFileToSegment(int seg_num, const std::string &file);
   RouteIdentifier route_ = {};
   std::string data_dir_;

@@ -1,9 +1,8 @@
 #include "tools/replay/replay.h"
 
-#include <QDebug>
-#include <QtConcurrent>
 #include <capnp/dynamic.h>
 #include <csignal>
+#include <numeric>
 #include "cereal/services.h"
 #include "common/params.h"
 #include "common/timing.h"

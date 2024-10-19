@@ -1,16 +1,15 @@
 #include "tools/replay/route.h"
 
-#include <QDir>
-#include <QEventLoop>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QtConcurrent>
+#include <curl/curl.h>
+
+#include <cassert>
 #include <array>
 #include <filesystem>
 #include <regex>
-#include <curl/curl.h>
 
-#include "selfdrive/ui/qt/api.h"
+// #include "selfdrive/ui/qt/api.h"
+#include <curl/curl.h>
+#include "third_party/json11/json11.hpp"
 #include "system/hardware/hw.h"
 #include "tools/replay/replay.h"
 #include "tools/replay/util.h"
@@ -76,11 +75,11 @@ bool Route::loadFromServer(int retries) {
   assert(curl);
 
   std::string readBuffer;
-  std::string url = CommaApi::BASE_URL.toStdString() + "/v1/route/" + route_.str + "/files";
+  std::string url = "";  // CommaApi::BASE_URL.toStdString() + "/v1/route/" + route_.str + "/files";
 
   // Set up the lambda for the write callback
   // The '+' makes the lambda non-capturing, allowing it to be used as a C function pointer
-  auto writeCallback = +[](char *contents, size_t size, size_t nmemb, std::string *userp) ->size_t{
+  auto writeCallback = +[](char *contents, size_t size, size_t nmemb, std::string *userp) -> size_t {
     size_t totalSize = size * nmemb;
     userp->append((char *)contents, totalSize);
     return totalSize;
@@ -95,7 +94,7 @@ bool Route::loadFromServer(int retries) {
     res = curl_easy_perform(curl);
 
     if (res == CURLE_OK) {
-      return loadFromJson(QString::fromStdString(readBuffer));
+      return loadFromJson(readBuffer);
     } else {
       long response_code;
       curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
@@ -122,17 +121,24 @@ bool Route::loadFromServer(int retries) {
   return false;
 }
 
-bool Route::loadFromJson(const QString &json) {
-  QRegExp rx(R"(\/(\d+)\/)");
-  for (const auto &value : QJsonDocument::fromJson(json.trimmed().toUtf8()).object()) {
-    for (const auto &url : value.toArray()) {
-      QString url_str = url.toString();
-      if (rx.indexIn(url_str) != -1) {
-        addFileToSegment(rx.cap(1).toInt(), url_str.toStdString());
+bool Route::loadFromJson(const std::string &json) {
+  const static std::regex rx(R"(\/(\d+)\/)");
+  std::string err;
+  auto jsonData = json11::Json::parse(json, err);
+  if (!err.empty()) {
+    rWarning("JSON parsing error: %s", err.c_str());
+    return false;
+  }
+  for (const auto &value : jsonData.object_items()) {
+    const auto &urlArray = value.second.array_items();
+    for (const auto &url : urlArray) {
+      std::string url_str = url.string_value();
+      std::smatch match;
+      if (std::regex_search(url_str, match, rx)) {
+        addFileToSegment(std::stoi(match[1]), url_str);
       }
     }
   }
-  return !segments_.empty();
 }
 
 bool Route::loadFromLocal() {
