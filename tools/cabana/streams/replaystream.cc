@@ -28,8 +28,8 @@ static bool event_filter(const Event *e, void *opaque) {
 }
 
 void ReplayStream::mergeSegments() {
-  for (auto &[n, seg] : replay->segments()) {
-    if (seg && seg->isLoaded() && !processed_segments.count(n)) {
+  for (auto &[n, seg] : replay->getLoadedSegments()) {
+    if (!processed_segments.count(n)) {
       processed_segments.insert(n);
 
       std::vector<const CanEvent *> new_events;
@@ -53,9 +53,15 @@ bool ReplayStream::loadRoute(const QString &route, const QString &data_dir, uint
                           {}, nullptr, replay_flags, data_dir.toStdString()));
   replay->setSegmentCacheLimit(settings.max_cached_minutes);
   replay->installEventFilter(event_filter, this);
-  // QObject::connect(replay.get(), &Replay::seeking, this, &AbstractStream::seeking);
-  // QObject::connect(replay.get(), &Replay::seekedTo, this, &AbstractStream::seekedTo);
-  // QObject::connect(replay.get(), &Replay::segmentsMerged, this, &ReplayStream::mergeSegments);
+  // forword event to signal
+  replay->onSeeking = [this](double sec) { emit seeking(sec); };
+  replay->onSeekedTo = [this](double sec) { emit seekedTo(sec); };
+  replay->onQLogLoaded = [this](std::shared_ptr<LogReader> qlog) { emit qLogLoaded(qlog); };
+  replay->onMinMaxTimeChanged = [this](double min, double max) { emit minMaxTimeChanged(min, max); };
+
+  // queue mergeSegments
+  replay->onSegmentsMerged = [this]() { QMetaObject::invokeMethod(this, &ReplayStream::mergeSegments, Qt::QueuedConnection); };
+
   bool success = replay->load();
   if (!success) {
     if (replay->lastRouteError() == RouteLoadError::AccessDenied) {

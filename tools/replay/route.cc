@@ -81,7 +81,7 @@ bool Route::loadFromServer(int retries) {
   assert(curl);
 
   std::string readBuffer;
-  std::string url = "";  // CommaApi::BASE_URL.toStdString() + "/v1/route/" + route_.str + "/files";
+  std::string url = "https://api.commadotai.com/v1/route/" + route_.str + "/files";
 
   // Set up the lambda for the write callback
   // The '+' makes the lambda non-capturing, allowing it to be used as a C function pointer
@@ -189,7 +189,7 @@ void Route::addFileToSegment(int n, const std::string &file) {
 
 Segment::Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters,
                  std::function<void(int, bool)> callback)
-    : seg_num(n), flags(flags), filters_(filters), callback_(callback) {
+    : seg_num(n), flags(flags), filters_(filters), onLoadFinished_(callback) {
   // [RoadCam, DriverCam, WideRoadCam, log]. fallback to qcamera/qlog
   const std::array file_list = {
       (flags & REPLAY_FLAG_QCAMERA) || files.road_cam.empty() ? files.qcamera : files.road_cam,
@@ -206,6 +206,10 @@ Segment::Segment(int n, const SegmentFile &files, uint32_t flags, const std::vec
 }
 
 Segment::~Segment() {
+  {
+    std::lock_guard<std::mutex> lock(func_mutex_);
+    onLoadFinished_ = nullptr;
+  }
   abort_ = true;
   for (auto &thread : threads_) {
     if (thread.joinable()) thread.join();
@@ -228,7 +232,10 @@ void Segment::loadFile(int id, const std::string file) {
     abort_ = true;
   }
 
-  if (--loading_ == 0 && callback_) {
-    callback_(seg_num, !abort_);
+  if (--loading_ == 0) {
+    std::lock_guard<std::mutex> lock(func_mutex_);
+    if (onLoadFinished_) {
+      onLoadFinished_(seg_num, !abort_);
+    }
   }
 }

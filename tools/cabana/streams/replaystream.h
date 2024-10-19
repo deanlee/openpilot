@@ -10,6 +10,8 @@
 #include "tools/cabana/streams/abstractstream.h"
 #include "tools/replay/replay.h"
 
+Q_DECLARE_METATYPE(std::shared_ptr<LogReader>);
+
 class ReplayStream : public AbstractStream {
   Q_OBJECT
 
@@ -31,6 +33,10 @@ public:
   inline Replay *getReplay() const { return replay.get(); }
   inline bool isPaused() const override { return replay->isPaused(); }
   void pause(bool pause) override;
+
+signals:
+  void qLogLoaded(std::shared_ptr<LogReader> qlog);
+  void minMaxTimeChanged(double min_sec, double max_sec);
 
 private:
   void mergeSegments();

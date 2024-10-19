@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <future>
 #include <map>
 #include <memory>
 #include <optional>
@@ -42,6 +41,7 @@ enum class FindFlag {
 
 enum class TimelineType { None, Engaged, AlertInfo, AlertWarning, AlertCritical, UserFlag };
 typedef bool (*replayEventFilter)(const Event *, void *);
+typedef std::map<int, std::shared_ptr<Segment>> SegmentMap;
 
 class Replay {
 public:
@@ -78,32 +78,29 @@ public:
   inline double maxSeconds() const { return max_seconds_; }
   inline void setSpeed(float speed) { speed_ = speed; }
   inline float getSpeed() const { return speed_; }
-  inline const std::vector<Event> *events() const { return &events_; }
-  inline const std::map<int, std::unique_ptr<Segment>> &segments() const { return segments_; }
   inline const std::string &carFingerprint() const { return car_fingerprint_; }
-  inline const std::vector<std::tuple<double, double, TimelineType>> getTimeline() {
+  inline bool isSegmentMerged(int n) const { return merged_segments_.count(n) > 0; }
+  const SegmentMap getLoadedSegments();
+  const std::vector<std::tuple<double, double, TimelineType>> getTimeline() {
     std::lock_guard lk(timeline_lock);
     return timeline_;
   }
 
-// signals:
-//   void streamStarted();
-//   void segmentsMerged();
-//   void seeking(double sec);
-//   void seekedTo(double sec);
-//   void qLogLoaded(std::shared_ptr<LogReader> qlog);
-//   void minMaxTimeChanged(double min_sec, double max_sec);
-
-// protected slots:
+  // Event callback functions
+  std::function<void()> onStreamStarted = nullptr;
+  std::function<void()> onSegmentsMerged = nullptr;
+  std::function<void(double)> onSeeking = nullptr;
+  std::function<void(double)> onSeekedTo = nullptr;
+  std::function<void(std::shared_ptr<LogReader>)> onQLogLoaded = nullptr;
+  std::function<void(double, double)> onMinMaxTimeChanged = nullptr;
 
 private:
-  typedef std::map<int, std::unique_ptr<Segment>> SegmentMap;
   std::optional<uint64_t> find(FindFlag flag);
   void segmentLoadFinished(int seg_num, bool success);
   void pauseStreamThread();
   void startStream(const Segment *cur_segment);
   void streamThread();
-  void controlThread();
+  void manageSegmentCache();
   void updateSegmentsCache();
   void loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::iterator cur, SegmentMap::iterator end);
   void mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::iterator &end);
@@ -114,12 +111,10 @@ private:
   void publishFrame(const Event *e);
   void buildTimeline();
   void checkSeekProgress();
-  inline bool isSegmentMerged(int n) const { return merged_segments_.count(n) > 0; }
-  void notifyUpdateSegmentCache();
 
-  std::mutex control_mutex_;
-  std::condition_variable control_cv_;
-  std::thread control_thread_;
+  std::mutex segment_cache_mutex_;
+  std::condition_variable segment_cache_cv_;
+  std::thread segment_cache_thread_;
 
   pthread_t stream_thread_id = 0;
   std::thread stream_thread_;
@@ -127,7 +122,7 @@ private:
   bool user_paused_ = false;
   std::condition_variable stream_cv_;
   std::atomic<int> current_segment_ = 0;
-  std::optional<double> seeking_to_;
+  std::atomic<double> seeking_to_ = -1;
   SegmentMap segments_;
   // the following variables must be protected with stream_lock_
   std::atomic<bool> exit_ = false;
@@ -150,7 +145,7 @@ private:
   std::atomic<uint32_t> flags_ = REPLAY_FLAG_NONE;
 
   std::mutex timeline_lock;
-  std::future<void> timeline_future_;
+  std::thread timeline_thread_;
   std::vector<std::tuple<double, double, TimelineType>> timeline_;
   std::string car_fingerprint_;
   std::atomic<float> speed_ = 1.0;

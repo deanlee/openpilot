@@ -2,6 +2,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -79,5 +80,6 @@ protected:
   std::vector<std::thread> threads_;
   uint32_t flags;
   std::vector<bool> filters_;
-  std::function<void(int, bool)> callback_ = nullptr;
+  std::mutex func_mutex_;
+  std::function<void(int, bool)> onLoadFinished_ = nullptr;
 };

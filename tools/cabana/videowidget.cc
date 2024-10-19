@@ -168,9 +168,9 @@ QWidget *VideoWidget::createCameraWidget() {
     if (index != -1) cam_widget->setStreamType((VisionStreamType)camera_tab->tabData(index).toInt());
   });
 
-  // auto replay = static_cast<ReplayStream*>(can)->getReplay();
-  // QObject::connect(replay, &Replay::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
-  // QObject::connect(replay, &Replay::minMaxTimeChanged, this, &VideoWidget::timeRangeChanged, Qt::QueuedConnection);
+  auto replay = static_cast<ReplayStream*>(can);
+  QObject::connect(replay, &ReplayStream::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
+  QObject::connect(replay, &ReplayStream::minMaxTimeChanged, this, &VideoWidget::timeRangeChanged, Qt::QueuedConnection);
   return w;
 }
 
@@ -312,8 +312,8 @@ void Slider::paintEvent(QPaintEvent *ev) {
 
     QColor empty_color = palette().color(QPalette::Window);
     empty_color.setAlpha(160);
-    for (const auto &[n, seg] : replay->segments()) {
-      if (!(seg && seg->isLoaded()))
+    for (const auto &[n, _] : replay->route()->segments()) {
+      if (!replay->isSegmentMerged(n))
         fillRange(n * 60.0, (n + 1) * 60.0, empty_color);
     }
   }
