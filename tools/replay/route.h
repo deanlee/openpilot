@@ -3,10 +3,10 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <QDateTime>
-#include <QFutureSynchronizer>
 
 #include "tools/replay/framereader.h"
 #include "tools/replay/logreader.h"
@@ -62,27 +62,24 @@ protected:
   RouteLoadError err_ = RouteLoadError::None;
 };
 
-class Segment : public QObject {
-  Q_OBJECT
-
+class Segment {
 public:
-  Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters = {});
-  ~Segment();
-  inline bool isLoaded() const { return !loading_ && !abort_; }
+ Segment(int n, const SegmentFile &files, uint32_t flags,
+         const std::vector<bool> &filters = {}, std::function<void(int, bool)> callback = nullptr);
+ ~Segment();
+ inline bool isLoaded() const { return !loading_ && !abort_; }
 
-  const int seg_num = 0;
-  std::unique_ptr<LogReader> log;
-  std::unique_ptr<FrameReader> frames[MAX_CAMERAS] = {};
-
-signals:
-  void loadFinished(bool success);
+ const int seg_num = 0;
+ std::unique_ptr<LogReader> log;
+ std::unique_ptr<FrameReader> frames[MAX_CAMERAS] = {};
 
 protected:
   void loadFile(int id, const std::string file);
 
   std::atomic<bool> abort_ = false;
   std::atomic<int> loading_ = 0;
-  QFutureSynchronizer<void> synchronizer_;
+  std::vector<std::thread> threads_;
   uint32_t flags;
   std::vector<bool> filters_;
+  std::function<void(int, bool)> callback_ = nullptr;
 };

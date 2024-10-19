@@ -8,6 +8,7 @@
 #include <array>
 #include <filesystem>
 #include <regex>
+#include <curl/curl.h>
 
 #include "selfdrive/ui/qt/api.h"
 #include "system/hardware/hw.h"
@@ -70,32 +71,54 @@ bool Route::load() {
 }
 
 bool Route::loadFromServer(int retries) {
+  CURLcode res;
+  CURL *curl = curl_easy_init();
+  assert(curl);
+
+  std::string readBuffer;
+  std::string url = CommaApi::BASE_URL.toStdString() + "/v1/route/" + route_.str + "/files";
+
+  // Set up the lambda for the write callback
+  // The '+' makes the lambda non-capturing, allowing it to be used as a C function pointer
+  auto writeCallback = +[](char *contents, size_t size, size_t nmemb, std::string *userp) ->size_t{
+    size_t totalSize = size * nmemb;
+    userp->append((char *)contents, totalSize);
+    return totalSize;
+  };
+
   for (int i = 1; i <= retries; ++i) {
-    QString result;
-    QEventLoop loop;
-    HttpRequest http(nullptr, !Hardware::PC());
-    QObject::connect(&http, &HttpRequest::requestDone, [&loop, &result](const QString &json, bool success, QNetworkReply::NetworkError err) {
-      result = json;
-      loop.exit((int)err);
-    });
-    http.sendRequest(CommaApi::BASE_URL + "/v1/route/" + QString::fromStdString(route_.str) + "/files");
-    auto err = (QNetworkReply::NetworkError)loop.exec();
-    if (err == QNetworkReply::NoError) {
-      return loadFromJson(result);
-    } else if (err == QNetworkReply::ContentAccessDenied || err == QNetworkReply::AuthenticationRequiredError) {
-      rWarning(">>  Unauthorized. Authenticate with tools/lib/auth.py  <<");
-      err_ = RouteLoadError::AccessDenied;
-      return false;
-    } else if (err == QNetworkReply::ContentNotFoundError) {
-      rWarning("The specified route could not be found on the server.");
-      err_ = RouteLoadError::FileNotFound;
-      return false;
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+    res = curl_easy_perform(curl);
+
+    if (res == CURLE_OK) {
+      return loadFromJson(QString::fromStdString(readBuffer));
     } else {
-      err_ = RouteLoadError::NetworkError;
+      long response_code;
+      curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+      if (response_code == 401) {
+        rWarning(">> Unauthorized. Authenticate with tools/lib/auth.py <<");
+        err_ = RouteLoadError::AccessDenied;
+        break;
+      } else if (response_code == 404) {
+        rWarning("The specified route could not be found on the server.");
+        err_ = RouteLoadError::FileNotFound;
+        break;
+      } else {
+        err_ = RouteLoadError::NetworkError;
+        rWarning("CURL error: %s", curl_easy_strerror(res));
+      }
     }
+
     rWarning("Retrying %d/%d", i, retries);
     util::sleep_for(3000);
+    readBuffer.clear();  // Clear the buffer for the next request
   }
+
+  curl_easy_cleanup(curl);
   return false;
 }
 
@@ -151,8 +174,9 @@ void Route::addFileToSegment(int n, const std::string &file) {
 
 // class Segment
 
-Segment::Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters)
-    : seg_num(n), flags(flags), filters_(filters) {
+Segment::Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters,
+                 std::function<void(int, bool)> callback)
+    : seg_num(n), flags(flags), filters_(filters), callback_(callback) {
   // [RoadCam, DriverCam, WideRoadCam, log]. fallback to qcamera/qlog
   const std::array file_list = {
       (flags & REPLAY_FLAG_QCAMERA) || files.road_cam.empty() ? files.qcamera : files.road_cam,
@@ -163,16 +187,16 @@ Segment::Segment(int n, const SegmentFile &files, uint32_t flags, const std::vec
   for (int i = 0; i < file_list.size(); ++i) {
     if (!file_list[i].empty() && (!(flags & REPLAY_FLAG_NO_VIPC) || i >= MAX_CAMERAS)) {
       ++loading_;
-      synchronizer_.addFuture(QtConcurrent::run(this, &Segment::loadFile, i, file_list[i]));
+      threads_.emplace_back(&Segment::loadFile, this, i, file_list[i]);
     }
   }
 }
 
 Segment::~Segment() {
-  disconnect();
   abort_ = true;
-  synchronizer_.setCancelOnWait(true);
-  synchronizer_.waitForFinished();
+  for (auto &thread : threads_) {
+    if (thread.joinable()) thread.join();
+  }
 }
 
 void Segment::loadFile(int id, const std::string file) {
@@ -191,7 +215,7 @@ void Segment::loadFile(int id, const std::string file) {
     abort_ = true;
   }
 
-  if (--loading_ == 0) {
-    emit loadFinished(!abort_);
+  if (--loading_ == 0 && callback_) {
+    callback_(seg_num, !abort_);
   }
 }

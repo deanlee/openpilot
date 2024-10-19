@@ -12,7 +12,7 @@
 static void interrupt_sleep_handler(int signal) {}
 
 Replay::Replay(const std::string &route, std::vector<std::string> allow, std::vector<std::string> block, SubMaster *sm_,
-               uint32_t flags, const std::string &data_dir, QObject *parent) : sm(sm_), flags_(flags), QObject(parent) {
+               uint32_t flags, const std::string &data_dir) : sm(sm_), flags_(flags) {
   // Register signal handler for SIGUSR1
   std::signal(SIGUSR1, interrupt_sleep_handler);
 
@@ -50,6 +50,7 @@ Replay::Replay(const std::string &route, std::vector<std::string> allow, std::ve
     pm = std::make_unique<PubMaster>(socket_names);
   }
   route_ = std::make_unique<Route>(route, data_dir);
+  control_thread_ = std::thread(&Replay::controlThread, this);
 }
 
 Replay::~Replay() {
@@ -58,17 +59,20 @@ Replay::~Replay() {
 
 void Replay::stop() {
   exit_ = true;
-  if (stream_thread_ != nullptr) {
+  if (stream_thread_.joinable()) {
     rInfo("shutdown: in progress...");
     pauseStreamThread();
     stream_cv_.notify_one();
-    stream_thread_->quit();
-    stream_thread_->wait();
-    stream_thread_->deleteLater();
-    stream_thread_ = nullptr;
+    stream_thread_.join();
     rInfo("shutdown: done");
   }
-  timeline_future.waitForFinished();
+
+  if (control_thread_.joinable()) {
+    control_cv_.notify_one();
+    control_thread_.join();
+  }
+
+  timeline_future_.wait();
   camera_server_.reset(nullptr);
   segments_.clear();
 }
@@ -132,20 +136,20 @@ void Replay::seekTo(double seconds, bool relative) {
   });
 
   checkSeekProgress();
-  updateSegmentsCache();
+  notifyUpdateSegmentCache();
 }
 
 void Replay::checkSeekProgress() {
   if (seeking_to_) {
     auto it = segments_.find(int(*seeking_to_ / 60));
     if (it != segments_.end() && it->second && it->second->isLoaded()) {
-      emit seekedTo(*seeking_to_);
+      // emit seekedTo(*seeking_to_);
       seeking_to_ = std::nullopt;
       // wake up stream thread
       updateEvents([]() { return true; });
     } else {
       // Emit signal indicating the ongoing seek operation
-      emit seeking(*seeking_to_);
+      // emit seeking(*seeking_to_);
     }
   }
 }
@@ -214,14 +218,14 @@ void Replay::buildTimeline() {
       }
 
       max_seconds_ = std::ceil(toSeconds(log->events.back().mono_time));
-      emit minMaxTimeChanged(route_segments.cbegin()->first * 60.0, max_seconds_);
+      // emit minMaxTimeChanged(route_segments.cbegin()->first * 60.0, max_seconds_);
     }
     {
       std::lock_guard lk(timeline_lock);
       timeline_.insert(timeline_.end(), timeline.begin(), timeline.end());
       std::sort(timeline_.begin(), timeline_.end(), [](auto &l, auto &r) { return std::get<2>(l) < std::get<2>(r); });
     }
-    emit qLogLoaded(log);
+    // emit qLogLoaded(log);
   }
 }
 
@@ -261,21 +265,20 @@ void Replay::pause(bool pause) {
 void Replay::pauseStreamThread() {
   paused_ = true;
   // Send SIGUSR1 to interrupt clock_nanosleep
-  if (stream_thread_ && stream_thread_id) {
+  if (stream_thread_.joinable() && stream_thread_id) {
     pthread_kill(stream_thread_id, SIGUSR1);
   }
 }
 
-void Replay::segmentLoadFinished(bool success) {
+void Replay::segmentLoadFinished(int seg_num, bool success) {
   if (!success) {
-    Segment *seg = qobject_cast<Segment *>(sender());
-    rWarning("failed to load segment %d, removing it from current replay list", seg->seg_num);
+    rWarning("failed to load segment %d, removing it from current replay list", seg_num);
     updateEvents([&]() {
-      segments_.erase(seg->seg_num);
+      segments_.erase(seg_num);
       return !segments_.empty();
     });
   }
-  updateSegmentsCache();
+  notifyUpdateSegmentCache();
 }
 
 void Replay::updateSegmentsCache() {
@@ -296,7 +299,7 @@ void Replay::updateSegmentsCache() {
 
   // start stream thread
   const auto &cur_segment = cur->second;
-  if (stream_thread_ == nullptr && cur_segment->isLoaded()) {
+  if (!stream_thread_.joinable() && cur_segment->isLoaded()) {
     startStream(cur_segment.get());
   }
 }
@@ -306,8 +309,9 @@ void Replay::loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::iterator
     auto it = std::find_if(first, last, [](const auto &seg_it) { return !seg_it.second || !seg_it.second->isLoaded(); });
     if (it != last && !it->second) {
       rDebug("loading segment %d...", it->first);
-      it->second = std::make_unique<Segment>(it->first, route_->at(it->first), flags_, filters_);
-      QObject::connect(it->second.get(), &Segment::loadFinished, this, &Replay::segmentLoadFinished);
+      it->second = std::make_unique<Segment>(it->first, route_->at(it->first), flags_, filters_, [this](int seg_num, bool success) {
+        segmentLoadFinished(seg_num, success);
+      });
       return true;
     }
     return false;
@@ -346,9 +350,9 @@ void Replay::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::
     std::inplace_merge(new_events.begin(), new_events.begin() + size, new_events.end());
   }
 
-  if (stream_thread_) {
-    emit segmentsMerged();
-  }
+  // if (stream_thread_) {
+    // emit segmentsMerged();
+  // }
 
   updateEvents([&]() {
     events_.swap(new_events);
@@ -404,14 +408,11 @@ void Replay::startStream(const Segment *cur_segment) {
     camera_server_ = std::make_unique<CameraServer>(camera_size);
   }
 
-  emit segmentsMerged();
+  // emit segmentsMerged();
   // start stream thread
-  stream_thread_ = new QThread();
-  QObject::connect(stream_thread_, &QThread::started, [=]() { streamThread(); });
-  stream_thread_->start();
-
-  timeline_future = QtConcurrent::run(this, &Replay::buildTimeline);
-  emit streamStarted();
+  stream_thread_ = std::thread(&Replay::streamThread, this);
+  timeline_future_ = std::async(std::launch::async, &Replay::buildTimeline, this);
+  // emit streamStarted();
 }
 
 void Replay::publishMessage(const Event *e) {
@@ -451,6 +452,21 @@ void Replay::publishFrame(const Event *e) {
   }
 }
 
+void Replay::notifyUpdateSegmentCache() {
+  control_cv_.notify_one();
+}
+
+void Replay::controlThread() {
+  while (!exit_) {
+    std::unique_lock lk(control_mutex_);
+    control_cv_.wait(lk);
+    if (exit_) break;
+
+    printf("update cache\n");
+    updateSegmentsCache();
+  }
+}
+
 void Replay::streamThread() {
   stream_thread_id = pthread_self();
   cereal::Event::Which cur_which = cereal::Event::Which::INIT_DATA;
@@ -482,7 +498,7 @@ void Replay::streamThread() {
       int last_segment = segments_.rbegin()->first;
       if (current_segment_ >= last_segment && isSegmentMerged(last_segment)) {
         rInfo("reaches the end of route, restart from beginning");
-        QMetaObject::invokeMethod(this, std::bind(&Replay::seekTo, this, minSeconds(), false), Qt::QueuedConnection);
+        // QMetaObject::invokeMethod(this, std::bind(&Replay::seekTo, this, minSeconds(), false), Qt::QueuedConnection);
       }
     }
   }
@@ -500,7 +516,7 @@ std::vector<Event>::const_iterator Replay::publishEvents(std::vector<Event>::con
 
     if (current_segment_ != segment) {
       current_segment_ = segment;
-      QMetaObject::invokeMethod(this, &Replay::updateSegmentsCache, Qt::QueuedConnection);
+      notifyUpdateSegmentCache();
     }
 
      // Skip events if socket is not present

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <future>
 #include <map>
 #include <memory>
 #include <optional>
@@ -9,8 +10,6 @@
 #include <tuple>
 #include <vector>
 #include <utility>
-
-#include <QThread>
 
 #include "tools/replay/camera.h"
 #include "tools/replay/route.h"
@@ -43,14 +42,11 @@ enum class FindFlag {
 
 enum class TimelineType { None, Engaged, AlertInfo, AlertWarning, AlertCritical, UserFlag };
 typedef bool (*replayEventFilter)(const Event *, void *);
-Q_DECLARE_METATYPE(std::shared_ptr<LogReader>);
 
-class Replay : public QObject {
-  Q_OBJECT
-
+class Replay {
 public:
   Replay(const std::string &route, std::vector<std::string> allow, std::vector<std::string> block, SubMaster *sm = nullptr,
-         uint32_t flags = REPLAY_FLAG_NONE, const std::string &data_dir = "", QObject *parent = 0);
+         uint32_t flags = REPLAY_FLAG_NONE, const std::string &data_dir = "");
   ~Replay();
   bool load();
   RouteLoadError lastRouteError() const { return route_->lastError(); }
@@ -90,23 +86,24 @@ public:
     return timeline_;
   }
 
-signals:
-  void streamStarted();
-  void segmentsMerged();
-  void seeking(double sec);
-  void seekedTo(double sec);
-  void qLogLoaded(std::shared_ptr<LogReader> qlog);
-  void minMaxTimeChanged(double min_sec, double max_sec);
+// signals:
+//   void streamStarted();
+//   void segmentsMerged();
+//   void seeking(double sec);
+//   void seekedTo(double sec);
+//   void qLogLoaded(std::shared_ptr<LogReader> qlog);
+//   void minMaxTimeChanged(double min_sec, double max_sec);
 
-protected slots:
-  void segmentLoadFinished(bool success);
+// protected slots:
 
-protected:
+private:
   typedef std::map<int, std::unique_ptr<Segment>> SegmentMap;
   std::optional<uint64_t> find(FindFlag flag);
+  void segmentLoadFinished(int seg_num, bool success);
   void pauseStreamThread();
   void startStream(const Segment *cur_segment);
   void streamThread();
+  void controlThread();
   void updateSegmentsCache();
   void loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::iterator cur, SegmentMap::iterator end);
   void mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::iterator &end);
@@ -118,9 +115,14 @@ protected:
   void buildTimeline();
   void checkSeekProgress();
   inline bool isSegmentMerged(int n) const { return merged_segments_.count(n) > 0; }
+  void notifyUpdateSegmentCache();
+
+  std::mutex control_mutex_;
+  std::condition_variable control_cv_;
+  std::thread control_thread_;
 
   pthread_t stream_thread_id = 0;
-  QThread *stream_thread_ = nullptr;
+  std::thread stream_thread_;
   std::mutex stream_lock_;
   bool user_paused_ = false;
   std::condition_variable stream_cv_;
@@ -148,7 +150,7 @@ protected:
   std::atomic<uint32_t> flags_ = REPLAY_FLAG_NONE;
 
   std::mutex timeline_lock;
-  QFuture<void> timeline_future;
+  std::future<void> timeline_future_;
   std::vector<std::tuple<double, double, TimelineType>> timeline_;
   std::string car_fingerprint_;
   std::atomic<float> speed_ = 1.0;

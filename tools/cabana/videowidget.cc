@@ -168,9 +168,9 @@ QWidget *VideoWidget::createCameraWidget() {
     if (index != -1) cam_widget->setStreamType((VisionStreamType)camera_tab->tabData(index).toInt());
   });
 
-  auto replay = static_cast<ReplayStream*>(can)->getReplay();
-  QObject::connect(replay, &Replay::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
-  QObject::connect(replay, &Replay::minMaxTimeChanged, this, &VideoWidget::timeRangeChanged, Qt::QueuedConnection);
+  // auto replay = static_cast<ReplayStream*>(can)->getReplay();
+  // QObject::connect(replay, &Replay::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
+  // QObject::connect(replay, &Replay::minMaxTimeChanged, this, &VideoWidget::timeRangeChanged, Qt::QueuedConnection);
   return w;
 }
 

@@ -5,8 +5,6 @@
 #include <tuple>
 #include <utility>
 
-#include <QApplication>
-
 #include "common/util.h"
 #include "common/version.h"
 
@@ -57,15 +55,15 @@ void add_str(WINDOW *w, const char *str, Color color = Color::Default, bool bold
 
 }  // namespace
 
-ConsoleUI::ConsoleUI(Replay *replay, QObject *parent) : replay(replay), sm({"carState", "liveParameters"}), QObject(parent) {
+ConsoleUI::ConsoleUI(Replay *replay) : replay(replay), sm({"carState", "liveParameters"}) {
   // Initialize curses
   initscr();
   clear();
   curs_set(false);
   cbreak();  // Line buffering disabled. pass on everything
   noecho();
-  keypad(stdscr, true);
   nodelay(stdscr, true);  // non-blocking getchar()
+  keypad(stdscr, true);
 
   // Initialize all the colors. https://www.ditig.com/256-colors-cheat-sheet
   start_color();
@@ -80,24 +78,16 @@ ConsoleUI::ConsoleUI(Replay *replay, QObject *parent) : replay(replay), sm({"car
 
   initWindows();
 
-  qRegisterMetaType<uint64_t>("uint64_t");
-  qRegisterMetaType<ReplyMsgType>("ReplyMsgType");
   installMessageHandler([this](ReplyMsgType type, const std::string msg) {
-    emit logMessageSignal(type, QString::fromStdString(msg));
+    std::unique_lock lock(mutex);
+    logs.emplace_back(type, msg);
   });
   installDownloadProgressHandler([this](uint64_t cur, uint64_t total, bool success) {
-    emit updateProgressBarSignal(cur, total, success);
+    std::unique_lock lock(mutex);
+    progress_cur = cur;
+    progress_total = total;
+    download_success = success;
   });
-
-  QObject::connect(replay, &Replay::streamStarted, this, &ConsoleUI::updateSummary);
-  QObject::connect(&notifier, SIGNAL(activated(int)), SLOT(readyRead()));
-  QObject::connect(this, &ConsoleUI::updateProgressBarSignal, this, &ConsoleUI::updateProgressBar);
-  QObject::connect(this, &ConsoleUI::logMessageSignal, this, &ConsoleUI::logMessage);
-
-  sm_timer.callOnTimeout(this, &ConsoleUI::updateStatus);
-  sm_timer.start(100);
-  getch_timer.start(1000, this);
-  readyRead();
 }
 
 ConsoleUI::~ConsoleUI() {
@@ -136,9 +126,7 @@ void ConsoleUI::initWindows() {
   }
 }
 
-void ConsoleUI::timerEvent(QTimerEvent *ev) {
-  if (ev->timerId() != getch_timer.timerId()) return;
-
+void ConsoleUI::updateSize() {
   if (is_term_resized(max_height, max_width)) {
     for (auto win : w) {
       if (win) delwin(win);
@@ -149,7 +137,6 @@ void ConsoleUI::timerEvent(QTimerEvent *ev) {
     initWindows();
     rWarning("resize term %dx%d", max_height, max_width);
   }
-  updateTimeline();
 }
 
 void ConsoleUI::updateStatus() {
@@ -218,7 +205,7 @@ void ConsoleUI::displayTimelineDesc() {
   }
 }
 
-void ConsoleUI::logMessage(ReplyMsgType type, const QString &msg) {
+void ConsoleUI::logMessage(ReplyMsgType type, const std::string &msg) {
   if (auto win = w[Win::Log]) {
     Color color = Color::Default;
     if (type == ReplyMsgType::Debug) {
@@ -228,19 +215,21 @@ void ConsoleUI::logMessage(ReplyMsgType type, const QString &msg) {
     } else if (type == ReplyMsgType::Critical) {
       color = Color::Red;
     }
-    add_str(win, qPrintable(msg + "\n"), color);
+    add_str(win, (msg + "\n").c_str(), color);
     wrefresh(win);
   }
 }
 
-void ConsoleUI::updateProgressBar(uint64_t cur, uint64_t total, bool success) {
+void ConsoleUI::updateProgressBar() {
+  std::unique_lock lock(mutex);
+
   werase(w[Win::DownloadBar]);
-  if (success && cur < total) {
+  if (download_success && progress_cur < progress_total) {
     const int width = 35;
-    const float progress = cur / (double)total;
+    const float progress = progress_cur / (double)progress_total;
     const int pos = width * progress;
     wprintw(w[Win::DownloadBar], "Downloading [%s>%s]  %d%% %s", std::string(pos, '=').c_str(),
-            std::string(width - pos, ' ').c_str(), int(progress * 100.0), formattedDataSize(total).c_str());
+            std::string(width - pos, ' ').c_str(), int(progress * 100.0), formattedDataSize(progress_total).c_str());
   }
   wrefresh(w[Win::DownloadBar]);
 }
@@ -288,13 +277,6 @@ void ConsoleUI::updateTimeline() {
   wrefresh(win);
 }
 
-void ConsoleUI::readyRead() {
-  int c;
-  while ((c = getch()) != ERR) {
-    handleKey(c);
-  }
-}
-
 void ConsoleUI::pauseReplay(bool pause) {
   replay->pause(pause);
   status = pause ? Status::Paused : Status::Waiting;
@@ -305,7 +287,6 @@ void ConsoleUI::handleKey(char c) {
     // pause the replay and blocking getchar()
     pauseReplay(true);
     updateStatus();
-    getch_timer.stop();
     curs_set(true);
     nodelay(stdscr, false);
 
@@ -330,7 +311,6 @@ void ConsoleUI::handleKey(char c) {
     nodelay(stdscr, true);
     curs_set(false);
     refresh();
-    getch_timer.start(1000, this);
 
   } else if (c == '+' || c == '=') {
     auto it = std::upper_bound(speed_array.begin(), speed_array.end(), replay->getSpeed());
@@ -367,7 +347,29 @@ void ConsoleUI::handleKey(char c) {
     replay->seekTo(-10, true);
   } else if (c == ' ') {
     pauseReplay(!replay->isPaused());
-  } else if (c == 'q' || c == 'Q') {
-    qApp->exit();
   }
+}
+
+int ConsoleUI::exec() {
+  while (true) {
+    int c = getch();
+    if (c == 'q' || c == 'Q') {
+      break;
+    }
+    handleKey(c);
+
+    updateSize();
+    updateSummary();
+    updateTimeline();
+    updateProgressBar();
+    updateStatus();
+    {
+      std::unique_lock lock(mutex);
+      for (auto &[type, msg] : logs) {
+        logMessage(type, msg);
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  return 0;
 }

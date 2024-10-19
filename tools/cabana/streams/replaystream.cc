@@ -50,12 +50,12 @@ void ReplayStream::mergeSegments() {
 
 bool ReplayStream::loadRoute(const QString &route, const QString &data_dir, uint32_t replay_flags) {
   replay.reset(new Replay(route.toStdString(), {"can", "roadEncodeIdx", "driverEncodeIdx", "wideRoadEncodeIdx", "carParams"},
-                          {}, nullptr, replay_flags, data_dir.toStdString(), this));
+                          {}, nullptr, replay_flags, data_dir.toStdString()));
   replay->setSegmentCacheLimit(settings.max_cached_minutes);
   replay->installEventFilter(event_filter, this);
-  QObject::connect(replay.get(), &Replay::seeking, this, &AbstractStream::seeking);
-  QObject::connect(replay.get(), &Replay::seekedTo, this, &AbstractStream::seekedTo);
-  QObject::connect(replay.get(), &Replay::segmentsMerged, this, &ReplayStream::mergeSegments);
+  // QObject::connect(replay.get(), &Replay::seeking, this, &AbstractStream::seeking);
+  // QObject::connect(replay.get(), &Replay::seekedTo, this, &AbstractStream::seekedTo);
+  // QObject::connect(replay.get(), &Replay::segmentsMerged, this, &ReplayStream::mergeSegments);
   bool success = replay->load();
   if (!success) {
     if (replay->lastRouteError() == RouteLoadError::AccessDenied) {
