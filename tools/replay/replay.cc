@@ -12,7 +12,8 @@
 static void interrupt_sleep_handler(int signal) {}
 
 Replay::Replay(const std::string &route, std::vector<std::string> allow, std::vector<std::string> block, SubMaster *sm_,
-               uint32_t flags, const std::string &data_dir, QObject *parent) : sm(sm_), flags_(flags), QObject(parent) {
+               uint32_t flags, const std::string &data_dir, QObject *parent)
+    : sm(sm_), flags_(flags), segment_manager(route, data_dir), QObject(parent) {
   // Register signal handler for SIGUSR1
   std::signal(SIGUSR1, interrupt_sleep_handler);
 
@@ -36,7 +37,7 @@ Replay::Replay(const std::string &route, std::vector<std::string> allow, std::ve
 
   if (!allow.empty()) {
     for (int i = 0; i < sockets_.size(); ++i) {
-      filters_.push_back(i == cereal::Event::Which::INIT_DATA || i == cereal::Event::Which::CAR_PARAMS || sockets_[i]);
+      segment_manager_.route_.filters_.push_back(i == cereal::Event::Which::INIT_DATA || i == cereal::Event::Which::CAR_PARAMS || sockets_[i]);
     }
   }
 
@@ -49,7 +50,6 @@ Replay::Replay(const std::string &route, std::vector<std::string> allow, std::ve
                  [](const char *name) { return name != nullptr; });
     pm = std::make_unique<PubMaster>(socket_names);
   }
-  route_ = std::make_unique<Route>(route, data_dir);
 }
 
 Replay::~Replay() {
@@ -68,7 +68,6 @@ void Replay::stop() {
     stream_thread_ = nullptr;
     rInfo("shutdown: done");
   }
-  timeline_future.waitForFinished();
   camera_server_.reset(nullptr);
   segments_.clear();
 }
@@ -79,7 +78,7 @@ bool Replay::load() {
 }
 
 void Replay::start(int seconds) {
-  seekTo(route_->identifier().begin_segment * 60 + seconds, false);
+  seekTo(segment_manager_.route_.identifier().begin_segment * 60 + seconds, false);
 }
 
 void Replay::updateEvents(const std::function<bool()> &update_events_function) {
@@ -97,24 +96,20 @@ void Replay::seekTo(double seconds, bool relative) {
     double target_time = relative ? seconds + currentSeconds() : seconds;
     target_time = std::max(double(0.0), target_time);
     int target_segment = (int)target_time / 60;
-    if (segments_.count(target_segment) == 0) {
+    if (segment_manager_.segments_.count(target_segment) == 0) {
       rWarning("Can't seek to %.2f s segment %d is invalid", target_time, target_segment);
-      return true;
-    }
-    if (target_time > max_seconds_) {
-      rWarning("Can't seek to %.2f s, time is invalid", target_time);
       return true;
     }
 
     rInfo("Seeking to %d s, segment %d", (int)target_time, target_segment);
     current_segment_ = target_segment;
-    cur_mono_time_ = route_start_ts_ + target_time * 1e9;
+    cur_mono_time_ = segment_manager_.route_start_ts_ + target_time * 1e9;
     seeking_to_ = target_time;
     return false;
   });
 
   checkSeekProgress();
-  updateSegmentsCache();
+  segment_manager.updateSegmentsCache();
 }
 
 void Replay::checkSeekProgress() {
@@ -133,7 +128,7 @@ void Replay::checkSeekProgress() {
 }
 
 void Replay::seekToFlag(FindFlag flag) {
-  if (auto next = find(flag)) {
+  if (auto next = segment_manager_.find(flag)) {
     seekTo(*next - 2, false);  // seek to 2 seconds before next
   }
 }
@@ -162,10 +157,10 @@ void Replay::pauseStreamThread() {
 void Replay::startStream(const Segment *cur_segment) {
   const auto &events = cur_segment->log->events;
   route_start_ts_ = events.front().mono_time;
-  cur_mono_time_ += route_start_ts_ - 1;
+  cur_mono_time_ += segment_manager_.route_start_ts_ - 1;
 
   // get datetime from INIT_DATA, fallback to datetime in the route name
-  route_date_time_ = route()->datetime();
+  route_date_time_ = segment_manager_.route_.->datetime();
   auto it = std::find_if(events.cbegin(), events.cend(),
                          [](const Event &e) { return e.which == cereal::Event::Which::INIT_DATA; });
   if (it != events.cend()) {
@@ -210,7 +205,6 @@ void Replay::startStream(const Segment *cur_segment) {
   QObject::connect(stream_thread_, &QThread::started, [=]() { streamThread(); });
   stream_thread_->start();
 
-  timeline_future = QtConcurrent::run(this, &Replay::buildTimeline);
   emit streamStarted();
 }
 
@@ -296,11 +290,11 @@ std::vector<Event>::const_iterator Replay::publishEvents(std::vector<Event>::con
 
   for (; !paused_ && first != last; ++first) {
     const Event &evt = *first;
-    int segment = toSeconds(evt.mono_time) / 60;
+    int segment = segment_manager_.toSeconds(evt.mono_time) / 60;
 
     if (current_segment_ != segment) {
       current_segment_ = segment;
-      QMetaObject::invokeMethod(this, &Replay::updateSegmentsCache, Qt::QueuedConnection);
+      // QMetaObject::invokeMethod(this, &Replay::updateSegmentsCache, Qt::QueuedConnection);
     }
 
      // Skip events if socket is not present

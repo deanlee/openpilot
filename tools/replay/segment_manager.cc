@@ -1,28 +1,33 @@
 #include "tools/replay/segment_manager.h"
 
-SegmentManager::SegmentManager() {
+SegmentManager::SegmentManager(const std::string &route, const std::string &data_dir)
+    : route_(route, data_dir) {
+}
+
+SegmentManager::~SegmentManager() {
+   timeline_future.waitForFinished();
 }
 
 bool SegmentManager::load() {
-  if (!route_->load()) {
-    rError("failed to load route %s from %s", route_->name().c_str(),
-           route_->dir().empty() ? "server" : route_->dir().c_str());
+  if (!route_.load()) {
+    rError("failed to load route: %s", route_.name().c_str());
     return false;
   }
 
-  for (auto &[n, f] : route_->segments()) {
+  for (auto &[n, f] : route_.segments()) {
     bool has_log = !f.rlog.empty() || !f.qlog.empty();
-    bool has_video = !f.road_cam.empty() || !f.qcamera.empty();
-    if (has_log && (has_video || hasFlag(REPLAY_FLAG_NO_VIPC))) {
+    if (has_log) {
       segments_.insert({n, nullptr});
     }
   }
   if (segments_.empty()) {
-    rInfo("no valid segments in route: %s", route_->name().c_str());
+    rInfo("no valid segments in route: %s", route_.name().c_str());
     return false;
   }
-  rInfo("load route %s with %zu valid segments", route_->name().c_str(), segments_.size());
   max_seconds_ = (segments_.rbegin()->first + 1) * 60;
+  rInfo("load route %s with %zu valid segments", route_.name().c_str(), segments_.size());
+  return true;
+  // timeline_future = QtConcurrent::run(this, &Replay::buildTimeline);
 }
 
 void SegmentManager::updateSegmentsCache() {
@@ -41,11 +46,11 @@ void SegmentManager::updateSegmentsCache() {
   std::for_each(segments_.begin(), begin, [](auto &e) { e.second.reset(nullptr); });
   std::for_each(end, segments_.end(), [](auto &e) { e.second.reset(nullptr); });
 
-  // start stream thread
-  const auto &cur_segment = cur->second;
-  if (stream_thread_ == nullptr && cur_segment->isLoaded()) {
-    startStream(cur_segment.get());
-  }
+  // // start stream thread
+  // const auto &cur_segment = cur->second;
+  // if (stream_thread_ == nullptr && cur_segment->isLoaded()) {
+  //   startStream(cur_segment.get());
+  // }
 }
 
 void SegmentManager::loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::iterator cur, SegmentMap::iterator end) {
@@ -53,7 +58,7 @@ void SegmentManager::loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::
     auto it = std::find_if(first, last, [](const auto &seg_it) { return !seg_it.second || !seg_it.second->isLoaded(); });
     if (it != last && !it->second) {
       rDebug("loading segment %d...", it->first);
-      it->second = std::make_unique<Segment>(it->first, route_->at(it->first), flags_, filters_);
+      it->second = std::make_unique<Segment>(it->first, route_.at(it->first), flags_, filters_);
       QObject::connect(it->second.get(), &Segment::loadFinished, this, &SegmentManager::segmentLoadFinished);
       return true;
     }
@@ -67,44 +72,44 @@ void SegmentManager::loadSegmentInRange(SegmentMap::iterator begin, SegmentMap::
 }
 
 void SegmentManager::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::iterator &end) {
-  std::set<int> segments_to_merge;
-  size_t new_events_size = 0;
-  for (auto it = begin; it != end; ++it) {
-    if (it->second && it->second->isLoaded()) {
-      segments_to_merge.insert(it->first);
-      new_events_size += it->second->log->events.size();
-    }
-  }
+  // std::set<int> segments_to_merge;
+  // size_t new_events_size = 0;
+  // for (auto it = begin; it != end; ++it) {
+  //   if (it->second && it->second->isLoaded()) {
+  //     segments_to_merge.insert(it->first);
+  //     new_events_size += it->second->log->events.size();
+  //   }
+  // }
 
-  if (segments_to_merge == merged_segments_) return;
+  // if (segments_to_merge == merged_segments_) return;
 
-  rDebug("merge segments %s", std::accumulate(segments_to_merge.begin(), segments_to_merge.end(), std::string{},
-                                              [](auto &a, int b) { return a + (a.empty() ? "" : ", ") + std::to_string(b); })
-                                  .c_str());
+  // rDebug("merge segments %s", std::accumulate(segments_to_merge.begin(), segments_to_merge.end(), std::string{},
+  //                                             [](auto &a, int b) { return a + (a.empty() ? "" : ", ") + std::to_string(b); })
+  //                                 .c_str());
 
-  std::vector<Event> new_events;
-  new_events.reserve(new_events_size);
+  // std::vector<Event> new_events;
+  // new_events.reserve(new_events_size);
 
-  // Merge events from segments_to_merge into new_events
-  for (int n : segments_to_merge) {
-    size_t size = new_events.size();
-    const auto &events = segments_.at(n)->log->events;
-    std::copy_if(events.begin(), events.end(), std::back_inserter(new_events),
-                 [this](const Event &e) { return e.which < sockets_.size() && sockets_[e.which] != nullptr; });
-    std::inplace_merge(new_events.begin(), new_events.begin() + size, new_events.end());
-  }
+  // // Merge events from segments_to_merge into new_events
+  // for (int n : segments_to_merge) {
+  //   size_t size = new_events.size();
+  //   const auto &events = segments_.at(n)->log->events;
+  //   std::copy_if(events.begin(), events.end(), std::back_inserter(new_events),
+  //                [this](const Event &e) { return e.which < sockets_.size() && sockets_[e.which] != nullptr; });
+  //   std::inplace_merge(new_events.begin(), new_events.begin() + size, new_events.end());
+  // }
 
-  if (stream_thread_) {
-    emit segmentsMerged();
-  }
+  // if (stream_thread_) {
+  //   emit segmentsMerged();
+  // }
 
-  updateEvents([&]() {
-    events_.swap(new_events);
-    merged_segments_ = segments_to_merge;
-    // Wake up the stream thread if the current segment is loaded or invalid.
-    return !seeking_to_ && (isSegmentMerged(current_segment_) || (segments_.count(current_segment_) == 0));
-  });
-  checkSeekProgress();
+  // updateEvents([&]() {
+  //   events_.swap(new_events);
+  //   merged_segments_ = segments_to_merge;
+  //   // Wake up the stream thread if the current segment is loaded or invalid.
+  //   return !seeking_to_ && (isSegmentMerged(current_segment_) || (segments_.count(current_segment_) == 0));
+  // });
+  // checkSeekProgress();
 }
 
 void SegmentManager::buildTimeline() {
@@ -122,7 +127,7 @@ void SegmentManager::buildTimeline() {
       [(int)cereal::SelfdriveState::AlertStatus::CRITICAL] = TimelineType::AlertCritical,
   };
 
-  const auto &route_segments = route_->segments();
+  const auto &route_segments = route_.segments();
   for (auto it = route_segments.cbegin(); it != route_segments.cend() && !exit_; ++it) {
     std::shared_ptr<LogReader> log(new LogReader());
     if (!log->load(it->second.qlog, &exit_, !hasFlag(REPLAY_FLAG_NO_FILE_CACHE), 0, 3) || log->events.empty()) continue;

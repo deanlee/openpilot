@@ -246,7 +246,7 @@ void ConsoleUI::updateProgressBar(uint64_t cur, uint64_t total, bool success) {
 }
 
 void ConsoleUI::updateSummary() {
-  const auto &route = replay->route();
+  const auto &route = replay->getSegmentRange().route_;
   mvwprintw(w[Win::Stats], 0, 0, "Route: %s, %lu segments", route->name().c_str(), route->segments().size());
   mvwprintw(w[Win::Stats], 1, 0, "Car Fingerprint: %s", replay->carFingerprint().c_str());
   wrefresh(w[Win::Stats]);
@@ -262,10 +262,11 @@ void ConsoleUI::updateTimeline() {
   mvwhline(win, 2, 0, ' ', width);
   wattroff(win, COLOR_PAIR(Color::Disengaged));
 
-  const int total_sec = replay->maxSeconds() - replay->minSeconds();
-  for (auto [begin, end, type] : replay->getTimeline()) {
-    int start_pos = ((begin - replay->minSeconds()) / total_sec) * width;
-    int end_pos = ((end - replay->minSeconds()) / total_sec) * width;
+  auto segment_manager = replay->getSegmentManager();
+  const int total_sec = segment_manager.maxSeconds() - segment_manager.minSeconds();
+  for (auto [begin, end, type] : segment_manager.getTimeline()) {
+    int start_pos = ((begin - segment_manager.minSeconds()) / total_sec) * width;
+    int end_pos = ((end - segment_manager.minSeconds()) / total_sec) * width;
     if (type == TimelineType::Engaged) {
       mvwchgat(win, 1, start_pos, end_pos - start_pos + 1, A_COLOR, Color::Engaged, NULL);
       mvwchgat(win, 2, start_pos, end_pos - start_pos + 1, A_COLOR, Color::Engaged, NULL);
@@ -280,7 +281,7 @@ void ConsoleUI::updateTimeline() {
     }
   }
 
-  int cur_pos = ((replay->currentSeconds() - replay->minSeconds()) / total_sec) * width;
+  int cur_pos = ((replay->currentSeconds() - segment_manager.minSeconds()) / total_sec) * width;
   wattron(win, COLOR_PAIR(Color::BrightWhite));
   mvwaddch(win, 0, cur_pos, ACS_VLINE);
   mvwaddch(win, 3, cur_pos, ACS_VLINE);

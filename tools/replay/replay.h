@@ -16,21 +16,6 @@
 
 #define DEMO_ROUTE "a2a0ccea32023010|2023-07-27--13-01-19"
 
-// one segment uses about 100M of memory
-constexpr int MIN_SEGMENTS_CACHE = 5;
-
-enum REPLAY_FLAGS {
-  REPLAY_FLAG_NONE = 0x0000,
-  REPLAY_FLAG_DCAM = 0x0002,
-  REPLAY_FLAG_ECAM = 0x0004,
-  REPLAY_FLAG_NO_LOOP = 0x0010,
-  REPLAY_FLAG_NO_FILE_CACHE = 0x0020,
-  REPLAY_FLAG_QCAMERA = 0x0040,
-  REPLAY_FLAG_NO_HW_DECODER = 0x0100,
-  REPLAY_FLAG_NO_VIPC = 0x0400,
-  REPLAY_FLAG_ALL_SERVICES = 0x0800,
-};
-
 typedef bool (*replayEventFilter)(const Event *, void *);
 Q_DECLARE_METATYPE(std::shared_ptr<LogReader>);
 
@@ -48,6 +33,7 @@ class Replay : public QObject {
   void seekToFlag(FindFlag flag);
   void seekTo(double seconds, bool relative);
   inline bool isPaused() const { return user_paused_; }
+  const SegmentManager &getSegmentManager() const { return segment_manager_; }
   // the filter is called in streaming thread.try to return quickly from it to avoid blocking streaming.
   // the filter function must return true if the event should be filtered.
   // otherwise it must return false.
@@ -58,9 +44,8 @@ class Replay : public QObject {
   inline bool hasFlag(REPLAY_FLAGS flag) const { return flags_ & flag; }
   inline void addFlag(REPLAY_FLAGS flag) { flags_ |= flag; }
   inline void removeFlag(REPLAY_FLAGS flag) { flags_ &= ~flag; }
-  inline double currentSeconds() const { return double(cur_mono_time_ - route_start_ts_) / 1e9; }
-  inline QDateTime currentDateTime() const { return route_date_time_.addSecs(currentSeconds()); }
-  inline double toSeconds(uint64_t mono_time) const { return (mono_time - route_start_ts_) / 1e9; }
+  inline double currentSeconds() const { return double(cur_mono_time_ - segment_manager_.route_start_ts_) / 1e9; }
+  inline QDateTime currentDateTime() const { return segment_manager_.route_date_time_.addSecs(currentSeconds()); }
   inline void setSpeed(float speed) { speed_ = speed; }
   inline float getSpeed() const { return speed_; }
   inline const std::vector<Event> *events() const { return &events_; }
@@ -84,14 +69,13 @@ class Replay : public QObject {
   void publishFrame(const Event *e);
   void checkSeekProgress();
 
-  SegmentManager segment_manager;
+  SegmentManager segment_manager_;
 
   pthread_t stream_thread_id = 0;
   QThread *stream_thread_ = nullptr;
   std::mutex stream_lock_;
   bool user_paused_ = false;
   std::condition_variable stream_cv_;
-  std::atomic<int> current_segment_ = 0;
   std::optional<double> seeking_to_;
 
   // the following variables must be protected with stream_lock_
@@ -106,8 +90,6 @@ class Replay : public QObject {
   SubMaster *sm = nullptr;
   std::unique_ptr<PubMaster> pm;
   std::vector<const char *> sockets_;
-  std::vector<bool> filters_;
-
   std::unique_ptr<CameraServer> camera_server_;
   std::atomic<uint32_t> flags_ = REPLAY_FLAG_NONE;
 
