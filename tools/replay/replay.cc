@@ -88,8 +88,7 @@ void Replay::stop() {
 
 bool Replay::load() {
   if (!route_->load()) {
-    rError("failed to load route %s from %s", route_->name().c_str(),
-           route_->dir().empty() ? "server" : route_->dir().c_str());
+    rError("failed to load route %s from %s", route_->name().c_str());
     return false;
   }
 
@@ -104,8 +103,9 @@ bool Replay::load() {
     rInfo("no valid segments in route: %s", route_->name().c_str());
     return false;
   }
-  rInfo("load route %s with %zu valid segments", route_->name().c_str(), segments_.size());
+
   max_seconds_ = (segments_.rbegin()->first + 1) * 60;
+  rInfo("load route %s with %zu valid segments", route_->name().c_str(), segments_.size());
   return true;
 }
 
@@ -126,18 +126,14 @@ void Replay::updateEvents(const std::function<bool()> &update_events_function) {
 void Replay::seekTo(double seconds, bool relative) {
   updateEvents([&]() {
     double target_time = relative ? seconds + currentSeconds() : seconds;
-    target_time = std::max(double(0.0), target_time);
-    int target_segment = (int)target_time / 60;
-    if (segments_.count(target_segment) == 0) {
-      rWarning("Can't seek to %.2f s segment %d is invalid", target_time, target_segment);
-      return true;
-    }
-    if (target_time > max_seconds_) {
-      rWarning("Can't seek to %.2f s, time is invalid", target_time);
+    target_time = std::max(0.0, target_time);
+    int target_segment = (int)(target_time / 60);
+    if (!segments_.count(target_segment)) {
+      rWarning("Invalid seek to %.2f s (segment %d)", target_time, target_segment);
       return true;
     }
 
-    rInfo("Seeking to %d s, segment %d", (int)target_time, target_segment);
+    rInfo("Seeking to %.2f s (segment %d)", target_time, target_segment);
     current_segment_ = target_segment;
     cur_mono_time_ = route_start_ts_ + target_time * 1e9;
     seeking_to_.store(target_time);
@@ -145,21 +141,21 @@ void Replay::seekTo(double seconds, bool relative) {
   });
 
   checkSeekProgress();
-  segment_cache_cv_.notify_one();;
+  segment_cache_cv_.notify_one();
 }
 
 void Replay::checkSeekProgress() {
-  if (seeking_to_ >= 0) {
-    auto it = segments_.find(int(seeking_to_ / 60));
-    if (it != segments_.end() && it->second && it->second->isLoaded()) {
-      notifyEvent(onSeekedTo, seeking_to_);
-      seeking_to_ = -1;
-      // wake up stream thread
-      updateEvents([]() { return true; });
-    } else {
-      // Emit signal indicating the ongoing seek operation
-      notifyEvent(onSeeking, seeking_to_);
-    }
+  if (seeking_to_ < 0) return;
+
+  auto it = segments_.find(int(seeking_to_ / 60));
+  if (it != segments_.end() && it->second && it->second->isLoaded()) {
+    notifyEvent(onSeekedTo, seeking_to_);
+    seeking_to_ = -1;
+    // wake up stream thread
+    updateEvents([]() { return true; });
+  } else {
+    // Emit signal indicating the ongoing seek operation
+    notifyEvent(onSeeking, seeking_to_);
   }
 }
 
