@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 
   Replay *replay = new Replay(config.route, config.allow, config.block, nullptr, config.flags, config.data_dir, &app);
   if (config.cache_segments > 0) {
-    replay->setSegmentCacheLimit(config.cache_segments);
+    // replay->setSegmentCacheLimit(config.cache_segments);
   }
   if (config.playback_speed > 0) {
     replay->setSpeed(std::clamp(config.playback_speed, ConsoleUI::speed_array.front(), ConsoleUI::speed_array.back()));

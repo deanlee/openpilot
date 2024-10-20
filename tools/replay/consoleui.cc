@@ -171,7 +171,7 @@ void ConsoleUI::updateStatus() {
 
   if (status != Status::Paused) {
     auto events = replay->events();
-    uint64_t current_mono_time = replay->routeStartNanos() + replay->currentSeconds() * 1e9;
+    uint64_t current_mono_time = replay->getSegmentManager().routeStartNanos() + replay->currentSeconds() * 1e9;
     bool playing = !events->empty() && events->back().mono_time > current_mono_time;
     status = playing ? Status::Playing : Status::Waiting;
   }
@@ -246,9 +246,9 @@ void ConsoleUI::updateProgressBar(uint64_t cur, uint64_t total, bool success) {
 }
 
 void ConsoleUI::updateSummary() {
-  const auto &route = replay->getSegmentRange().route_;
-  mvwprintw(w[Win::Stats], 0, 0, "Route: %s, %lu segments", route->name().c_str(), route->segments().size());
-  mvwprintw(w[Win::Stats], 1, 0, "Car Fingerprint: %s", replay->carFingerprint().c_str());
+  const auto &route = replay->getSegmentManager().route_;
+  mvwprintw(w[Win::Stats], 0, 0, "Route: %s, %lu segments", route.name().c_str(), route.segments().size());
+  mvwprintw(w[Win::Stats], 1, 0, "Car Fingerprint: %s", replay->getSegmentManager().carFingerprint().c_str());
   wrefresh(w[Win::Stats]);
 }
 
@@ -262,7 +262,7 @@ void ConsoleUI::updateTimeline() {
   mvwhline(win, 2, 0, ' ', width);
   wattroff(win, COLOR_PAIR(Color::Disengaged));
 
-  auto segment_manager = replay->getSegmentManager();
+  const auto &segment_manager = replay->getSegmentManager();
   const int total_sec = segment_manager.maxSeconds() - segment_manager.minSeconds();
   for (auto [begin, end, type] : segment_manager.getTimeline()) {
     int start_pos = ((begin - segment_manager.minSeconds()) / total_sec) * width;

@@ -59,9 +59,10 @@ class SegmentManager {
   inline const Route &route() const { return route_; }
   void buildTimeline();
   inline bool isSegmentMerged(int n) const { return merged_segments_.count(n) > 0; }
-  inline const std::vector<std::tuple<double, double, TimelineType>> getTimeline() {
-    std::lock_guard lk(timeline_lock);
-    return timeline_;
+  inline const std::vector<std::tuple<double, double, TimelineType>> getTimeline() const {
+    // std::lock_guard lk(timeline_lock);
+    // return timeline_;
+    return {};
   }
 
   SegmentMap segments_;
@@ -81,4 +82,5 @@ class SegmentManager {
   std::vector<bool> filters_;
   std::atomic<uint32_t> flags_ = REPLAY_FLAG_NONE;
 
+std::atomic<bool> exit_ = false;
 };

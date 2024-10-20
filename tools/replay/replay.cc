@@ -13,7 +13,7 @@ static void interrupt_sleep_handler(int signal) {}
 
 Replay::Replay(const std::string &route, std::vector<std::string> allow, std::vector<std::string> block, SubMaster *sm_,
                uint32_t flags, const std::string &data_dir, QObject *parent)
-    : sm(sm_), flags_(flags), segment_manager(route, data_dir), QObject(parent) {
+    : sm(sm_), flags_(flags), segment_manager_(route, data_dir), QObject(parent) {
   // Register signal handler for SIGUSR1
   std::signal(SIGUSR1, interrupt_sleep_handler);
 
@@ -37,7 +37,7 @@ Replay::Replay(const std::string &route, std::vector<std::string> allow, std::ve
 
   if (!allow.empty()) {
     for (int i = 0; i < sockets_.size(); ++i) {
-      segment_manager_.route_.filters_.push_back(i == cereal::Event::Which::INIT_DATA || i == cereal::Event::Which::CAR_PARAMS || sockets_[i]);
+      segment_manager_.filters_.push_back(i == cereal::Event::Which::INIT_DATA || i == cereal::Event::Which::CAR_PARAMS || sockets_[i]);
     }
   }
 
@@ -69,7 +69,6 @@ void Replay::stop() {
     rInfo("shutdown: done");
   }
   camera_server_.reset(nullptr);
-  segments_.clear();
 }
 
 bool Replay::load() {
@@ -93,38 +92,38 @@ void Replay::updateEvents(const std::function<bool()> &update_events_function) {
 
 void Replay::seekTo(double seconds, bool relative) {
   updateEvents([&]() {
-    double target_time = relative ? seconds + currentSeconds() : seconds;
-    target_time = std::max(double(0.0), target_time);
-    int target_segment = (int)target_time / 60;
-    if (segment_manager_.segments_.count(target_segment) == 0) {
-      rWarning("Can't seek to %.2f s segment %d is invalid", target_time, target_segment);
-      return true;
-    }
+    // double target_time = relative ? seconds + currentSeconds() : seconds;
+    // target_time = std::max(double(0.0), target_time);
+    // int target_segment = (int)target_time / 60;
+    // if (segment_manager_.segments_.count(target_segment) == 0) {
+    //   rWarning("Can't seek to %.2f s segment %d is invalid", target_time, target_segment);
+    //   return true;
+    // }
 
-    rInfo("Seeking to %d s, segment %d", (int)target_time, target_segment);
-    current_segment_ = target_segment;
-    cur_mono_time_ = segment_manager_.route_start_ts_ + target_time * 1e9;
-    seeking_to_ = target_time;
+    // rInfo("Seeking to %d s, segment %d", (int)target_time, target_segment);
+    // current_segment_ = target_segment;
+    // cur_mono_time_ = segment_manager_.route_start_ts_ + target_time * 1e9;
+    // seeking_to_ = target_time;
     return false;
   });
 
   checkSeekProgress();
-  segment_manager.updateSegmentsCache();
+  segment_manager_.updateSegmentsCache();
 }
 
 void Replay::checkSeekProgress() {
-  if (seeking_to_) {
-    auto it = segments_.find(int(*seeking_to_ / 60));
-    if (it != segments_.end() && it->second && it->second->isLoaded()) {
-      emit seekedTo(*seeking_to_);
-      seeking_to_ = std::nullopt;
-      // wake up stream thread
-      updateEvents([]() { return true; });
-    } else {
-      // Emit signal indicating the ongoing seek operation
-      emit seeking(*seeking_to_);
-    }
-  }
+  // if (seeking_to_) {
+  //   auto it = segments_.find(int(*seeking_to_ / 60));
+  //   if (it != segments_.end() && it->second && it->second->isLoaded()) {
+  //     emit seekedTo(*seeking_to_);
+  //     seeking_to_ = std::nullopt;
+  //     // wake up stream thread
+  //     updateEvents([]() { return true; });
+  //   } else {
+  //     // Emit signal indicating the ongoing seek operation
+  //     emit seeking(*seeking_to_);
+  //   }
+  // }
 }
 
 void Replay::seekToFlag(FindFlag flag) {
@@ -155,57 +154,57 @@ void Replay::pauseStreamThread() {
 }
 
 void Replay::startStream(const Segment *cur_segment) {
-  const auto &events = cur_segment->log->events;
-  route_start_ts_ = events.front().mono_time;
-  cur_mono_time_ += segment_manager_.route_start_ts_ - 1;
+  // const auto &events = cur_segment->log->events;
+  // route_start_ts_ = events.front().mono_time;
+  // cur_mono_time_ += segment_manager_.route_start_ts_ - 1;
 
-  // get datetime from INIT_DATA, fallback to datetime in the route name
-  route_date_time_ = segment_manager_.route_.->datetime();
-  auto it = std::find_if(events.cbegin(), events.cend(),
-                         [](const Event &e) { return e.which == cereal::Event::Which::INIT_DATA; });
-  if (it != events.cend()) {
-    capnp::FlatArrayMessageReader reader(it->data);
-    auto event = reader.getRoot<cereal::Event>();
-    uint64_t wall_time = event.getInitData().getWallTimeNanos();
-    if (wall_time > 0) {
-      route_date_time_ = QDateTime::fromMSecsSinceEpoch(wall_time / 1e6);
-    }
-  }
+  // // get datetime from INIT_DATA, fallback to datetime in the route name
+  // route_date_time_ = segment_manager_.route_.datetime();
+  // auto it = std::find_if(events.cbegin(), events.cend(),
+  //                        [](const Event &e) { return e.which == cereal::Event::Which::INIT_DATA; });
+  // if (it != events.cend()) {
+  //   capnp::FlatArrayMessageReader reader(it->data);
+  //   auto event = reader.getRoot<cereal::Event>();
+  //   uint64_t wall_time = event.getInitData().getWallTimeNanos();
+  //   if (wall_time > 0) {
+  //     route_date_time_ = QDateTime::fromMSecsSinceEpoch(wall_time / 1e6);
+  //   }
+  // }
 
-  // write CarParams
-  it = std::find_if(events.begin(), events.end(), [](const Event &e) { return e.which == cereal::Event::Which::CAR_PARAMS; });
-  if (it != events.end()) {
-    capnp::FlatArrayMessageReader reader(it->data);
-    auto event = reader.getRoot<cereal::Event>();
-    car_fingerprint_ = event.getCarParams().getCarFingerprint();
-    capnp::MallocMessageBuilder builder;
-    builder.setRoot(event.getCarParams());
-    auto words = capnp::messageToFlatArray(builder);
-    auto bytes = words.asBytes();
-    Params().put("CarParams", (const char *)bytes.begin(), bytes.size());
-    Params().put("CarParamsPersistent", (const char *)bytes.begin(), bytes.size());
-  } else {
-    rWarning("failed to read CarParams from current segment");
-  }
+  // // write CarParams
+  // it = std::find_if(events.begin(), events.end(), [](const Event &e) { return e.which == cereal::Event::Which::CAR_PARAMS; });
+  // if (it != events.end()) {
+  //   capnp::FlatArrayMessageReader reader(it->data);
+  //   auto event = reader.getRoot<cereal::Event>();
+  //   car_fingerprint_ = event.getCarParams().getCarFingerprint();
+  //   capnp::MallocMessageBuilder builder;
+  //   builder.setRoot(event.getCarParams());
+  //   auto words = capnp::messageToFlatArray(builder);
+  //   auto bytes = words.asBytes();
+  //   Params().put("CarParams", (const char *)bytes.begin(), bytes.size());
+  //   Params().put("CarParamsPersistent", (const char *)bytes.begin(), bytes.size());
+  // } else {
+  //   rWarning("failed to read CarParams from current segment");
+  // }
 
-  // start camera server
-  if (!hasFlag(REPLAY_FLAG_NO_VIPC)) {
-    std::pair<int, int> camera_size[MAX_CAMERAS] = {};
-    for (auto type : ALL_CAMERAS) {
-      if (auto &fr = cur_segment->frames[type]) {
-        camera_size[type] = {fr->width, fr->height};
-      }
-    }
-    camera_server_ = std::make_unique<CameraServer>(camera_size);
-  }
+  // // start camera server
+  // if (!hasFlag(REPLAY_FLAG_NO_VIPC)) {
+  //   std::pair<int, int> camera_size[MAX_CAMERAS] = {};
+  //   for (auto type : ALL_CAMERAS) {
+  //     if (auto &fr = cur_segment->frames[type]) {
+  //       camera_size[type] = {fr->width, fr->height};
+  //     }
+  //   }
+  //   camera_server_ = std::make_unique<CameraServer>(camera_size);
+  // }
 
-  emit segmentsMerged();
-  // start stream thread
-  stream_thread_ = new QThread();
-  QObject::connect(stream_thread_, &QThread::started, [=]() { streamThread(); });
-  stream_thread_->start();
+  // emit segmentsMerged();
+  // // start stream thread
+  // stream_thread_ = new QThread();
+  // QObject::connect(stream_thread_, &QThread::started, [=]() { streamThread(); });
+  // stream_thread_->start();
 
-  emit streamStarted();
+  // emit streamStarted();
 }
 
 void Replay::publishMessage(const Event *e) {
@@ -237,8 +236,8 @@ void Replay::publishFrame(const Event *e) {
   if ((cam == DriverCam && !hasFlag(REPLAY_FLAG_DCAM)) || (cam == WideRoadCam && !hasFlag(REPLAY_FLAG_ECAM)))
     return;  // Camera isdisabled
 
-  if (isSegmentMerged(e->eidx_segnum)) {
-    auto &segment = segments_.at(e->eidx_segnum);
+  if (segment_manager_.isSegmentMerged(e->eidx_segnum)) {
+    auto &segment = segment_manager_.segments_.at(e->eidx_segnum);
     if (auto &frame = segment->frames[cam]; frame) {
       camera_server_->pushFrame(cam, frame.get(), e);
     }
@@ -273,11 +272,11 @@ void Replay::streamThread() {
       cur_which = it->which;
     } else if (!hasFlag(REPLAY_FLAG_NO_LOOP)) {
       // Check for loop end and restart if necessary
-      int last_segment = segments_.rbegin()->first;
-      if (current_segment_ >= last_segment && isSegmentMerged(last_segment)) {
-        rInfo("reaches the end of route, restart from beginning");
-        QMetaObject::invokeMethod(this, std::bind(&Replay::seekTo, this, minSeconds(), false), Qt::QueuedConnection);
-      }
+      // int last_segment = segments_.rbegin()->first;
+      // if (current_segment_ >= last_segment && isSegmentMerged(last_segment)) {
+        // rInfo("reaches the end of route, restart from beginning");
+        // QMetaObject::invokeMethod(this, std::bind(&Replay::seekTo, this, minSeconds(), false), Qt::QueuedConnection);
+      // }
     }
   }
 }
@@ -290,12 +289,12 @@ std::vector<Event>::const_iterator Replay::publishEvents(std::vector<Event>::con
 
   for (; !paused_ && first != last; ++first) {
     const Event &evt = *first;
-    int segment = segment_manager_.toSeconds(evt.mono_time) / 60;
+    // int segment = segment_manager_.toSeconds(evt.mono_time) / 60;
 
-    if (current_segment_ != segment) {
-      current_segment_ = segment;
-      // QMetaObject::invokeMethod(this, &Replay::updateSegmentsCache, Qt::QueuedConnection);
-    }
+    // if (current_segment_ != segment) {
+    //   current_segment_ = segment;
+    //   // QMetaObject::invokeMethod(this, &Replay::updateSegmentsCache, Qt::QueuedConnection);
+    // }
 
      // Skip events if socket is not present
     if (!sockets_[evt.which]) continue;
