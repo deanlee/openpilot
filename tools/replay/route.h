@@ -2,11 +2,12 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <QDateTime>
-#include <QFutureSynchronizer>
 
 #include "tools/replay/framereader.h"
 #include "tools/replay/logreader.h"
@@ -62,11 +63,10 @@ protected:
   RouteLoadError err_ = RouteLoadError::None;
 };
 
-class Segment : public QObject {
-  Q_OBJECT
-
+class Segment {
 public:
-  Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters = {});
+  Segment(int n, const SegmentFile &files, uint32_t flags, const std::vector<bool> &filters,
+          std::function<void(int, bool)> callback);
   ~Segment();
   inline bool isLoaded() const { return !loading_ && !abort_; }
 
@@ -74,15 +74,14 @@ public:
   std::unique_ptr<LogReader> log;
   std::unique_ptr<FrameReader> frames[MAX_CAMERAS] = {};
 
-signals:
-  void loadFinished(bool success);
-
 protected:
   void loadFile(int id, const std::string file);
 
   std::atomic<bool> abort_ = false;
   std::atomic<int> loading_ = 0;
-  QFutureSynchronizer<void> synchronizer_;
+  std::mutex mutex_;
+  std::vector<std::thread> threads_;
+  std::function<void(int, bool)> onLoadFinished_ = nullptr;
   uint32_t flags;
   std::vector<bool> filters_;
 };
