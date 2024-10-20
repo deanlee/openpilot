@@ -233,7 +233,7 @@ void ConsoleUI::updateProgressBar() {
 
 void ConsoleUI::updateSummary() {
   const auto &route = replay->route();
-  mvwprintw(w[Win::Stats], 0, 0, "Route: %s, %lu segments", route->name().c_str(), route->segments().size());
+  mvwprintw(w[Win::Stats], 0, 0, "Route: %s, %lu segments", route.name().c_str(), route.segments().size());
   mvwprintw(w[Win::Stats], 1, 0, "Car Fingerprint: %s", replay->carFingerprint().c_str());
   wrefresh(w[Win::Stats]);
 }

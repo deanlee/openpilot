@@ -138,18 +138,18 @@ int main(int argc, char *argv[]) {
     op_prefix = std::make_unique<OpenpilotPrefix>(config.prefix);
   }
 
-  Replay *replay = new Replay(config.route, config.allow, config.block, nullptr, config.flags, config.data_dir, &app);
+  Replay replay(config.route, config.allow, config.block, nullptr, config.flags, config.data_dir);
   if (config.cache_segments > 0) {
-    replay->setSegmentCacheLimit(config.cache_segments);
+    replay.setSegmentCacheLimit(config.cache_segments);
   }
   if (config.playback_speed > 0) {
-    replay->setSpeed(std::clamp(config.playback_speed, ConsoleUI::speed_array.front(), ConsoleUI::speed_array.back()));
+    replay.setSpeed(std::clamp(config.playback_speed, ConsoleUI::speed_array.front(), ConsoleUI::speed_array.back()));
   }
-  if (!replay->load()) {
+  if (!replay.load()) {
     return 1;
   }
 
-  ConsoleUI console_ui(replay);
-  replay->start(config.start_seconds);
+  ConsoleUI console_ui(&replay);
+  replay.start(config.start_seconds);
   return console_ui.exec();
 }
