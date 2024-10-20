@@ -1,8 +1,6 @@
 #include <chrono>
 #include <thread>
 
-#include <QEventLoop>
-
 #include "catch2/catch.hpp"
 #include "common/util.h"
 #include "tools/replay/replay.h"
@@ -72,9 +70,9 @@ TEST_CASE("LogReader") {
 }
 
 void read_segment(int n, const SegmentFile &segment_file, uint32_t flags) {
-  QEventLoop loop;
-  Segment segment(n, segment_file, flags);
-  QObject::connect(&segment, &Segment::loadFinished, [&]() {
+  std::mutex mutex;
+  std::condition_variable cv;
+  Segment segment(n, segment_file, flags, {}, [&](int, bool) {
     REQUIRE(segment.isLoaded() == true);
     REQUIRE(segment.log != nullptr);
     REQUIRE(segment.frames[RoadCam] != nullptr);
@@ -105,10 +103,11 @@ void read_segment(int n, const SegmentFile &segment_file, uint32_t flags) {
         REQUIRE(fr->get(i, &buf));
       }
     }
-
-    loop.quit();
+    cv.notify_one();
   });
-  loop.exec();
+
+  std::unique_lock lock(mutex);
+  cv.wait(lock);
 }
 
 std::string download_demo_route() {
@@ -158,19 +157,19 @@ TEST_CASE("Remote route") {
 }
 
 TEST_CASE("seek_to") {
-  QEventLoop loop;
+  std::mutex mutex;
+  std::condition_variable cv;
   int seek_to = util::random_int(0, 2 * 59);
   Replay replay(DEMO_ROUTE, {}, {}, nullptr, REPLAY_FLAG_NO_VIPC);
-
-  QObject::connect(&replay, &Replay::seekedTo, [&](double sec) {
+  replay.onSeekedTo = [&](double sec) {
     INFO("seek to " << seek_to << "s sought to" << sec);
     REQUIRE(sec >= seek_to);
-    loop.quit();
-  });
+    cv.notify_one();
+  };
 
   REQUIRE(replay.load());
   replay.start();
   replay.seekTo(seek_to, false);
-
-  loop.exec();
+  std::unique_lock lock(mutex);
+  cv.wait(lock);
 }

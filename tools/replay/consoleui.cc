@@ -1,5 +1,6 @@
 #include "tools/replay/consoleui.h"
 
+#include <time.h>
 #include <initializer_list>
 #include <string>
 #include <tuple>
@@ -152,7 +153,6 @@ void ConsoleUI::updateStatus() {
     add_str(win, unit.c_str());
   };
   static const std::pair<const char *, Color> status_text[] = {
-      {"loading...", Color::Red},
       {"playing", Color::Green},
       {"paused...", Color::Yellow},
   };
@@ -161,8 +161,10 @@ void ConsoleUI::updateStatus() {
 
   auto [status_str, status_color] = status_text[status];
   write_item(0, 0, "STATUS:    ", status_str, "      ", false, status_color);
+  auto cur_ts = replay->routeDateTime() + (int)replay->currentSeconds();
+  char *time_string = ctime(&cur_ts);
   std::string current_segment = " - " + std::to_string((int)(replay->currentSeconds() / 60));
-  write_item(0, 25, "TIME:  ", replay->currentDateTime().toString("ddd MMMM dd hh:mm:ss").toStdString(), current_segment, true);
+  write_item(0, 25, "TIME:  ", time_string, current_segment, true);
 
   auto p = sm["liveParameters"].getLiveParameters();
   write_item(1, 0, "STIFFNESS: ", util::string_format("%.2f %%", p.getStiffnessFactor() * 100), "  ");
@@ -231,7 +233,7 @@ void ConsoleUI::updateProgressBar() {
 
 void ConsoleUI::updateSummary() {
   const auto &route = replay->route();
-  mvwprintw(w[Win::Stats], 0, 0, "Route: %s, %lu segments", route->name().c_str(), route->segments().size());
+  mvwprintw(w[Win::Stats], 0, 0, "Route: %s, %lu segments", route.name().c_str(), route.segments().size());
   mvwprintw(w[Win::Stats], 1, 0, "Car Fingerprint: %s", replay->carFingerprint().c_str());
   wrefresh(w[Win::Stats]);
 }
@@ -247,7 +249,7 @@ void ConsoleUI::updateTimeline() {
   wattroff(win, COLOR_PAIR(Color::Disengaged));
 
   const int total_sec = replay->maxSeconds() - replay->minSeconds();
-  for (auto [begin, end, type] : replay->getTimeline()) {
+  for (auto [begin, end, type] : replay->getTimeline().get()) {
     int start_pos = ((begin - replay->minSeconds()) / total_sec) * width;
     int end_pos = ((end - replay->minSeconds()) / total_sec) * width;
     if (type == TimelineType::Engaged) {
