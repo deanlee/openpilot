@@ -167,10 +167,7 @@ QWidget *VideoWidget::createCameraWidget() {
   QObject::connect(camera_tab, &QTabBar::currentChanged, [this](int index) {
     if (index != -1) cam_widget->setStreamType((VisionStreamType)camera_tab->tabData(index).toInt());
   });
-
-  auto replay = static_cast<ReplayStream*>(can)->getReplay();
-  QObject::connect(replay, &Replay::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
-  QObject::connect(replay, &Replay::minMaxTimeChanged, this, &VideoWidget::timeRangeChanged, Qt::QueuedConnection);
+  QObject::connect(static_cast<ReplayStream*>(can), &ReplayStream::qLogLoaded, slider, &Slider::parseQLog, Qt::QueuedConnection);
   return w;
 }
 
@@ -306,14 +303,14 @@ void Slider::paintEvent(QPaintEvent *ev) {
 
   auto replay = getReplay();
   if (replay) {
-    for (auto [begin, end, type] : replay->getTimeline()) {
+    for (auto [begin, end, type] : replay->getTimeline().get()) {
       fillRange(begin, end, timeline_colors[(int)type]);
     }
 
     QColor empty_color = palette().color(QPalette::Window);
     empty_color.setAlpha(160);
-    for (const auto &[n, seg] : replay->segments()) {
-      if (!(seg && seg->isLoaded()))
+    for (const auto &[n, seg] : replay->route().segments()) {
+      if (!replay->isSegmentLoaded(n))
         fillRange(n * 60.0, (n + 1) * 60.0, empty_color);
     }
   }
