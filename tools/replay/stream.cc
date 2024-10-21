@@ -120,17 +120,10 @@ void EventStream::publishMessage(const Event *e) {
 void EventStream::publishFrame(const Event *e) {
   CameraType cam;
   switch (e->which) {
-    case cereal::Event::ROAD_ENCODE_IDX:
-      cam = RoadCam;
-      break;
-    case cereal::Event::DRIVER_ENCODE_IDX:
-      cam = DriverCam;
-      break;
-    case cereal::Event::WIDE_ROAD_ENCODE_IDX:
-      cam = WideRoadCam;
-      break;
-    default:
-      return;  // Invalid event type
+    case cereal::Event::ROAD_ENCODE_IDX: cam = RoadCam; break;
+    case cereal::Event::DRIVER_ENCODE_IDX: cam = DriverCam; break;
+    case cereal::Event::WIDE_ROAD_ENCODE_IDX: cam = WideRoadCam; break;
+    default: return;  // Invalid event type
   }
 
   if ((cam == DriverCam && !(flags_ & REPLAY_FLAG_DCAM)) || (cam == WideRoadCam && !(flags_ & REPLAY_FLAG_ECAM)))
