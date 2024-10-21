@@ -88,6 +88,6 @@ void Timeline::assemble(const Route &route, uint64_t route_start_ts, bool local_
       timeline_ = entries;
       std::sort(timeline_.begin(), timeline_.end(), [](auto &l, auto &r) { return std::get<2>(l) < std::get<2>(r); });
     }
-    callback(log);
+    callback(log);  // Notify listener
   }
 }
