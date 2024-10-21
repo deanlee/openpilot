@@ -37,23 +37,20 @@ void Replay::initializeSockets(std::vector<std::string> allow, std::vector<std::
   auto event_schema = capnp::Schema::from<cereal::Event>().asStruct();
   sockets_.resize(event_schema.getUnionFields().size());
 
-  std::vector<std::string> active_services;
+  std::vector<const char *> active_services;
   for (const auto &[name, _] : services) {
     bool in_block = std::find(block.begin(), block.end(), name) != block.end();
     bool in_allow = std::find(allow.begin(), allow.end(), name) != allow.end();
     if (!in_block && (allow.empty() || in_allow)) {
       uint16_t which = event_schema.getFieldByName(name).getProto().getDiscriminantValue();
       sockets_[which] = name.c_str();
-      active_services.push_back(name);
+      active_services.push_back(name.c_str());
     }
   }
 
   rInfo("active services: %s", join(active_services, ", ").c_str());
   if (sm_ == nullptr) {
-    std::vector<const char *> socket_names;
-    std::copy_if(sockets_.begin(), sockets_.end(), std::back_inserter(socket_names),
-                 [](const char *name) { return name != nullptr; });
-    pm_ = std::make_unique<PubMaster>(socket_names);
+    pm_ = std::make_unique<PubMaster>(active_services);
   }
 }
 
