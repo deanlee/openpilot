@@ -1,7 +1,5 @@
 #include "tools/replay/replay.h"
 
-#include <capnp/dynamic.h>
-#include <csignal>
 #include "cereal/services.h"
 #include "common/params.h"
 #include "tools/replay/util.h"
@@ -19,8 +17,6 @@ void notifyEvent(Callback &callback, Args &&...args) {
 Replay::Replay(const std::string &route, std::vector<std::string> allow, std::vector<std::string> block,
                SubMaster *sm, uint32_t flags, const std::string &data_dir)
     : flags_(flags), seg_mgr_(route, data_dir) {
-  std::signal(SIGUSR1, interrupt_sleep_handler);  // Register signal handler for SIGUSR1
-
   if (!(flags_ & REPLAY_FLAG_ALL_SERVICES)) {
     block.insert(block.end(), {"uiDebug", "userFlag"});
   }

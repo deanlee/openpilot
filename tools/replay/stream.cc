@@ -1,5 +1,13 @@
 #include "tools/replay/stream.h"
 
+#include <csignal>
+#include <capnp/dynamic.h>
+#include "cereal/services.h"
+
+EventStream::EventStream() {
+  std::signal(SIGUSR1, interrupt_sleep_handler);  // Register signal handler for SIGUSR1
+}
+
 void EventStream::initialize(SubMaster *sm, uint32_t flags, std::vector<std::string> allow, std::vector<std::string> block) {
   auto event_schema = capnp::Schema::from<cereal::Event>().asStruct();
   sockets_.resize(event_schema.getUnionFields().size());

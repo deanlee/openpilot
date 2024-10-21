@@ -4,12 +4,14 @@
 #include <thread>
 #include <condition_variable>
 #include <vector>
+
+#include "tools/replay/camera.h"
 #include "tools/replay/logreader.h"
 #include "tools/replay/seg_mgr.h"
 
 class EventStream {
  public:
-  EventStream() {}
+  EventStream();
   void initialize(SubMaster *sm, uint32_t flags, std::vector<std::string> allow, std::vector<std::string> block);
   void stop();
   void streamThread();
