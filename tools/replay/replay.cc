@@ -98,20 +98,6 @@ void Replay::seekToFlag(FindFlag flag) {
   }
 }
 
-void Replay::pause(bool pause) {
-  // if (user_paused_ != pause) {
-  //   pauseStreamThread();
-  //   {
-  //     std::unique_lock lock(stream_lock_);
-  //     rWarning("%s at %.2f s", pause ? "paused..." : "resuming", currentSeconds());
-  //     paused_ = user_paused_ = pause;
-  //   }
-  //   stream_cv_.notify_one();
-  // }
-}
-
-
-
 void Replay::onSegmentMerged() {
   // if (stream_thread_.joinable()) {
     notifyEvent(onSegmentsMerged);

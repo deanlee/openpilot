@@ -1,8 +1,8 @@
 #pragma once
 
+#include <condition_variable>
 #include <mutex>
 #include <thread>
-#include <condition_variable>
 #include <vector>
 
 #include "tools/replay/camera.h"
@@ -14,6 +14,7 @@ class EventStream {
   EventStream();
   void initialize(SubMaster *sm, uint32_t flags, std::vector<std::string> allow, std::vector<std::string> block);
   void start();
+  void pause(bool pause);
   void stop();
   void streamThread();
   void pauseStreamThread();
@@ -22,7 +23,7 @@ class EventStream {
   void updateEvents(const std::function<bool()> &update_events_function);
   std::vector<Event>::const_iterator publishEvents(std::vector<Event>::const_iterator first,
                                                    std::vector<Event>::const_iterator last);
-                                                    pthread_t stream_thread_id = 0;
+  pthread_t stream_thread_id = 0;
   inline void setSpeed(float speed) { speed_ = speed; }
   inline float getSpeed() const { return speed_; }
   std::thread stream_thread_;
@@ -36,7 +37,7 @@ class EventStream {
   std::atomic<uint64_t> cur_mono_time_ = 0;
   SubMaster *sm_ = nullptr;
   std::unique_ptr<PubMaster> pm_;
-  std::vector<const char*> sockets_;
+  std::vector<const char *> sockets_;
   std::unique_ptr<CameraServer> camera_server_;
   std::atomic<float> speed_ = 1.0;
   std::function<bool(const Event *)> event_filter_ = nullptr;

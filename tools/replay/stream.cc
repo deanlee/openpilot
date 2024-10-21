@@ -1,7 +1,9 @@
 #include "tools/replay/stream.h"
 
-#include <csignal>
 #include <capnp/dynamic.h>
+
+#include <csignal>
+
 #include "cereal/services.h"
 
 static void interrupt_sleep_handler(int signal) {}
@@ -42,6 +44,18 @@ void EventStream::start() {
   //   }
   //   camera_server_ = std::make_unique<CameraServer>(camera_size);
   // }
+}
+
+void EventStream::pause(bool pause) {
+  if (user_paused_ != pause) {
+    pauseStreamThread();
+    {
+      std::unique_lock lock(stream_lock_);
+      // rWarning("%s at %.2f s", pause ? "paused..." : "resuming", currentSeconds());
+      paused_ = user_paused_ = pause;
+    }
+    stream_cv_.notify_one();
+  }
 }
 
 void EventStream::stop() {

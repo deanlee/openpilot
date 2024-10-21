@@ -27,7 +27,7 @@ public:
   RouteLoadError lastRouteError() const { return seg_mgr_.route_.lastError(); }
   void start(int seconds = 0);
   void stop() { event_stream_.stop(); };
-  void pause(bool pause);
+  void pause(bool pause) { event_stream_.pause(pause); };
   void seekToFlag(FindFlag flag);
   void seekTo(double seconds, bool relative);
   inline bool isPaused() const { return event_stream_.user_paused_; }
