@@ -52,10 +52,7 @@ public:
   inline const std::string &carFingerprint() const { return car_fingerprint_; }
   inline bool isSegmentLoaded(int n) const { return events_ && events_->segments.count(n); }
   inline const Timeline &getTimeline() const { return timeline_; }
-  inline const std::shared_ptr<SegmentManager::Events> events() const {
-    std::shared_lock<std::shared_mutex> lock(events_mutex_);
-    return events_;
-  }
+  inline const std::shared_ptr<SegmentManager::Events> events() const { return events_; }
 
   // Event callback functions
   std::function<void()> onSegmentsMerged = nullptr;
@@ -106,6 +103,5 @@ private:
   std::atomic<float> speed_ = 1.0;
   std::function<bool(const Event *)> event_filter_ = nullptr;
 
-  mutable std::shared_mutex events_mutex_;
   std::shared_ptr<SegmentManager::Events> events_;
 };

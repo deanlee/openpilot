@@ -170,7 +170,6 @@ void Replay::onSegmentMerged() {
   }
 
   updateEvents([&]() {
-    std::unique_lock<std::shared_mutex> lock(events_mutex_);
     events_ = seg_mgr_.events();
     // Wake up the stream thread if the current segment is loaded
     return seeking_to_ < 0 && events_->segments.count(current_segment_) > 0;
@@ -235,7 +234,7 @@ void Replay::startStream() {
                        [this](std::shared_ptr<LogReader> log) {
                          if (onQLogLoaded) onQLogLoaded(log);
                        });
-  // start threads
+  // Start stream thread
   stream_thread_ = std::thread(&Replay::streamThread, this);
 }
 
@@ -285,27 +284,28 @@ void Replay::streamThread() {
     if (exit_) break;
 
     Event event(cur_which, cur_mono_time_, {});
-    const auto &events = events_->events;
-    auto first = std::upper_bound(events.cbegin(), events.cend(), event);
-    if (first == events.cend()) {
+    const auto local_events = events_;
+    const auto &events_list = local_events->events;
+    auto first = std::upper_bound(events_list.cbegin(), events_list.cend(), event);
+    if (first == events_list.cend()) {
       rInfo("waiting for events...");
       events_ready_ = false;
       continue;
     }
 
-    auto it = publishEvents(first, events.cend());
+    auto it = publishEvents(first, events_list.cend());
 
     // Ensure frames are sent before unlocking to prevent race conditions
     if (camera_server_) {
       camera_server_->waitForSent();
     }
 
-    if (it != events.cend()) {
+    if (it != events_list.cend()) {
       cur_which = it->which;
     } else if (!hasFlag(REPLAY_FLAG_NO_LOOP)) {
       // Check for loop end and restart if necessary
       int last_segment = seg_mgr_.route_.segments().rbegin()->first;
-      if (current_segment_ >= last_segment && events_->segments.count(last_segment)) {
+      if (current_segment_ >= last_segment && local_events->segments.count(last_segment)) {
         rInfo("reaches the end of route, restart from beginning");
         seeking_to_ = minSeconds();
         cur_mono_time_ = minSeconds() * 1e9 + route_start_ts_;
