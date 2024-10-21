@@ -65,7 +65,7 @@ public:
   std::function<void(std::shared_ptr<LogReader>)> onQLogLoaded = nullptr;
 
 private:
-  void initializeSockets(std::vector<std::string> allow, std::vector<std::string> block);
+  void initializeSockets(const std::vector<std::string> &allow, const std::vector<std::string> &block);
   void setupSegmentManager(const std::vector<std::string> &allow);
   void pauseStreamThread();
   void startStream();

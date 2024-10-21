@@ -19,7 +19,7 @@ void notifyEvent(Callback &callback, Args &&...args) {
 Replay::Replay(const std::string &route, std::vector<std::string> allow, std::vector<std::string> block,
                SubMaster *sm, uint32_t flags, const std::string &data_dir)
     : sm_(sm), flags_(flags), seg_mgr_(route, data_dir) {
-  std::signal(SIGUSR1, interrupt_sleep_handler);  // Register signal handler for SIGUSR1
+  std::signal(SIGUSR1, interrupt_sleep_handler); // Signal handler for SIGUSR1
 
   if (!(flags_ & REPLAY_FLAG_ALL_SERVICES)) {
     block.insert(block.end(), {"uiDebug", "userFlag"});
@@ -33,7 +33,7 @@ Replay::~Replay() {
   stop();
 }
 
-void Replay::initializeSockets(std::vector<std::string> allow, std::vector<std::string> block) {
+void Replay::initializeSockets(const std::vector<std::string> &allow, const std::vector<std::string> &block) {
   auto event_schema = capnp::Schema::from<cereal::Event>().asStruct();
   sockets_.resize(event_schema.getUnionFields().size());
 
@@ -49,7 +49,7 @@ void Replay::initializeSockets(std::vector<std::string> allow, std::vector<std::
   }
 
   rInfo("active services: %s", join(active_services, ", ").c_str());
-  if (sm_ == nullptr) {
+  if (!sm_) {
     pm_ = std::make_unique<PubMaster>(active_services);
   }
 }
@@ -76,7 +76,6 @@ void Replay::stop() {
     stream_thread_.join();
     rInfo("shutdown: done");
   }
-
   camera_server_.reset(nullptr);
 }
 
@@ -104,9 +103,9 @@ void Replay::updateEvents(const std::function<bool()> &update_events_function) {
 }
 
 void Replay::seekTo(double seconds, bool relative) {
-  updateEvents([&]() {
+  updateEvents([=]() {
     double target_time = relative ? seconds + currentSeconds() : seconds;
-    target_time = std::max(double(0.0), target_time);
+    target_time = std::max(0.0, target_time);
     int target_segment = (int)target_time / 60;
     if (!seg_mgr_.hasSegment(target_segment)) {
       rWarning("Invalid seek to %.2f s (segment %d)", target_time, target_segment);
@@ -126,7 +125,7 @@ void Replay::seekTo(double seconds, bool relative) {
 
 void Replay::seekToFlag(FindFlag flag) {
   if (auto next = timeline_.find(currentSeconds(), flag)) {
-    seekTo(*next - 2, false);  // seek to 2 seconds before next
+    seekTo(*next - 2, false);  // Seek to 2 seconds before flag
   }
 }
 
@@ -136,10 +135,8 @@ void Replay::checkSeekProgress() {
   if (isSegmentLoaded(seeking_to_ / 60)) {
     notifyEvent(onSeekedTo, seeking_to_);
     seeking_to_ = -1;
-    // wake up stream thread
     updateEvents([]() { return true; });
   } else {
-    // Emit signal indicating the ongoing seek operation
     notifyEvent(onSeeking, seeking_to_);
   }
 }
@@ -284,11 +281,11 @@ void Replay::streamThread() {
     stream_cv_.wait(lk, [=]() { return exit_ || (events_ready_ && !paused_); });
     if (exit_) break;
 
-    Event event(cur_which, cur_mono_time_, {});
     const auto local_events = events_;  // copy shared_ptr
     const auto &events_list = local_events->events;
 
-    auto first = std::upper_bound(events_list.cbegin(), events_list.cend(), event);
+    auto first = std::upper_bound(events_list.cbegin(), events_list.cend(),
+                                  Event(cur_which, cur_mono_time_, {}));
     if (first == events_list.cend()) {
       rInfo("waiting for events...");
       events_ready_ = false;
