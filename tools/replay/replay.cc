@@ -40,8 +40,6 @@ void Replay::setupSegmentManager(const std::vector<std::string> &allow) {
   // }
 }
 
-
-
 bool Replay::load() {
   rInfo("loading route %s", seg_mgr_.route_.name().c_str());
   if (!seg_mgr_.load()) return false;
@@ -55,24 +53,18 @@ void Replay::start(int seconds) {
   seekTo(min_seconds_ + seconds, false);
 }
 
-
 void Replay::seekTo(double seconds, bool relative) {
-  // updateEvents([&]() {
-  //   double target_time = relative ? seconds + currentSeconds() : seconds;
-  //   target_time = std::max(double(0.0), target_time);
-  //   int target_segment = (int)target_time / 60;
-  //   if (!seg_mgr_.hasSegment(target_segment)) {
-  //     rWarning("Invalid seek to %.2f s (segment %d)", target_time, target_segment);
-  //     return true;
-  //   }
+  double target_time = relative ? seconds + currentSeconds() : seconds;
+  target_time = std::max(double(0.0), target_time);
+  int target_segment = (int)target_time / 60;
+  if (!seg_mgr_.hasSegment(target_segment)) {
+    rWarning("Invalid seek to %.2f s (segment %d)", target_time, target_segment);
+    return;
+  }
 
-  //   rInfo("Seeking to %.2f s (segment %d)", target_time, target_segment);
-  //   current_segment_ = target_segment;
-  //   cur_mono_time_ = route_start_ts_ + target_time * 1e9;
-  //   seeking_to_ = target_time;
-  //   return false;
-  // });
+  rInfo("Seeking to %.2f s (segment %d)", target_time, target_segment);
 
+  event_stream_.seekTo(route_start_ts_ + target_time * 1e9);
   checkSeekProgress();
   seg_mgr_.updateCurrentSegment(event_stream_.current_segment_);
 }
@@ -99,7 +91,7 @@ void Replay::seekToFlag(FindFlag flag) {
 
 void Replay::onSegmentMerged() {
   // if (stream_thread_.joinable()) {
-    notifyEvent(onSegmentsMerged);
+  notifyEvent(onSegmentsMerged);
   // }
 
   events_ = seg_mgr_.events();

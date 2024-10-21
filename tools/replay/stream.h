@@ -14,6 +14,7 @@ class EventStream {
   EventStream();
   void initialize(SubMaster *sm, uint32_t flags, std::vector<std::string> allow, std::vector<std::string> block);
   void start();
+  void seekTo(uint64_t mono_time);
   void setEvents(std::shared_ptr<SegmentManager::Events> events);
   void pause(bool pause);
   void stop();

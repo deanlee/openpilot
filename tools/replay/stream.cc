@@ -40,6 +40,13 @@ void EventStream::setEvents(std::shared_ptr<SegmentManager::Events> events) {
   });
 }
 
+void EventStream::seekTo(uint64_t mono_time) {
+  updateEvents([&]() {
+    cur_mono_time_ = mono_time;
+    return true;
+  });
+}
+
 void EventStream::start() {
   assert(!stream_thread_.joinable());
 
@@ -97,42 +104,6 @@ void EventStream::pauseStreamThread() {
   // Send SIGUSR1 to interrupt clock_nanosleep
   if (stream_thread_.joinable() && stream_thread_id) {
     pthread_kill(stream_thread_id, SIGUSR1);
-  }
-}
-
-void EventStream::publishMessage(const Event *e) {
-  if (event_filter_ && event_filter_(e)) return;
-
-  if (sm_ == nullptr) {
-    auto bytes = e->data.asBytes();
-    int ret = pm_->send(sockets_[e->which], (capnp::byte *)bytes.begin(), bytes.size());
-    if (ret == -1) {
-      rWarning("stop publishing %s due to multiple publishers error", sockets_[e->which]);
-      sockets_[e->which] = nullptr;
-    }
-  } else {
-    capnp::FlatArrayMessageReader reader(e->data);
-    auto event = reader.getRoot<cereal::Event>();
-    sm_->update_msgs(nanos_since_boot(), {{sockets_[e->which], event}});
-  }
-}
-
-void EventStream::publishFrame(const Event *e) {
-  CameraType cam;
-  switch (e->which) {
-    case cereal::Event::ROAD_ENCODE_IDX: cam = RoadCam; break;
-    case cereal::Event::DRIVER_ENCODE_IDX: cam = DriverCam; break;
-    case cereal::Event::WIDE_ROAD_ENCODE_IDX: cam = WideRoadCam; break;
-    default: return;  // Invalid event type
-  }
-
-  if ((cam == DriverCam && !(flags_ & REPLAY_FLAG_DCAM)) || (cam == WideRoadCam && !(flags_ & REPLAY_FLAG_ECAM)))
-    return;  // Camera isdisabled
-
-  if (auto seg_it = events_->segments.find(e->eidx_segnum); seg_it != events_->segments.end()) {
-    if (auto &frame = seg_it->second->frames[cam]; frame) {
-      camera_server_->pushFrame(cam, frame.get(), e);
-    }
   }
 }
 
@@ -224,4 +195,40 @@ std::vector<Event>::const_iterator EventStream::publishEvents(std::vector<Event>
   }
 
   return first;
+}
+
+void EventStream::publishMessage(const Event *e) {
+  if (event_filter_ && event_filter_(e)) return;
+
+  if (sm_ == nullptr) {
+    auto bytes = e->data.asBytes();
+    int ret = pm_->send(sockets_[e->which], (capnp::byte *)bytes.begin(), bytes.size());
+    if (ret == -1) {
+      rWarning("stop publishing %s due to multiple publishers error", sockets_[e->which]);
+      sockets_[e->which] = nullptr;
+    }
+  } else {
+    capnp::FlatArrayMessageReader reader(e->data);
+    auto event = reader.getRoot<cereal::Event>();
+    sm_->update_msgs(nanos_since_boot(), {{sockets_[e->which], event}});
+  }
+}
+
+void EventStream::publishFrame(const Event *e) {
+  CameraType cam;
+  switch (e->which) {
+    case cereal::Event::ROAD_ENCODE_IDX: cam = RoadCam; break;
+    case cereal::Event::DRIVER_ENCODE_IDX: cam = DriverCam; break;
+    case cereal::Event::WIDE_ROAD_ENCODE_IDX: cam = WideRoadCam; break;
+    default: return;  // Invalid event type
+  }
+
+  if ((cam == DriverCam && !(flags_ & REPLAY_FLAG_DCAM)) || (cam == WideRoadCam && !(flags_ & REPLAY_FLAG_ECAM)))
+    return;  // Camera isdisabled
+
+  if (auto seg_it = events_->segments.find(e->eidx_segnum); seg_it != events_->segments.end()) {
+    if (auto &frame = seg_it->second->frames[cam]; frame) {
+      camera_server_->pushFrame(cam, frame.get(), e);
+    }
+  }
 }
