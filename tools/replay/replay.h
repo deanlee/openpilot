@@ -87,4 +87,5 @@ private:
 
   std::string car_fingerprint_;
   std::shared_ptr<SegmentManager::Events> events_;
+  bool initialized_ = false;
 };

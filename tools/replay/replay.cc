@@ -20,7 +20,6 @@ Replay::Replay(const std::string &route, std::vector<std::string> allow, std::ve
   }
 
   event_stream_.initialize(sm, flags, allow, block);
-  // initializeSockets(allow, block);
   setupSegmentManager(allow);
 }
 
@@ -75,7 +74,7 @@ void Replay::seekTo(double seconds, bool relative) {
   // });
 
   checkSeekProgress();
-  // seg_mgr_.updateCurrentSegment(current_segment_);
+  seg_mgr_.updateCurrentSegment(event_stream_.current_segment_);
 }
 
 void Replay::checkSeekProgress() {
@@ -103,7 +102,8 @@ void Replay::onSegmentMerged() {
     notifyEvent(onSegmentsMerged);
   // }
 
-  event_stream_.setEvents(seg_mgr_.events());
+  events_ = seg_mgr_.events();
+  event_stream_.setEvents(events_);
   // updateEvents([&]() {
   //   events_ = seg_mgr_.events();
   //   // Wake up the stream thread if the current segment is loaded
@@ -111,10 +111,10 @@ void Replay::onSegmentMerged() {
   // });
   checkSeekProgress();
 
-  // start stream thread
-  // if (!stream_thread_.joinable() && !events_->segments.empty()) {
-    // startStream();
-  // }
+  if (!initialized_) {
+    startStream();
+    initialized_ = true;
+  }
 }
 
 void Replay::startStream() {
@@ -161,4 +161,3 @@ void Replay::startStream() {
   // Start stream thread
   event_stream_.start();
 }
-

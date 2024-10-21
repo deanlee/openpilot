@@ -38,13 +38,11 @@ void EventStream::setEvents(std::shared_ptr<SegmentManager::Events> events) {
     events_ = events;
     return true;
   });
-
-  if (!stream_thread_.joinable() && events_->segments.size() > 0) {
-    start();
-  }
 }
 
 void EventStream::start() {
+  assert(!stream_thread_.joinable());
+
   // start camera server
   const auto &segment = events_->segments.begin()->second;
   if (!(flags_ & REPLAY_FLAG_NO_VIPC)) {
@@ -120,22 +118,29 @@ void EventStream::publishMessage(const Event *e) {
 }
 
 void EventStream::publishFrame(const Event *e) {
-  // CameraType cam;
-  // switch (e->which) {
-  //   case cereal::Event::ROAD_ENCODE_IDX: cam = RoadCam; break;
-  //   case cereal::Event::DRIVER_ENCODE_IDX: cam = DriverCam; break;
-  //   case cereal::Event::WIDE_ROAD_ENCODE_IDX: cam = WideRoadCam; break;
-  //   default: return;  // Invalid event type
-  // }
+  CameraType cam;
+  switch (e->which) {
+    case cereal::Event::ROAD_ENCODE_IDX:
+      cam = RoadCam;
+      break;
+    case cereal::Event::DRIVER_ENCODE_IDX:
+      cam = DriverCam;
+      break;
+    case cereal::Event::WIDE_ROAD_ENCODE_IDX:
+      cam = WideRoadCam;
+      break;
+    default:
+      return;  // Invalid event type
+  }
 
-  // if ((cam == DriverCam && !(flags_ & REPLAY_FLAG_DCAM)) || (cam == WideRoadCam && !(flags_ & REPLAY_FLAG_ECAM)))
-  //   return;  // Camera isdisabled
+  if ((cam == DriverCam && !(flags_ & REPLAY_FLAG_DCAM)) || (cam == WideRoadCam && !(flags_ & REPLAY_FLAG_ECAM)))
+    return;  // Camera isdisabled
 
-  // if (auto seg_it = events_->segments.find(e->eidx_segnum); seg_it != events_->segments.end()) {
-  //   if (auto &frame = seg_it->second->frames[cam]; frame) {
-  //     camera_server_->pushFrame(cam, frame.get(), e);
-  //   }
-  // }
+  if (auto seg_it = events_->segments.find(e->eidx_segnum); seg_it != events_->segments.end()) {
+    if (auto &frame = seg_it->second->frames[cam]; frame) {
+      camera_server_->pushFrame(cam, frame.get(), e);
+    }
+  }
 }
 
 void EventStream::streamThread() {
