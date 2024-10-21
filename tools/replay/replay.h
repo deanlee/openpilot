@@ -1,14 +1,10 @@
 #pragma once
 
-#include <algorithm>
 #include <functional>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
-#include <shared_mutex>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "tools/replay/camera.h"
@@ -60,9 +56,6 @@ public:
   inline const Timeline &getTimeline() const { return timeline_; }
 
   inline const std::shared_ptr<SegmentManager::Events> events() const { return events_; }
-  // the filter is called in streaming thread.try to return quickly from it to avoid blocking streaming.
-  // the filter function must return true if the event should be filtered.
-  // otherwise it must return false.
   void installEventFilter(std::function<bool(const Event *)> filter) { event_filter_ = filter; }
 
   // Event callback functions
