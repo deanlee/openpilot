@@ -4,8 +4,6 @@
 #include "common/params.h"
 #include "tools/replay/util.h"
 
-static void interrupt_sleep_handler(int signal) {}
-
 // Helper function to notify events with safety checks
 template <typename Callback, typename... Args>
 void notifyEvent(Callback &callback, Args &&...args) {
@@ -166,17 +164,6 @@ void Replay::startStream() {
   } else {
     rWarning("failed to read CarParams from current segment");
   }
-
-  // start camera server
-  // if (!hasFlag(REPLAY_FLAG_NO_VIPC)) {
-  //   std::pair<int, int> camera_size[MAX_CAMERAS] = {};
-  //   for (auto type : ALL_CAMERAS) {
-  //     if (auto &fr = cur_segment->frames[type]) {
-  //       camera_size[type] = {fr->width, fr->height};
-  //     }
-  //   }
-  //   camera_server_ = std::make_unique<CameraServer>(camera_size);
-  // }
 
   notifyEvent(onSegmentsMerged);
 

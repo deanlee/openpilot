@@ -4,6 +4,8 @@
 #include <capnp/dynamic.h>
 #include "cereal/services.h"
 
+static void interrupt_sleep_handler(int signal) {}
+
 EventStream::EventStream() {
   std::signal(SIGUSR1, interrupt_sleep_handler);  // Register signal handler for SIGUSR1
 }
@@ -27,6 +29,19 @@ void EventStream::initialize(SubMaster *sm, uint32_t flags, std::vector<std::str
   if (sm_ == nullptr) {
     pm_ = std::make_unique<PubMaster>(active_services);
   }
+}
+
+void EventStream::start() {
+  // start camera server
+  // if (!hasFlag(REPLAY_FLAG_NO_VIPC)) {
+  //   std::pair<int, int> camera_size[MAX_CAMERAS] = {};
+  //   for (auto type : ALL_CAMERAS) {
+  //     if (auto &fr = cur_segment->frames[type]) {
+  //       camera_size[type] = {fr->width, fr->height};
+  //     }
+  //   }
+  //   camera_server_ = std::make_unique<CameraServer>(camera_size);
+  // }
 }
 
 void EventStream::stop() {

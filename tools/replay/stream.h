@@ -13,6 +13,7 @@ class EventStream {
  public:
   EventStream();
   void initialize(SubMaster *sm, uint32_t flags, std::vector<std::string> allow, std::vector<std::string> block);
+  void start();
   void stop();
   void streamThread();
   void pauseStreamThread();
