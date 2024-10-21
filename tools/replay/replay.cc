@@ -124,6 +124,12 @@ void Replay::seekTo(double seconds, bool relative) {
   seg_mgr_.updateCurrentSegment(current_segment_);
 }
 
+void Replay::seekToFlag(FindFlag flag) {
+  if (auto next = timeline_.find(currentSeconds(), flag)) {
+    seekTo(*next - 2, false);  // seek to 2 seconds before next
+  }
+}
+
 void Replay::checkSeekProgress() {
   if (seeking_to_ < 0) return;
 
@@ -135,12 +141,6 @@ void Replay::checkSeekProgress() {
   } else {
     // Emit signal indicating the ongoing seek operation
     notifyEvent(onSeeking, seeking_to_);
-  }
-}
-
-void Replay::seekToFlag(FindFlag flag) {
-  if (auto next = timeline_.find(currentSeconds(), flag)) {
-    seekTo(*next - 2, false);  // seek to 2 seconds before next
   }
 }
 
