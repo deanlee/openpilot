@@ -33,17 +33,30 @@ void EventStream::initialize(SubMaster *sm, uint32_t flags, std::vector<std::str
   }
 }
 
+void EventStream::setEvents(std::shared_ptr<SegmentManager::Events> events) {
+  updateEvents([&]() {
+    events_ = events;
+    return true;
+  });
+
+  if (!stream_thread_.joinable() && events_->segments.size() > 0) {
+    start();
+  }
+}
+
 void EventStream::start() {
   // start camera server
-  // if (!hasFlag(REPLAY_FLAG_NO_VIPC)) {
-  //   std::pair<int, int> camera_size[MAX_CAMERAS] = {};
-  //   for (auto type : ALL_CAMERAS) {
-  //     if (auto &fr = cur_segment->frames[type]) {
-  //       camera_size[type] = {fr->width, fr->height};
-  //     }
-  //   }
-  //   camera_server_ = std::make_unique<CameraServer>(camera_size);
-  // }
+  const auto &segment = events_->segments.begin()->second;
+  if (!(flags_ & REPLAY_FLAG_NO_VIPC)) {
+    std::pair<int, int> camera_size[MAX_CAMERAS] = {};
+    for (auto type : ALL_CAMERAS) {
+      if (auto &fr = segment->frames[type]) {
+        camera_size[type] = {fr->width, fr->height};
+      }
+    }
+    camera_server_ = std::make_unique<CameraServer>(camera_size);
+  }
+  stream_thread_ = std::thread(&EventStream::streamThread, this);
 }
 
 void EventStream::pause(bool pause) {

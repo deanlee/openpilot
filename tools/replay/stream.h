@@ -14,15 +14,10 @@ class EventStream {
   EventStream();
   void initialize(SubMaster *sm, uint32_t flags, std::vector<std::string> allow, std::vector<std::string> block);
   void start();
+  void setEvents(std::shared_ptr<SegmentManager::Events> events);
   void pause(bool pause);
   void stop();
-  void streamThread();
-  void pauseStreamThread();
-  void publishMessage(const Event *e);
-  void publishFrame(const Event *e);
-  void updateEvents(const std::function<bool()> &update_events_function);
-  std::vector<Event>::const_iterator publishEvents(std::vector<Event>::const_iterator first,
-                                                   std::vector<Event>::const_iterator last);
+
   pthread_t stream_thread_id = 0;
   inline void setSpeed(float speed) { speed_ = speed; }
   inline float getSpeed() const { return speed_; }
@@ -43,4 +38,14 @@ class EventStream {
   std::function<bool(const Event *)> event_filter_ = nullptr;
   std::shared_ptr<SegmentManager::Events> events_;
   std::atomic<uint32_t> flags_ = REPLAY_FLAG_NONE;
+
+private:
+  void streamThread();
+  void pauseStreamThread();
+  void publishMessage(const Event *e);
+  void publishFrame(const Event *e);
+  void updateEvents(const std::function<bool()> &update_events_function);
+  std::vector<Event>::const_iterator publishEvents(std::vector<Event>::const_iterator first,
+                                                   std::vector<Event>::const_iterator last);
+
 };

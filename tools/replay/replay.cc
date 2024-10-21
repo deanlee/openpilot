@@ -103,6 +103,7 @@ void Replay::onSegmentMerged() {
     notifyEvent(onSegmentsMerged);
   // }
 
+  event_stream_.setEvents(seg_mgr_.events());
   // updateEvents([&]() {
   //   events_ = seg_mgr_.events();
   //   // Wake up the stream thread if the current segment is loaded
@@ -158,6 +159,6 @@ void Replay::startStream() {
                          if (onQLogLoaded) onQLogLoaded(log);
                        });
   // Start stream thread
-  // stream_thread_ = std::thread(&Replay::streamThread, this);
+  event_stream_.start();
 }
 
