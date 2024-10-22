@@ -274,14 +274,6 @@ void Slider::parseQLog(std::shared_ptr<LogReader> qlog) {
         std::lock_guard lk(mutex);
         thumbnails[thumb.getTimestampEof()] = scaled;
       }
-    } else if (e.which == cereal::Event::Which::SELFDRIVE_STATE) {
-      capnp::FlatArrayMessageReader reader(e.data);
-      auto cs = reader.getRoot<cereal::Event>().getSelfdriveState();
-      if (cs.getAlertType().size() > 0 && cs.getAlertText1().size() > 0 &&
-          cs.getAlertSize() != cereal::SelfdriveState::AlertSize::NONE) {
-        std::lock_guard lk(mutex);
-        alerts.emplace(e.mono_time, AlertInfo{cs.getAlertStatus(), cs.getAlertText1().cStr(), cs.getAlertText2().cStr()});
-      }
     }
   });
   update();
@@ -303,7 +295,7 @@ void Slider::paintEvent(QPaintEvent *ev) {
 
   auto replay = getReplay();
   if (replay) {
-    for (auto [begin, end, type] : replay->getTimeline()) {
+    for (auto [begin, end, type, _] : replay->getTimeline()) {
       fillRange(begin, end, timeline_colors[(int)type]);
     }
 

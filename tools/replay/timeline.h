@@ -18,6 +18,7 @@ public:
     double start_time;
     double end_time;
     TimelineType type;
+    std::string text;
   };
 
   Timeline() = default;
@@ -31,8 +32,7 @@ public:
 private:
   void assemble(const Route &route, uint64_t route_start_ts, bool local_cache,
                 std::function<void(std::shared_ptr<LogReader>)> callback);
-  void updateEntry(std::vector<Entry> &entries, std::optional<size_t> &idx,
-  double sec, TimelineType type);
+  std::vector<Entry> parseEvents(const std::vector<Event> &events, uint64_t route_start_ts);
 
   mutable std::mutex mutex_;
   std::thread thread_;

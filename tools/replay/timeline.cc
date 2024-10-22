@@ -22,7 +22,7 @@ const std::vector<Timeline::Entry> Timeline::get() const {
 }
 
 std::optional<uint64_t> Timeline::find(double cur_ts, FindFlag flag) {
-  for (auto [start_ts, end_ts, type] : get()) {
+  for (const auto &[start_ts, end_ts, type, _] : get()) {
     if (type == TimelineType::Engaged) {
       if (flag == FindFlag::nextEngagement && start_ts > cur_ts) {
         return start_ts;
@@ -43,10 +43,6 @@ std::optional<uint64_t> Timeline::find(double cur_ts, FindFlag flag) {
 
 void Timeline::assemble(const Route &route, uint64_t route_start_ts, bool local_cache,
                         std::function<void(std::shared_ptr<LogReader>)> callback) {
-  std::vector<Entry> entries;
-  std::optional<size_t> eng_idx, alert_idx;
-  auto alert_types = std::array{TimelineType::AlertInfo, TimelineType::AlertWarning, TimelineType::AlertCritical};
-
   for (const auto &segment : route.segments()) {
     if (exit_) break;  // Exit early if needed
 
@@ -55,44 +51,53 @@ void Timeline::assemble(const Route &route, uint64_t route_start_ts, bool local_
       continue;  // Skip if log loading fails or no events
     }
 
-    for (const Event &e : log->events) {
-      double seconds = (e.mono_time - route_start_ts) / 1e9;
-      if (e.which == cereal::Event::Which::SELFDRIVE_STATE) {
-        capnp::FlatArrayMessageReader reader(e.data);
-        auto cs = reader.getRoot<cereal::Event>().getSelfdriveState();
-
-        if (cs.getEnabled()) {
-          updateEntry(entries, eng_idx, seconds, TimelineType::Engaged);
-        } else {
-          eng_idx.reset();
-        }
-
-        if (cs.getAlertSize() != cereal::SelfdriveState::AlertSize::NONE) {
-          int idx = std::clamp((int)cs.getAlertStatus(), 0, (int)(alert_types.size() - 1));
-          updateEntry(entries, alert_idx, seconds, alert_types[idx]);
-        } else {
-          alert_idx.reset();
-        }
-      } else if (e.which == cereal::Event::Which::USER_FLAG) {
-        entries.emplace_back(Entry{seconds, seconds, TimelineType::UserFlag});
-      }
-    }
-
+    auto entries = parseEvents(log->events, route_start_ts);
     callback(log);  // Notify listener
 
     std::scoped_lock lk(mutex_);
     timeline_ = entries;
-    std::sort(timeline_.begin(), timeline_.end(), [](auto &a, auto &b) {
-      return std::tie(a.type, a.start_time) < std::tie(b.type, b.start_time);
+    std::sort(timeline_.begin(), timeline_.end(), [](const Entry &a, const Entry &b) {
+      return a.start_time < b.start_time;
     });
   }
 }
 
-void Timeline::updateEntry(std::vector<Timeline::Entry> &entries, std::optional<size_t> &idx, double sec, TimelineType type) {
-  if (idx && entries[*idx].type == type) {
-    entries[*idx].end_time = sec;  // Update end time for ongoing entry
-  } else {
-    idx = entries.size();
-    entries.emplace_back(Entry{sec, sec, type});  // Start a new entry
+std::vector<Timeline::Entry> Timeline::parseEvents(const std::vector<Event> &events, uint64_t route_start_ts) {
+  std::vector<Entry> entries;
+  Entry *alert_entry = nullptr, *eng_entry = nullptr;
+  auto alert_types = std::array{TimelineType::AlertInfo, TimelineType::AlertWarning, TimelineType::AlertCritical};
+
+  for (const Event &e : events) {
+    double seconds = (e.mono_time - route_start_ts) / 1e9;
+    if (e.which == cereal::Event::Which::SELFDRIVE_STATE) {
+      capnp::FlatArrayMessageReader reader(e.data);
+      auto cs = reader.getRoot<cereal::Event>().getSelfdriveState();
+
+      if (cs.getEnabled()) {
+        if (eng_entry) eng_entry->end_time = seconds;
+        else {
+          eng_entry = &entries.emplace_back(Entry{seconds, seconds, TimelineType::Engaged});
+        }
+      } else {
+        eng_entry = nullptr;
+      }
+
+      if (cs.getAlertSize() != cereal::SelfdriveState::AlertSize::NONE) {
+        auto type = alert_types[(int)cs.getAlertStatus()];
+        std::string text = cs.getAlertText1().cStr() + std::string("\n") + cs.getAlertText2().cStr();
+        if (alert_entry && alert_entry->type == type && alert_entry->text == text) {
+          alert_entry->end_time = seconds;
+        } else {
+          alert_entry = &entries.emplace_back(Entry{seconds, seconds, type, text});
+        }
+      } else {
+        alert_entry = nullptr;
+      }
+    } else if (e.which == cereal::Event::Which::USER_FLAG) {
+      entries.emplace_back(Entry{seconds, seconds, TimelineType::UserFlag});
+    }
   }
+  return entries;
 }
+
+
