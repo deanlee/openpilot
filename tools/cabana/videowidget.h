@@ -55,7 +55,6 @@ private:
   void paintEvent(QPaintEvent *ev) override;
 
   QMap<uint64_t, QPixmap> thumbnails;
-  std::map<uint64_t, AlertInfo> alerts;
   InfoLabel *thumbnail_label;
 };
 

@@ -246,7 +246,13 @@ Slider::Slider(QWidget *parent) : QSlider(Qt::Horizontal, parent) {
 }
 
 AlertInfo Slider::alertInfo(double seconds) {
-  uint64_t mono_time = can->toMonoTime(seconds);
+  auto replay = getReplay();
+  if (!replay) return;
+
+  auto timeline = replay->getTimeline();
+  auto it std::lower_bound(timeline->begin(), timeline->end(), [seconds](const Timeline::Entry &entry) {
+    return seconds < entry.start_ts && entry.type >= TimelineType::Engaged;
+  });
   auto alert_it = alerts.lower_bound(mono_time);
   bool has_alert = (alert_it != alerts.end()) && ((alert_it->first - mono_time) <= 1e8);
   return has_alert ? alert_it->second : AlertInfo{};
@@ -295,7 +301,7 @@ void Slider::paintEvent(QPaintEvent *ev) {
 
   auto replay = getReplay();
   if (replay) {
-    for (auto [begin, end, type, _] : replay->getTimeline()) {
+    for (auto [begin, end, type, _] : *replay->getTimeline()) {
       fillRange(begin, end, timeline_colors[(int)type]);
     }
 

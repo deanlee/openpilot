@@ -21,11 +21,11 @@ public:
     std::string text;
   };
 
-  Timeline() = default;
+  Timeline();
   ~Timeline();
 
   std::optional<uint64_t> find(double cur_ts, FindFlag flag);
-  const std::vector<Entry> get() const;
+  const std::shared_ptr<std::vector<Entry>> get() const;
   void initialize(const Route &route, uint64_t route_start_ts, bool local_cache,
                   std::function<void(std::shared_ptr<LogReader>)> callback);
 
@@ -37,5 +37,5 @@ private:
   mutable std::mutex mutex_;
   std::thread thread_;
   std::atomic<bool> exit_ = false;
-  std::vector<Entry> timeline_;
+  std::shared_ptr<std::vector<Entry>> timeline_;
 };

@@ -73,7 +73,7 @@ public:
   inline float getSpeed() const { return speed_; }
   inline const SegmentMap &segments() const { return segments_; }
   inline const std::string &carFingerprint() const { return car_fingerprint_; }
-  inline const std::vector<Timeline::Entry> getTimeline() const { return timeline_.get(); }
+  inline const std::shared_ptr<std::vector<Timeline::Entry>> getTimeline() const { return timeline_.get(); }
 
   // Event callback functions
   std::function<void(std::shared_ptr<LogReader>)> onQLogLoaded = nullptr;
