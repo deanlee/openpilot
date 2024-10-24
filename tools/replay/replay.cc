@@ -279,33 +279,34 @@ void Replay::streamThread() {
   std::unique_lock lk(stream_lock_);
 
   while (true) {
-    stream_cv_.wait(lk, [=]() { return exit_ || (events_ready_ && !paused_); });
+    stream_cv_.wait(lk, [this]() { return exit_ || (events_ready_ && !paused_); });
     if (exit_) break;
 
-    const auto local_events = event_data_;  // copy shared_ptr
-    const auto &events_list = local_events->events;
+    // Copy shared_ptr to ensure the thread holds a valid reference while processing events
+    const auto thread_event_data = event_data_;
+    const auto &events = thread_event_data->events;
 
-    auto first = std::upper_bound(events_list.cbegin(), events_list.cend(),
+    auto first = std::upper_bound(events.cbegin(), events.cend(),
                                   Event(cur_which, cur_mono_time_, {}));
-    if (first == events_list.cend()) {
+    if (first == events.cend()) {
       rInfo("waiting for events...");
       events_ready_ = false;
       continue;
     }
 
-    auto it = publishEvents(local_events.get(), first, events_list.cend());
+    auto it = publishEvents(thread_event_data.get(), first, events.cend());
 
     // Ensure frames are sent before unlocking to prevent race conditions
     if (camera_server_) {
       camera_server_->waitForSent();
     }
 
-    if (it != events_list.cend()) {
+    if (it != events.cend()) {
       cur_which = it->which;
     } else if (!hasFlag(REPLAY_FLAG_NO_LOOP)) {
       // Check for loop end and restart if necessary
       int last_segment = seg_mgr_.route_.segments().rbegin()->first;
-      if (current_segment_ >= last_segment && local_events->segments.count(last_segment)) {
+      if (current_segment_ >= last_segment && thread_event_data->segments.count(last_segment)) {
         rInfo("reaches the end of route, restart from beginning");
         seeking_to_ = minSeconds();
         cur_mono_time_ = minSeconds() * 1e9 + route_start_ts_;
