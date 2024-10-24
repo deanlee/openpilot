@@ -59,7 +59,7 @@ private:
   mutable std::mutex mutex_;
   std::condition_variable cv_;
   std::thread thread_;
-  std::atomic<int> cur_seg_num_ = 0;
+  std::atomic<int> cur_seg_num_ = -1;
   bool exit_ = false;
 
   SegmentMap segments_;

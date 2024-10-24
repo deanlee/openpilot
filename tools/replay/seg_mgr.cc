@@ -47,9 +47,9 @@ void SegmentManager::setCurrentSegment(int seg_num) {
 }
 
 void SegmentManager::manageSegmentCache() {
-  while (true) {
+  while (!exit_) {
     std::unique_lock lock(mutex_);
-    cv_.wait(lock);
+    cv_.wait(lock, [&]() { return exit_ || cur_seg_num_ != -1; });
     if (exit_) break;
 
     auto cur = segments_.lower_bound(cur_seg_num_);
@@ -106,8 +106,11 @@ void SegmentManager::mergeSegments(const SegmentMap::iterator &begin, const Segm
 }
 
 void SegmentManager::loadSegmentsInRange(SegmentMap::iterator begin, SegmentMap::iterator cur, SegmentMap::iterator end) {
-  auto loadNextSegment = [this](auto first, auto last) {
-    auto it = std::find_if(first, last, [](const auto &seg_it) { return !seg_it.second || !seg_it.second->isLoaded(); });
+  auto tryLoadSegment = [this](auto first, auto last) {
+    auto it = std::find_if(first, last, [](const auto &seg_it) {
+      return !seg_it.second || !seg_it.second->isLoaded();
+    });
+
     if (it != last && !it->second) {
       rDebug("loading segment: %d...", it->first);
       it->second = std::make_shared<Segment>(
@@ -119,8 +122,8 @@ void SegmentManager::loadSegmentsInRange(SegmentMap::iterator begin, SegmentMap:
   };
 
   // Try forward loading, then reverse if necessary
-  if (!loadNextSegment(cur, end)) {
-    loadNextSegment(std::make_reverse_iterator(cur), std::make_reverse_iterator(begin));
+  if (!tryLoadSegment(cur, end)) {
+    tryLoadSegment(std::make_reverse_iterator(cur), std::make_reverse_iterator(begin));
   }
 }
 
