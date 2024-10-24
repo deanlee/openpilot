@@ -27,7 +27,7 @@ Replay::Replay(const std::string &route, std::vector<std::string> allow, std::ve
   }
 
   initializeSockets(allow, block);
-  setupSegmentManager(allow);
+  initializeSegmentManager(allow);
 }
 
 Replay::~Replay() {
@@ -56,7 +56,7 @@ void Replay::initializeSockets(const std::vector<std::string> &allow, const std:
   }
 }
 
-void Replay::setupSegmentManager(const std::vector<std::string> &allow) {
+void Replay::initializeSegmentManager(const std::vector<std::string> &allow) {
   seg_mgr_.setFlags(flags_);
   seg_mgr_.setCallback([this]() { onSegmentMerged(); });
 
@@ -78,7 +78,7 @@ void Replay::stop() {
     stream_thread_.join();
     rInfo("shutdown: done");
   }
-  camera_server_.reset(nullptr);
+  camera_server_.reset();
 }
 
 bool Replay::load() {
@@ -108,7 +108,7 @@ void Replay::seekTo(double seconds, bool relative) {
   updateEvents([=]() {
     double target_time = relative ? seconds + currentSeconds() : seconds;
     target_time = std::max(0.0, target_time);
-    int target_segment = (int)target_time / 60;
+    int target_segment = target_time / 60;
     if (!seg_mgr_.hasSegment(target_segment)) {
       rWarning("Invalid seek to %.2f s (segment %d)", target_time, target_segment);
       return true;

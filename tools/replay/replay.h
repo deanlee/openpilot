@@ -67,7 +67,7 @@ public:
 
 private:
   void initializeSockets(const std::vector<std::string> &allow, const std::vector<std::string> &block);
-  void setupSegmentManager(const std::vector<std::string> &allow);
+  void initializeSegmentManager(const std::vector<std::string> &allow);
   void pauseStreamThread();
   void startStream();
   void streamThread();
