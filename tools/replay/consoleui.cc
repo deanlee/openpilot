@@ -6,8 +6,6 @@
 #include <tuple>
 #include <utility>
 
-#include <QApplication>
-
 #include "common/ratekeeper.h"
 #include "common/util.h"
 #include "common/version.h"
@@ -373,7 +371,6 @@ int ConsoleUI::exec() {
       logs.clear();
     }
 
-    qApp->processEvents();
     rk.keepTime();
   }
   return 0;

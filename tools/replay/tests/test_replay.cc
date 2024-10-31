@@ -1,6 +1,7 @@
 #include <chrono>
 #include <thread>
 
+#define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 #include "common/util.h"
 #include "tools/replay/replay.h"

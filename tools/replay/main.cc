@@ -1,6 +1,5 @@
 #include <getopt.h>
 
-#include <QApplication>
 #include <iostream>
 #include <map>
 #include <string>
@@ -126,7 +125,6 @@ int main(int argc, char *argv[]) {
   util::set_file_descriptor_limit(1024);
 #endif
 
-  QCoreApplication app(argc, argv);
   ReplayConfig config;
 
   if (!parseArgs(argc, argv, config)) {
