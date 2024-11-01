@@ -45,8 +45,8 @@ public:
     MessageId msg_id;
     const cabana::Signal *sig = nullptr;
     QXYSeries *series = nullptr;
-    std::vector<QPointF> vals;
-    std::vector<QPointF> step_vals;
+    QVector<QPointF> vals;
+    QVector<QPointF> step_vals;
     QPointF track_pt{};
     SegmentTree segment_tree;
     double min = 0;
@@ -66,7 +66,7 @@ private slots:
 
 private:
   void appendCanEvents(const cabana::Signal *sig, const std::vector<const CanEvent *> &events,
-                       std::vector<QPointF> &vals, std::vector<QPointF> &step_vals);
+                       QVector<QPointF> &vals, QVector<QPointF> &step_vals, int val_index, int step_vals_index);
   void createToolButtons();
   void addSeries(QXYSeries *series);
   void contextMenuEvent(QContextMenuEvent *event) override;
