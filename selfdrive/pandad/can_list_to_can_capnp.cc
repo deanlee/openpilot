@@ -32,20 +32,19 @@ void can_capnp_to_can_list_cpp(const std::vector<std::string> &strings, std::vec
 
     auto frames = sendcan ? event.getSendcan() : event.getCan();
 
-    // Add new CanData entry
-    CanData &can_data = can_list.emplace_back();
-    can_data.nanos = event.getLogMonoTime();
-    can_data.frames.reserve(frames.size());
+    auto nanos = event.getLogMonoTime();
 
     // Populate CAN frames
     for (const auto &frame : frames) {
-      CanFrame &can_frame = can_data.frames.emplace_back();
+      CanData &can_frame = can_list.emplace_back();
+      can_frame.nanos = nanos;
       can_frame.src = frame.getSrc();
       can_frame.address = frame.getAddress();
 
       // Copy CAN data
       auto dat = frame.getDat();
-      can_frame.dat.assign(dat.begin(), dat.end());
+      can_frame.dat_length = dat.size();
+      memcpy(can_frame.dat, dat.begin(), dat.size());
     }
   }
 }

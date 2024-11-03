@@ -5,7 +5,9 @@ from libcpp.vector cimport vector
 from libcpp.string cimport string
 from libcpp cimport bool
 from libc.stdint cimport uint8_t, uint32_t, uint64_t
-
+from libc.string cimport memcpy
+import numpy as np
+cimport numpy as np
 cdef extern from "panda.h":
   cdef struct can_frame:
     long address
@@ -45,12 +47,7 @@ def can_capnp_to_list(strings, msgtype='can'):
   cdef vector[CanData] data
   can_capnp_to_can_list_cpp(strings, data, msgtype == 'sendcan')
 
-  result = []
-  cdef CanData *d
-  cdef vector[CanData].iterator it = data.begin()
-  while it != data.end():
-    d = &deref(it)
-    frames = [(f.address, (<char *>&f.dat[0])[:f.dat.size()], f.src) for f in d.frames]
-    result.append((d.nanos, frames))
-    preinc(it)
-  return result
+  cdef np.ndarray[np.uint8_t, ndim=1] byte_array = np.empty(data.size() * sizeof(CanData), dtype=np.uint8)
+  memcpy(<void*> byte_array.data, <const void*> &data[0], data.size() * sizeof(CanData))
+
+  return byte_array
