@@ -125,6 +125,8 @@ ChartsWidget::ChartsWidget(QWidget *parent) : QFrame(parent) {
   setWhatsThis(tr(R"(
     <b>Chart view</b><br />
     <!-- TODO: add descprition here -->
+    Hold Shift and drag the mouse on the chart<br />
+    to scrub through the data.<br />
   )"));
 }
 
