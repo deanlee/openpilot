@@ -429,7 +429,7 @@ void ChartsWidget::alignCharts() {
   for (auto c : charts) {
     plot_left = std::max(plot_left, c->y_label_width);
   }
-  plot_left = std::max((plot_left / 10) * 10 + 10, 50);
+  plot_left = (plot_left / 10) * 10 + 10;
   for (auto c : charts) {
     c->updatePlotArea(plot_left);
   }
