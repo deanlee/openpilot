@@ -38,6 +38,7 @@ ChartView::ChartView(const std::pair<double, double> &x_range, ChartsWidget *par
   chart()->legend()->layout()->setContentsMargins(0, 0, 0, 0);
   chart()->legend()->setShowToolTips(true);
   chart()->setMargins({0, 0, 0, 0});
+  chart()->layout()->setContentsMargins(6, 6, 6, 6);
 
   axis_x->setRange(x_range.first, x_range.second);
 
