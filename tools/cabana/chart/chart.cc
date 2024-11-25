@@ -207,9 +207,9 @@ void ChartView::updatePlotArea(int left_pos, bool force) {
 
     qreal left, top, right, bottom;
     chart()->layout()->getContentsMargins(&left, &top, &right, &bottom);
-    QSizeF legend_size = chart()->legend()->layout()->minimumSize();
-    legend_size.setWidth(manage_btn_proxy->sceneBoundingRect().left() - move_icon->sceneBoundingRect().right());
-    chart()->legend()->setGeometry({move_icon->sceneBoundingRect().topRight(), legend_size});
+    int legend_height = chart()->legend()->layout()->minimumSize().height();
+    int legend_padding = rect().right() - manage_btn_proxy->sceneBoundingRect().left();
+    chart()->legend()->setGeometry({QPoint(legend_padding, top), QSize(rect().width() - legend_padding * 2, legend_height)});
 
     // add top space for signal value
     int adjust_top = chart()->legend()->geometry().height() + QFontMetrics(signal_value_font).height() + 3;
