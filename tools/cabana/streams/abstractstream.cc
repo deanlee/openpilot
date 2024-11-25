@@ -216,36 +216,25 @@ inline QColor blend(const QColor &a, const QColor &b) {
   return QColor((a.red() + b.red()) / 2, (a.green() + b.green()) / 2, (a.blue() + b.blue()) / 2, (a.alpha() + b.alpha()) / 2);
 }
 
-// Calculate the frequency from the past one minute data
-double calc_freq(const MessageId &msg_id, double current_sec) {
-  const auto &events = can->events(msg_id);
-  if (events.empty()) return 0.0;
-
-  auto current_mono_time = can->toMonoTime(current_sec);
-  auto start_mono_time = can->toMonoTime(current_sec - 59);
-
-  auto first = std::lower_bound(events.begin(), events.end(), start_mono_time, CompareCanEvent());
-  auto last = std::upper_bound(first, events.end(), current_mono_time, CompareCanEvent());
-
-  int count = std::distance(first, last);
-  if (count > 1) {
-    double duration = ((*std::prev(last))->mono_time - (*first)->mono_time) / 1e9;
-    return count / duration;
-  }
-  return 0;
-}
-
 }  // namespace
+
+void CanData::update_freq(double current_sec) {
+  constexpr float alpha = 0.1;
+  if (ts > 0) {
+    double dt = current_sec  - ts;
+    if (dt > 0) {
+      double new_freq = 1.0 / dt;
+      freq = alpha * new_freq + (1 - alpha) * freq;
+    }
+  }
+}
 
 void CanData::compute(const MessageId &msg_id, const uint8_t *can_data, const int size, double current_sec,
                       double playback_speed, const std::vector<uint8_t> &mask, double in_freq) {
+
+  update_freq(current_sec);
   ts = current_sec;
   ++count;
-
-  if (auto sec = seconds_since_boot(); (sec - last_freq_update_ts) >= 1) {
-    last_freq_update_ts = sec;
-    freq = !in_freq ? calc_freq(msg_id, ts) : in_freq;
-  }
 
   if (dat.size() != size) {
     dat.resize(size);

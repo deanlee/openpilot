@@ -21,7 +21,7 @@
 struct CanData {
   void compute(const MessageId &msg_id, const uint8_t *dat, const int size, double current_sec,
                double playback_speed, const std::vector<uint8_t> &mask, double in_freq = 0);
-
+  void update_freq(double sec);
   double ts = 0.;
   uint32_t count = 0;
   double freq = 0;
@@ -36,7 +36,6 @@ struct CanData {
     std::array<uint32_t, 8> bit_change_counts;
   };
   std::vector<ByteLastChange> last_changes;
-  double last_freq_update_ts = 0;
 };
 
 struct CanEvent {
