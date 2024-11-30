@@ -21,10 +21,7 @@ void renderCameraViews() {
 }
 
 int main(int argc, char *argv[]) {
-  SetTraceLogLevel(LOG_NONE);
-  SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-  InitWindow(0, 0, "Watch 3 Cameras");
-  SetTargetFPS(20);
+  initApp("Watch3", 20);
 
   renderCameraViews();
 
