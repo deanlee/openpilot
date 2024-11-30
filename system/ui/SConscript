@@ -1,9 +1,9 @@
-Import('env', 'arch', 'common')
+Import('env', 'arch', 'common', 'messaging', 'visionipc')
 
 renv = env.Clone()
 
 rayutil = env.Library("rayutil", ['raylib/util.cc'], LIBS='raylib')
-linked_libs = ['raylib', rayutil, common]
+linked_libs = [visionipc, messaging, common,  'raylib', rayutil]
 renv['LIBPATH'] += [f'#third_party/raylib/{arch}/']
 
 mac_frameworks = []
@@ -14,5 +14,5 @@ elif arch == 'larch64':
 else:
   linked_libs += ['OpenCL', 'dl', 'pthread']
 
-if arch != 'aarch64':
-  renv.Program("spinner", ["raylib/spinner.cc"], LIBS=linked_libs, FRAMEWORKS=mac_frameworks)
+renv.Program("spinner", ["raylib/spinner.cc"], LIBS=linked_libs, FRAMEWORKS=mac_frameworks)
+renv.Program("watch3", ["raylib/watch3.cc", "raylib/elements/cameraview.cc"], LIBS=linked_libs, FRAMEWORKS=mac_frameworks)
