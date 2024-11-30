@@ -1,4 +1,5 @@
 #include "system/ui/raylib/elements/cameraview.h"
+#include "system/ui/raylib/util.h"
 
 void renderCameraViews() {
   CameraView roadCamera("camerad", VISION_STREAM_ROAD);
