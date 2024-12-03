@@ -29,6 +29,7 @@ public:
   void refresh();
   void updateState();
   void updateItem(int row, int col, uint8_t val, const QColor &color);
+  std::vector<std::array<uint32_t, 8>> updateBitFlipCount(int size);
   QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
   QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
   int rowCount(const QModelIndex &parent = QModelIndex()) const override { return row_count; }

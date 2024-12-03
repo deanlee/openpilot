@@ -292,6 +292,24 @@ void BinaryViewModel::updateItem(int row, int col, uint8_t val, const QColor &co
   }
 }
 
+std::vector<std::array<uint32_t, 8>> BinaryViewModel::updateBitFlipCount(int size) {
+  std::vector<std::array<uint32_t, 8>> result(size);
+  std::vector<uint8_t> prev_values(size);
+  for (auto event : can->events(msg_id)) {
+    for (int i = 0; i < event->size; ++i) {
+      auto cur = event->dat[i];
+      const uint8_t diff = (cur ^ prev_values[i]);
+      auto &last_change = result[i];
+      for (int bit = 0; bit < 8; bit++) {
+        if (diff & (1u << bit)) {
+          ++last_change[7 - bit];
+        }
+      }
+    }
+  }
+  return result;
+}
+
 void BinaryViewModel::updateState() {
   const auto &last_msg = can->lastMessage(msg_id);
   const auto &binary = last_msg.dat;
@@ -306,15 +324,16 @@ void BinaryViewModel::updateState() {
   const double max_f = 255.0;
   const double factor = 0.25;
   const double scaler = max_f / log2(1.0 + factor);
+  auto last_changes = updateBitFlipCount(binary.size());
   for (int i = 0; i < binary.size(); ++i) {
     for (int j = 0; j < 8; ++j) {
       auto &item = items[i * column_count + j];
       int val = ((binary[i] >> (7 - j)) & 1) != 0 ? 1 : 0;
       // Bit update frequency based highlighting
       double offset = !item.sigs.empty() ? 50 : 0;
-      auto n = last_msg.last_changes[i].bit_change_counts[j];
+      auto n = last_changes[i][j];
       double min_f = n == 0 ? offset : offset + 25;
-      double alpha = std::clamp(offset + log2(1.0 + factor * (double)n / (double)last_msg.count) * scaler, min_f, max_f);
+      double alpha = std::clamp(offset + log2(1.0 + factor * (double)n) * scaler, min_f, max_f);
       auto color = item.bg_color;
       color.setAlpha(alpha);
       updateItem(i, j, val, color);
