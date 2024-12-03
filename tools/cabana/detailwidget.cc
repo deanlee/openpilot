@@ -42,9 +42,18 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   warning_widget->hide();
   main_layout->addWidget(warning_widget);
 
+  auto binary_container = new QWidget(this);
+  auto *binary_layout = new QVBoxLayout(binary_container);
+  auto dynamic_heatmap = new QRadioButton(tr("Dyamic"));
+  auto timerange_heatmap = new QRadioButton(tr("Time range"));
+  auto *heatmap_type_layout = new QHBoxLayout;
+  heatmap_type_layout->addWidet(dynamic_heatmap);
+  heatmap_type_layout->addWidet(timerange_heatmap);
+  binary_layout->addWidget(binary_view = new BinaryView(this));
+  binary_layout->addStretch();
   // msg widget
   splitter = new QSplitter(Qt::Vertical, this);
-  splitter->addWidget(binary_view = new BinaryView(this));
+  splitter->addWidget(binary_container);
   splitter->addWidget(signal_view = new SignalView(charts, this));
   binary_view->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
   signal_view->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
