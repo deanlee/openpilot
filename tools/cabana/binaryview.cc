@@ -315,7 +315,7 @@ void BinaryViewModel::updateState() {
   const auto &last_msg = can->lastMessage(msg_id);
   const auto &binary = last_msg.dat;
 
-  // Update row count and resize items if necessary
+  // Adjust row count and resize items if necessary
   if (binary.size() > row_count) {
     beginInsertRows({}, row_count, binary.size() - 1);
     row_count = binary.size();
@@ -323,58 +323,57 @@ void BinaryViewModel::updateState() {
     endInsertRows();
   }
 
+  // Parameters for controlling heatmap appearance
   const double max_f = 255.0;
-  const double factor = 0.15;  // Reduced factor to emphasize smaller flips
+  const double factor = 0.15;   // Adjust factor for sharper or smoother alpha transitions
   const double scaler = max_f / log2(1.0 + factor);
-
-  // You can play around with these constants to better control the curve
   const double min_alpha_boost = 0.6;  // Boost for small flips
-
-  // Get the bit-flip counts for current binary data
-  auto bit_flip_count = updateBitFlipCount(binary.size());
+  const double min_alpha = 50;         // Minimum alpha for changed bits
+  const double no_change_alpha = 0;   // Alpha value for bits with no changes
 
   // Find the maximum bit flip count for normalization
   uint32_t max_bit_flip = 0;
-  for (const auto &row : bit_flip_count) {
-    for (uint32_t count : row) {
+  for (const auto &row : last_msg.last_changes) {
+    for (auto count : row.bit_change_counts) {
       if (count > max_bit_flip) {
         max_bit_flip = count;
       }
     }
   }
 
-  // Update each row of the UI with color based on bit flip count
+  // Update each row in the UI with the color based on the bit flip count
   for (int i = 0; i < row_count; ++i) {
     for (int j = 0; j < 8; ++j) {
       auto &item = items[i * column_count + j];
       int bit_val = ((binary[i] >> (7 - j)) & 1) ? 1 : 0;
+      auto n = last_msg.last_changes[i].bit_change_counts[j];
 
-      // Normalize bit flip count
-      double normalized_flip = static_cast<double>(bit_flip_count[i][j]) / static_cast<double>(max_bit_flip);
+      // Default alpha to constant value for unchanged bits
+      double alpha = no_change_alpha;
+      if (n > 0) {
+        // Normalize bit flip count
+        double normalized_flip = static_cast<double>(n) / static_cast<double>(max_bit_flip);
 
-      // Check if there were no changes in the bit; set alpha to zero in that case
-      double alpha = 0;
-      if (bit_flip_count[i][j] > 0) {
-        // Apply a boost for smaller flips to improve visual distinction
+        // Apply a boost for smaller flip counts to enhance visual differences
         double boosted_flip = normalized_flip < 0.3 ? normalized_flip * min_alpha_boost : normalized_flip;
 
-        // Calculate alpha transparency based on boosted normalized bit flip count
-        double min_f = 50;  // Minimum alpha value for changed bits
-        alpha = std::clamp(min_f + log2(1.0 + factor * boosted_flip) * scaler, min_f, max_f);
+        // Calculate alpha transparency, ensuring it does not fall below minimum alpha for changed bits
+        alpha = std::clamp(min_alpha + log2(1.0 + factor * boosted_flip) * scaler, min_alpha, max_f);
       }
 
-      // Set color and alpha transparency for the UI element
+      // Set color with computed alpha value
       QColor color = item.bg_color;
       color.setAlpha(alpha);
 
-      // Update the visual item with the computed value and color
+      // Update the visual item with the bit value and color
       updateItem(i, j, bit_val, color);
     }
 
-    // Optionally, display the raw byte value for reference
+    // Optionally, display the raw byte value
     updateItem(i, 8, binary[i], last_msg.colors[i]);
   }
 }
+
 
 
 QVariant BinaryViewModel::headerData(int section, Qt::Orientation orientation, int role) const {
