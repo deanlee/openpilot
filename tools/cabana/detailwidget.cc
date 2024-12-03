@@ -154,8 +154,6 @@ void DetailWidget::refresh() {
     for (auto s : binary_view->getOverlappingSignals()) {
       warnings.push_back(tr("%1 has overlapping bits.").arg(s->name));
     }
-  } else {
-    warnings.push_back(tr("Drag-Select in binary view to create new signal."));
   }
 
   QString msg_name = msg ? QString("%1 (%2)").arg(msg->name, msg->transmitter) : msgName(msg_id);
