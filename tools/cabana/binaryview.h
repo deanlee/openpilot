@@ -54,6 +54,7 @@ public:
   MessageId msg_id;
   int row_count = 0;
   const int column_count = 9;
+  bool dynamic_heatmap = true;
 };
 
 class BinaryView : public QTableView {
@@ -61,6 +62,7 @@ class BinaryView : public QTableView {
 
 public:
   BinaryView(QWidget *parent = nullptr);
+  void setDynamicHeatmap(bool dynamic) { model->dynamic_heatmap = dynamic; }
   void setMessage(const MessageId &message_id);
   void highlight(const cabana::Signal *sig);
   QSet<const cabana::Signal*> getOverlappingSignals() const;

@@ -293,9 +293,18 @@ void BinaryViewModel::updateItem(int row, int col, uint8_t val, const QColor &co
 }
 
 std::vector<std::array<uint32_t, 8>> BinaryViewModel::updateBitFlipCount(int size) {
+  auto time_range = can->timeRange();
+  auto events = can->events(msg_id);
+  auto first = events.begin();
+  auto last = events.end();
+  if (time_range) {
+    first = std::lower_bound(events.begin(), events.end(), can->toMonoTime(time_range->first), CompareCanEvent());
+    last = std::upper_bound(events.begin(), events.end(), can->toMonoTime(time_range->second), CompareCanEvent());
+  }
   std::vector<std::array<uint32_t, 8>> result(size);
   std::vector<uint8_t> prev_values(size, 0);
-  for (auto event : can->events(msg_id)) {
+  for (auto it = first; it != last; ++it) {
+    auto *event = *it;
     for (int i = 0; i < event->size; ++i) {
       auto cur = event->dat[i];
       const uint8_t diff = (cur ^ prev_values[i]);
@@ -331,10 +340,12 @@ void BinaryViewModel::updateState() {
   const double min_alpha = 50;         // Minimum alpha for changed bits
   const double no_change_alpha = 0;   // Alpha value for bits with no changes
 
+ auto bit_flips = dynamic_heatmap ? last_msg.bit_flips : updateBitFlipCount(row_count);
+
   // Find the maximum bit flip count for normalization
   uint32_t max_bit_flip = 0;
-  for (const auto &row : last_msg.last_changes) {
-    for (auto count : row.bit_change_counts) {
+  for (const auto &row : bit_flips) {
+    for (auto count : row) {
       if (count > max_bit_flip) {
         max_bit_flip = count;
       }
@@ -346,7 +357,7 @@ void BinaryViewModel::updateState() {
     for (int j = 0; j < 8; ++j) {
       auto &item = items[i * column_count + j];
       int bit_val = ((binary[i] >> (7 - j)) & 1) ? 1 : 0;
-      auto n = last_msg.last_changes[i].bit_change_counts[j];
+      auto n = bit_flips[i][j];
 
       // Default alpha to constant value for unchanged bits
       double alpha = no_change_alpha;

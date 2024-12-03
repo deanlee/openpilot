@@ -1,7 +1,9 @@
 #include "tools/cabana/detailwidget.h"
 
 #include <QFormLayout>
+#include <QLabel>
 #include <QMenu>
+#include <QRadioButton>
 #include <QSpacerItem>
 
 #include "tools/cabana/commands.h"
@@ -45,12 +47,15 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   auto binary_container = new QWidget(this);
   auto *binary_layout = new QVBoxLayout(binary_container);
   auto dynamic_heatmap = new QRadioButton(tr("Dyamic"));
-  auto timerange_heatmap = new QRadioButton(tr("Time range"));
+  auto *timerange_heatmap = new QRadioButton(tr("Time range"));
   auto *heatmap_type_layout = new QHBoxLayout;
-  heatmap_type_layout->addWidet(dynamic_heatmap);
-  heatmap_type_layout->addWidet(timerange_heatmap);
+  binary_layout->addWidget(new QLabel(tr("Heatmap:")));
+  heatmap_type_layout->addWidget(dynamic_heatmap);
+  heatmap_type_layout->addWidget(timerange_heatmap);
+  heatmap_type_layout->addStretch();
+  binary_layout->addLayout(heatmap_type_layout);
   binary_layout->addWidget(binary_view = new BinaryView(this));
-  binary_layout->addStretch();
+
   // msg widget
   splitter = new QSplitter(Qt::Vertical, this);
   splitter->addWidget(binary_container);
@@ -87,6 +92,9 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   });
   QObject::connect(tabbar, &QTabBar::tabCloseRequested, tabbar, &QTabBar::removeTab);
   QObject::connect(charts, &ChartsWidget::seriesChanged, signal_view, &SignalView::updateChartState);
+  connect(dynamic_heatmap, &QRadioButton::clicked, [this]() { binary_view->setDynamicHeatmap(true); });
+  connect(timerange_heatmap, &QRadioButton::clicked, [this]() { binary_view->setDynamicHeatmap(false); });
+
 }
 
 void DetailWidget::showTabBarContextMenu(const QPoint &pt) {
