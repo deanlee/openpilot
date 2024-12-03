@@ -23,17 +23,22 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   main_layout->addWidget(tabbar);
 
   // message title
+
+  auto dynamic_heatmap = new QRadioButton(tr("Live"));
+  dynamic_heatmap->setChecked(true);
+  auto *timerange_heatmap = new QRadioButton(tr("All"));
+
   QHBoxLayout *title_layout = new QHBoxLayout();
   title_layout->setContentsMargins(3, 6, 3, 0);
-  auto spacer = new QSpacerItem(0, 1);
-  title_layout->addItem(spacer);
   title_layout->addWidget(name_label = new ElidedLabel(this), 1);
   name_label->setStyleSheet("QLabel{font-weight:bold;}");
-  name_label->setAlignment(Qt::AlignCenter);
+  title_layout->addStretch();
+  title_layout->addWidget(new QLabel(tr("Heatmap:")));
+  title_layout->addWidget(dynamic_heatmap);
+  title_layout->addWidget(timerange_heatmap);
   auto edit_btn = new ToolButton("pencil", tr("Edit Message"));
   title_layout->addWidget(edit_btn);
   title_layout->addWidget(remove_btn = new ToolButton("x-lg", tr("Remove Message")));
-  spacer->changeSize(edit_btn->sizeHint().width() * 2 + 9, 1);
   main_layout->addLayout(title_layout);
 
   // warning
@@ -44,25 +49,10 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   warning_widget->hide();
   main_layout->addWidget(warning_widget);
 
-  // binary widget
-  auto binary_container = new QWidget(this);
-  auto *binary_layout = new QVBoxLayout(binary_container);
-  binary_layout->setContentsMargins(0, 0, 0, 0);
-  auto dynamic_heatmap = new QRadioButton(tr("Dyamic"));
-  dynamic_heatmap->setChecked(true);
-  auto *timerange_heatmap = new QRadioButton(tr("Time range"));
-  auto *heatmap_type_layout = new QHBoxLayout;
-  heatmap_type_layout->setContentsMargins(0, 0, 0, 0);
-  heatmap_type_layout->addWidget(new QLabel(tr("Heatmap:")));
-  heatmap_type_layout->addWidget(dynamic_heatmap);
-  heatmap_type_layout->addWidget(timerange_heatmap);
-  heatmap_type_layout->addStretch();
-  binary_layout->addLayout(heatmap_type_layout);
-  binary_layout->addWidget(binary_view = new BinaryView(this));
 
   // msg widget
   splitter = new QSplitter(Qt::Vertical, this);
-  splitter->addWidget(binary_container);
+  splitter->addWidget(binary_view = new BinaryView(this));
   splitter->addWidget(signal_view = new SignalView(charts, this));
   binary_view->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
   signal_view->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
