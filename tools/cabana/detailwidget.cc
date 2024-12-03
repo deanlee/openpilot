@@ -94,7 +94,10 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   QObject::connect(charts, &ChartsWidget::seriesChanged, signal_view, &SignalView::updateChartState);
   connect(dynamic_heatmap, &QRadioButton::clicked, [this]() { binary_view->setDynamicHeatmap(true); });
   connect(timerange_heatmap, &QRadioButton::clicked, [this]() { binary_view->setDynamicHeatmap(false); });
-
+  connect(can, &AbstractStream::timeRangeChanged, [timerange_heatmap]() {
+    auto time_range = can->timeRange();
+    timerange_heatmap->setText(time_range ? tr("%1-%2").arg(time_range->first, 0, 'f', 2).arg(time_range->second, 0, 'f', 2) : tr("All"));
+  });
 }
 
 void DetailWidget::showTabBarContextMenu(const QPoint &pt) {

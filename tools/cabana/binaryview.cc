@@ -305,16 +305,22 @@ std::vector<std::array<uint32_t, 8>> BinaryViewModel::updateBitFlipCount(int siz
   std::vector<uint8_t> prev_values(size, 0);
   for (auto it = first; it != last; ++it) {
     auto *event = *it;
-    for (int i = 0; i < event->size; ++i) {
-      auto cur = event->dat[i];
-      const uint8_t diff = (cur ^ prev_values[i]);
-      auto &last_change = result[i];
-      for (int bit = 0; bit < 8; bit++) {
-        if (diff & (1u << bit)) {
-          ++last_change[7 - bit];
-        }
+    if (it == first) {
+      for (int i = 0; i < event->size; ++i) {
+        prev_values[i] = event->dat[i];
       }
-      prev_values[i] = cur;
+    } else {
+      for (int i = 0; i < event->size; ++i) {
+        auto cur = event->dat[i];
+        const uint8_t diff = (cur ^ prev_values[i]);
+        auto &last_change = result[i];
+        for (int bit = 0; bit < 8; bit++) {
+          if (diff & (1u << bit)) {
+            ++last_change[7 - bit];
+          }
+        }
+        prev_values[i] = cur;
+      }
     }
   }
   return result;
