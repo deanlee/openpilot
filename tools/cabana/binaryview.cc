@@ -358,7 +358,7 @@ void BinaryViewModel::updateState() {
       int bit_val = ((binary[i] >> (7 - j)) & 1) ? 1 : 0;
       auto n = bit_flips[i][j];
       double alpha = no_change_alpha;
-      if (n > 0) {
+      if (n > 0 && max_bit_flip > 0) {
         double normalized_flip = static_cast<double>(n) / static_cast<double>(max_bit_flip);
         double boosted_flip = normalized_flip < 0.3 ? normalized_flip * min_alpha_boost : normalized_flip;
         alpha = std::clamp(min_alpha + log2(1.0 + factor * boosted_flip) * scaler, min_alpha, max_f);
