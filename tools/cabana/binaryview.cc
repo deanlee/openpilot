@@ -352,7 +352,7 @@ void BinaryViewModel::updateState() {
   }
 
   // Update each row in the UI with the color based on the bit flip count
-  for (int i = 0; i < row_count; ++i) {
+  for (int i = 0; i < binary.size(); ++i) {
     for (int j = 0; j < 8; ++j) {
       auto &item = items[i * column_count + j];
       int bit_val = ((binary[i] >> (7 - j)) & 1) ? 1 : 0;

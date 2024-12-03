@@ -49,6 +49,7 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   auto *binary_layout = new QVBoxLayout(binary_container);
   binary_layout->setContentsMargins(0, 0, 0, 0);
   auto dynamic_heatmap = new QRadioButton(tr("Dyamic"));
+  dynamic_heatmap->setChecked(true);
   auto *timerange_heatmap = new QRadioButton(tr("Time range"));
   auto *heatmap_type_layout = new QHBoxLayout;
   heatmap_type_layout->setContentsMargins(0, 0, 0, 0);
