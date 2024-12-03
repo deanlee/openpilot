@@ -333,7 +333,7 @@ void BinaryViewModel::updateState() {
       double offset = !item.sigs.empty() ? 50 : 0;
       auto n = last_changes[i][j];
       double min_f = n == 0 ? offset : offset + 25;
-      double alpha = std::clamp(offset + log2(1.0 + factor * (double)n) * scaler, min_f, max_f);
+      double alpha = std::clamp(offset + log2(1.0 + factor * (double)n / (double)last_msg.count) * scaler, min_f, max_f);
       auto color = item.bg_color;
       color.setAlpha(alpha);
       updateItem(i, j, val, color);
