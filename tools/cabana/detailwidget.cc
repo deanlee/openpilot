@@ -44,12 +44,15 @@ DetailWidget::DetailWidget(ChartsWidget *charts, QWidget *parent) : charts(chart
   warning_widget->hide();
   main_layout->addWidget(warning_widget);
 
+  // binary widget
   auto binary_container = new QWidget(this);
   auto *binary_layout = new QVBoxLayout(binary_container);
+  binary_layout->setContentsMargins(0, 0, 0, 0);
   auto dynamic_heatmap = new QRadioButton(tr("Dyamic"));
   auto *timerange_heatmap = new QRadioButton(tr("Time range"));
   auto *heatmap_type_layout = new QHBoxLayout;
-  binary_layout->addWidget(new QLabel(tr("Heatmap:")));
+  heatmap_type_layout->setContentsMargins(0, 0, 0, 0);
+  heatmap_type_layout->addWidget(new QLabel(tr("Heatmap:")));
   heatmap_type_layout->addWidget(dynamic_heatmap);
   heatmap_type_layout->addWidget(timerange_heatmap);
   heatmap_type_layout->addStretch();

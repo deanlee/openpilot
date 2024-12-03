@@ -291,36 +291,29 @@ void BinaryViewModel::updateItem(int row, int col, uint8_t val, const QColor &co
     emit dataChanged(idx, idx, {Qt::DisplayRole});
   }
 }
-
 std::vector<std::array<uint32_t, 8>> BinaryViewModel::updateBitFlipCount(int size) {
-  auto time_range = can->timeRange();
   auto events = can->events(msg_id);
-  auto first = events.begin();
-  auto last = events.end();
-  if (time_range) {
-    first = std::lower_bound(events.begin(), events.end(), can->toMonoTime(time_range->first), CompareCanEvent());
-    last = std::upper_bound(events.begin(), events.end(), can->toMonoTime(time_range->second), CompareCanEvent());
-  }
+  auto time_range = can->timeRange();
+
+  // Determine the relevant event range based on time_range (if applicable)
+  auto first = time_range ? std::lower_bound(events.begin(), events.end(), can->toMonoTime(time_range->first), CompareCanEvent()) : events.begin();
+  auto last = time_range ? std::upper_bound(events.begin(), events.end(), can->toMonoTime(time_range->second), CompareCanEvent()) : events.end();
+
   std::vector<std::array<uint32_t, 8>> result(size);
   std::vector<uint8_t> prev_values(size, 0);
+
   for (auto it = first; it != last; ++it) {
     auto *event = *it;
-    if (it == first) {
-      for (int i = 0; i < event->size; ++i) {
-        prev_values[i] = event->dat[i];
-      }
-    } else {
-      for (int i = 0; i < event->size; ++i) {
-        auto cur = event->dat[i];
-        const uint8_t diff = (cur ^ prev_values[i]);
-        auto &last_change = result[i];
-        for (int bit = 0; bit < 8; bit++) {
-          if (diff & (1u << bit)) {
-            ++last_change[7 - bit];
-          }
+    for (int i = 0; i < event->size; ++i) {
+      auto cur = event->dat[i];
+      const uint8_t diff = cur ^ prev_values[i];
+      auto &last_change = result[i];
+      for (int bit = 0; bit < 8; ++bit) {
+        if (diff & (1u << bit)) {
+          ++last_change[7 - bit];
         }
-        prev_values[i] = cur;
       }
+      prev_values[i] = cur;
     }
   }
   return result;
@@ -340,13 +333,13 @@ void BinaryViewModel::updateState() {
 
   // Parameters for controlling heatmap appearance
   const double max_f = 255.0;
-  const double factor = 0.15;   // Adjust factor for sharper or smoother alpha transitions
+  const double factor = 0.15;  // Adjust factor for sharper or smoother alpha transitions
   const double scaler = max_f / log2(1.0 + factor);
   const double min_alpha_boost = 0.6;  // Boost for small flips
   const double min_alpha = 50;         // Minimum alpha for changed bits
-  const double no_change_alpha = 0;   // Alpha value for bits with no changes
+  const double no_change_alpha = 0;    // Alpha value for bits with no changes
 
- auto bit_flips = dynamic_heatmap ? last_msg.bit_flips : updateBitFlipCount(row_count);
+  auto bit_flips = dynamic_heatmap ? last_msg.bit_flips : updateBitFlipCount(row_count);
 
   // Find the maximum bit flip count for normalization
   uint32_t max_bit_flip = 0;
@@ -364,34 +357,20 @@ void BinaryViewModel::updateState() {
       auto &item = items[i * column_count + j];
       int bit_val = ((binary[i] >> (7 - j)) & 1) ? 1 : 0;
       auto n = bit_flips[i][j];
-
-      // Default alpha to constant value for unchanged bits
       double alpha = no_change_alpha;
       if (n > 0) {
-        // Normalize bit flip count
         double normalized_flip = static_cast<double>(n) / static_cast<double>(max_bit_flip);
-
-        // Apply a boost for smaller flip counts to enhance visual differences
         double boosted_flip = normalized_flip < 0.3 ? normalized_flip * min_alpha_boost : normalized_flip;
-
-        // Calculate alpha transparency, ensuring it does not fall below minimum alpha for changed bits
         alpha = std::clamp(min_alpha + log2(1.0 + factor * boosted_flip) * scaler, min_alpha, max_f);
       }
 
-      // Set color with computed alpha value
       QColor color = item.bg_color;
       color.setAlpha(alpha);
-
-      // Update the visual item with the bit value and color
       updateItem(i, j, bit_val, color);
     }
-
-    // Optionally, display the raw byte value
     updateItem(i, 8, binary[i], last_msg.colors[i]);
   }
 }
-
-
 
 QVariant BinaryViewModel::headerData(int section, Qt::Orientation orientation, int role) const {
   if (orientation == Qt::Vertical) {
