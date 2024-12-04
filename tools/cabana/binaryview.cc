@@ -295,7 +295,6 @@ void BinaryViewModel::updateItem(int row, int col, uint8_t val, const QColor &co
 void BinaryViewModel::updateState() {
   const auto &last_msg = can->lastMessage(msg_id);
   const auto &binary = last_msg.dat;
-  // data size may changed.
   if (binary.size() > row_count) {
     beginInsertRows({}, row_count, binary.size() - 1);
     row_count = binary.size();
@@ -303,29 +302,52 @@ void BinaryViewModel::updateState() {
     endInsertRows();
   }
 
-  const double max_f = 255.0;
-  const double factor = 0.15;
-  const double scaler = max_f / log2(1.0 + factor);
-  const double min_alpha_boost = 0.6;  // Boost for small flips
-  const double min_alpha = 50;         // Minimum alpha for changed bits
+  const double max_f = 255.0;            // Maximum alpha value (fully opaque)
+  const double min_alpha = 50.0;         // Minimum alpha for changed bits
+  const double no_change_alpha = 50.0;   // Alpha for bits with no changes
+  const double min_alpha_boost = 0.6;    // Boost for small flips
+  const double log_factor = 1.0 + 0.15;  // Factor used in the logarithmic scaling
+
+  // Step 1: Find the maximum bit change count across the message
+  int max_change_count = 0;
+  for (int i = 0; i < binary.size(); ++i) {
+    for (int j = 0; j < 8; ++j) {
+      int change_count = last_msg.last_changes[i].bit_change_counts[j];
+      if (change_count > max_change_count) {
+        max_change_count = change_count;
+      }
+    }
+  }
+
+  // Avoid division by zero in case there are no changes
+  if (max_change_count == 0) {
+    max_change_count = 1;
+  }
+
+  // Step 2: Calculate a scaling factor for logarithmic scaling
+  const double scaler = max_f / log2(log_factor * max_change_count);
+
+  // Step 3: Update the bits with normalized logarithmic alpha values
   for (int i = 0; i < binary.size(); ++i) {
     for (int j = 0; j < 8; ++j) {
       auto &item = items[i * column_count + j];
       int bit_val = ((binary[i] >> (7 - j)) & 1) != 0 ? 1 : 0;
-      auto n = last_msg.last_changes[i].bit_change_counts[j];
-      const double no_change_alpha = !item.sigs.empty() ? 50 : 0; // Alpha value for bits with no changes
-      double alpha = no_change_alpha;
-      if (n > 0) {
-        double normalized_flip = static_cast<double>(n) / last_msg.count;
-        double boosted_flip = normalized_flip < 0.3 ? normalized_flip * min_alpha_boost : normalized_flip;
-        alpha = std::clamp(min_alpha + log2(1.0 + factor * boosted_flip) * scaler, min_alpha, max_f);
+      int change_count = last_msg.last_changes[i].bit_change_counts[j];
+
+      double alpha = no_change_alpha;  // Default alpha for bits with no changes
+      if (change_count > 0) {
+        // Step 4: Apply logarithmic scaling for the change count
+        double normalized_flip = static_cast<double>(change_count);
+        double boosted_flip = normalized_flip < 0.3 * max_change_count ? normalized_flip * min_alpha_boost : normalized_flip;
+        alpha = std::clamp(min_alpha + log2(1.0 + boosted_flip * log_factor) * scaler, min_alpha, max_f);
       }
 
+      // Update the background color's alpha
       QColor color = item.bg_color;
-      color.setAlpha(alpha);
-      updateItem(i, j, bit_val, color);
+      color.setAlpha(static_cast<int>(alpha));
+      updateItem(i, j, bit_val, color);  // Update the display for this bit
     }
-    updateItem(i, 8, binary[i], last_msg.colors[i]);
+    updateItem(i, 8, binary[i], last_msg.colors[i]);  // Update the color for the byte
   }
 }
 
