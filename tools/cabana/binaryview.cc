@@ -304,20 +304,26 @@ void BinaryViewModel::updateState() {
   }
 
   const double max_f = 255.0;
-  const double factor = 0.25;
+  const double factor = 0.15;
   const double scaler = max_f / log2(1.0 + factor);
+  const double min_alpha_boost = 0.6;  // Boost for small flips
+  const double min_alpha = 50;         // Minimum alpha for changed bits
   for (int i = 0; i < binary.size(); ++i) {
     for (int j = 0; j < 8; ++j) {
       auto &item = items[i * column_count + j];
-      int val = ((binary[i] >> (7 - j)) & 1) != 0 ? 1 : 0;
-      // Bit update frequency based highlighting
-      double offset = !item.sigs.empty() ? 50 : 0;
+      int bit_val = ((binary[i] >> (7 - j)) & 1) != 0 ? 1 : 0;
       auto n = last_msg.last_changes[i].bit_change_counts[j];
-      double min_f = n == 0 ? offset : offset + 25;
-      double alpha = std::clamp(offset + log2(1.0 + factor * (double)n / (double)last_msg.count) * scaler, min_f, max_f);
-      auto color = item.bg_color;
+      const double no_change_alpha = !item.sigs.empty() ? 50 : 0; // Alpha value for bits with no changes
+      double alpha = no_change_alpha;
+      if (n > 0) {
+        double normalized_flip = static_cast<double>(n) / last_msg.count;
+        double boosted_flip = normalized_flip < 0.3 ? normalized_flip * min_alpha_boost : normalized_flip;
+        alpha = std::clamp(min_alpha + log2(1.0 + factor * boosted_flip) * scaler, min_alpha, max_f);
+      }
+
+      QColor color = item.bg_color;
       color.setAlpha(alpha);
-      updateItem(i, j, val, color);
+      updateItem(i, j, bit_val, color);
     }
     updateItem(i, 8, binary[i], last_msg.colors[i]);
   }
