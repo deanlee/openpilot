@@ -97,10 +97,9 @@ class Uploader:
       path = os.path.join(self.root, logdir)
       try:
         names = os.listdir(path)
+        if any(name.endswith(".lock") for name in names):
+          continue
       except OSError:
-        continue
-
-      if any(name.endswith(".lock") for name in names):
         continue
 
       for name in sorted(names, key=lambda n: self.immediate_priority.get(n, 1000)):
