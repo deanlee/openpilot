@@ -89,57 +89,44 @@ class Uploader:
     self.immediate_folders = ["crash/", "boot/"]
     self.immediate_priority = {"qlog": 0, "qlog.zst": 0, "qcamera.ts": 1}
 
-  def list_upload_files(self, metered: bool) -> Iterator[tuple[str, str, str]]:
-    r = self.params.get("AthenadRecentlyViewedRoutes", encoding="utf8")
-    requested_routes = [] if r is None else r.split(",")
+  def scan_folder(self, logdir: str) -> Iterator[str, str, str]:
+    path = os.path.join(self.root, logdir)
+    try:
+      names = os.listdir(path)
+    except OSError:
+      cloudlog.event("uploader_listdir_failed", path=path)
+      return
 
-    for logdir in listdir_by_creation(self.root):
-      path = os.path.join(self.root, logdir)
-      try:
-        names = os.listdir(path)
-      except OSError:
-        continue
-
+    for name in os.listdir(path):
+      key = os.path.join(logdir, name)
+      fn = os.path.join(path, name)
       if any(name.endswith(".lock") for name in names):
         continue
 
-      for name in sorted(names, key=lambda n: self.immediate_priority.get(n, 1000)):
-        key = os.path.join(logdir, name)
-        fn = os.path.join(path, name)
-        # skip files already uploaded
-        try:
-          ctime = os.path.getctime(fn)
-          is_uploaded = getxattr(fn, UPLOAD_ATTR_NAME) == UPLOAD_ATTR_VALUE
-        except OSError:
-          cloudlog.event("uploader_getxattr_failed", key=key, fn=fn)
-          # deleter could have deleted, so skip
-          continue
-        if is_uploaded:
-          continue
+      try:
+        is_uploaded = getxattr(fn, UPLOAD_ATTR_NAME) == UPLOAD_ATTR_VALUE
+      except OSError:
+        cloudlog.event("uploader_getxattr_failed", key=key, fn=fn)
+        # deleter could have deleted, so skip
+        continue
+      if is_uploaded:
+        continue
 
-        # limit uploading on metered connections
-        if metered:
-          dt = datetime.timedelta(hours=12)
-          if logdir in self.immediate_folders and (datetime.datetime.now() - datetime.datetime.fromtimestamp(ctime)) < dt:
-            continue
+      yield name, key, fn
 
-          if name == "qcamera.ts" and not any(logdir.startswith(r.split('|')[-1]) for r in requested_routes):
-            continue
+  def next_file_to_upload(self, metered: bool) -> Iterator[tuple[str, str, str]]:
+    # r = self.params.get("AthenadRecentlyViewedRoutes", encoding="utf8")
+    # requested_routes = [] if r is None else r.split(",")
 
-        yield name, key, fn
+    for logdir in self.immediate_folders:
+      yield from self.scan_folder(logdir)
 
-  def next_file_to_upload(self, metered: bool) -> tuple[str, str, str] | None:
-    upload_files = list(self.list_upload_files(metered))
 
-    for name, key, fn in upload_files:
-      if any(f in fn for f in self.immediate_folders):
-        return name, key, fn
+    for logdir in listdir_by_creation(self.root):
+      if logdir not in self.immediate_folders:
+        continue
 
-    for name, key, fn in upload_files:
-      if name in self.immediate_priority:
-        return name, key, fn
-
-    return None
+      yield from self.scan_folder(logdir)
 
   def do_upload(self, key: str, fn: str):
     url_resp = self.api.get("v1.4/" + self.dongle_id + "/upload_url/", timeout=10, path=key, access_token=self.api.get_token())
@@ -249,6 +236,7 @@ def main(exit_event: threading.Event = None) -> None:
 
   backoff = 0.1
   while not exit_event.is_set():
+    print('here')
     sm.update(0)
     offroad = params.get_bool("IsOffroad")
     network_type = sm['deviceState'].networkType if not force_wifi else NetworkType.wifi
