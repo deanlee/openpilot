@@ -119,8 +119,7 @@ class Uploader:
 
         # limit uploading on metered connections
         if metered:
-          dt = datetime.timedelta(hours=12)
-          if logdir in self.immediate_folders and (datetime.datetime.now() - datetime.datetime.fromtimestamp(ctime)) < dt:
+          if logdir in self.immediate_folders and (time.time() - ctime) < 12 * 3600:
             continue
 
           if name == "qcamera.ts" and not logdir.startswith(requested_routes):
