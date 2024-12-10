@@ -90,8 +90,8 @@ class Uploader:
     self.immediate_priority = {"qlog": 0, "qlog.zst": 0, "qcamera.ts": 1}
 
   def list_upload_files(self, metered: bool) -> Iterator[tuple[str, str, str]]:
-    r = self.params.get("AthenadRecentlyViewedRoutes", encoding="utf8")
-    requested_routes = [] if r is None else r.split(",")
+    recent_viewed = self.params.get("AthenadRecentlyViewedRoutes", encoding="utf8") or ''
+    requested_routes = tuple(r.split('|')[-1] for r in recent_viewed.split(","))
 
     for logdir in listdir_by_creation(self.root):
       path = os.path.join(self.root, logdir)
@@ -123,7 +123,7 @@ class Uploader:
           if logdir in self.immediate_folders and (datetime.datetime.now() - datetime.datetime.fromtimestamp(ctime)) < dt:
             continue
 
-          if name == "qcamera.ts" and not any(logdir.startswith(r.split('|')[-1]) for r in requested_routes):
+          if name == "qcamera.ts" and not logdir.startswith(requested_routes):
             continue
 
         yield name, key, fn
