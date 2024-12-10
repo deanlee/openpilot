@@ -97,11 +97,12 @@ class Uploader:
       cloudlog.event("uploader_listdir_failed", path=path)
       return
 
-    for name in os.listdir(path):
+    if any(name.endswith(".lock") for name in names):
+      return
+
+    for name in names:
       key = os.path.join(logdir, name)
       fn = os.path.join(path, name)
-      if any(name.endswith(".lock") for name in names):
-        continue
 
       try:
         is_uploaded = getxattr(fn, UPLOAD_ATTR_NAME) == UPLOAD_ATTR_VALUE
@@ -109,10 +110,9 @@ class Uploader:
         cloudlog.event("uploader_getxattr_failed", key=key, fn=fn)
         # deleter could have deleted, so skip
         continue
-      if is_uploaded:
-        continue
 
-      yield name, key, fn
+      if not is_uploaded:
+        yield name, key, fn
 
   def next_file_to_upload(self, metered: bool) -> Iterator[tuple[str, str, str]]:
     # r = self.params.get("AthenadRecentlyViewedRoutes", encoding="utf8")
