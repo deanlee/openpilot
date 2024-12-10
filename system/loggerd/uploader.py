@@ -236,7 +236,6 @@ def main(exit_event: threading.Event = None) -> None:
 
   backoff = 0.1
   while not exit_event.is_set():
-    print('here')
     sm.update(0)
     offroad = params.get_bool("IsOffroad")
     network_type = sm['deviceState'].networkType if not force_wifi else NetworkType.wifi
