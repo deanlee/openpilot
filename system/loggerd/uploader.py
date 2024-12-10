@@ -108,12 +108,11 @@ class Uploader:
         # skip files already uploaded
         try:
           ctime = os.path.getctime(fn)
-          is_uploaded = getxattr(fn, UPLOAD_ATTR_NAME) == UPLOAD_ATTR_VALUE
+          if getxattr(fn, UPLOAD_ATTR_NAME) == UPLOAD_ATTR_VALUE:
+            continue
         except OSError:
           cloudlog.event("uploader_getxattr_failed", key=key, fn=fn)
           # deleter could have deleted, so skip
-          continue
-        if is_uploaded:
           continue
 
         # limit uploading on metered connections
