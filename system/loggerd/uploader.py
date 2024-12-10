@@ -250,7 +250,6 @@ def main(exit_event: threading.Event = None) -> None:
   backoff = 0.1
   while not exit_event.is_set():
     sm.update(0)
-    offroad = params.get_bool("IsOffroad")
     network_type = sm['deviceState'].networkType if not force_wifi else NetworkType.wifi
     if network_type != NetworkType.none:
       success = uploader.step(sm['deviceState'].networkType.raw, sm['deviceState'].networkMetered)
@@ -259,7 +258,7 @@ def main(exit_event: threading.Event = None) -> None:
 
     if allow_sleep:
       if success is None:
-        backoff = 60 if offroad else 5
+        backoff = 60 if params.get_bool("IsOffroad") else 5
       elif success:
         backoff = 0.1
       else:
