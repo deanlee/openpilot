@@ -42,6 +42,21 @@ ChartsWidget::ChartsWidget(QWidget *parent) : QFrame(parent) {
   columns_action->setMenu(menu);
   qobject_cast<QToolButton*>(toolbar->widgetForAction(columns_action))->setPopupMode(QToolButton::InstantPopup);
 
+  QToolButton* type_btn = new QToolButton(this);
+  QMenu *type_menu = new QMenu(this);
+  auto types = std::array{tr("Line"), tr("Step Line"), tr("Scatter")};
+  for (int i = 0; i < types.size(); ++i) {
+    type_menu->addAction(types[i], [&types, type_btn, i]() {
+      type_btn->setText(types[i])
+      settings.chart_series_type = i;
+      emit settings.changed();
+    });
+  }
+
+  type_btn->setMenu(type_menu);
+  type_btn->setPopupMode(QToolButton::MenuButtonPopup);
+  toolbar->addWidget(type_btn);
+
   QLabel *stretch_label = new QLabel(this);
   stretch_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
   toolbar->addWidget(stretch_label);
