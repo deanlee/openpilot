@@ -338,9 +338,6 @@ std::vector<Event>::const_iterator Replay::publishEvents(std::vector<Event>::con
     if (evt.eidx_segnum == -1) {
       publishMessage(&evt);
     } else if (camera_server_) {
-      if (speed_ > 1.0) {
-        camera_server_->waitForSent();
-      }
       publishFrame(&evt);
     }
   }
