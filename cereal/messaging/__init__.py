@@ -109,8 +109,8 @@ class FrequencyTracker:
     self.min_freq = min_freq * 0.8
     self.max_freq = max_freq * 1.2
     self.recv_dts: list[float] = [0.0] * int(10 * freq)
-    self.recv_dts_sum = 0.0
     self.recent_recv_dts: list[float] = [0.0] * int(freq)
+    self.recv_dts_sum = 0.0
     self.recent_recv_dts_sum = 0.0
     self.prev_time = 0.0
     self.count = 0
@@ -119,18 +119,18 @@ class FrequencyTracker:
     # TODO: Handle case where cur_time is less than prev_time
     if self.prev_time > 1e-5:
       dt = cur_time - self.prev_time
-      self._update_window(dt, self.recv_dts, len(self.recv_dts), self.recv_dts_sum)
-      self._update_window(dt, self.recent_recv_dts, len(self.recent_recv_dts), self.recent_recv_dts_sum)
+      self.recv_dts_sum = self._update_window(dt, self.recv_dts, self.recv_dts_sum)
+      self.recent_recv_dts_sum = self._update_window(dt, self.recent_recv_dts, self.recent_recv_dts_sum)
       self.count += 1
 
     self.prev_time = cur_time
 
-  def _update_window(self, dt, window, size, sum_value):
-    index = self.count % size
-    if self.count >= size:
+  def _update_window(self, dt, window, sum_value):
+    index = self.count % len(window)
+    if self.count >= len(window):
       sum_value -= window[index]
     window[index] = dt
-    sum_value += dt
+    return sum_value + dt
 
   @property
   def valid(self) -> bool:
