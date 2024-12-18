@@ -61,14 +61,12 @@ void CameraServer::startVipcServer() {
 void CameraServer::cameraThread(Camera &cam) {
   while (true) {
     std::pair<FrameReader*, const Event *> item;
-    {
       std::unique_lock lock(cam.mutex_);
       cam.cv_.wait(lock, [this, &cam]() { return cam.item_.first || exit_; });
       if (exit_) break;
 
       item = cam.item_;
       cam.item_ = {};
-    }
 
     auto [fr, event] = item;
     capnp::FlatArrayMessageReader reader(event->data);
