@@ -83,8 +83,10 @@ void CameraServer::cameraThread(Camera &cam) {
       rError("camera[%d] failed to get frame: %lu", cam.type, segment_id);
     }
 
-    // Prefetch the next frame
-    getFrame(cam, fr, segment_id + 1, frame_id + 1);
+    if (cam.queue.size() == 0) {
+      // Prefetch the next frame
+      getFrame(cam, fr, segment_id + 1, frame_id + 1);
+    }
 
     --publishing_;
   }
@@ -121,5 +123,14 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const Event *even
 void CameraServer::waitForSent() {
   while (publishing_ > 0) {
     std::this_thread::yield();
+  }
+}
+
+void CameraServer::abort() {
+  std::pair<FrameReader*, const Event *> item;
+  for (auto &cam : cameras_) {
+    while (cam.queue.try_pop(item)) {
+      --publishing_;
+    }
   }
 }

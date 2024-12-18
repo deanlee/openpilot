@@ -134,6 +134,10 @@ bool VideoDecoder::open(AVCodecParameters *codecpar, bool hw_decoder) {
     rWarning("No device with hardware decoder found. fallback to CPU decoding.");
   }
 
+  if (decoder->capabilities & AV_CODEC_CAP_FRAME_THREADS) {
+    decoder_ctx->thread_count = 2;  // // set codec to automatically determine how many threads
+    decoder_ctx->thread_type = FF_THREAD_FRAME;
+  }
   if (avcodec_open2(decoder_ctx, decoder, nullptr) < 0) {
     rError("Failed to open codec");
     return false;
@@ -196,6 +200,7 @@ bool VideoDecoder::decode(FrameReader *reader, int idx, VisionBuf *buf) {
 }
 
 AVFrame *VideoDecoder::decodeFrame(AVPacket *pkt) {
+  double t1 = millis_since_boot();
   int ret = avcodec_send_packet(decoder_ctx, pkt);
   if (ret < 0) {
     rError("Error sending a packet for decoding: %d", ret);
@@ -207,6 +212,7 @@ AVFrame *VideoDecoder::decodeFrame(AVPacket *pkt) {
     rError("avcodec_receive_frame error: %d", ret);
     return nullptr;
   }
+  printf("time is %f\n", millis_since_boot() - t1);
 
   if (av_frame_->format == hw_pix_fmt && av_hwframe_transfer_data(hw_frame_, av_frame_, 0) < 0) {
     rError("error transferring frame data from GPU to CPU");

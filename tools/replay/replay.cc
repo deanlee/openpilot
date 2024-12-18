@@ -111,6 +111,9 @@ void Replay::seekTo(double seconds, bool relative) {
     current_segment_ = target_segment;
     cur_mono_time_ = route_start_ts_ + target_time * 1e9;
     seeking_to_ = target_time;
+    if (camera_server_) {
+      camera_server_->abort();
+    }
 
     if (event_data_->isSegmentLoaded(target_segment)) {
       seeked_to_sec = *seeking_to_;
