@@ -121,33 +121,29 @@ class FrequencyTracker:
     # TODO: Handle case where cur_time is less than prev_time
     if self.prev_time > 1e-5:
       dt = cur_time - self.prev_time
-
-      index = self.count % self.window_size
-      if self.count >= self.window_size:
-        self.recv_dts_sum -= self.recv_dts[index]
-      self.recv_dts[index] = dt
-      self.recv_dts_sum += dt
-
-      index = self.count % self.recent_window_size
-      if self.count >= self.recent_window_size:
-        self.recent_recv_dts_sum -= self.recent_recv_dts[index]
-      self.recent_recv_dts[index] = dt
-      self.recent_recv_dts_sum += dt
-
+      self._update_window(dt, self.recv_dts, len(self.recv_dts), self.recv_dts_sum)
+      self._update_window(dt, self.recent_recv_dts, len(self.recent_recv_dts), self.recent_recv_dts_sum)
       self.count += 1
 
     self.prev_time = cur_time
+
+  def _update_window(self, dt, window, size, sum_value):
+    index = self.count % size
+    if self.count >= size:
+      sum_value -= window[index]
+    window[index] = dt
+    sum_value += dt
 
   @property
   def valid(self) -> bool:
     if not self.recv_dts:
       return False
 
-    avg_freq = len(self.recv_dts) / self.recv_dts_sum
+    avg_freq = min(self.count, len(self.recv_dts)) / self.recv_dts_sum
     if self.min_freq <= avg_freq <= self.max_freq:
       return True
 
-    avg_freq_recent = len(self.recent_recv_dts) / self.recent_recv_dts_sum
+    avg_freq_recent = min(self.count, len(self.recent_recv_dts)) / self.recent_recv_dts_sum
     return self.min_freq <= avg_freq_recent <= self.max_freq
 
 
