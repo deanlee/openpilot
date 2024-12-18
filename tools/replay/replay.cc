@@ -108,6 +108,9 @@ void Replay::seekTo(double seconds, bool relative) {
 
   double seeked_to_sec = -1;
   interruptStream([&]() {
+    if (camera_server_) {
+      camera_server_->abort();
+    }
     current_segment_ = target_segment;
     cur_mono_time_ = route_start_ts_ + target_time * 1e9;
     seeking_to_ = target_time;
@@ -280,11 +283,6 @@ void Replay::streamThread() {
     }
 
     auto it = publishEvents(first, events.cend());
-
-    // Ensure frames are sent before unlocking to prevent race conditions
-    if (camera_server_) {
-      camera_server_->waitForSent();
-    }
 
     if (it != events.cend()) {
       cur_which = it->which;

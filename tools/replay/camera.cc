@@ -90,12 +90,6 @@ void CameraServer::cameraThread(Camera &cam) {
 
     // Prefetch the next frame
     getFrame(cam, fr, segment_id + 1, frame_id + 1);
-
-    std::unique_lock<std::mutex> lk(publishing_mutex_);
-    // Notify the main thread if all frames are processed
-    if (--publishing_ == 0) {
-      publishing_cond_.notify_all();  // Notify all waiting threads
-    }
   }
 }
 
@@ -119,17 +113,18 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const Event *even
   if (cam.width != fr->width || cam.height != fr->height) {
     cam.width = fr->width;
     cam.height = fr->height;
-    waitForSent();
+    // waitForSent();
     startVipcServer();
   }
 
-  ++publishing_;
   std::unique_lock lock(cam.mutex_);
   cam.item_ = {fr, event};
   cam.cv_.notify_one();
 }
 
-void CameraServer::waitForSent() {
-  std::unique_lock<std::mutex> lock(publishing_mutex_);
-  publishing_cond_.wait(lock, [this]() { return publishing_ == 0; });
+void CameraServer::abort() {
+  for (auto &cam : cameras_) {
+    std::unique_lock lock(cam.mutex_);
+    cam.item_ = {};
+  }
 }
