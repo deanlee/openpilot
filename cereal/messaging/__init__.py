@@ -108,11 +108,9 @@ class FrequencyTracker:
 
     self.min_freq = min_freq * 0.8
     self.max_freq = max_freq * 1.2
-    self.window_size = int(10 * freq)
-    self.recv_dts: list[float] = [0.0] * self.window_size
+    self.recv_dts: list[float] = [0.0] * int(10 * freq)
     self.recv_dts_sum = 0.0
-    self.recent_window_size = int(freq)
-    self.recent_recv_dts: list[float] = [0.0] * self.recent_window_size
+    self.recent_recv_dts: list[float] = [0.0] * int(freq)
     self.recent_recv_dts_sum = 0.0
     self.prev_time = 0.0
     self.count = 0
