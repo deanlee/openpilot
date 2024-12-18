@@ -17,6 +17,9 @@ cdef class CLContext(BaseCLContext):
     self.device_id = cl_get_device_id(CL_DEVICE_TYPE_DEFAULT)
     self.context = cl_create_context(self.device_id)
 
+  def __dealloc__(self):
+    clReleaseContext(self.context)
+
 cdef class CLMem:
   @staticmethod
   cdef create(void * cmem):
