@@ -5,6 +5,7 @@ import numpy as np
 cimport numpy as cnp
 from libc.string cimport memcpy
 from libc.stdint cimport uintptr_t
+from libc.opencl cimport clReleaseContext
 
 from msgq.visionipc.visionipc cimport cl_mem
 from msgq.visionipc.visionipc_pyx cimport VisionBuf, CLContext as BaseCLContext
