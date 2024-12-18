@@ -44,4 +44,6 @@ protected:
   std::atomic<int> publishing_ = 0;
   std::unique_ptr<VisionIpcServer> vipc_server_;
   std::atomic<bool> exit_ = false;
+  std::mutex publishing_mutex_;
+  std::condition_variable publishing_cond_;
 };

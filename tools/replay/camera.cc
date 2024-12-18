@@ -30,7 +30,10 @@ CameraServer::~CameraServer() {
   exit_ = true;
   for (auto &cam : cameras_) {
     if (cam.thread.joinable()) {
-      cam.cv_.notify_one();
+      {
+        std::lock_guard<std::mutex> lock(cam.mutex_);
+        cam.cv_.notify_one();  // Notify thread to exit
+      }
       cam.thread.join();
     }
   }
@@ -57,11 +60,13 @@ void CameraServer::startVipcServer() {
 
 void CameraServer::cameraThread(Camera &cam) {
   while (true) {
-    {
-      std::unique_lock lock(cam.mutex_);
-      cam.cv_.wait(lock, [this, &cam]() { return cam.item_.first || exit_; });
-    }
+
+    std::unique_lock lock(cam.mutex_);
+    cam.cv_.wait(lock, [this, &cam]() { return cam.item_.first || exit_; });
+    if (exit_) break;
+
     auto [fr, event] = cam.item_;
+    cam.item_ = {};
     capnp::FlatArrayMessageReader reader(event->data);
     auto evt = reader.getRoot<cereal::Event>();
     auto eidx = capnp::AnyStruct::Reader(evt).getPointerSection()[0].getAs<cereal::EncodeIndex>();
@@ -82,7 +87,11 @@ void CameraServer::cameraThread(Camera &cam) {
     // Prefetch the next frame
     getFrame(cam, fr, segment_id + 1, frame_id + 1);
 
-    --publishing_;
+    std::unique_lock<std::mutex> lk(publishing_mutex_);
+    // Notify the main thread if all frames are processed
+    if (--publishing_ == 0) {
+      publishing_cond_.notify_all();  // Notify all waiting threads
+    }
   }
 }
 
@@ -110,17 +119,13 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const Event *even
     startVipcServer();
   }
 
-  {
-    std::unique_lock lock(cam.mutex_);
-    cam.item_ = {fr, event};
-    cam.cv_.notify_one();
-  }
   ++publishing_;
-
+  std::unique_lock lock(cam.mutex_);
+  cam.item_ = {fr, event};
+  cam.cv_.notify_one();
 }
 
 void CameraServer::waitForSent() {
-  while (publishing_ > 0) {
-    std::this_thread::yield();
-  }
+  std::unique_lock<std::mutex> lock(publishing_mutex_);
+  publishing_cond_.wait(lock, [this]() { return publishing_ == 0; });
 }
