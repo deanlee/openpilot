@@ -27,16 +27,10 @@ CameraServer::CameraServer(std::pair<int, int> camera_size[MAX_CAMERAS]) {
 }
 
 CameraServer::~CameraServer() {
+  exit_ = true;
   for (auto &cam : cameras_) {
     if (cam.thread.joinable()) {
-      // Clear the queue
-      std::pair<FrameReader*, const Event *> item;
-      while (cam.queue.try_pop(item)) {
-        --publishing_;
-      }
-
-      // Signal termination and join the thread
-      cam.queue.push({});
+      cam.cv_.notify_one();
       cam.thread.join();
     }
   }
@@ -63,9 +57,11 @@ void CameraServer::startVipcServer() {
 
 void CameraServer::cameraThread(Camera &cam) {
   while (true) {
-    const auto [fr, event] = cam.queue.pop();
-    if (!fr) break;
-
+    {
+      std::unique_lock lock(cam.mutex_);
+      cam.cv_.wait(lock, [this, &cam]() { return cam.item_.first || exit_; });
+    }
+    auto [fr, event] = cam.item_;
     capnp::FlatArrayMessageReader reader(event->data);
     auto evt = reader.getRoot<cereal::Event>();
     auto eidx = capnp::AnyStruct::Reader(evt).getPointerSection()[0].getAs<cereal::EncodeIndex>();
@@ -114,8 +110,13 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const Event *even
     startVipcServer();
   }
 
+  {
+    std::unique_lock lock(cam.mutex_);
+    cam.item_ = {fr, event};
+    cam.cv_.notify_one();
+  }
   ++publishing_;
-  cam.queue.push({fr, event});
+
 }
 
 void CameraServer::waitForSent() {

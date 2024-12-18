@@ -1,12 +1,13 @@
 #pragma once
 
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <tuple>
 #include <utility>
 
 #include "msgq/visionipc/visionipc_server.h"
-#include "common/queue.h"
 #include "tools/replay/framereader.h"
 #include "tools/replay/logreader.h"
 
@@ -26,7 +27,9 @@ protected:
     int width;
     int height;
     std::thread thread;
-    SafeQueue<std::pair<FrameReader*, const Event *>> queue;
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::pair<FrameReader*, const Event *> item_;
     std::set<VisionBuf *> cached_buf;
   };
   void startVipcServer();
@@ -40,4 +43,5 @@ protected:
   };
   std::atomic<int> publishing_ = 0;
   std::unique_ptr<VisionIpcServer> vipc_server_;
+  std::atomic<bool> exit_ = false;
 };
