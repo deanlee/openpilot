@@ -80,7 +80,8 @@ void CameraServer::cameraThread(Camera &cam) {
     // Prefetch the next frame
     getFrame(cam, fr, segment_id + 1, frame_id + 1);
 
-    --publishing_;
+    std::unique_lock lock(wait_sent_mutex_);
+    wait_sent_cv_.notify_all();
   }
 }
 
@@ -113,16 +114,19 @@ void CameraServer::pushFrame(CameraType type, FrameReader *fr, const Event *even
 }
 
 void CameraServer::waitForSent() {
-  while (publishing_ > 0) {
-    std::this_thread::yield();
-  }
+  std::unique_lock lock(wait_sent_mutex_);
+  wait_sent_cv_.wait(lock, [this]() {
+    for (auto &cam : cameras_) {
+      if (!cam.queue.empty()) return false;
+    }
+    return true;
+  });
 }
 
 void CameraServer::clearQueue() {
   for (auto &cam : cameras_) {
     std::pair<FrameReader *, const Event *> item;
     while (cam.queue.try_pop(item)) {
-      --publishing_;
     }
   }
 }

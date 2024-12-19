@@ -41,4 +41,6 @@ protected:
   };
   std::atomic<int> publishing_ = 0;
   std::unique_ptr<VisionIpcServer> vipc_server_;
+  std::mutex wait_sent_mutex_;
+  std::condition_variable wait_sent_cv_;
 };
