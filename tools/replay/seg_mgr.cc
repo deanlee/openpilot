@@ -72,6 +72,7 @@ void SegmentManager::manageSegmentCache() {
     }
   }
 }
+#include <queue>
 
 bool SegmentManager::mergeSegments(const SegmentMap::iterator &begin, const SegmentMap::iterator &end) {
   std::set<int> segments_to_merge;
@@ -90,26 +91,54 @@ bool SegmentManager::mergeSegments(const SegmentMap::iterator &begin, const Segm
   auto &merged_events = merged_event_data->events;
   merged_events.reserve(total_event_count);
 
-  rDebug("merging segments: %s", join(segments_to_merge, ", ").c_str());
+  rDebug("Merging segments: %s", join(segments_to_merge, ", ").c_str());
+  double t1 = millis_since_boot();
+
+  // Priority queue (min-heap) to store events sorted by their `mono_time`
+  using EventIterator = decltype(segments_.begin()->second->log->events)::const_iterator;
+  using HeapElement = std::pair<EventIterator, EventIterator>;
+
+  auto cmp = [](const HeapElement &lhs, const HeapElement &rhs) {
+    return lhs.first->mono_time > rhs.first->mono_time; // Min-heap by mono_time
+  };
+  std::priority_queue<HeapElement, std::vector<HeapElement>, decltype(cmp)> min_heap(cmp);
+
+  // Initialize the min-heap with the first event of each segment
   for (int n : segments_to_merge) {
     const auto &events = segments_.at(n)->log->events;
     if (events.empty()) continue;
 
     // Skip INIT_DATA if present
     auto events_begin = (events.front().which == cereal::Event::Which::INIT_DATA) ? std::next(events.begin()) : events.begin();
-
-    size_t previous_size = merged_events.size();
-    merged_events.insert(merged_events.end(), events_begin, events.end());
-    std::inplace_merge(merged_events.begin(), merged_events.begin() + previous_size, merged_events.end());
+    if (events_begin != events.end()) {
+      min_heap.emplace(events_begin, events.end());
+    }
 
     merged_event_data->segments[n] = segments_.at(n);
   }
+
+  // Process the events using the heap (k-way merge)
+  while (!min_heap.empty()) {
+    auto [current_event, end_event] = min_heap.top();
+    min_heap.pop();
+
+    // Add the smallest event to the merged events
+    merged_events.push_back(*current_event);
+
+    // Advance to the next event in the current segment
+    if (++current_event != end_event) {
+      min_heap.emplace(current_event, end_event); // Push next event from the same segment
+    }
+  }
+
+  rInfo("%f ms\n", millis_since_boot() - t1);
 
   std::atomic_store(&event_data_, std::move(merged_event_data));
   merged_segments_ = segments_to_merge;
 
   return true;
 }
+
 
 void SegmentManager::loadSegmentsInRange(SegmentMap::iterator begin, SegmentMap::iterator cur, SegmentMap::iterator end) {
   auto tryLoadSegment = [this](auto first, auto last) {
