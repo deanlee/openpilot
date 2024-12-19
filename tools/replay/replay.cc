@@ -105,6 +105,9 @@ void Replay::seekTo(double seconds, bool relative) {
 
   rInfo("Seeking to %d s, segment %d", (int)target_time, target_segment);
   notifyEvent(onSeeking, target_time);
+  if (camera_server_) {
+    camera_server_->clearQueue();
+  }
 
   interruptStream([&]() {
     current_segment_.store(target_segment);
