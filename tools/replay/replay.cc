@@ -106,27 +106,24 @@ void Replay::seekTo(double seconds, bool relative) {
   rInfo("Seeking to %d s, segment %d", (int)target_time, target_segment);
   notifyEvent(onSeeking, target_time);
 
-  interruptStream([&]() {
-    current_segment_.store(target_segment);
-    cur_mono_time_ = route_start_ts_ + target_time * 1e9;
-    seeking_to_.store(target_time, std::memory_order_relaxed);
-    return false;
-  });
-
   seg_mgr_->setCurrentSegment(target_segment);
-  checkSeekProgress();
+
+  interruptStream([&]() {
+    current_segment_ = target_segment;
+    cur_mono_time_ = route_start_ts_ + target_time * 1e9;
+    seeking_to_ = target_time;
+    return checkSegmentAndFinalizeSeek();
+  });
 }
 
-void Replay::checkSeekProgress() {
-  if (!seg_mgr_->getEventData()->isSegmentLoaded(current_segment_.load())) return;
+bool Replay::checkSegmentAndFinalizeSeek() {
+  if (!seg_mgr_->getEventData()->isSegmentLoaded(current_segment_)) return false;
 
-  double seek_to = seeking_to_.exchange(-1.0, std::memory_order_acquire);
-  if (seek_to >= 0 && onSeekedTo) {
-    onSeekedTo(seek_to);
+  if (seeking_to_ >= 0 && onSeekedTo) {
+    onSeekedTo(seeking_to_);
+    seeking_to_ = -1;
   }
-
-  // Resume the interrupted stream
-  interruptStream([]() { return true; });
+  return true;
 }
 
 void Replay::seekToFlag(FindFlag flag) {
@@ -140,7 +137,7 @@ void Replay::pause(bool pause) {
     interruptStream([=]() {
       rWarning("%s at %.2f s", pause ? "paused..." : "resuming", currentSeconds());
       user_paused_ = pause;
-      return !pause;
+      return events_ready_;
     });
   }
 }
@@ -153,10 +150,7 @@ void Replay::handleSegmentMerge() {
     startStream(event_data->segments.begin()->second);
   }
   notifyEvent(onSegmentsMerged);
-
-  // Interrupt the stream to handle segment merge
-  interruptStream([]() { return false; });
-  checkSeekProgress();
+  interruptStream([this]() { return checkSegmentAndFinalizeSeek(); });
 }
 
 void Replay::startStream(const std::shared_ptr<Segment> segment) {
@@ -275,15 +269,23 @@ void Replay::streamThread() {
 
     if (it != events.cend()) {
       cur_which = it->which;
-    } else if (!hasFlag(REPLAY_FLAG_NO_LOOP)) {
-      int last_segment = seg_mgr_->route_.segments().rbegin()->first;
-      if (event_data_->isSegmentLoaded(last_segment)) {
-        rInfo("reaches the end of route, restart from beginning");
-        stream_lock_.unlock();
-        seekTo(minSeconds(), false);
-        stream_lock_.lock();
-      }
+    } else {
+      cur_which = events.back().which;
+      events_ready_ = false;
+      restartIfNeeded();
     }
+  }
+}
+
+void Replay::restartIfNeeded() {
+  if (hasFlag(REPLAY_FLAG_NO_LOOP)) return;
+
+  int last_segment = seg_mgr_->route_.segments().rbegin()->first;
+  if (event_data_->isSegmentLoaded(last_segment)) {
+    rInfo("Reached end of route. Restarting.");
+    stream_lock_.unlock();
+    seekTo(minSeconds(), false);  // Seek to the beginning
+    stream_lock_.lock();
   }
 }
 
@@ -297,15 +299,15 @@ std::vector<Event>::const_iterator Replay::publishEvents(std::vector<Event>::con
     const Event &evt = *first;
 
     int segment = toSeconds(evt.mono_time) / 60;
-    if (current_segment_.load(std::memory_order_relaxed) != segment) {
-      current_segment_.store(segment, std::memory_order_relaxed);
+    if (current_segment_ != segment) {
+      current_segment_ = segment;
       seg_mgr_->setCurrentSegment(segment);
     }
 
+    cur_mono_time_ = evt.mono_time;
     // Skip events if socket is not present
     if (!sockets_[evt.which]) continue;
 
-    cur_mono_time_ = evt.mono_time;
     const uint64_t current_nanos = nanos_since_boot();
     const int64_t time_diff = (evt.mono_time - evt_start_ts) / speed_ - (current_nanos - loop_start_ts);
 

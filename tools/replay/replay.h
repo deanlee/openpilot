@@ -75,7 +75,8 @@ private:
                                                    std::vector<Event>::const_iterator last);
   void publishMessage(const Event *e);
   void publishFrame(const Event *e);
-  void checkSeekProgress();
+  bool checkSegmentAndFinalizeSeek();
+  void restartIfNeeded();
 
   std::unique_ptr<SegmentManager> seg_mgr_;
   Timeline timeline_;
@@ -85,8 +86,8 @@ private:
   std::mutex stream_lock_;
   bool user_paused_ = false;
   std::condition_variable stream_cv_;
-  std::atomic<int> current_segment_ = 0;
-  std::atomic<double> seeking_to_ = -1.0;
+  int current_segment_ = 0;
+  double seeking_to_ = -1.0;
   std::atomic<bool> exit_ = false;
   std::atomic<bool> interrupt_requested_ = false;
   bool events_ready_ = false;
