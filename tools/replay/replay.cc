@@ -302,10 +302,11 @@ std::vector<Event>::const_iterator Replay::publishEvents(std::vector<Event>::con
       seg_mgr_->setCurrentSegment(segment);
     }
 
+    cur_mono_time_ = evt.mono_time;
+
     // Skip events if socket is not present
     if (!sockets_[evt.which]) continue;
 
-    cur_mono_time_ = evt.mono_time;
     const uint64_t current_nanos = nanos_since_boot();
     const int64_t time_diff = (evt.mono_time - evt_start_ts) / speed_ - (current_nanos - loop_start_ts);
 
