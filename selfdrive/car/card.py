@@ -9,6 +9,7 @@ from cereal import car, log
 
 from panda import ALTERNATIVE_EXPERIENCE
 
+from openpilot.common.conversions import Conversions as CV
 from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper
 from openpilot.common.swaglog import cloudlog, ForwardingHandler
@@ -229,7 +230,7 @@ class Car:
 
     if self.sm.all_alive(['carControl']):
       # send car controls over can
-      now_nanos = self.can_log_mono_time if REPLAY else int(time.monotonic() * 1e9)
+      now_nanos = self.can_log_mono_time if REPLAY else int(time.monotonic() * CV.SEC_TO_NANO)
       self.last_actuators_output, can_sends = self.CI.apply(CC, now_nanos)
       self.pm.send('sendcan', can_list_to_can_capnp(can_sends, msgtype='sendcan', valid=CS.canValid))
 

@@ -11,6 +11,7 @@ import traceback
 from threading import local
 from collections import OrderedDict
 from contextlib import contextmanager
+from openpilot.common.conversions import Conversions as CV
 
 LOG_TIMESTAMPS = "LOG_TIMESTAMPS" in os.environ
 
@@ -172,7 +173,7 @@ class SwagLogger(logging.Logger):
       tstp = NiceOrderedDict()
       tstp['timestamp'] = NiceOrderedDict()
       tstp['timestamp']["event"] = event_name
-      tstp['timestamp']["time"] = t*1e9
+      tstp['timestamp']["time"] = t * CV.SEC_TO_NANO
       self.debug(tstp)
 
   def findCaller(self, stack_info=False, stacklevel=1):

@@ -17,3 +17,7 @@ class Conversions:
 
   # Mass
   LB_TO_KG = 0.453592
+
+  # Time
+  SEC_TO_NANO = 1e9
+  NANO_TO_SEC = 1. / SEC_TO_NANO
