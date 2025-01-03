@@ -28,7 +28,7 @@ private:
   bool is_open = false;
 
   AVCodecContext *codec_ctx;
-  AVFrame *frame = NULL;
+  AVFrame *frame = nullptr;
   std::vector<uint8_t> convert_buf;
   std::vector<uint8_t> downscale_buf;
 };

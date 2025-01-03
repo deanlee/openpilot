@@ -12,9 +12,9 @@ namespace {  // helper functions
 template <typename Func, typename Id, typename Name>
 std::string get_info(Func get_info_func, Id id, Name param_name) {
   size_t size = 0;
-  CL_CHECK(get_info_func(id, param_name, 0, NULL, &size));
+  CL_CHECK(get_info_func(id, param_name, 0, nullptr, &size));
   std::string info(size, '\0');
-  CL_CHECK(get_info_func(id, param_name, size, info.data(), NULL));
+  CL_CHECK(get_info_func(id, param_name, size, info.data(), nullptr));
   return info;
 }
 inline std::string get_platform_info(cl_platform_id id, cl_platform_info name) { return get_info(&clGetPlatformInfo, id, name); }
@@ -23,8 +23,8 @@ inline std::string get_device_info(cl_device_id id, cl_device_info name) { retur
 void cl_print_info(cl_platform_id platform, cl_device_id device) {
   size_t work_group_size = 0;
   cl_device_type device_type = 0;
-  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(work_group_size), &work_group_size, NULL);
-  clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(device_type), &device_type, NULL);
+  clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(work_group_size), &work_group_size, nullptr);
+  clGetDeviceInfo(device, CL_DEVICE_TYPE, sizeof(device_type), &device_type, nullptr);
   const char *type_str = "Other...";
   switch (device_type) {
     case CL_DEVICE_TYPE_CPU: type_str ="CL_DEVICE_TYPE_CPU"; break;
@@ -44,11 +44,11 @@ void cl_print_info(cl_platform_id platform, cl_device_id device) {
 
 void cl_print_build_errors(cl_program program, cl_device_id device) {
   cl_build_status status;
-  clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, NULL);
+  clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, nullptr);
   size_t log_size;
-  clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+  clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, nullptr, &log_size);
   std::string log(log_size, '\0');
-  clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, &log[0], NULL);
+  clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, &log[0], nullptr);
 
   LOGE("build failed; status=%d, log: %s", status, log.c_str());
 }
@@ -57,15 +57,15 @@ void cl_print_build_errors(cl_program program, cl_device_id device) {
 
 cl_device_id cl_get_device_id(cl_device_type device_type) {
   cl_uint num_platforms = 0;
-  CL_CHECK(clGetPlatformIDs(0, NULL, &num_platforms));
+  CL_CHECK(clGetPlatformIDs(0, nullptr, &num_platforms));
   std::unique_ptr<cl_platform_id[]> platform_ids = std::make_unique<cl_platform_id[]>(num_platforms);
-  CL_CHECK(clGetPlatformIDs(num_platforms, &platform_ids[0], NULL));
+  CL_CHECK(clGetPlatformIDs(num_platforms, &platform_ids[0], nullptr));
 
   for (size_t i = 0; i < num_platforms; ++i) {
     LOGD("platform[%zu] CL_PLATFORM_NAME: %s", i, get_platform_info(platform_ids[i], CL_PLATFORM_NAME).c_str());
 
     // Get first device
-    if (cl_device_id device_id = NULL; clGetDeviceIDs(platform_ids[i], device_type, 1, &device_id, NULL) == 0 && device_id) {
+    if (cl_device_id device_id = nullptr; clGetDeviceIDs(platform_ids[i], device_type, 1, &device_id, nullptr) == 0 && device_id) {
       cl_print_info(platform_ids[i], device_id);
       return device_id;
     }
@@ -76,7 +76,7 @@ cl_device_id cl_get_device_id(cl_device_type device_type) {
 }
 
 cl_context cl_create_context(cl_device_id device_id) {
-  return CL_CHECK_ERR(clCreateContext(NULL, 1, &device_id, NULL, NULL, &err));
+  return CL_CHECK_ERR(clCreateContext(nullptr, 1, &device_id, nullptr, nullptr, &err));
 }
 
 cl_program cl_program_from_file(cl_context ctx, cl_device_id device_id, const char* path, const char* args) {
@@ -85,8 +85,8 @@ cl_program cl_program_from_file(cl_context ctx, cl_device_id device_id, const ch
 
 cl_program cl_program_from_source(cl_context ctx, cl_device_id device_id, const std::string& src, const char* args) {
   const char *csrc = src.c_str();
-  cl_program prg = CL_CHECK_ERR(clCreateProgramWithSource(ctx, 1, &csrc, NULL, &err));
-  if (int err = clBuildProgram(prg, 1, &device_id, args, NULL, NULL); err != 0) {
+  cl_program prg = CL_CHECK_ERR(clCreateProgramWithSource(ctx, 1, &csrc, nullptr, &err));
+  if (int err = clBuildProgram(prg, 1, &device_id, args, nullptr, nullptr); err != 0) {
     cl_print_build_errors(prg, device_id);
     assert(0);
   }
@@ -94,8 +94,8 @@ cl_program cl_program_from_source(cl_context ctx, cl_device_id device_id, const 
 }
 
 cl_program cl_program_from_binary(cl_context ctx, cl_device_id device_id, const uint8_t* binary, size_t length, const char* args) {
-  cl_program prg = CL_CHECK_ERR(clCreateProgramWithBinary(ctx, 1, &device_id, &length, &binary, NULL, &err));
-  if (int err = clBuildProgram(prg, 1, &device_id, args, NULL, NULL); err != 0) {
+  cl_program prg = CL_CHECK_ERR(clCreateProgramWithBinary(ctx, 1, &device_id, &length, &binary, nullptr, &err));
+  if (int err = clBuildProgram(prg, 1, &device_id, args, nullptr, nullptr); err != 0) {
     cl_print_build_errors(prg, device_id);
     assert(0);
   }

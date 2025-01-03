@@ -48,7 +48,7 @@ EVP_PKEY *get_rsa_private_key() {
       std::cerr << "No RSA private key found, please run manager.py or registration.py" << std::endl;
       return nullptr;
     }
-    rsa_private.reset(PEM_read_PrivateKey(fp, NULL, NULL, NULL));
+    rsa_private.reset(PEM_read_PrivateKey(fp, nullptr, nullptr, nullptr));
     fclose(fp);
   }
   return rsa_private.get();

@@ -200,7 +200,7 @@ void Installer::cloneFinished(int exitCode, QProcess::ExitStatus exitStatus) {
 
   // write continue.sh
   FILE *of = fopen("/data/continue.sh.new", "wb");
-  assert(of != NULL);
+  assert(of != nullptr);
 
   size_t num = str_continue_end - str_continue;
   size_t num_written = fwrite(str_continue, 1, num, of);

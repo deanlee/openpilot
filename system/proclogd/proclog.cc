@@ -113,7 +113,7 @@ std::vector<int> pids() {
   DIR *d = opendir("/proc");
   assert(d);
   char *p_end;
-  struct dirent *de = NULL;
+  struct dirent *de = nullptr;
   while ((de = readdir(d))) {
     if (de->d_type == DT_DIR) {
       int pid = strtol(de->d_name, &p_end, 10);

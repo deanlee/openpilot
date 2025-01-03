@@ -84,7 +84,7 @@ void can_send_thread(std::vector<Panda *> pandas, bool fake_send) {
   AlignedBuffer aligned_buf;
   std::unique_ptr<Context> context(Context::create());
   std::unique_ptr<SubSocket> subscriber(SubSocket::create(context.get(), "sendcan"));
-  assert(subscriber != NULL);
+  assert(subscriber != nullptr);
   subscriber->setTimeout(100);
 
   // run as fast as messages come in

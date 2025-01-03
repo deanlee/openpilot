@@ -49,8 +49,8 @@ public:
   static std::vector<std::string> list();
 
 private:
-  libusb_context *ctx = NULL;
-  libusb_device_handle *dev_handle = NULL;
+  libusb_context *ctx = nullptr;
+  libusb_device_handle *dev_handle = nullptr;
   std::recursive_mutex hw_lock;
   void handle_usb_issue(int err, const char func[]);
 };

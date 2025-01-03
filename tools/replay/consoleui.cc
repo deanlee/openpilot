@@ -255,16 +255,16 @@ void ConsoleUI::updateTimeline() {
     int start_pos = ((entry.start_time - replay->minSeconds()) / total_sec) * width;
     int end_pos = ((entry.end_time - replay->minSeconds()) / total_sec) * width;
     if (entry.type == TimelineType::Engaged) {
-      mvwchgat(win, 1, start_pos, end_pos - start_pos + 1, A_COLOR, Color::Engaged, NULL);
-      mvwchgat(win, 2, start_pos, end_pos - start_pos + 1, A_COLOR, Color::Engaged, NULL);
+      mvwchgat(win, 1, start_pos, end_pos - start_pos + 1, A_COLOR, Color::Engaged, nullptr);
+      mvwchgat(win, 2, start_pos, end_pos - start_pos + 1, A_COLOR, Color::Engaged, nullptr);
     } else if (entry.type == TimelineType::UserFlag) {
-      mvwchgat(win, 3, start_pos, end_pos - start_pos + 1, ACS_S3, Color::Cyan, NULL);
+      mvwchgat(win, 3, start_pos, end_pos - start_pos + 1, ACS_S3, Color::Cyan, nullptr);
     } else {
       auto color_id = Color::Green;
       if (entry.type != TimelineType::AlertInfo) {
         color_id = entry.type == TimelineType::AlertWarning ? Color::Yellow : Color::Red;
       }
-      mvwchgat(win, 3, start_pos, end_pos - start_pos + 1, ACS_S3, color_id, NULL);
+      mvwchgat(win, 3, start_pos, end_pos - start_pos + 1, ACS_S3, color_id, nullptr);
     }
   }
 

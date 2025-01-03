@@ -13,8 +13,8 @@ void transform_init(Transform* s, cl_context ctx, cl_device_id device_id) {
   // done with this
   CL_CHECK(clReleaseProgram(prg));
 
-  s->m_y_cl = CL_CHECK_ERR(clCreateBuffer(ctx, CL_MEM_READ_WRITE, 3*3*sizeof(float), NULL, &err));
-  s->m_uv_cl = CL_CHECK_ERR(clCreateBuffer(ctx, CL_MEM_READ_WRITE, 3*3*sizeof(float), NULL, &err));
+  s->m_y_cl = CL_CHECK_ERR(clCreateBuffer(ctx, CL_MEM_READ_WRITE, 3*3*sizeof(float), nullptr, &err));
+  s->m_uv_cl = CL_CHECK_ERR(clCreateBuffer(ctx, CL_MEM_READ_WRITE, 3*3*sizeof(float), nullptr, &err));
 }
 
 void transform_destroy(Transform* s) {
@@ -39,8 +39,8 @@ void transform_queue(Transform* s,
   // in and out uv is half the size of y.
   mat3 projection_uv = transform_scale_buffer(projection, 0.5);
 
-  CL_CHECK(clEnqueueWriteBuffer(q, s->m_y_cl, CL_TRUE, 0, 3*3*sizeof(float), (void*)projection_y.v, 0, NULL, NULL));
-  CL_CHECK(clEnqueueWriteBuffer(q, s->m_uv_cl, CL_TRUE, 0, 3*3*sizeof(float), (void*)projection_uv.v, 0, NULL, NULL));
+  CL_CHECK(clEnqueueWriteBuffer(q, s->m_y_cl, CL_TRUE, 0, 3*3*sizeof(float), (void*)projection_y.v, 0, nullptr, nullptr));
+  CL_CHECK(clEnqueueWriteBuffer(q, s->m_uv_cl, CL_TRUE, 0, 3*3*sizeof(float), (void*)projection_uv.v, 0, nullptr, nullptr));
 
   const int in_y_width = in_width;
   const int in_y_height = in_height;
@@ -71,8 +71,8 @@ void transform_queue(Transform* s,
 
   const size_t work_size_y[2] = {(size_t)out_y_width, (size_t)out_y_height};
 
-  CL_CHECK(clEnqueueNDRangeKernel(q, s->krnl, 2, NULL,
-                              (const size_t*)&work_size_y, NULL, 0, 0, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(q, s->krnl, 2, nullptr,
+                              (const size_t*)&work_size_y, nullptr, 0, 0, nullptr));
 
   const size_t work_size_uv[2] = {(size_t)out_uv_width, (size_t)out_uv_height};
 
@@ -87,11 +87,11 @@ void transform_queue(Transform* s,
   CL_CHECK(clSetKernelArg(s->krnl, 10, sizeof(cl_int), &out_uv_width));  // dst_cols
   CL_CHECK(clSetKernelArg(s->krnl, 11, sizeof(cl_mem), &s->m_uv_cl));  // M
 
-  CL_CHECK(clEnqueueNDRangeKernel(q, s->krnl, 2, NULL,
-                              (const size_t*)&work_size_uv, NULL, 0, 0, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(q, s->krnl, 2, nullptr,
+                              (const size_t*)&work_size_uv, nullptr, 0, 0, nullptr));
   CL_CHECK(clSetKernelArg(s->krnl, 3, sizeof(cl_int), &in_v_offset));  // src_ofset
   CL_CHECK(clSetKernelArg(s->krnl, 6, sizeof(cl_mem), &out_v));  // dst
 
-  CL_CHECK(clEnqueueNDRangeKernel(q, s->krnl, 2, NULL,
-                              (const size_t*)&work_size_uv, NULL, 0, 0, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(q, s->krnl, 2, nullptr,
+                              (const size_t*)&work_size_uv, nullptr, 0, 0, nullptr));
 }

@@ -95,7 +95,7 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
       if (cur_seg >= 0 && extra.frame_id >= ((cur_seg + 1) * frames_per_seg) + s->start_frame_id) {
         for (auto &e : encoders) {
           e->encoder_close();
-          e->encoder_open(NULL);
+          e->encoder_open(nullptr);
         }
         ++cur_seg;
       }

@@ -41,8 +41,8 @@ void loadyuv_queue(LoadYUVState* s, cl_command_queue q,
   CL_CHECK(clSetKernelArg(s->loadys_krnl, 2, sizeof(cl_int), &global_out_off));
 
   const size_t loadys_work_size = (s->width*s->height)/8;
-  CL_CHECK(clEnqueueNDRangeKernel(q, s->loadys_krnl, 1, NULL,
-                               &loadys_work_size, NULL, 0, 0, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(q, s->loadys_krnl, 1, nullptr,
+                               &loadys_work_size, nullptr, 0, 0, nullptr));
 
   const size_t loaduv_work_size = ((s->width/2)*(s->height/2))/8;
   global_out_off += (s->width*s->height);
@@ -51,8 +51,8 @@ void loadyuv_queue(LoadYUVState* s, cl_command_queue q,
   CL_CHECK(clSetKernelArg(s->loaduv_krnl, 1, sizeof(cl_mem), &out_cl));
   CL_CHECK(clSetKernelArg(s->loaduv_krnl, 2, sizeof(cl_int), &global_out_off));
 
-  CL_CHECK(clEnqueueNDRangeKernel(q, s->loaduv_krnl, 1, NULL,
-                               &loaduv_work_size, NULL, 0, 0, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(q, s->loaduv_krnl, 1, nullptr,
+                               &loaduv_work_size, nullptr, 0, 0, nullptr));
 
   global_out_off += (s->width/2)*(s->height/2);
 
@@ -60,8 +60,8 @@ void loadyuv_queue(LoadYUVState* s, cl_command_queue q,
   CL_CHECK(clSetKernelArg(s->loaduv_krnl, 1, sizeof(cl_mem), &out_cl));
   CL_CHECK(clSetKernelArg(s->loaduv_krnl, 2, sizeof(cl_int), &global_out_off));
 
-  CL_CHECK(clEnqueueNDRangeKernel(q, s->loaduv_krnl, 1, NULL,
-                               &loaduv_work_size, NULL, 0, 0, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(q, s->loaduv_krnl, 1, nullptr,
+                               &loaduv_work_size, nullptr, 0, 0, nullptr));
 }
 
 void copy_queue(LoadYUVState* s, cl_command_queue q, cl_mem src, cl_mem dst,
@@ -71,6 +71,6 @@ void copy_queue(LoadYUVState* s, cl_command_queue q, cl_mem src, cl_mem dst,
   CL_CHECK(clSetKernelArg(s->copy_krnl, 2, sizeof(cl_int), &src_offset));
   CL_CHECK(clSetKernelArg(s->copy_krnl, 3, sizeof(cl_int), &dst_offset));
   const size_t copy_work_size = size/8;
-  CL_CHECK(clEnqueueNDRangeKernel(q, s->copy_krnl, 1, NULL,
-                              &copy_work_size, NULL, 0, 0, NULL));
+  CL_CHECK(clEnqueueNDRangeKernel(q, s->copy_krnl, 1, nullptr,
+                              &copy_work_size, nullptr, 0, 0, nullptr));
 }

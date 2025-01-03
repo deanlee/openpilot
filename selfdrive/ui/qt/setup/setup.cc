@@ -24,7 +24,7 @@ const QString OPENPILOT_URL = "https://openpilot.comma.ai";
 
 bool is_elf(char *fname) {
   FILE *fp = fopen(fname, "rb");
-  if (fp == NULL) {
+  if (fp == nullptr) {
     return false;
   }
   char buf[4];
@@ -47,14 +47,14 @@ void Setup::download(QString url) {
 
   auto version = util::read_file("/VERSION");
 
-  struct curl_slist *list = NULL;
+  struct curl_slist *list = nullptr;
   list = curl_slist_append(list, ("X-openpilot-serial: " + Hardware::get_serial()).c_str());
 
   char tmpfile[] = "/tmp/installer_XXXXXX";
   FILE *fp = fdopen(mkstemp(tmpfile), "wb");
 
   curl_easy_setopt(curl, CURLOPT_URL, url.toStdString().c_str());
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, nullptr);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
   curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);

@@ -49,7 +49,7 @@ void test(char *filename) {
   cout << "start build" << endl;
   std::unique_ptr<zdl::SNPE::SNPE> snpe;
   {
-    snpe = NULL;
+    snpe = nullptr;
     zdl::SNPE::SNPEBuilder snpeBuilder(container.get());
     snpe = snpeBuilder.setOutputLayers({})
       .setRuntimeProcessor(runtime)
@@ -133,7 +133,7 @@ void testrun(char* modelfile) {
   cout << "start build" << endl;
   std::unique_ptr<zdl::SNPE::SNPE> snpe;
   {
-    snpe = NULL;
+    snpe = nullptr;
     zdl::SNPE::SNPEBuilder snpeBuilder(container.get());
     snpe = snpeBuilder.setOutputLayers({})
       .setRuntimeProcessor(runtime)

@@ -113,7 +113,7 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
         }
         // if we aren't actually recording, don't create the writer
         if (encoder_info.record) {
-          assert(encoder_info.filename != NULL);
+          assert(encoder_info.filename != nullptr);
           re.writer.reset(new VideoWriter(s->logger.segmentPath().c_str(),
             encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
             edata.getWidth(), edata.getHeight(), encoder_info.fps, idx.getType()));
@@ -218,7 +218,7 @@ void loggerd_thread() {
     LOGD("logging %s", it.name.c_str());
 
     SubSocket * sock = SubSocket::create(ctx.get(), it.name);
-    assert(sock != NULL);
+    assert(sock != nullptr);
     poller->registerSocket(sock);
     service_state[sock] = {
       .name = it.name,

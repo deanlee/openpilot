@@ -19,7 +19,7 @@ int main() {
 
   std::unique_ptr<Context> context(Context::create());
   std::unique_ptr<SubSocket> subscriber(SubSocket::create(context.get(), "ubloxRaw"));
-  assert(subscriber != NULL);
+  assert(subscriber != nullptr);
   subscriber->setTimeout(100);
 
 

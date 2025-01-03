@@ -45,7 +45,7 @@ bool create_params_path(const std::string &param_path, const std::string &key_pa
     std::string tmp_path = param_path + "/.tmp_XXXXXX";
     // this should be OK since mkdtemp just replaces characters in place
     char *tmp_dir = mkdtemp((char *)tmp_path.c_str());
-    if (tmp_dir == NULL) {
+    if (tmp_dir == nullptr) {
       return false;
     }
 
@@ -314,7 +314,7 @@ void Params::clearAll(ParamKeyType key_type) {
   // 1) delete params of key_type
   // 2) delete files that are not defined in the keys.
   if (DIR *d = opendir(getParamPath().c_str())) {
-    struct dirent *de = NULL;
+    struct dirent *de = nullptr;
     while ((de = readdir(d))) {
       if (de->d_type != DT_DIR) {
         auto it = keys.find(de->d_name);

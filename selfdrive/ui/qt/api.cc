@@ -27,7 +27,7 @@ RSA *get_rsa_private_key() {
       qDebug() << "No RSA private key found, please run manager.py or registration.py";
       return nullptr;
     }
-    rsa_private.reset(PEM_read_RSAPrivateKey(fp, NULL, NULL, NULL));
+    rsa_private.reset(PEM_read_RSAPrivateKey(fp, nullptr, nullptr, nullptr));
     fclose(fp);
   }
   return rsa_private.get();

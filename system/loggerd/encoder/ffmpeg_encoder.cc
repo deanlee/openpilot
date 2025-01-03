@@ -22,7 +22,7 @@ extern "C" {
 #include "common/swaglog.h"
 #include "common/util.h"
 
-const int env_debug_encoder = (getenv("DEBUG_ENCODER") != NULL) ? atoi(getenv("DEBUG_ENCODER")) : 0;
+const int env_debug_encoder = (getenv("DEBUG_ENCODER") != nullptr) ? atoi(getenv("DEBUG_ENCODER")) : 0;
 
 FfmpegEncoder::FfmpegEncoder(const EncoderInfo &encoder_info, int in_width, int in_height)
     : VideoEncoder(encoder_info, in_width, in_height) {
@@ -56,7 +56,7 @@ void FfmpegEncoder::encoder_open(const char* path) {
   this->codec_ctx->height = frame->height;
   this->codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
   this->codec_ctx->time_base = (AVRational){ 1, encoder_info.fps };
-  int err = avcodec_open2(this->codec_ctx, codec, NULL);
+  int err = avcodec_open2(this->codec_ctx, codec, nullptr);
   assert(err >= 0);
 
   is_open = true;
@@ -118,7 +118,7 @@ int FfmpegEncoder::encode_frame(VisionBuf* buf, VisionIpcBufExtra *extra) {
 
   AVPacket pkt;
   av_init_packet(&pkt);
-  pkt.data = NULL;
+  pkt.data = nullptr;
   pkt.size = 0;
   while (ret >= 0) {
     err = avcodec_receive_packet(this->codec_ctx, &pkt);

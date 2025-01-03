@@ -141,7 +141,7 @@ int PandaSpiHandle::control_write(uint8_t request, uint16_t param1, uint16_t par
     .param2 = param2,
     .length = 0
   };
-  return spi_transfer_retry(0, (uint8_t *) &packet, sizeof(packet), NULL, 0, timeout);
+  return spi_transfer_retry(0, (uint8_t *) &packet, sizeof(packet), nullptr, 0, timeout);
 }
 
 int PandaSpiHandle::control_read(uint8_t request, uint16_t param1, uint16_t param2, unsigned char *data, uint16_t length, unsigned int timeout) {
@@ -155,25 +155,25 @@ int PandaSpiHandle::control_read(uint8_t request, uint16_t param1, uint16_t para
 }
 
 int PandaSpiHandle::bulk_write(unsigned char endpoint, unsigned char* data, int length, unsigned int timeout) {
-  return bulk_transfer(endpoint, data, length, NULL, 0, timeout);
+  return bulk_transfer(endpoint, data, length, nullptr, 0, timeout);
 }
 int PandaSpiHandle::bulk_read(unsigned char endpoint, unsigned char* data, int length, unsigned int timeout) {
-  return bulk_transfer(endpoint, NULL, 0, data, length, timeout);
+  return bulk_transfer(endpoint, nullptr, 0, data, length, timeout);
 }
 
 int PandaSpiHandle::bulk_transfer(uint8_t endpoint, uint8_t *tx_data, uint16_t tx_len, uint8_t *rx_data, uint16_t rx_len, unsigned int timeout) {
   const int xfer_size = SPI_BUF_SIZE - 0x40;
 
   int ret = 0;
-  uint16_t length = (tx_data != NULL) ? tx_len : rx_len;
+  uint16_t length = (tx_data != nullptr) ? tx_len : rx_len;
   for (int i = 0; i < (int)std::ceil((float)length / xfer_size); i++) {
     int d;
-    if (tx_data != NULL) {
+    if (tx_data != nullptr) {
       int len = std::min(xfer_size, tx_len - (xfer_size * i));
-      d = spi_transfer_retry(endpoint, tx_data + (xfer_size * i), len, NULL, 0, timeout);
+      d = spi_transfer_retry(endpoint, tx_data + (xfer_size * i), len, nullptr, 0, timeout);
     } else {
       uint16_t to_read = std::min(xfer_size, rx_len - ret);
-      d = spi_transfer_retry(endpoint, NULL, 0, rx_data + (xfer_size * i), to_read, timeout);
+      d = spi_transfer_retry(endpoint, nullptr, 0, rx_data + (xfer_size * i), to_read, timeout);
     }
 
     if (d < 0) {
@@ -183,7 +183,7 @@ int PandaSpiHandle::bulk_transfer(uint8_t endpoint, uint8_t *tx_data, uint16_t t
     }
 
     ret += d;
-    if ((rx_data != NULL) && d < xfer_size) {
+    if ((rx_data != nullptr) && d < xfer_size) {
       break;
     }
   }
@@ -299,7 +299,7 @@ int PandaSpiHandle::lltransfer(spi_ioc_transfer &t) {
       printf("transfer len error\n");
       t.len = rand() % SPI_BUF_SIZE;
     }
-    if ((static_cast<double>(rand()) / RAND_MAX) < err_prob && t.tx_buf != (uint64_t)NULL) {
+    if ((static_cast<double>(rand()) / RAND_MAX) < err_prob && t.tx_buf != (uint64_t)nullptr) {
       printf("corrupting TX\n");
       for (int i = 0; i < t.len; i++) {
         if ((static_cast<double>(rand()) / RAND_MAX) > 0.9) {
@@ -312,7 +312,7 @@ int PandaSpiHandle::lltransfer(spi_ioc_transfer &t) {
   int ret = util::safe_ioctl(spi_fd, SPI_IOC_MESSAGE(1), &t);
 
   if (err_prob > 0) {
-    if ((static_cast<double>(rand()) / RAND_MAX) < err_prob && t.rx_buf != (uint64_t)NULL) {
+    if ((static_cast<double>(rand()) / RAND_MAX) < err_prob && t.rx_buf != (uint64_t)nullptr) {
       printf("corrupting RX\n");
       for (int i = 0; i < t.len; i++) {
         if ((static_cast<double>(rand()) / RAND_MAX) > 0.9) {
@@ -364,7 +364,7 @@ int PandaSpiHandle::spi_transfer(uint8_t endpoint, uint8_t *tx_data, uint16_t tx
   }
 
   // Send data
-  if (tx_data != NULL) {
+  if (tx_data != nullptr) {
     memcpy(tx_buf, tx_data, tx_len);
   }
   add_checksum(tx_buf, tx_len);
@@ -400,7 +400,7 @@ int PandaSpiHandle::spi_transfer(uint8_t endpoint, uint8_t *tx_data, uint16_t tx
     goto fail;
   }
 
-  if (rx_data != NULL) {
+  if (rx_data != nullptr) {
     memcpy(rx_data, rx_buf + 3, rx_data_len);
   }
 

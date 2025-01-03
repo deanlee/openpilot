@@ -102,7 +102,7 @@ std::map<std::string, std::string> read_files_in_dir(const std::string &path) {
   DIR *d = opendir(path.c_str());
   if (!d) return ret;
 
-  struct dirent *de = NULL;
+  struct dirent *de = nullptr;
   while ((de = readdir(d))) {
     if (de->d_type != DT_DIR) {
       ret[de->d_name] = util::read_file(path + "/" + de->d_name);
@@ -124,7 +124,7 @@ int write_file(const char* path, const void* data, size_t size, int flags, mode_
 }
 
 FILE* safe_fopen(const char* filename, const char* mode) {
-  FILE* fp = NULL;
+  FILE* fp = nullptr;
   do {
     fp = fopen(filename, mode);
   } while ((nullptr == fp) && (errno == EINTR));

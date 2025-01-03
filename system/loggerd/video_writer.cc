@@ -17,7 +17,7 @@ VideoWriter::VideoWriter(const char *path, const char *filename, bool remuxing, 
   LOGD("encoder_open %s remuxing:%d", this->vid_path.c_str(), this->remuxing);
   if (this->remuxing) {
     bool raw = (codec == cereal::EncodeIndex::Type::BIG_BOX_LOSSLESS);
-    avformat_alloc_output_context2(&this->ofmt_ctx, NULL, raw ? "matroska" : NULL, this->vid_path.c_str());
+    avformat_alloc_output_context2(&this->ofmt_ctx, nullptr, raw ? "matroska" : nullptr, this->vid_path.c_str());
     assert(this->ofmt_ctx);
 
     // set codec correctly. needed?
@@ -34,11 +34,11 @@ VideoWriter::VideoWriter(const char *path, const char *filename, bool remuxing, 
 
     if (codec == cereal::EncodeIndex::Type::BIG_BOX_LOSSLESS) {
       // without this, there's just noise
-      int err = avcodec_open2(this->codec_ctx, avcodec, NULL);
+      int err = avcodec_open2(this->codec_ctx, avcodec, nullptr);
       assert(err >= 0);
     }
 
-    this->out_stream = avformat_new_stream(this->ofmt_ctx, raw ? avcodec : NULL);
+    this->out_stream = avformat_new_stream(this->ofmt_ctx, raw ? avcodec : nullptr);
     assert(this->out_stream);
 
     int err = avio_open(&this->ofmt_ctx->pb, this->vid_path.c_str(), AVIO_FLAG_WRITE);
@@ -67,7 +67,7 @@ void VideoWriter::write(uint8_t *data, int len, long long timestamp, bool codecc
       }
       int err = avcodec_parameters_from_context(out_stream->codecpar, codec_ctx);
       assert(err >= 0);
-      err = avformat_write_header(ofmt_ctx, NULL);
+      err = avformat_write_header(ofmt_ctx, nullptr);
       assert(err >= 0);
     } else {
       // input timestamps are in microseconds

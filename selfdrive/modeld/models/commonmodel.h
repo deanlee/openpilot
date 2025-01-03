@@ -23,7 +23,7 @@ public:
     q = CL_CHECK_ERR(clCreateCommandQueue(context, device_id, 0, &err));
   }
   virtual ~ModelFrame() {}
-  virtual cl_mem* prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection) { return NULL; }
+  virtual cl_mem* prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection) { return nullptr; }
   uint8_t* buffer_from_cl(cl_mem *in_frames, int buffer_size) {
     CL_CHECK(clEnqueueReadBuffer(q, *in_frames, CL_TRUE, 0, buffer_size, input_frames.get(), 0, nullptr, nullptr));
     clFinish(q);
@@ -42,9 +42,9 @@ protected:
   std::unique_ptr<uint8_t[]> input_frames;
 
   void init_transform(cl_device_id device_id, cl_context context, int model_width, int model_height) {
-    y_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, model_width * model_height, NULL, &err));
-    u_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
-    v_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
+    y_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, model_width * model_height, nullptr, &err));
+    u_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), nullptr, &err));
+    v_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), nullptr, &err));
     transform_init(&transform, context, device_id);
   }
 

@@ -6,7 +6,7 @@
 void* read_file(const char* path, size_t* out_len) {
   FILE* f = fopen(path, "r");
   if (!f) {
-    return NULL;
+    return nullptr;
   }
   fseek(f, 0, SEEK_END);
   long f_len = ftell(f);
@@ -20,7 +20,7 @@ void* read_file(const char* path, size_t* out_len) {
 
   if (num_read != 1) {
     free(buf);
-    return NULL;
+    return nullptr;
   }
 
   if (out_len) {

@@ -25,7 +25,7 @@ static libusb_context *init_usb_ctx() {
 PandaUsbHandle::PandaUsbHandle(std::string serial) : PandaCommsHandle(serial) {
   // init libusb
   ssize_t num_devices;
-  libusb_device **dev_list = NULL;
+  libusb_device **dev_list = nullptr;
   int err = 0;
   ctx = init_usb_ctx();
   if (!ctx) { goto fail; }
@@ -38,7 +38,7 @@ PandaUsbHandle::PandaUsbHandle(std::string serial) : PandaCommsHandle(serial) {
     libusb_get_device_descriptor(dev_list[i], &desc);
     if (desc.idVendor == 0x3801 && desc.idProduct == 0xddcc) {
       int ret = libusb_open(dev_list[i], &dev_handle);
-      if (dev_handle == NULL || ret < 0) { goto fail; }
+      if (dev_handle == nullptr || ret < 0) { goto fail; }
 
       unsigned char desc_serial[26] = { 0 };
       ret = libusb_get_string_descriptor_ascii(dev_handle, desc.iSerialNumber, desc_serial, std::size(desc_serial));
@@ -49,10 +49,10 @@ PandaUsbHandle::PandaUsbHandle(std::string serial) : PandaCommsHandle(serial) {
         break;
       }
       libusb_close(dev_handle);
-      dev_handle = NULL;
+      dev_handle = nullptr;
     }
   }
-  if (dev_handle == NULL) goto fail;
+  if (dev_handle == nullptr) goto fail;
   libusb_free_device_list(dev_list, 1);
   dev_list = nullptr;
 
@@ -69,7 +69,7 @@ PandaUsbHandle::PandaUsbHandle(std::string serial) : PandaCommsHandle(serial) {
   return;
 
 fail:
-  if (dev_list != NULL) {
+  if (dev_list != nullptr) {
     libusb_free_device_list(dev_list, 1);
   }
   cleanup();
@@ -97,7 +97,7 @@ std::vector<std::string> PandaUsbHandle::list() {
   static std::unique_ptr<libusb_context, decltype(&libusb_exit)> context(init_usb_ctx(), libusb_exit);
   // init libusb
   ssize_t num_devices;
-  libusb_device **dev_list = NULL;
+  libusb_device **dev_list = nullptr;
   std::vector<std::string> serials;
   if (!context) { return serials; }
 
@@ -111,7 +111,7 @@ std::vector<std::string> PandaUsbHandle::list() {
     libusb_device_descriptor desc;
     libusb_get_device_descriptor(device, &desc);
     if (desc.idVendor == 0x3801 && desc.idProduct == 0xddcc) {
-      libusb_device_handle *handle = NULL;
+      libusb_device_handle *handle = nullptr;
       int ret = libusb_open(device, &handle);
       if (ret < 0) { goto finish; }
 
@@ -125,7 +125,7 @@ std::vector<std::string> PandaUsbHandle::list() {
   }
 
 finish:
-  if (dev_list != NULL) {
+  if (dev_list != nullptr) {
     libusb_free_device_list(dev_list, 1);
   }
   return serials;
@@ -150,7 +150,7 @@ int PandaUsbHandle::control_write(uint8_t bRequest, uint16_t wValue, uint16_t wI
 
   std::lock_guard lk(hw_lock);
   do {
-    err = libusb_control_transfer(dev_handle, bmRequestType, bRequest, wValue, wIndex, NULL, 0, timeout);
+    err = libusb_control_transfer(dev_handle, bmRequestType, bRequest, wValue, wIndex, nullptr, 0, timeout);
     if (err < 0) handle_usb_issue(err, __func__);
   } while (err < 0 && connected);
 

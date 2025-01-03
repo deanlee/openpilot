@@ -107,9 +107,9 @@ void *alloc_w_mmu_hdl(int video0_fd, int len, uint32_t *handle, int align, int f
   do_cam_control(video0_fd, CAM_REQ_MGR_ALLOC_BUF, &mem_mgr_alloc_cmd, sizeof(mem_mgr_alloc_cmd));
   *handle = mem_mgr_alloc_cmd.out.buf_handle;
 
-  void *ptr = NULL;
+  void *ptr = nullptr;
   if (mem_mgr_alloc_cmd.out.fd > 0) {
-    ptr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, mem_mgr_alloc_cmd.out.fd, 0);
+    ptr = mmap(nullptr, len, PROT_READ | PROT_WRITE, MAP_SHARED, mem_mgr_alloc_cmd.out.fd, 0);
     assert(ptr != MAP_FAILED);
   }
 

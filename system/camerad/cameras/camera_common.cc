@@ -42,7 +42,7 @@ public:
     const size_t localWorkSize[] = {imgproc_local_worksize, imgproc_local_worksize};
 
     cl_event event;
-    CL_CHECK(clEnqueueNDRangeKernel(queue, krnl_, 2, NULL, globalWorkSize, localWorkSize, 0, 0, &event));
+    CL_CHECK(clEnqueueNDRangeKernel(queue, krnl_, 2, nullptr, globalWorkSize, localWorkSize, 0, 0, &event));
     clWaitForEvents(1, &event);
     CL_CHECK(clReleaseEvent(event));
   }

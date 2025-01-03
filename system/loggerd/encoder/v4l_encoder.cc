@@ -22,7 +22,7 @@
   echo 0x7fffffff > /sys/kernel/debug/msm_vidc/debug_level
   echo 0xff > /sys/devices/platform/soc/aa00000.qcom,vidc/video4linux/video33/dev_debug
 */
-const int env_debug_encoder = (getenv("DEBUG_ENCODER") != NULL) ? atoi(getenv("DEBUG_ENCODER")) : 0;
+const int env_debug_encoder = (getenv("DEBUG_ENCODER") != nullptr) ? atoi(getenv("DEBUG_ENCODER")) : 0;
 
 static void checked_ioctl(int fd, unsigned long request, void *argp) {
   int ret = util::safe_ioctl(fd, request, argp);
@@ -32,7 +32,7 @@ static void checked_ioctl(int fd, unsigned long request, void *argp) {
   }
 }
 
-static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index=NULL, unsigned int *bytesused=NULL, unsigned int *flags=NULL, struct timeval *timestamp=NULL) {
+static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index=nullptr, unsigned int *bytesused=nullptr, unsigned int *flags=nullptr, struct timeval *timestamp=nullptr) {
   v4l2_plane plane = {0};
   v4l2_buffer v4l_buf = {
     .type = buf_type,
