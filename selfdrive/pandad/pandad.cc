@@ -314,9 +314,8 @@ void send_peripheral_state(Panda *panda, PubMaster *pm) {
   if (ps.getVoltage() == 0 && ps.getCurrent() == 0) {
     auto health_opt = panda->get_state();
     if (health_opt) {
-      health_t health = *health_opt;
-      ps.setVoltage(health.voltage_pkt);
-      ps.setCurrent(health.current_pkt);
+      ps.setVoltage(health_opt->voltage_pkt);
+      ps.setCurrent(health_opt->current_pkt);
     }
   }
 
