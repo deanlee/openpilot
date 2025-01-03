@@ -328,36 +328,33 @@ void send_peripheral_state(Panda *panda, PubMaster *pm) {
 
 void process_panda_state(std::vector<Panda *> &pandas, PubMaster *pm, bool spoofing_started) {
   static SubMaster sm({"selfdriveState"});
+  auto ignition_opt = send_panda_states(pm, pandas, spoofing_started);
+  if (!ignition_opt) {
+    LOGE("Failed to get ignition_opt");
+    return;
+  }
 
-  {
-    auto ignition_opt = send_panda_states(pm, pandas, spoofing_started);
-    if (!ignition_opt) {
-      LOGE("Failed to get ignition_opt");
+  // check if we should have pandad reconnect
+  if (!ignition_opt.value()) {
+    if (!std::all_of(pandas.begin(), pandas.end(), [](Panda *p) { return p->comms_healthy(); })) {
+      LOGE("Reconnecting, communication to pandas not healthy");
+      do_exit = true;
       return;
     }
-
-    // check if we should have pandad reconnect
-    if (!ignition_opt.value()) {
-      if (!std::all_of(pandas.begin(), pandas.end(), [](Panda *p) { return p->comms_healthy(); })) {
-        LOGE("Reconnecting, communication to pandas not healthy");
+    // Check for new pandas
+    for (auto &s : Panda::list(true)) {
+      if (std::none_of(pandas.begin(), pandas.end(), [&](Panda *p) { return p->hw_serial() == s; })) {
+        LOGW("Reconnecting to new panda: %s", s.c_str());
         do_exit = true;
         return;
       }
-      // Check for new pandas
-      for (auto &s : Panda::list(true)) {
-        if (std::none_of(pandas.begin(), pandas.end(), [&](Panda *p) { return p->hw_serial() == s; })) {
-          LOGW("Reconnecting to new panda: %s", s.c_str());
-          do_exit = true;
-          return;
-        }
-      }
     }
+  }
 
-    sm.update(0);
-    const bool engaged = sm.allAliveAndValid({"selfdriveState"}) && sm["selfdriveState"].getSelfdriveState().getEnabled();
-    for (const auto &panda : pandas) {
-      panda->send_heartbeat(engaged);
-    }
+  sm.update(0);
+  const bool engaged = sm.allAliveAndValid() && sm["selfdriveState"].getSelfdriveState().getEnabled();
+  for (const auto &panda : pandas) {
+    panda->send_heartbeat(engaged);
   }
 }
 
