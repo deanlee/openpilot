@@ -291,7 +291,18 @@ int PandaSpiHandle::wait_for_ack(uint8_t ack, uint8_t tx, unsigned int timeout, 
   return 0;
 }
 
-int PandaSpiHandle::lltransfer(spi_ioc_transfer &t) {
+int PandaSpiHandle::lltransfer(void *data, int len, bool need_checksum) {
+  memcpy(tx_buf, data, len);
+  if (need_checksum) {
+    add_checksum(tx_buf, len);
+    len += 1;
+  }
+  spi_ioc_transfer t = {
+    .tx_buf = (uint64_t)tx_buf,
+    .rx_buf = (uint64_t)rx_buf,
+    .len = len,
+  };
+
   static const double err_prob = std::stod(util::getenv("SPI_ERR_PROB", "-1"));
 
   if (err_prob > 0) {
@@ -335,23 +346,15 @@ int PandaSpiHandle::spi_transfer(uint8_t endpoint, uint8_t *tx_data, uint16_t tx
   assert(max_rx_len < SPI_BUF_SIZE);
 
   xfer_count++;
+
+  // Send header
   header = {
     .sync = SPI_SYNC,
     .endpoint = endpoint,
     .tx_len = tx_len,
     .max_rx_len = max_rx_len
   };
-
-  spi_ioc_transfer transfer = {
-    .tx_buf = (uint64_t)tx_buf,
-    .rx_buf = (uint64_t)rx_buf
-  };
-
-  // Send header
-  memcpy(tx_buf, &header, sizeof(header));
-  add_checksum(tx_buf, sizeof(header));
-  transfer.len = sizeof(header) + 1;
-  ret = lltransfer(transfer);
+  ret = lltransfer(&header, sizeof(header), true);
   if (ret < 0) {
     SPILOG(LOGE, "SPI: failed to send header");
     goto fail;
@@ -364,12 +367,7 @@ int PandaSpiHandle::spi_transfer(uint8_t endpoint, uint8_t *tx_data, uint16_t tx
   }
 
   // Send data
-  if (tx_data != NULL) {
-    memcpy(tx_buf, tx_data, tx_len);
-  }
-  add_checksum(tx_buf, tx_len);
-  transfer.len = tx_len + 1;
-  ret = lltransfer(transfer);
+  ret = lltransfer(tx_data, tx_len, true);
   if (ret < 0) {
     SPILOG(LOGE, "SPI: failed to send data");
     goto fail;
