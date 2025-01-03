@@ -344,13 +344,12 @@ void process_panda_state(std::vector<Panda *> &pandas, PubMaster *pm, bool spoof
         return;
       }
       // Check for new pandas
-      if (auto new_panda = std::find_if(Panda::list(true).begin(), Panda::list(true).end(), [&](const std::string &s) {
-            return std::none_of(pandas.begin(), pandas.end(), [&](Panda *p) { return p->hw_serial() == s; });
-          });
-          new_panda != Panda::list(true).end()) {
-        LOGW("Reconnecting to new panda: %s", new_panda->c_str());
-        do_exit = true;
-        return;
+      for (auto &s : Panda::list(true)) {
+        if (std::none_of(pandas.begin(), pandas.end(), [&](Panda *p) { return p->hw_serial() == s; })) {
+          LOGW("Reconnecting to new panda: %s", s.c_str());
+          do_exit = true;
+          return;
+        }
       }
     }
 
