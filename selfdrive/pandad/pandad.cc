@@ -193,41 +193,23 @@ void fill_panda_can_state(cereal::PandaState::PandaCanState::Builder &cs, const 
 
 std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> &pandas, bool spoofing_started) {
   bool ignition_local = false;
-  const uint32_t pandas_cnt = pandas.size();
-
-  // build msg
-  MessageBuilder msg;
-  auto evt = msg.initEvent();
-  auto pss = evt.initPandaStates(pandas_cnt);
-
-  std::vector<health_t> pandaStates;
-  pandaStates.reserve(pandas_cnt);
-
-  std::vector<std::array<can_health_t, PANDA_CAN_CNT>> pandaCanStates;
-  pandaCanStates.reserve(pandas_cnt);
-
   const bool red_panda_comma_three = (pandas.size() == 2) &&
                                      (pandas[0]->hw_type == cereal::PandaState::PandaType::DOS) &&
                                      (pandas[1]->hw_type == cereal::PandaState::PandaType::RED_PANDA);
+  MessageBuilder msg;
+  auto evt = msg.initEvent();
+  auto pss = evt.initPandaStates(pandas.size());
 
-  for (const auto& panda : pandas){
-    auto health_opt = panda->get_state();
+  std::vector<health_t> pandaStates;
+  pandaStates.reserve(pandas.size());
+
+  for (int i = 0; i < pandas.size(); ++i) {
+    auto health_opt = pandas[i]->get_state();
     if (!health_opt) {
       return std::nullopt;
     }
 
     health_t health = *health_opt;
-
-    std::array<can_health_t, PANDA_CAN_CNT> can_health{};
-    for (uint32_t i = 0; i < PANDA_CAN_CNT; i++) {
-      auto can_health_opt = panda->get_can_state(i);
-      if (!can_health_opt) {
-        return std::nullopt;
-      }
-      can_health[i] = *can_health_opt;
-    }
-    pandaCanStates.push_back(can_health);
-
     if (spoofing_started) {
       health.ignition_line_pkt = 1;
     }
@@ -235,16 +217,44 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     // on comma three setups with a red panda, the dos can
     // get false positive ignitions due to the harness box
     // without a harness connector, so ignore it
-    if (red_panda_comma_three && (panda->hw_type == cereal::PandaState::PandaType::DOS)) {
+    if (red_panda_comma_three && (pandas[i]->hw_type == cereal::PandaState::PandaType::DOS)) {
       health.ignition_line_pkt = 0;
     }
 
     ignition_local |= ((health.ignition_line_pkt != 0) || (health.ignition_can_pkt != 0));
-
     pandaStates.push_back(health);
+
+    if (!pandas[i]->comms_healthy()) {
+      evt.setValid(false);
+    }
+
+    auto ps = pss[i];
+    fill_panda_state(ps, pandas[i]->hw_type, health);
+
+    auto cs = std::array{ps.initCanState0(), ps.initCanState1(), ps.initCanState2()};
+    for (uint32_t j = 0; j < PANDA_CAN_CNT; j++) {
+      auto can_health_opt = pandas[i]->get_can_state(j);
+      if (!can_health_opt) {
+        return std::nullopt;
+      }
+      fill_panda_can_state(cs[j], *can_health_opt);
+    }
+
+    // Convert faults bitset to capnp list
+    std::bitset<sizeof(health.faults_pkt) * 8> fault_bits(health.faults_pkt);
+    auto faults = ps.initFaults(fault_bits.count());
+
+    size_t j = 0;
+    for (size_t f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
+         f <= size_t(cereal::PandaState::FaultType::HEARTBEAT_LOOP_WATCHDOG); f++) {
+      if (fault_bits.test(f)) {
+        faults.set(j, cereal::PandaState::FaultType(f));
+        j++;
+      }
+    }
   }
 
-  for (uint32_t i = 0; i < pandas_cnt; i++) {
+  for (uint32_t i = 0; i < pandas.size(); i++) {
     auto panda = pandas[i];
     const auto &health = pandaStates[i];
 
@@ -261,31 +271,6 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     // set safety mode to NO_OUTPUT when car is off. ELM327 is an alternative if we want to leverage athenad/connect
     if (!ignition_local && (health.safety_mode_pkt != (uint8_t)(cereal::CarParams::SafetyModel::NO_OUTPUT))) {
       panda->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
-    }
-
-    if (!panda->comms_healthy()) {
-      evt.setValid(false);
-    }
-
-    auto ps = pss[i];
-    fill_panda_state(ps, panda->hw_type, health);
-
-    auto cs = std::array{ps.initCanState0(), ps.initCanState1(), ps.initCanState2()};
-    for (uint32_t j = 0; j < PANDA_CAN_CNT; j++) {
-      fill_panda_can_state(cs[j], pandaCanStates[i][j]);
-    }
-
-    // Convert faults bitset to capnp list
-    std::bitset<sizeof(health.faults_pkt) * 8> fault_bits(health.faults_pkt);
-    auto faults = ps.initFaults(fault_bits.count());
-
-    size_t j = 0;
-    for (size_t f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
-         f <= size_t(cereal::PandaState::FaultType::HEARTBEAT_LOOP_WATCHDOG); f++) {
-      if (fault_bits.test(f)) {
-        faults.set(j, cereal::PandaState::FaultType(f));
-        j++;
-      }
     }
   }
 
