@@ -202,10 +202,14 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
 
   for (size_t i = 0; i < pandas.size(); ++i) {
     auto health_opt = pandas[i]->get_state();
-    if (!health_opt) return std::nullopt;
+    if (!health_opt) {
+      return std::nullopt;
+    }
 
     health_t health = *health_opt;
-    if (spoofing_started) health.ignition_line_pkt = 1;
+    if (spoofing_started) {
+      health.ignition_line_pkt = 1;
+    }
 
     // on comma three setups with a red panda, the dos can
     // get false positive ignitions due to the harness box
