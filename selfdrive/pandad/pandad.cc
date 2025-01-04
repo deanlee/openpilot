@@ -200,16 +200,12 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
                                      (pandas[0]->hw_type == cereal::PandaState::PandaType::DOS) &&
                                      (pandas[1]->hw_type == cereal::PandaState::PandaType::RED_PANDA);
 
-  for (int i = 0; i < pandas.size(); ++i) {
+  for (size_t i = 0; i < pandas.size(); ++i) {
     auto health_opt = pandas[i]->get_state();
-    if (!health_opt) {
-      return std::nullopt;
-    }
+    if (!health_opt) return std::nullopt;
 
     health_t health = *health_opt;
-    if (spoofing_started) {
-      health.ignition_line_pkt = 1;
-    }
+    if (spoofing_started) health.ignition_line_pkt = 1;
 
     // on comma three setups with a red panda, the dos can
     // get false positive ignitions due to the harness box
@@ -238,8 +234,7 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     // Convert faults bitset to capnp list
     std::bitset<sizeof(health.faults_pkt) * 8> fault_bits(health.faults_pkt);
     auto faults = ps.initFaults(fault_bits.count());
-    size_t j = 0;
-    for (size_t f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
+    for (size_t j = 0, f = size_t(cereal::PandaState::FaultType::RELAY_MALFUNCTION);
          f <= size_t(cereal::PandaState::FaultType::HEARTBEAT_LOOP_WATCHDOG); f++) {
       if (fault_bits.test(f)) {
         faults.set(j++, cereal::PandaState::FaultType(f));
@@ -247,20 +242,20 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     }
   }
 
-  for (uint32_t i = 0; i < pandas.size(); i++) {
-    const auto &d = pss[i].asReader();
+  for (size_t i = 0; i < pandas.size(); i++) {
+    auto ps = pss[i].asReader();
     // Make sure CAN buses are live: safety_setter_thread does not work if Panda CAN are silent and there is only one other CAN node
-    if (d.getSafetyModel() == cereal::CarParams::SafetyModel::SILENT) {
+    if (ps.getSafetyModel() == cereal::CarParams::SafetyModel::SILENT) {
       pandas[i]->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
     }
 
     bool power_save_desired = !ignition_local;
-    if (d.getPowerSaveEnabled() != power_save_desired) {
+    if (ps.getPowerSaveEnabled() != power_save_desired) {
       pandas[i]->set_power_saving(power_save_desired);
     }
 
     // set safety mode to NO_OUTPUT when car is off. ELM327 is an alternative if we want to leverage athenad/connect
-    if (!ignition_local && (d.getSafetyModel() != cereal::CarParams::SafetyModel::NO_OUTPUT)) {
+    if (!ignition_local && ps.getSafetyModel() != cereal::CarParams::SafetyModel::NO_OUTPUT) {
       pandas[i]->set_safety_model(cereal::CarParams::SafetyModel::NO_OUTPUT);
     }
   }
