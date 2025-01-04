@@ -255,20 +255,9 @@ int PandaSpiHandle::spi_transfer_retry(uint8_t endpoint, uint8_t *tx_data, uint1
 
 int PandaSpiHandle::wait_for_ack(uint8_t ack, uint8_t tx, unsigned int timeout, unsigned int length) {
   double start_millis = millis_since_boot();
-  if (timeout == 0) {
-    timeout = SPI_ACK_TIMEOUT;
-  }
-  timeout = std::clamp(timeout, 20U, SPI_ACK_TIMEOUT);
-
-  spi_ioc_transfer transfer = {
-    .tx_buf = (uint64_t)tx_buf,
-    .rx_buf = (uint64_t)rx_buf,
-    .len = length,
-  };
-  memset(tx_buf, tx, length);
-
+  timeout = timeout > 0 ? std::clamp(timeout, 20U, SPI_ACK_TIMEOUT) : SPI_ACK_TIMEOUT;
   while (true) {
-    int ret = lltransfer(transfer);
+    int ret = lltransfer(&tx, length, false);
     if (ret < 0) {
       SPILOG(LOGE, "SPI: failed to send ACK request");
       return ret;
