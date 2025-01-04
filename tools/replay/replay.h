@@ -61,7 +61,6 @@ public:
   // Event callback functions
   std::function<void()> onSegmentsMerged = nullptr;
   std::function<void(double)> onSeeking = nullptr;
-  std::function<void(double)> onSeekedTo = nullptr;
   std::function<void(std::shared_ptr<LogReader>)> onQLogLoaded = nullptr;
 
 private:
@@ -75,7 +74,6 @@ private:
                                                    std::vector<Event>::const_iterator last);
   void publishMessage(const Event *e);
   void publishFrame(const Event *e);
-  void checkSeekProgress();
 
   std::unique_ptr<SegmentManager> seg_mgr_;
   Timeline timeline_;
@@ -85,14 +83,14 @@ private:
   std::mutex stream_lock_;
   bool user_paused_ = false;
   std::condition_variable stream_cv_;
-  std::atomic<int> current_segment_ = 0;
-  std::atomic<double> seeking_to_ = -1.0;
+  int current_segment_ = 0;
   std::atomic<bool> exit_ = false;
   std::atomic<bool> interrupt_requested_ = false;
   bool events_ready_ = false;
   std::time_t route_date_time_;
   uint64_t route_start_ts_ = 0;
   std::atomic<uint64_t> cur_mono_time_ = 0;
+  cereal::Event::Which cur_which_ = cereal::Event::Which::INIT_DATA;
   double min_seconds_ = 0;
   double max_seconds_ = 0;
   SubMaster *sm_ = nullptr;

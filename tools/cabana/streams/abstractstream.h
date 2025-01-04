@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -98,7 +97,6 @@ signals:
   void paused();
   void resume();
   void seeking(double sec);
-  void seekedTo(double sec);
   void timeRangeChanged(const std::optional<std::pair<double, double>> &range);
   void eventsMerged(const MessageEventsMap &events_map);
   void msgsReceived(const std::set<MessageId> *new_msgs, bool has_new_ids);
@@ -112,14 +110,13 @@ protected:
   void mergeEvents(const std::vector<const CanEvent *> &events);
   const CanEvent *newEvent(uint64_t mono_time, const cereal::CanData::Reader &c);
   void updateEvent(const MessageId &id, double sec, const uint8_t *data, uint8_t size);
-  void waitForSeekFinshed();
+  void updateLastMsgsTo(double sec);
   std::vector<const CanEvent *> all_events_;
   double current_sec_ = 0;
   std::optional<std::pair<double, double>> time_range_;
 
 private:
   void updateLastMessages();
-  void updateLastMsgsTo(double sec);
   void updateMasks();
 
   MessageEventsMap events_;
@@ -128,8 +125,6 @@ private:
 
   // Members accessed in multiple threads. (mutex protected)
   std::mutex mutex_;
-  std::condition_variable seek_finished_cv_;
-  bool seek_finished_ = false;
   std::set<MessageId> new_msgs_;
   std::unordered_map<MessageId, CanData> messages_;
   std::unordered_map<MessageId, std::vector<uint8_t>> masks_;

@@ -139,7 +139,7 @@ void LiveStream::seekTo(double sec) {
   first_update_ts = nanos_since_boot();
   current_event_ts = first_event_ts = std::min<uint64_t>(sec * 1e9 + begin_event_ts, lastest_event_ts);
   post_last_event = (first_event_ts == lastest_event_ts);
-  emit seekedTo((current_event_ts - begin_event_ts) / 1e9);
+  emit seeking((current_event_ts - begin_event_ts) / 1e9);
 }
 
 void LiveStream::pause(bool pause) {

@@ -6,7 +6,6 @@ SegmentManager::~SegmentManager() {
   {
     std::unique_lock lock(mutex_);
     exit_ = true;
-    onSegmentMergedCallback_ = nullptr;
   }
   cv_.notify_one();
   if (thread_.joinable()) thread_.join();
@@ -37,6 +36,8 @@ bool SegmentManager::load() {
 void SegmentManager::setCurrentSegment(int seg_num) {
   {
     std::unique_lock lock(mutex_);
+    if (cur_seg_num_ == seg_num) return;
+
     cur_seg_num_ = seg_num;
     needs_update_ = true;
   }
@@ -45,11 +46,13 @@ void SegmentManager::setCurrentSegment(int seg_num) {
 
 void SegmentManager::manageSegmentCache() {
   while (true) {
-    std::unique_lock lock(mutex_);
-    cv_.wait(lock, [this]() { return exit_ || needs_update_; });
-    if (exit_) break;
+    {
+      std::unique_lock lock(mutex_);
+      cv_.wait(lock, [this]() { return exit_ || needs_update_; });
+      if (exit_) break;
 
-    needs_update_ = false;
+      needs_update_ = false;
+    }
     auto cur = segments_.lower_bound(cur_seg_num_);
     if (cur == segments_.end()) continue;
 
@@ -64,8 +67,6 @@ void SegmentManager::manageSegmentCache() {
     // Free segments outside the current range
     std::for_each(segments_.begin(), begin, [](auto &segment) { segment.second.reset(); });
     std::for_each(end, segments_.end(), [](auto &segment) { segment.second.reset(); });
-
-    lock.unlock();
 
     if (merged && onSegmentMergedCallback_) {
       onSegmentMergedCallback_();  // Notify listener that segments have been merged
@@ -118,7 +119,11 @@ void SegmentManager::loadSegmentsInRange(SegmentMap::iterator begin, SegmentMap:
       if (!segment_ptr) {
         segment_ptr = std::make_shared<Segment>(
             it->first, route_.at(it->first), flags_, filters_,
-            [this](int seg_num, bool success) { setCurrentSegment(cur_seg_num_); });
+            [this](int seg_num, bool success) {
+              std::unique_lock lock(mutex_);
+              needs_update_ = true;
+              cv_.notify_one();
+            });
       }
 
       if (segment_ptr->getState() == Segment::LoadState::Loading) {

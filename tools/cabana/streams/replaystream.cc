@@ -43,6 +43,7 @@ void ReplayStream::mergeSegments() {
       mergeEvents(new_events);
     }
   }
+  updateLastMsgsTo(currentSec());
 }
 
 bool ReplayStream::loadRoute(const QString &route, const QString &data_dir, uint32_t replay_flags) {
@@ -53,10 +54,6 @@ bool ReplayStream::loadRoute(const QString &route, const QString &data_dir, uint
 
   // Forward replay callbacks to corresponding Qt signals.
   replay->onSeeking = [this](double sec) { emit seeking(sec); };
-  replay->onSeekedTo = [this](double sec) {
-    emit seekedTo(sec);
-    waitForSeekFinshed();
-  };
   replay->onQLogLoaded = [this](std::shared_ptr<LogReader> qlog) { emit qLogLoaded(qlog); };
   replay->onSegmentsMerged = [this]() { QMetaObject::invokeMethod(this, &ReplayStream::mergeSegments, Qt::BlockingQueuedConnection); };
 

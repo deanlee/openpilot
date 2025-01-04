@@ -16,8 +16,7 @@ AbstractStream::AbstractStream(QObject *parent) : QObject(parent) {
   event_buffer_ = std::make_unique<MonotonicBuffer>(EVENT_NEXT_BUFFER_SIZE);
 
   QObject::connect(this, &AbstractStream::privateUpdateLastMsgsSignal, this, &AbstractStream::updateLastMessages, Qt::QueuedConnection);
-  QObject::connect(this, &AbstractStream::seekedTo, this, &AbstractStream::updateLastMsgsTo);
-  QObject::connect(this, &AbstractStream::seeking, this, [this](double sec) { current_sec_ = sec; });
+  QObject::connect(this, &AbstractStream::seeking, this, &AbstractStream::updateLastMsgsTo);
   QObject::connect(dbc(), &DBCManager::DBCFileChanged, this, &AbstractStream::updateMasks);
   QObject::connect(dbc(), &DBCManager::maskUpdated, this, &AbstractStream::updateMasks);
 }
@@ -143,6 +142,7 @@ bool AbstractStream::isMessageActive(const MessageId &id) const {
 }
 
 void AbstractStream::updateLastMsgsTo(double sec) {
+  std::lock_guard lk(mutex_);
   current_sec_ = sec;
   uint64_t last_ts = toMonoTime(sec);
   std::unordered_map<MessageId, CanData> msgs;
@@ -174,17 +174,9 @@ void AbstractStream::updateLastMsgsTo(double sec) {
                     std::any_of(messages_.cbegin(), messages_.cend(),
                                 [this](const auto &m) { return !last_msgs.count(m.first); });
   last_msgs = messages_;
+  mutex_.unlock();
+
   emit msgsReceived(nullptr, id_changed);
-
-  std::lock_guard lk(mutex_);
-  seek_finished_ = true;
-  seek_finished_cv_.notify_one();
-}
-
-void AbstractStream::waitForSeekFinshed() {
-  std::unique_lock lock(mutex_);
-  seek_finished_cv_.wait(lock, [this]() { return seek_finished_; });
-  seek_finished_ = false;
 }
 
 const CanEvent *AbstractStream::newEvent(uint64_t mono_time, const cereal::CanData::Reader &c) {
@@ -226,7 +218,7 @@ std::pair<CanEventIter, CanEventIter> AbstractStream::eventsInRange(const Messag
   if (!time_range) return {events.begin(), events.end()};
 
   auto first = std::lower_bound(events.begin(), events.end(), can->toMonoTime(time_range->first), CompareCanEvent());
-  auto last = std::upper_bound(events.begin(), events.end(), can->toMonoTime(time_range->second), CompareCanEvent());
+  auto last = std::upper_bound(first, events.end(), can->toMonoTime(time_range->second), CompareCanEvent());
   return {first, last};
 }
 

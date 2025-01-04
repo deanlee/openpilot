@@ -206,7 +206,7 @@ LogsWidget::LogsWidget(QWidget *parent) : QFrame(parent) {
   QObject::connect(comp_box, SIGNAL(activated(int)), this, SLOT(filterChanged()));
   QObject::connect(value_edit, &QLineEdit::textEdited, this, &LogsWidget::filterChanged);
   QObject::connect(export_btn, &QToolButton::clicked, this, &LogsWidget::exportToCSV);
-  QObject::connect(can, &AbstractStream::seekedTo, model, &HistoryLogModel::reset);
+  QObject::connect(can, &AbstractStream::seeking, model, &HistoryLogModel::reset);
   QObject::connect(dbc(), &DBCManager::DBCFileChanged, model, &HistoryLogModel::reset);
   QObject::connect(UndoStack::instance(), &QUndoStack::indexChanged, model, &HistoryLogModel::reset);
   QObject::connect(model, &HistoryLogModel::modelReset, this, &LogsWidget::modelReset);
