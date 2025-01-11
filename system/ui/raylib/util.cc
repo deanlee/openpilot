@@ -44,16 +44,25 @@ Texture2D LoadTextureResized(const char *fileName, int size) {
   Texture2D texture = LoadTextureFromImage(img);
   return texture;
 }
-
+#include <cassert>
 void initApp(const char *title, int fps) {
   Hardware::set_display_power(true);
   Hardware::set_brightness(65);
 
+
+  // auto r = setlocale(LC_ALL, "zh_CN.UTF-8");
+  // assert(r);
+  // printf("%s \n", r);
   setlocale(LC_ALL, "zh_CN.UTF-8");
-  bindtextdomain("main", "/home/dean/Projects/openpilot/system/ui/raylib/translations");
-  textdomain("main");
-  const char* translated_str = _("spinner");
-  printf("Translated text: %s\n", translated_str);
+  // assert(setlocale(LC_ALL, "zh_CN.UTF-8") != nullptr);
+  auto result = bindtextdomain("main", "/home/dean/Projects/openpilot/system/ui/raylib/translations");
+  assert(result);
+  printf("bindtextdomain %s\n", result);
+  auto dd = textdomain("main");
+  assert(dd);
+  setlocale(LC_ALL, "zh_CN.UTF-8");
+  const char* translated_str = gettext("spinner");
+  printf("Translated text: 我的 %s\n", translated_str);
 
 
   SetTraceLogLevel(LOG_NONE);
