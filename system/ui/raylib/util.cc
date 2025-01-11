@@ -48,7 +48,15 @@ Texture2D LoadTextureResized(const char *fileName, int size) {
 void initApp(const char *title, int fps) {
   Hardware::set_display_power(true);
   Hardware::set_brightness(65);
+
+  setlocale(LC_ALL, "zh_CN.UTF-8");
+  bindtextdomain("myapp", "/raylib/translations");
+  textdomain("myapp");
+  const char* translated_str = _("spinner");
+  printf("Translated text: %s\n", translated_str);
+
+
   // SetTraceLogLevel(LOG_NONE);
-  InitWindow(2160, 1080, title);
+  InitWindow(0, 0, title);
   SetTargetFPS(fps);
 }

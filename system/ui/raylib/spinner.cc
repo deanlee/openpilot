@@ -12,7 +12,7 @@ constexpr int kTextureSize = 360;
 constexpr int kFontSize = 80;
 
 int main(int argc, char *argv[]) {
-  initApp("spinner", 30);
+  initApp(_("spinner"), 30);
 
   // Turn off input buffering for std::cin
   std::cin.sync_with_stdio(false);

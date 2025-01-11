@@ -1,3 +1,5 @@
+import json
+import os
 import subprocess
 
 Import('env', 'arch', 'common')
@@ -5,6 +7,80 @@ Import('env', 'arch', 'common')
 renv = env.Clone()
 
 UBUNTU_FOCAL = int(subprocess.check_output('[ -f /etc/os-release ] && . /etc/os-release && [ "$ID" = "ubuntu" ] && [ "$VERSION_ID" = "20.04" ] && echo 1 || echo 0', shell=True, encoding='utf-8').rstrip())
+
+import json
+from SCons.Script import File, Command
+
+# Step 1: Read languages from languages.json
+import json
+import os
+from SCons.Script import File, Command, Builder, Glob
+
+import json
+import os
+from SCons.Script import File, Command, Builder, Glob
+
+# Step 1: Load languages from languages.json
+import json
+import os
+from SCons.Script import File, Command, Builder, Glob
+
+# Step 1: Load languages from languages.json
+languages_file = File("raylib/languages.json").abspath
+with open(languages_file) as f:
+    languages = json.loads(f.read())
+
+# Step 2: Define paths for .po and .mo files (gettext translation files)
+translation_dir = Dir("raylib/translations").abspath
+print(translation_dir)
+pot_file = f"{translation_dir}/myapp.pot"  # POT file
+translation_sources = [f"{translation_dir}/{lang}.po" for lang in languages.values()]
+translation_targets = [po.replace(".po", ".mo") for po in translation_sources]
+
+# Define the source files from which translatable strings will be extracted
+source_files = [file.abspath for file in Glob('raylib/*.cc')]
+print(f"Source files: {source_files}")
+
+# Step 3: Command to extract strings and generate the .pot file
+# xgettext extracts translatable strings into a .pot file
+xgettext_cmd = f"xgettext --keyword=_ -o {pot_file} " + " ".join(source_files)
+xgettext_action = Command(pot_file, source_files, xgettext_cmd)
+
+# Step 4: Create `.po` files if they don't exist using `msginit`
+def create_po_if_not_exists(target, source, env):
+    po_file = str(target[0])
+    pot_file = str(source[0])
+    lang_code = os.path.basename(po_file).split(".")[0].split("_")[-1]  # Extract language code
+    if not os.path.exists(po_file):
+        print(f"Creating {po_file} for {lang_code}")
+        os.system(f"msginit --no-translator --locale={lang_code} --input={pot_file} --output={po_file}")
+
+po_builder = Builder(action=create_po_if_not_exists)
+env.Append(BUILDERS={'CreatePO': po_builder})
+
+# Step 5: Create .po files (if they don't exist)
+po_create_cmds = []
+for po_file in translation_sources:
+    po_create_cmds.append(env.CreatePO(po_file, pot_file))
+
+# Step 6: Update .po files with new strings from the .pot file (msgmerge)
+po_update_cmds = []
+for po_file in translation_sources:
+    if os.path.exists(po_file):
+        print(f"Updating {po_file} with {pot_file}")
+        po_update_cmds.append(Command(po_file, pot_file, f"msgmerge --update --backup=off {po_file} {pot_file}"))
+
+# Step 7: Compile .po files into .mo files (msgfmt)
+msgfmt_cmds = []
+for po_file, mo_file in zip(translation_sources, translation_targets):
+    msgfmt_cmds.append(Command(mo_file, po_file, f"msgfmt -o {mo_file} {po_file}"))
+
+# Step 8: Add the commands to the environment for execution
+env.Alias('translations', [xgettext_action] + po_create_cmds + po_update_cmds + msgfmt_cmds)
+
+
+
+
 
 if not UBUNTU_FOCAL:
   rayutil = env.Library("rayutil", ['raylib/util.cc'], LIBS='raylib')

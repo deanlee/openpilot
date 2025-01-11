@@ -1,8 +1,12 @@
 #pragma once
 
+#include <libintl.h>
+#include <locale.h>
 #include <string>
 
 #include "system/ui/raylib/raylib.h"
+
+#define _(STRING) gettext(STRING)
 
 enum class FontWeight {
   Normal,
