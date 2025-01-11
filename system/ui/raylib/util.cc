@@ -50,8 +50,8 @@ void initApp(const char *title, int fps) {
   Hardware::set_brightness(65);
 
   setlocale(LC_ALL, "zh_CN.UTF-8");
-  bindtextdomain("myapp", "/raylib/translations");
-  textdomain("myapp");
+  bindtextdomain("main", "/raylib/translations");
+  textdomain("main");
   const char* translated_str = _("spinner");
   printf("Translated text: %s\n", translated_str);
 

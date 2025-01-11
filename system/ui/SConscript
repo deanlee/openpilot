@@ -8,21 +8,10 @@ renv = env.Clone()
 
 UBUNTU_FOCAL = int(subprocess.check_output('[ -f /etc/os-release ] && . /etc/os-release && [ "$ID" = "ubuntu" ] && [ "$VERSION_ID" = "20.04" ] && echo 1 || echo 0', shell=True, encoding='utf-8').rstrip())
 
-import json
-from SCons.Script import File, Command
-
 # Step 1: Read languages from languages.json
 import json
 import os
 from SCons.Script import File, Command, Builder, Glob
-
-import json
-import os
-from SCons.Script import File, Command, Builder, Glob
-
-import json
-import os
-from SCons.Script import File, Command, Builder, Glob, Dir
 
 # Step 1: Load languages from languages.json
 languages_file = File("raylib/languages.json").abspath
@@ -31,7 +20,7 @@ with open(languages_file) as f:
 
 # Step 2: Define the absolute path for the translation directory
 translation_dir = Dir("raylib/translations").abspath  # Use Dir() for directories
-pot_file = os.path.join(translation_dir, "myapp.pot")  # POT file
+pot_file = os.path.join(translation_dir, "main.pot")  # POT file
 
 # Step 3: Define absolute paths for .po and .mo files (gettext translation files)
 translation_sources = [os.path.join(translation_dir, f"{lang}.po") for lang in languages.values()]
@@ -39,7 +28,6 @@ translation_targets = [po.replace(".po", ".mo") for po in translation_sources]
 
 # Step 4: Get the absolute paths of source files from which translatable strings will be extracted
 source_files = [file.abspath for file in Glob('raylib/*.cc')]
-print(f"Source files: {source_files}")
 
 # Step 5: Command to extract strings and generate the .pot file
 # Add --keyword=_ to recognize _() as translatable strings
@@ -51,32 +39,40 @@ def create_po_if_not_exists(target, source, env):
     po_file = str(target[0])
     pot_file = str(source[0])
     lang_code = os.path.basename(po_file).split(".")[0].split("_")[-1]  # Extract language code
-    if not os.path.exists(po_file):
-        print(f"Creating {po_file} for {lang_code}")
-        os.system(f"msginit --no-translator --locale={lang_code} --input={pot_file} --output={po_file}")
+    os.system(f"msginit --no-translator --locale={lang_code} --input={pot_file} --output={po_file}")
 
 po_builder = Builder(action=create_po_if_not_exists)
-env.Append(BUILDERS={'CreatePO': po_builder})
+renv.Append(BUILDERS={'CreatePO': po_builder})
 
 # Step 7: Create .po files (if they don't exist)
 po_create_cmds = []
 for po_file in translation_sources:
-    po_create_cmds.append(env.CreatePO(po_file, pot_file))
+  if not os.path.exists(po_file):
+    print(f"Creating PO file: {po_file}")
+    po_create_cmds.append(renv.CreatePO(po_file, pot_file))
+  else:
+    print(f"PO file exists: {po_file}")
 
 # Step 8: Update .po files with new strings from the .pot file (msgmerge)
 po_update_cmds = []
 for po_file in translation_sources:
-    if os.path.exists(po_file):
-        print(f"Updating {po_file} with {pot_file}")
-        po_update_cmds.append(Command(po_file, pot_file, f"msgmerge --update --backup=off {po_file} {pot_file}"))
+  if os.path.exists(po_file):
+    print(f"Updating {po_file} with {pot_file}")
+    po_update_cmds.append(Command(po_file, pot_file, f"msgmerge --update --backup=off {po_file} {pot_file}"))
+  else:
+    print(f"Skipping {po_file} because it doesn't exist.")
 
 # Step 9: Compile .po files into .mo files (msgfmt)
 msgfmt_cmds = []
-for po_file, mo_file in zip(translation_sources, translation_targets):
-    msgfmt_cmds.append(Command(mo_file, po_file, f"msgfmt -o {mo_file} {po_file}"))
+# for po_file, mo_file in zip(translation_sources, translation_targets):
+    # msgfmt_cmds.append(Command(mo_file, po_file, f"msgfmt -o {mo_file} {po_file}"))
+
+renv.Depends(po_create_cmds, xgettext_action)  # Ensure .po files are created after .pot
+renv.Depends(po_update_cmds, po_create_cmds)   # Ensure .po files are updated after creation
+renv.Depends(msgfmt_cmds, po_update_cmds)      # Ensure .mo files are created after .po
 
 # Step 10: Add the commands to the environment for execution
-env.Alias('translations', [xgettext_action] + po_create_cmds + po_update_cmds + msgfmt_cmds)
+renv.Alias('translations', [xgettext_action] + po_create_cmds + po_update_cmds + msgfmt_cmds)
 
 
 
