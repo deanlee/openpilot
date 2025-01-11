@@ -20,33 +20,33 @@ import json
 import os
 from SCons.Script import File, Command, Builder, Glob
 
-# Step 1: Load languages from languages.json
 import json
 import os
-from SCons.Script import File, Command, Builder, Glob
+from SCons.Script import File, Command, Builder, Glob, Dir
 
 # Step 1: Load languages from languages.json
 languages_file = File("raylib/languages.json").abspath
 with open(languages_file) as f:
     languages = json.loads(f.read())
 
-# Step 2: Define paths for .po and .mo files (gettext translation files)
-translation_dir = Dir("raylib/translations").abspath
-print(translation_dir)
-pot_file = f"{translation_dir}/myapp.pot"  # POT file
-translation_sources = [f"{translation_dir}/{lang}.po" for lang in languages.values()]
+# Step 2: Define the absolute path for the translation directory
+translation_dir = Dir("raylib/translations").abspath  # Use Dir() for directories
+pot_file = os.path.join(translation_dir, "myapp.pot")  # POT file
+
+# Step 3: Define absolute paths for .po and .mo files (gettext translation files)
+translation_sources = [os.path.join(translation_dir, f"{lang}.po") for lang in languages.values()]
 translation_targets = [po.replace(".po", ".mo") for po in translation_sources]
 
-# Define the source files from which translatable strings will be extracted
+# Step 4: Get the absolute paths of source files from which translatable strings will be extracted
 source_files = [file.abspath for file in Glob('raylib/*.cc')]
 print(f"Source files: {source_files}")
 
-# Step 3: Command to extract strings and generate the .pot file
-# xgettext extracts translatable strings into a .pot file
+# Step 5: Command to extract strings and generate the .pot file
+# Add --keyword=_ to recognize _() as translatable strings
 xgettext_cmd = f"xgettext --keyword=_ -o {pot_file} " + " ".join(source_files)
 xgettext_action = Command(pot_file, source_files, xgettext_cmd)
 
-# Step 4: Create `.po` files if they don't exist using `msginit`
+# Step 6: Create `.po` files if they don't exist using `msginit`
 def create_po_if_not_exists(target, source, env):
     po_file = str(target[0])
     pot_file = str(source[0])
@@ -58,24 +58,24 @@ def create_po_if_not_exists(target, source, env):
 po_builder = Builder(action=create_po_if_not_exists)
 env.Append(BUILDERS={'CreatePO': po_builder})
 
-# Step 5: Create .po files (if they don't exist)
+# Step 7: Create .po files (if they don't exist)
 po_create_cmds = []
 for po_file in translation_sources:
     po_create_cmds.append(env.CreatePO(po_file, pot_file))
 
-# Step 6: Update .po files with new strings from the .pot file (msgmerge)
+# Step 8: Update .po files with new strings from the .pot file (msgmerge)
 po_update_cmds = []
 for po_file in translation_sources:
     if os.path.exists(po_file):
         print(f"Updating {po_file} with {pot_file}")
         po_update_cmds.append(Command(po_file, pot_file, f"msgmerge --update --backup=off {po_file} {pot_file}"))
 
-# Step 7: Compile .po files into .mo files (msgfmt)
+# Step 9: Compile .po files into .mo files (msgfmt)
 msgfmt_cmds = []
 for po_file, mo_file in zip(translation_sources, translation_targets):
     msgfmt_cmds.append(Command(mo_file, po_file, f"msgfmt -o {mo_file} {po_file}"))
 
-# Step 8: Add the commands to the environment for execution
+# Step 10: Add the commands to the environment for execution
 env.Alias('translations', [xgettext_action] + po_create_cmds + po_update_cmds + msgfmt_cmds)
 
 
