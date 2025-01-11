@@ -50,13 +50,13 @@ void initApp(const char *title, int fps) {
   Hardware::set_brightness(65);
 
   setlocale(LC_ALL, "zh_CN.UTF-8");
-  bindtextdomain("main", "/raylib/translations");
+  bindtextdomain("main", "/home/dean/Projects/openpilot/system/ui/raylib/translations");
   textdomain("main");
   const char* translated_str = _("spinner");
   printf("Translated text: %s\n", translated_str);
 
 
-  // SetTraceLogLevel(LOG_NONE);
+  SetTraceLogLevel(LOG_NONE);
   InitWindow(0, 0, title);
   SetTargetFPS(fps);
 }

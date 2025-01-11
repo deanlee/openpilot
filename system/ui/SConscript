@@ -8,11 +8,6 @@ renv = env.Clone()
 
 UBUNTU_FOCAL = int(subprocess.check_output('[ -f /etc/os-release ] && . /etc/os-release && [ "$ID" = "ubuntu" ] && [ "$VERSION_ID" = "20.04" ] && echo 1 || echo 0', shell=True, encoding='utf-8').rstrip())
 
-# Step 1: Read languages from languages.json
-import json
-import os
-from SCons.Script import File, Command, Builder, Glob
-
 # Step 1: Load languages from languages.json
 languages_file = File("raylib/languages.json").abspath
 with open(languages_file) as f:
@@ -34,12 +29,24 @@ source_files = [file.abspath for file in Glob('raylib/*.cc')]
 xgettext_cmd = f"xgettext --keyword=_ -o {pot_file} " + " ".join(source_files)
 xgettext_action = Command(pot_file, source_files, xgettext_cmd)
 
+renv.NoClean(translation_sources)
+renv.Precious(translation_sources)
+
+
 # Step 6: Create `.po` files if they don't exist using `msginit`
 def create_po_if_not_exists(target, source, env):
     po_file = str(target[0])
     pot_file = str(source[0])
     lang_code = os.path.basename(po_file).split(".")[0].split("_")[-1]  # Extract language code
     os.system(f"msginit --no-translator --locale={lang_code} --input={pot_file} --output={po_file}")
+    # Ensure UTF-8 charset is in the .po file header
+    with open(po_file, 'r+', encoding='utf-8') as f:
+      content = f.read()
+      if 'charset=CHARSET' in content:
+          content = content.replace('charset=CHARSET', 'charset=UTF-8')
+      f.seek(0)
+      f.write(content)
+      f.truncate()
 
 po_builder = Builder(action=create_po_if_not_exists)
 renv.Append(BUILDERS={'CreatePO': po_builder})
@@ -48,24 +55,18 @@ renv.Append(BUILDERS={'CreatePO': po_builder})
 po_create_cmds = []
 for po_file in translation_sources:
   if not os.path.exists(po_file):
-    print(f"Creating PO file: {po_file}")
     po_create_cmds.append(renv.CreatePO(po_file, pot_file))
-  else:
-    print(f"PO file exists: {po_file}")
 
 # Step 8: Update .po files with new strings from the .pot file (msgmerge)
 po_update_cmds = []
 for po_file in translation_sources:
   if os.path.exists(po_file):
-    print(f"Updating {po_file} with {pot_file}")
     po_update_cmds.append(Command(po_file, pot_file, f"msgmerge --update --backup=off {po_file} {pot_file}"))
-  else:
-    print(f"Skipping {po_file} because it doesn't exist.")
 
 # Step 9: Compile .po files into .mo files (msgfmt)
 msgfmt_cmds = []
-# for po_file, mo_file in zip(translation_sources, translation_targets):
-    # msgfmt_cmds.append(Command(mo_file, po_file, f"msgfmt -o {mo_file} {po_file}"))
+for po_file, mo_file in zip(translation_sources, translation_targets):
+    msgfmt_cmds.append(Command(mo_file, po_file, f"msgfmt -o {mo_file} {po_file}"))
 
 renv.Depends(po_create_cmds, xgettext_action)  # Ensure .po files are created after .pot
 renv.Depends(po_update_cmds, po_create_cmds)   # Ensure .po files are updated after creation
