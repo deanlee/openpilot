@@ -45,6 +45,10 @@ int main(int argc, char *argv[]) {
     }
 
     // Display either a progress bar or user input text based on input
+    std::string t = "我的";
+    float yPos1 = GetScreenHeight() - kMargin - kProgressBarHeight;
+      Vector2 textSize2 = MeasureTextEx(getFont(), t.c_str(), kFontSize, 1.0);
+        DrawTextEx(getFont(), t.c_str(), {center.x - textSize2.x / 2, yPos1}, kFontSize, 1.0, RAYLIB_WHITE);
     if (!userInput.empty()) {
       float yPos = GetScreenHeight() - kMargin - kProgressBarHeight;
       if (std::all_of(userInput.begin(), userInput.end(), ::isdigit)) {

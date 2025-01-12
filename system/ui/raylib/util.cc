@@ -47,15 +47,15 @@ Texture2D LoadTextureResized(const char *fileName, int size) {
 #include <cassert>
 void initApp(const char *title, int fps) {
 
-    // setenv("LANGUAGE", "zh_CN.UTF-8", 1);
-  //  setenv("LC_ALL", "zh_CN.UTF-8", 1);
-  setlocale(LC_ALL, "de_DE.UTF-8");
-  printf("current local %s\n", setlocale(LC_ALL, nullptr));
+    setenv("LANG", "zh_CN.UTF-8", 1);
+  //  setlocale(LC_ALL, "");
+  // setlocale(LC_ALL, "de_DE.UTF-8");
+  // printf("current local %s\n", setlocale(LC_ALL, nullptr));
 
   bindtextdomain("main", "/home/dean/Projects/openpilot/system/ui/raylib/translations");
   textdomain("main");
   bind_textdomain_codeset("main", "UTF-8");  // Optional: Ensure UTF-8 encoding
-  const char* translated_str = _("spinner");
+  const char* translated_str = gettext("spinner");
   printf("Translated text: 我的 %s\n", translated_str);
   Hardware::set_display_power(true);
   Hardware::set_brightness(65);
