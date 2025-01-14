@@ -1,4 +1,5 @@
 #include "system/ui/raylib/controls/keyboard.h"
+
 #include "raylib.h"
 #include "system/ui/raylib/util.h"
 #define RAYGUI_IMPLEMENTATION
@@ -12,35 +13,56 @@
 
 #include "third_party/raylib/include/raygui.h"
 
+const std::string BACKSPACE_KEY = "⌫";
+const std::string ENTER_KEY = "→";
+
+std::vector<std::vector<std::string>> lowercase = {
+    {"q", "w", "e", "r", "t", "y", "u", "i", "o", "p"},
+    {"a", "s", "d", "f", "g", "h", "j", "k", "l"},
+    {"↑", "z", "x", "c", "v", "b", "n", "m", BACKSPACE_KEY},
+    {"123", "/", "-", "  ", ".", ENTER_KEY},
+};
+
+std::vector<std::vector<std::string>> uppercase = {
+    {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"},
+    {"A", "S", "D", "F", "G", "H", "J", "K", "L"},
+    {"↓", "Z", "X", "C", "V", "B", "N", "M", BACKSPACE_KEY},
+    {"123", "/", "-", "  ", ".", ENTER_KEY},
+};
+
+std::vector<std::vector<std::string>> numbers = {
+    {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"},
+    {"-", "/", ":", ";", "(", ")", "$", "&&", "@", "\""},
+    {"#+=", ".", ",", "?", "!", "`", BACKSPACE_KEY},
+    {"ABC", "  ", ".", ENTER_KEY},
+};
+
+std::vector<std::vector<std::string>> specials = {
+    {"[", "]", "{", "}", "#", "%", "^", "*", "+", "="},
+    {"_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"},
+    {"123", ".", ",", "?", "!", "'", BACKSPACE_KEY},
+    {"ABC", "  ", ".", ENTER_KEY},
+};
+
 Keyboard::Keyboard() {
-  inputText[0] = '\0'; // Initialize the input text
 }
 
 void Keyboard::render(const Rectangle &rect) {
-  // Draw the input box
   GuiTextBox((Rectangle){rect.x, rect.y, rect.width, 30}, inputText, 256, true);
 
   // Draw the keyboard below the input box
   float keyWidth = rect.width / 10;
-  float keyHeight = 30;
-  const char *keys[] = {
-    "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-    "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P",
-    "A", "S", "D", "F", "G", "H", "J", "K", "L", ";",
-    "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"
-  };
-
+  float keyHeight = 40;
   int keyIndex = 0;
-  for (int row = 0; row < 4; row++) {
-    for (int col = 0; col < 10; col++) {
-      if (keyIndex >= sizeof(keys) / sizeof(keys[0])) break;
-
+  for (int row = 0; row < lowercase.size(); row++) {
+    const auto &keys = lowercase[row];
+    for (int col = 0; col < keys.size(); col++) {
       Rectangle keyRect = {rect.x + col * keyWidth, rect.y + 40 + row * keyHeight, keyWidth, keyHeight};
-      if (GuiButton(keyRect, keys[keyIndex])) {
+      if (GuiButton(keyRect, keys[col].c_str())) {
         // Append the key to the input text
         int len = strlen(inputText);
         if (len < 255) {
-          inputText[len] = keys[keyIndex][0];
+          inputText[len] = keys[col][0];
           inputText[len + 1] = '\0';
         }
       }

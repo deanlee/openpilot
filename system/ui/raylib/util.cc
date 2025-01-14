@@ -39,7 +39,7 @@ App::App(const char *title, int fps) {
   Hardware::set_brightness(65);
 
   // SetTraceLogLevel(LOG_NONE);
-  InitWindow(2160, 1080, title);
+  InitWindow(0, 0, title);
   SetTargetFPS(fps);
 
   // Load fonts
