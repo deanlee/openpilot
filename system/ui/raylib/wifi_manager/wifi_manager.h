@@ -29,7 +29,7 @@ protected:
   bool forgetNetwork();
   void renderNetworkList(const Rectangle &rect);
   void renderNetworkItem(const Rectangle& rect, const Network &network);
-  void connectToNetworkAsync(const std::string &ssid, const std::string &password = "");
+  void connectToNetworkAsync(const std::string &bssid, const std::string &password = "");
   void initiateAction(const Network& network, ActionState action);
 
   std::mutex mutex_;
@@ -38,7 +38,7 @@ protected:
   std::future<void> async_connection_task_;
   std::future<void> async_forget_task_;
   std::vector<Network> available_networks_;
-  std::set<std::string> saved_networks_;
+  std::map<std::string, std::string> saved_networks_;
   std::optional<Network> selected_network_;
 
   Vector2 scroll_offset_ = {0, 0};

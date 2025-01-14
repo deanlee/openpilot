@@ -1,6 +1,6 @@
 #pragma once
 
-#include <set>
+#include <map>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -12,10 +12,11 @@ enum class SecurityType {
 };
 
 struct Network {
-  std::string ssid;
-  bool connected;
-  int strength;
-  SecurityType security_type;
+  std::string ssid;            // Network name (SSID)
+  std::string bssid;           // Access point's MAC address (BSSID)
+  bool connected;              // Is the network currently in use
+  int strength;                // Signal strength
+  SecurityType security_type;  // Type of security used by the network
 };
 
 inline bool operator<(const Network& lhs, const Network& rhs) {
@@ -25,8 +26,8 @@ inline bool operator<(const Network& lhs, const Network& rhs) {
 namespace wifi {
 
 std::vector<Network> scan_networks();
-std::set<std::string> saved_networks();
-bool connect(const std::string& ssid, const std::string& password = "");
-bool forget(const std::string& ssid);
+std::map<std::string, std::string> saved_networks();
+bool connect(const std::string& bssid, const std::string& password = "");
+bool forget(const std::string& uuid);
 
 }  // namespace wifi

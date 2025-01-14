@@ -83,7 +83,7 @@ void WifiManager::renderNetworkItem(const Rectangle& rect, const Network& networ
   Rectangle state_rect = {rect.x + rect.width - btn_width * 2 - 30, rect.y, btn_width, item_height_};
   if (network.connected && current_action_ != ActionState::Connecting) {
     GuiLabel(state_rect, "Connected");
-  } else if (current_action_ == ActionState::Connecting && selected_network_->ssid == network.ssid) {
+  } else if (current_action_ == ActionState::Connecting && selected_network_->bssid == network.bssid) {
     GuiLabel(state_rect, "CONNECTING...");
   } else if (current_action_ == ActionState::None &&
              CheckCollisionPointRec(GetMousePosition(), label_rect) &&
@@ -118,7 +118,7 @@ bool WifiManager::forgetNetwork() {
   }
 
   current_action_ = ActionState::Forgetting;
-  saved_networks_.erase(selected_network_->ssid);
+
   for (auto& n : available_networks_) {
     if (n.ssid == selected_network_->ssid) {
       n.connected = false;
@@ -126,11 +126,13 @@ bool WifiManager::forgetNetwork() {
     }
   }
 
-  async_forget_task_ = std::async(std::launch::async, [this, ssid = selected_network_->ssid]() {
-    wifi::forget(ssid);
+  auto saved_it = saved_networks_.find(selected_network_->ssid);
+  async_forget_task_ = std::async(std::launch::async, [this, uuid = saved_it->second] {
+    wifi::forget(uuid);
     scanNetworksAsync();
     current_action_ = ActionState::None;
   });
+  saved_networks_.erase(saved_it);
   return true;
 }
 
@@ -152,7 +154,7 @@ bool WifiManager::connectToNetwork() {
     }
   }
 
-  connectToNetworkAsync(selected_network_->ssid, password);
+  connectToNetworkAsync(selected_network_->bssid, password);
   current_action_ = ActionState::Connecting;
   return true;
 }
@@ -172,22 +174,22 @@ void WifiManager::scanNetworksAsync() {
   });
 }
 
-void WifiManager::connectToNetworkAsync(const std::string& ssid, const std::string& password) {
+void WifiManager::connectToNetworkAsync(const std::string& bssid, const std::string& password) {
   if (async_connection_task_.valid() && async_connection_task_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
     return;
   }
 
-  async_connection_task_ = std::async(std::launch::async, [this, ssid, password]() {
-    if (wifi::connect(ssid, password)) {
+  async_connection_task_ = std::async(std::launch::async, [this, bssid, password]() {
+    if (wifi::connect(bssid, password)) {
       std::unique_lock lock(mutex_);
-      saved_networks_.insert(ssid);
       selected_network_.reset();
       current_action_ = ActionState::None;
 
       for (auto& network : available_networks_) {
-        network.connected = (network.ssid == ssid);
+        network.connected = (network.bssid == bssid);
       }
       std::sort(available_networks_.begin(), available_networks_.end());
+      scanNetworksAsync();
     } else {
       selected_network_->security_type = SecurityType::WPA;
       current_action_ = ActionState::Connect;
