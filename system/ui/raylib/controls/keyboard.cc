@@ -45,35 +45,51 @@ std::vector<std::vector<std::string>> specials = {
 };
 
 Keyboard::Keyboard() {
+  layout = &lowercase;
   GuiSetFont(pApp->getFont());
   GuiSetStyle(DEFAULT, TEXT_SIZE, 40);
 }
 
-void Keyboard::render(const Rectangle &rect) {
+void Keyboard::render(const Rectangle &rect, const std::string &title, const std::string &sub_title) {
   GuiTextBox((Rectangle){rect.x, rect.y, rect.width, 30}, inputText, 256, true);
 
-  // Draw the keyboard below the input box
-  // float keyWidth = rect.width / 10;
   float keyHeight = 155;
-
   // float h_space = 10;
   float v_space = 10;
-  int keyIndex = 0;
+  float key_max_width = (float)rect.width / layout->at(2).size();
 
-  for (int row = 0; row < lowercase.size(); row++) {
-    const auto &keys = lowercase[row];
+  for (int row = 0; row < layout->size(); row++) {
+    const auto &keys = layout->at(row);
     int start_x = row == 1 ? rect.x + 90 : rect.x;
     float key_width = row == 1 ? (rect.width - 180) / keys.size() : (rect.width) / keys.size();
+    key_width = std::min(key_width, key_max_width);
     for (int col = 0; col < keys.size(); col++) {
-      Rectangle keyRect = {start_x + col * key_width, rect.y + 40 + row * (keyHeight + v_space), key_width, keyHeight};
+      int new_width = key_width;
+      if (keys[col][0] == ' ') {
+        new_width = key_width * 3;
+      } else if (keys[col] == ENTER_KEY) {
+        new_width = key_width * 2;
+      }
+      Rectangle keyRect = {(float)start_x, rect.y + 40 + row * (keyHeight + v_space), (float)new_width, keyHeight};
+      start_x += new_width;
       if (GuiButton(keyRect, keys[col].c_str())) {
-        int len = strlen(inputText);
-        if (len < 255) {
-          inputText[len] = keys[col][0];
-          inputText[len + 1] = '\0';
+        auto key = keys[col];
+        if (key == "↓" || key == "ABC") {
+          layout = &lowercase;
+        } else if (key == "↑") {
+          layout = &uppercase;
+        } else if (key == "123") {
+          layout = &numbers;
+        } else if (key == "#+=") {
+          layout = &specials;
+        } else {
+          int len = strlen(inputText);
+          if (len < 255) {
+            inputText[len] = keys[col][0];
+            inputText[len + 1] = '\0';
+          }
         }
       }
-      keyIndex++;
     }
   }
 }

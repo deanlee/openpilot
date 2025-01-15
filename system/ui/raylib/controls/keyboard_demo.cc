@@ -9,7 +9,7 @@ int main() {
   while (!WindowShouldClose()) {
     BeginDrawing();
     ClearBackground(RAYLIB_BLACK);
-    keyboard.render({40, 100, GetScreenWidth() - 80.0f, GetScreenHeight() - 180.0f});
+    keyboard.render({40, 100, GetScreenWidth() - 80.0f, GetScreenHeight() - 180.0f}, "Enter password", "Please enter password");
     EndDrawing();
   }
   return 0;
