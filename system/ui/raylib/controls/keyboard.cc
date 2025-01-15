@@ -51,13 +51,13 @@ Keyboard::Keyboard() {
 }
 
 void Keyboard::render(const Rectangle &rect, const std::string &title, const std::string &sub_title) {
-  DrawText(title.c_str(), rect.x, rect.y, 40, RAYLIB_DARKGRAY);  // Title at rect.y
+  DrawText(title.c_str(), rect.x, rect.y, 40, RAYLIB_WHITE);          // Title at rect.y
   DrawText(sub_title.c_str(), rect.x, rect.y + 45, 20, RAYLIB_GRAY);  // Subtitle right below title (adjust position based on title height)
 
   GuiTextBox((Rectangle){rect.x, rect.y + 75, rect.width, 30}, inputText, 256, true);  // Textbox starts after title and subtitle
 
   float keyHeight = 155;
-  float v_space = 10;
+  float v_space = 3;
   float key_max_width = rect.width / layout->at(2).size();
 
   for (int row = 0; row < layout->size(); row++) {
