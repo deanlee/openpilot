@@ -26,6 +26,14 @@ project_root = Dir(".").abspath
 
 # Get source files to extract translatable strings, and ensure they're relative paths
 source_files = [os.path.relpath(file.abspath, project_root) for file in Glob('raylib/*.cc')]
+def needs_update(pot_file, source_files):
+    if not os.path.exists(pot_file):
+        return True  # If .pot doesn't exist, we need to generate it
+    pot_mtime = os.path.getmtime(pot_file)
+    for source in source_files:
+        if os.path.getmtime(source) > pot_mtime:
+            return True  # Source file is newer than .pot, needs update
+    return False
 
 # Mark translation files as important to keep
 renv.Precious(pot_file)
@@ -35,9 +43,10 @@ renv.NoClean(translation_sources)
 renv.Precious(translation_targets)
 renv.NoClean(translation_targets)
 
-# Command to extract strings and generate the .pot file using relative paths
-xgettext_cmd = f"xgettext --from-code=UTF-8 --keyword=_  -o {pot_file} -D {project_root} " + " ".join(source_files)
-xgettext_action = renv.Command(pot_file, source_files, xgettext_cmd)
+if source_files and needs_update(pot_file, source_files):
+  # Command to extract strings and generate the .pot file using relative paths
+  xgettext_cmd = f"xgettext --from-code=UTF-8 --keyword=_  -o {pot_file} -D {project_root} " + " ".join(source_files)
+  xgettext_action = renv.Command(pot_file, source_files, xgettext_cmd)
 
 # Create .po files if they don't exist
 def create_po_if_not_exists(target, source, env):
