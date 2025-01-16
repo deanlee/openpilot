@@ -30,6 +30,10 @@ Texture2D LoadTextureResized(const char *fileName, int size) {
 App *pApp = nullptr;
 
 App::App(const char *title, int fps) {
+   setlocale(LC_ALL, "");
+   bindtextdomain ("main", "./raylib/translations");
+   textdomain ("main");
+   printf("%s\n", _("test"));
   // Ensure the current dir matches the exectuable's directory
   auto self_path = util::readlink("/proc/self/exe");
   auto exe_dir = std::filesystem::path(self_path).parent_path();
@@ -38,7 +42,7 @@ App::App(const char *title, int fps) {
   Hardware::set_display_power(true);
   Hardware::set_brightness(65);
 
-  // SetTraceLogLevel(LOG_NONE);
+  SetTraceLogLevel(LOG_NONE);
   InitWindow(2160, 1080, title);
   SetTargetFPS(fps);
 
