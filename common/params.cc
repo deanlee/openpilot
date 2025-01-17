@@ -22,7 +22,7 @@ void params_sig_handler(int signal) {
 
 int fsync_dir(const std::string &path) {
   int result = -1;
-  int fd = HANDLE_EINTR(open(path.c_str(), O_RDONLY, 0755));
+  int fd = HANDLE_EINTR(open(path.c_str(), O_RDONLY, DEFAULT_FILE_PERMISSIONS));
   if (fd >= 0) {
     result = HANDLE_EINTR(fsync(fd));
     HANDLE_EINTR(close(fd));

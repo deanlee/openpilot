@@ -123,25 +123,25 @@ TEST_CASE("util::create_directories") {
   };
 
   SECTION("create_directories") {
-    REQUIRE(util::create_directories(dir, 0755));
-    REQUIRE(check_dir_permissions(dir, 0755));
+    REQUIRE(util::create_directories(dir));
+    REQUIRE(check_dir_permissions(dir));
   }
   SECTION("dir already exists") {
-    REQUIRE(util::create_directories(dir, 0755));
-    REQUIRE(util::create_directories(dir, 0755));
+    REQUIRE(util::create_directories(dir));
+    REQUIRE(util::create_directories(dir));
   }
   SECTION("a file exists with the same name") {
-    REQUIRE(util::create_directories(dir, 0755));
+    REQUIRE(util::create_directories(dir));
     int f = open((dir + "/file").c_str(), O_RDWR | O_CREAT);
     REQUIRE(f != -1);
     close(f);
-    REQUIRE(util::create_directories(dir + "/file", 0755) == false);
-    REQUIRE(util::create_directories(dir + "/file/1/2/3", 0755) == false);
+    REQUIRE(util::create_directories(dir + "/file") == false);
+    REQUIRE(util::create_directories(dir + "/file/1/2/3") == false);
   }
   SECTION("end with slashes") {
-    REQUIRE(util::create_directories(dir + "/", 0755));
+    REQUIRE(util::create_directories(dir + "/"));
   }
   SECTION("empty") {
-    REQUIRE(util::create_directories("", 0755) == false);
+    REQUIRE(util::create_directories("") == false);
   }
 }

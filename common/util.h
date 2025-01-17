@@ -39,6 +39,12 @@ const double METER_TO_FOOT = 3.28084;
 
 #define ALIGNED_SIZE(x, align) (((x) + (align)-1) & ~((align)-1))
 
+// Default file permissions:
+// Owner: read, write, execute
+// Group: read, execute
+// Others: read, execute
+#define DEFAULT_FILE_PERMISSIONS 0755
+
 namespace util {
 
 void set_thread_name(const char* name);
@@ -92,7 +98,7 @@ int safe_ioctl(int fd, unsigned long request, void *argp);
 
 std::string readlink(const std::string& path);
 bool file_exists(const std::string& fn);
-bool create_directories(const std::string &dir, mode_t mode);
+bool create_directories(const std::string &dir, mode_t mode = DEFAULT_FILE_PERMISSIONS);
 
 std::string check_output(const std::string& command);
 

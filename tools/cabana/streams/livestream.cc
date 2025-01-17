@@ -18,7 +18,7 @@ struct LiveStream::Logger {
                         .arg(settings.log_path)
                         .arg(QDateTime::fromSecsSinceEpoch(start_ts).toString("yyyy-MM-dd--hh-mm-ss"))
                         .arg(n);
-      util::create_directories(dir.toStdString(), 0755);
+      util::create_directories(dir.toStdString());
       fs.reset(new std::ofstream((dir + "/rlog").toStdString(), std::ios::binary | std::ios::out));
     }
 
