@@ -875,26 +875,18 @@ void SpectraCamera::configISP() {
   LOGD("acquire isp dev");
 
   // allocate IFE memory, then configure it
-  ife_cmd.init(m, 67984, 0x20,
-               CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
-               m->device_iommu, m->cdm_iommu, ife_buf_depth);
+  ife_cmd.init(m, 67984, 0x20, false, m->device_iommu, m->cdm_iommu, ife_buf_depth);
   if (!is_raw) {
     assert(sensor->gamma_lut_rgb.size() == 64);
-    ife_gamma_lut.init(m, sensor->gamma_lut_rgb.size()*sizeof(uint32_t), 0x20,
-                       CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
-                       m->device_iommu, m->cdm_iommu, 3); // 3 for RGB
+    ife_gamma_lut.init(m, sensor->gamma_lut_rgb.size()*sizeof(uint32_t), 0x20, false, m->device_iommu, m->cdm_iommu, 3); // 3 for RGB
     for (int i = 0; i < 3; i++) {
       memcpy(ife_gamma_lut.ptr + ife_gamma_lut.size*i, sensor->gamma_lut_rgb.data(), ife_gamma_lut.size);
     }
     assert(sensor->linearization_lut.size() == 36);
-    ife_linearization_lut.init(m, sensor->linearization_lut.size()*sizeof(uint32_t), 0x20,
-                               CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
-                               m->device_iommu, m->cdm_iommu);
+    ife_linearization_lut.init(m, sensor->linearization_lut.size()*sizeof(uint32_t), 0x20, false, m->device_iommu, m->cdm_iommu);
     memcpy(ife_linearization_lut.ptr, sensor->linearization_lut.data(), ife_linearization_lut.size);
     assert(sensor->vignetting_lut.size() == 221);
-    ife_vignetting_lut.init(m, sensor->vignetting_lut.size()*sizeof(uint32_t), 0x20,
-                            CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
-                            m->device_iommu, m->cdm_iommu, 2);
+    ife_vignetting_lut.init(m, sensor->vignetting_lut.size()*sizeof(uint32_t), 0x20, false, m->device_iommu, m->cdm_iommu, 2);
     for (int i = 0; i < 2; i++) {
       memcpy(ife_vignetting_lut.ptr + ife_vignetting_lut.size*i, sensor->vignetting_lut.data(), ife_vignetting_lut.size);
     }
@@ -935,24 +927,13 @@ void SpectraCamera::configICP() {
 
   // BPS CMD buffer
   unsigned char striping_out[] = "\x00";
-  bps_cmd.init(m, ife_buf_depth*ALIGNED_SIZE(464, 0x20), 0x20,
-               CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE | CAM_MEM_FLAG_HW_SHARED_ACCESS,
-               m->icp_device_iommu);
-
-  bps_iq.init(m, 560, 0x20,
-              CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE | CAM_MEM_FLAG_HW_SHARED_ACCESS,
-              m->icp_device_iommu);
-  bps_cdm_program_array.init(m, 0x40, 0x20,
-              CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE | CAM_MEM_FLAG_HW_SHARED_ACCESS,
-              m->icp_device_iommu);
-  bps_striping.init(m, sizeof(striping_out), 0x20,
-              CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE | CAM_MEM_FLAG_HW_SHARED_ACCESS,
-              m->icp_device_iommu);
+  bps_cmd.init(m, ife_buf_depth*ALIGNED_SIZE(464, 0x20), 0x20, true, m->icp_device_iommu);
+  bps_iq.init(m, 560, 0x20, true, m->icp_device_iommu);
+  bps_cdm_program_array.init(m, 0x40, 0x20, true, m->icp_device_iommu);
+  bps_striping.init(m, sizeof(striping_out), 0x20, true, m->icp_device_iommu);
   memcpy(bps_striping.ptr, striping_out, sizeof(striping_out));
 
-  bps_cdm_striping_bl.init(m,  65216, 0x20,
-                           CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE | CAM_MEM_FLAG_HW_SHARED_ACCESS,
-                           m->icp_device_iommu);
+  bps_cdm_striping_bl.init(m,  65216, 0x20, true, m->icp_device_iommu);
 }
 
 void SpectraCamera::configCSIPHY() {
