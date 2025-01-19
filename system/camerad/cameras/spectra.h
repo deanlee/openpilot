@@ -72,9 +72,19 @@ public:
 
 class SpectraBuf {
 public:
+  SpectraBuf() = default;
+  ~SpectraBuf() {
+    if (video0_fd >= 0 && ptr) {
+      munmap(ptr, size);
+      release(video0_fd, handle);
+    }
+  }
+
   void init(SpectraMaster *m, int s, int a, bool shared, int mmu_hdl = 0, int mmu_hdl2 = 0, int count=1) {
     size = s;
     alignment = a;
+    video0_fd = m->video0_fd;
+
     uint32_t flags = CAM_MEM_FLAG_HW_READ_WRITE | CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE;
     if (share) {
       flags |= CAM_MEM_FLAG_HW_SHARED_ACCESS;
@@ -88,7 +98,8 @@ public:
     return ALIGNED_SIZE(size, alignment);
   };
 
-  unsigned char *ptr;
+  int video0_fd = -1;
+  unsigned char *ptr = nullptr;
   int size, alignment, handle;
 };
 
