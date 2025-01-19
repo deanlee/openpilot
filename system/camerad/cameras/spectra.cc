@@ -63,26 +63,6 @@ int do_sync_control(int fd, uint32_t id, void *handle, uint32_t size) {
   return ret;
 }
 
-std::optional<int32_t> device_acquire(int fd, int32_t session_handle, void *data, uint32_t num_resources) {
-  struct cam_acquire_dev_cmd cmd = {
-    .session_handle = session_handle,
-    .handle_type = CAM_HANDLE_USER_POINTER,
-    .num_resources = (uint32_t)(data ? num_resources : 0),
-    .resource_hdl = (uint64_t)data,
-  };
-  int err = do_cam_control(fd, CAM_ACQUIRE_DEV, &cmd, sizeof(cmd));
-  return err == 0 ? std::make_optional(cmd.dev_handle) : std::nullopt;
-}
-
-int device_config(int fd, int32_t session_handle, int32_t dev_handle, uint64_t packet_handle) {
-  struct cam_config_dev_cmd cmd = {
-    .session_handle = session_handle,
-    .dev_handle = dev_handle,
-    .packet_handle = packet_handle,
-  };
-  return do_cam_control(fd, CAM_CONFIG_DEV, &cmd, sizeof(cmd));
-}
-
 int device_control(int fd, int op_code, int session_handle, int dev_handle) {
   // start stop and release are all the same
   struct cam_start_stop_dev_cmd cmd { .session_handle = session_handle, .dev_handle = dev_handle };
@@ -317,7 +297,7 @@ void SpectraCamera::sensors_poke(int request_id) {
   pkt->header.op_code = CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP;
   pkt->header.request_id = request_id;
 
-  int ret = device_config(sensor_fd, session_handle, sensor_dev_handle, cam_packet_handle);
+  int ret = sensor_dev.configDevice(cam_packet_handle);
   if (ret != 0) {
     LOGE("** sensor %d FAILED poke, disabling", cc.camera_num);
     enabled = false;
@@ -347,7 +327,7 @@ void SpectraCamera::sensors_i2c(const struct i2c_random_wr_payload* dat, int len
   i2c_random_wr->header.addr_type = CAMERA_SENSOR_I2C_TYPE_WORD;
   memcpy(i2c_random_wr->random_wr_payload, dat, len*sizeof(struct i2c_random_wr_payload));
 
-  int ret = device_config(sensor_fd, session_handle, sensor_dev_handle, cam_packet_handle);
+  int ret = sensor_dev.configDevice(cam_packet_handle);
   if (ret != 0) {
     LOGE("** sensor %d FAILED i2c, disabling", cc.camera_num);
     enabled = false;
@@ -664,7 +644,7 @@ void SpectraCamera::config_ife(int idx, int request_id, bool init) {
     }
   }
 
-  int ret = device_config(m->isp_fd, session_handle, isp_dev_handle, cam_packet_handle);
+  int ret = isp_dev.configDevice(cam_packet_handle);
   assert(ret == 0);
 }
 
@@ -710,7 +690,7 @@ void SpectraCamera::enqueue_buffer(int i, bool dp) {
   }
   sync_objs[i] = sync_create.sync_obj;
 
-  if (icp_dev_handle > 0) {
+  if (icp_dev.handle > 0) {
     ret = do_cam_control(m->cam_sync_fd, CAM_SYNC_CREATE, &sync_create, sizeof(sync_create));
     if (ret != 0) {
       LOGE("failed to create fence: %d %d", ret, sync_create.sync_obj);
@@ -744,7 +724,7 @@ void SpectraCamera::camera_map_bufs() {
     mem_mgr_map_cmd.flags = CAM_MEM_FLAG_HW_READ_WRITE;
     mem_mgr_map_cmd.mmu_hdls[0] = m->device_iommu;
     mem_mgr_map_cmd.num_hdl = 1;
-    if (icp_dev_handle > 0) {
+    if (icp_dev.handle > 0) {
       mem_mgr_map_cmd.num_hdl = 2;
       mem_mgr_map_cmd.mmu_hdls[1] = m->icp_device_iommu;
     }
@@ -797,9 +777,8 @@ bool SpectraCamera::openSensor() {
 
   // access the sensor
   LOGD("-- Accessing sensor");
-  auto sensor_dev_handle_ = device_acquire(sensor_fd, session_handle, nullptr);
-  assert(sensor_dev_handle_);
-  sensor_dev_handle = *sensor_dev_handle_;
+  sensor_dev.acquireDevice(sensor_fd, session_handle, nullptr);
+  assert(sensor_dev.handle);
   LOGD("acquire sensor dev");
 
   LOG("-- Configuring sensor");
@@ -869,9 +848,8 @@ void SpectraCamera::configISP() {
     .length = sizeof(in_port_info),
   };
 
-  auto isp_dev_handle_ = device_acquire(m->isp_fd, session_handle, &isp_resource);
-  assert(isp_dev_handle_);
-  isp_dev_handle = *isp_dev_handle_;
+  isp_dev.acquireDevice(m->isp_fd, session_handle, &isp_resource);
+  assert(isp_dev.handle);
   LOGD("acquire isp dev");
 
   // allocate IFE memory, then configure it
@@ -928,9 +906,8 @@ void SpectraCamera::configICP() {
       .fps = 20,
     },
   };
-  auto h = device_acquire(m->icp_fd, session_handle, &icp_info);
-  assert(h);
-  icp_dev_handle = *h;
+  icp_dev.acquireDevice(m->icp_fd, session_handle, &icp_info);
+  assert(icp_dev.handle);
   LOGD("acquire icp dev");
 
   // BPS CMD buffer
@@ -961,9 +938,8 @@ void SpectraCamera::configCSIPHY() {
   LOGD("opened csiphy for %d", cc.camera_num);
 
   struct cam_csiphy_acquire_dev_info csiphy_acquire_dev_info = {.combo_mode = 0};
-  auto csiphy_dev_handle_ = device_acquire(csiphy_fd, session_handle, &csiphy_acquire_dev_info);
-  assert(csiphy_dev_handle_);
-  csiphy_dev_handle = *csiphy_dev_handle_;
+  csiphy_dev.acquireDevice(csiphy_fd, session_handle, &csiphy_acquire_dev_info);
+  assert(csiphy_dev.handle);
   LOGD("acquire csiphy dev");
 
   // config csiphy
@@ -990,7 +966,7 @@ void SpectraCamera::configCSIPHY() {
     csiphy_info->settle_time = MIPI_SETTLE_CNT * 200000000ULL;
     csiphy_info->data_rate = 48000000;  // Calculated by camera_freqs.py
 
-    int ret_ = device_config(csiphy_fd, session_handle, csiphy_dev_handle, cam_packet_handle);
+    int ret_ = csiphy_dev.configDevice(cam_packet_handle);
     assert(ret_ == 0);
   }
 }
@@ -1000,11 +976,11 @@ void SpectraCamera::linkDevices() {
   struct cam_req_mgr_link_info req_mgr_link_info = {0};
   req_mgr_link_info.session_hdl = session_handle;
   req_mgr_link_info.num_devices = 2;
-  req_mgr_link_info.dev_hdls[0] = isp_dev_handle;
-  req_mgr_link_info.dev_hdls[1] = sensor_dev_handle;
+  req_mgr_link_info.dev_hdls[0] = isp_dev.handle;
+  req_mgr_link_info.dev_hdls[1] = sensor_dev.handle;
   int ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_LINK, &req_mgr_link_info, sizeof(req_mgr_link_info));
   link_handle = req_mgr_link_info.link_hdl;
-  LOGD("link: %d session: 0x%X isp: 0x%X sensors: 0x%X link: 0x%X", ret, session_handle, isp_dev_handle, sensor_dev_handle, link_handle);
+  LOGD("link: %d session: 0x%X isp: 0x%X sensors: 0x%X link: 0x%X", ret, session_handle, isp_dev.handle, sensor_dev.handle, link_handle);
 
   struct cam_req_mgr_link_control req_mgr_link_control = {0};
   req_mgr_link_control.ops = CAM_REQ_MGR_LINK_ACTIVATE;
@@ -1014,9 +990,9 @@ void SpectraCamera::linkDevices() {
   ret = do_cam_control(m->video0_fd, CAM_REQ_MGR_LINK_CONTROL, &req_mgr_link_control, sizeof(req_mgr_link_control));
   LOGD("link control: %d", ret);
 
-  ret = device_control(csiphy_fd, CAM_START_DEV, session_handle, csiphy_dev_handle);
+  ret = device_control(csiphy_fd, CAM_START_DEV, session_handle, csiphy_dev.handle);
   LOGD("start csiphy: %d", ret);
-  ret = device_control(m->isp_fd, CAM_START_DEV, session_handle, isp_dev_handle);
+  ret = device_control(m->isp_fd, CAM_START_DEV, session_handle, isp_dev.handle);
   LOGD("start isp: %d", ret);
   assert(ret == 0);
 }
@@ -1027,9 +1003,9 @@ void SpectraCamera::camera_close() {
   if (enabled) {
     // ret = device_control(sensor_fd, CAM_STOP_DEV, session_handle, sensor_dev_handle);
     // LOGD("stop sensor: %d", ret);
-    int ret = device_control(m->isp_fd, CAM_STOP_DEV, session_handle, isp_dev_handle);
+    int ret = device_control(m->isp_fd, CAM_STOP_DEV, session_handle, isp_dev.handle);
     LOGD("stop isp: %d", ret);
-    ret = device_control(csiphy_fd, CAM_STOP_DEV, session_handle, csiphy_dev_handle);
+    ret = device_control(csiphy_fd, CAM_STOP_DEV, session_handle, csiphy_dev.handle);
     LOGD("stop csiphy: %d", ret);
     // link control stop
     LOG("-- Stop link control");
@@ -1051,13 +1027,13 @@ void SpectraCamera::camera_close() {
 
     // release devices
     LOGD("-- Release devices");
-    if (icp_dev_handle > 0) {
-      ret = device_control(m->icp_fd, CAM_RELEASE_DEV, session_handle, icp_dev_handle);
+    if (icp_dev.handle > 0) {
+      ret = icp_dev.releaseDevice();
       LOGD("release icp: %d", ret);
     }
-    ret = device_control(m->isp_fd, CAM_RELEASE_DEV, session_handle, isp_dev_handle);
+    ret = isp_dev.releaseDevice();
     LOGD("release isp: %d", ret);
-    ret = device_control(csiphy_fd, CAM_RELEASE_DEV, session_handle, csiphy_dev_handle);
+    ret = csiphy_dev.releaseDevice();
     LOGD("release csiphy: %d", ret);
 
     for (int i = 0; i < ife_buf_depth; i++) {
@@ -1066,7 +1042,7 @@ void SpectraCamera::camera_close() {
     LOGD("released buffers");
   }
 
-  int ret = device_control(sensor_fd, CAM_RELEASE_DEV, session_handle, sensor_dev_handle);
+  int ret = sensor_dev.releaseDevice();
   LOGD("release sensor: %d", ret);
 
   // destroyed session

@@ -11,6 +11,7 @@
 #include "system/camerad/cameras/tici.h"
 #include "system/camerad/cameras/camera_common.h"
 #include "system/camerad/sensors/sensor.h"
+#include "system/camerad/cameras/device.h"
 
 #define MAX_IFE_BUFS 20
 
@@ -29,9 +30,7 @@ const int MIPI_SETTLE_CNT = 33;  // Calculated by camera_freqs.py
 #define OpcodesIFEUpdate         0x1
 
 std::optional<int32_t> device_acquire(int fd, int32_t session_handle, void *data, uint32_t num_resources=1);
-int device_config(int fd, int32_t session_handle, int32_t dev_handle, uint64_t packet_handle);
 int device_control(int fd, int op_code, int session_handle, int dev_handle);
-int do_cam_control(int fd, int op_code, void *handle, int size);
 void *alloc_w_mmu_hdl(int video0_fd, int len, uint32_t *handle, int align = 8, int flags = CAM_MEM_FLAG_KMD_ACCESS | CAM_MEM_FLAG_UMD_ACCESS | CAM_MEM_FLAG_CMD_BUF_TYPE,
                       int mmu_hdl = 0, int mmu_hdl2 = 0);
 void release(int video0_fd, uint32_t handle);
@@ -134,10 +133,10 @@ public:
   unique_fd csiphy_fd;
 
   int32_t session_handle = -1;
-  int32_t sensor_dev_handle = -1;
-  int32_t isp_dev_handle = -1;
-  int32_t icp_dev_handle = -1;
-  int32_t csiphy_dev_handle = -1;
+  Device sensor_dev;
+  Device isp_dev;
+  Device icp_dev;
+  Device csiphy_dev;
 
   int32_t link_handle = -1;
 
