@@ -3,7 +3,7 @@
 #include "selfdrive/ui/qt/widgets/cameraview.h"
 #include "selfdrive/ui/qt/onroad/driver_monitoring.h"
 
-class DriverViewWindow : public CameraWidget {
+class DriverViewWindow : public AutoUpdateCameraWidget {
   Q_OBJECT
 
 public:

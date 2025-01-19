@@ -5,7 +5,7 @@
 
 #include "selfdrive/ui/qt/util.h"
 
-DriverViewWindow::DriverViewWindow(QWidget* parent) : CameraWidget("camerad", VISION_STREAM_DRIVER, parent) {
+DriverViewWindow::DriverViewWindow(QWidget* parent) : AutoUpdateCameraWidget("camerad", VISION_STREAM_DRIVER, parent) {
   QObject::connect(this, &CameraWidget::clicked, this, &DriverViewWindow::done);
   QObject::connect(device(), &Device::interactiveTimeout, this, [this]() {
     if (isVisible()) {
@@ -22,17 +22,16 @@ void DriverViewWindow::showEvent(QShowEvent* event) {
 
 void DriverViewWindow::hideEvent(QHideEvent* event) {
   params.putBool("IsDriverViewEnabled", false);
-  stopVipcThread();
+  CameraWidget::disconnect();
   CameraWidget::hideEvent(event);
 }
 
 void DriverViewWindow::paintGL() {
   CameraWidget::paintGL();
 
-  std::lock_guard lk(frame_lock);
   QPainter p(this);
   // startup msg
-  if (frames.empty()) {
+  if (!vision_buf) {
     p.setPen(Qt::white);
     p.setRenderHint(QPainter::TextAntialiasing);
     p.setFont(InterFont(100, QFont::Bold));
