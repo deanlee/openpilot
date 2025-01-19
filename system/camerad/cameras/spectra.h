@@ -72,14 +72,6 @@ public:
 
 class SpectraBuf {
 public:
-  SpectraBuf() = default;
-  ~SpectraBuf() {
-    if (video0_fd >= 0 && ptr) {
-      munmap(ptr, size);
-      release(video0_fd, handle);
-    }
-  }
-
   void init(SpectraMaster *m, int s, int a, bool shared, int mmu_hdl = 0, int mmu_hdl2 = 0, int count=1) {
     size = s;
     alignment = a;
