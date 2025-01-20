@@ -47,13 +47,14 @@ void Toggle::mouseReleaseEvent(QMouseEvent *e) {
     return;
   }
   if (e->button() & Qt::LeftButton) {
-    togglePosition();
-    emit stateChanged(on);
+    setToggleState(!on);
   }
 }
 
-void Toggle::togglePosition() {
-  on = !on;
+void Toggle::setToggleState(bool state) {
+  if (on == state) return;
+
+  on = state;
   const int left = _radius;
   const int right = width() - _radius;
   _anim->setStartValue(on ? left + immediateOffset : right - immediateOffset);
@@ -61,6 +62,7 @@ void Toggle::togglePosition() {
   _anim->setDuration(animation_duration);
   _anim->start();
   repaint();
+  emit stateChanged(on);
 }
 
 void Toggle::enterEvent(QEvent *e) {

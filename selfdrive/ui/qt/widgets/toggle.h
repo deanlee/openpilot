@@ -10,8 +10,10 @@ class Toggle : public QAbstractButton {
 
 public:
   Toggle(QWidget* parent = nullptr);
-  void togglePosition();
-  bool on;
+  void setToggleState(bool state);
+  bool isToggled() const { return on; }
+
+  bool on = false;
   int animation_duration = 150;
   int immediateOffset = 0;
   int offset_circle() const {
