@@ -48,6 +48,7 @@ void Toggle::mouseReleaseEvent(QMouseEvent *e) {
   }
   if (e->button() & Qt::LeftButton) {
     setToggleState(!on);
+    emit stateChanged(on);
   }
 }
 
@@ -62,7 +63,6 @@ void Toggle::setToggleState(bool state) {
   _anim->setDuration(animation_duration);
   _anim->start();
   repaint();
-  emit stateChanged(on);
 }
 
 void Toggle::enterEvent(QEvent *e) {

@@ -12,15 +12,13 @@ DeveloperPanel::DeveloperPanel(SettingsWindow *parent) : ListWidget(parent) {
 
   joystickToggle = new ParamControl("JoystickDebugMode", tr("Joystick Debug Mode"), "", "");
   QObject::connect(joystickToggle, &ParamControl::toggleFlipped, [=](bool state) {
-    params.putBool("LongitudinalManeuverMode", false);
-    longManeuverToggle->refresh();
+    longManeuverToggle->setToggleState(false);
   });
   addItem(joystickToggle);
 
   longManeuverToggle = new ParamControl("LongitudinalManeuverMode", tr("Longitudinal Maneuver Mode"), "", "");
   QObject::connect(longManeuverToggle, &ParamControl::toggleFlipped, [=](bool state) {
-    params.putBool("JoystickDebugMode", false);
-    joystickToggle->refresh();
+    joystickToggle->setToggleState(false);
   });
   addItem(longManeuverToggle);
 

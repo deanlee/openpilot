@@ -120,9 +120,7 @@ class ToggleControl : public AbstractControl {
 public:
   ToggleControl(const QString &title, const QString &desc = "", const QString &icon = "", const bool state = false, QWidget *parent = nullptr) : AbstractControl(title, desc, icon, parent) {
     toggle.setFixedSize(150, 100);
-    if (state) {
-      toggle.togglePosition();
-    }
+    toggle.setToggleState(state);
     hlayout->addWidget(&toggle);
     QObject::connect(&toggle, &Toggle::stateChanged, this, &ToggleControl::toggleFlipped);
   }
@@ -156,14 +154,14 @@ public:
 
   void refresh() {
     bool state = params.getBool(key);
-    if (state != toggle.on) {
-      toggle.togglePosition();
+    if (state != toggle.isToggled()) {
+      toggle.setToggleState(state);
       setIcon(state);
     }
   }
 
   void showEvent(QShowEvent *event) override {
-    refresh();
+    toggle.();
   }
 
 private:

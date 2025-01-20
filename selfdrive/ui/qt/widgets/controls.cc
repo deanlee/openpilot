@@ -136,6 +136,6 @@ void ParamControl::toggleClicked(bool state) {
     params.putBool(key, state);
     setIcon(state);
   } else {
-    toggle.togglePosition();
+    toggle.setToggleState(false);
   }
 }
