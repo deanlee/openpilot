@@ -152,16 +152,19 @@ public:
     active_icon_pixmap = QPixmap(icon).scaledToWidth(80, Qt::SmoothTransformation);
   }
 
-  void refresh() {
-    bool state = params.getBool(key);
+  void setToggleState(bool state) {
     if (state != toggle.isToggled()) {
-      toggle.setToggleState(state);
+      params.putBool(key, state);
       setIcon(state);
     }
   }
 
   void showEvent(QShowEvent *event) override {
-    toggle.();
+    bool state = params.getBool(key);
+    if (state != toggle.isToggled()) {
+      toggle.setToggleState(state);
+      setIcon(state);
+    }
   }
 
 private:

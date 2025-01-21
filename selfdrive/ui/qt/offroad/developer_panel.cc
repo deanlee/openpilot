@@ -56,18 +56,17 @@ void DeveloperPanel::updateToggles(bool _offroad) {
     alphaLongToggle->setDescription("<b>" + alpha_long_description + "</b>");
 
     if (!CP.getExperimentalLongitudinalAvailable() && !CP.getOpenpilotLongitudinalControl()) {
-      params.remove("ExperimentalLongitudinalEnabled");
+      alphaLongToggle->setToggleState(false);
       alphaLongToggle->setEnabled(false);
       alphaLongToggle->setDescription("<b>" + tr("openpilot longitudinal control may come in a future update.") + "</b>");
     }
 
     // if is a release branch or if the car already have long control the alphaLongToggle should not be visible
     if (is_release || CP.getOpenpilotLongitudinalControl()) {
-      params.remove("ExperimentalLongitudinalEnabled");
+      alphaLongToggle->setToggleState(false);
       alphaLongToggle->setVisible(false);
     }
 
-    alphaLongToggle->refresh();
     longManeuverToggle->setEnabled(hasLongitudinalControl(CP) && _offroad);
   } else {
     alphaLongToggle->setVisible(false);
