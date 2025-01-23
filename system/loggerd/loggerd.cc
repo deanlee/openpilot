@@ -64,14 +64,18 @@ struct RemoteEncoder {
   bool seen_first_packet = false;
 };
 
-size_t write_encoder_data(LoggerdState *s, RemoteEncoder &re) {
+size_t write_encode_data(LoggerdState *s, cereal::Event::Reader event, struct RemoteEncoder &re, const EncoderInfo &encoder_info) {
+  auto edata = (event.*(encoder_info.get_encode_data_func))();
+  auto idx = edata.getIdx();
+  auto flags = idx.getFlags();
+
   // if we aren't recording yet, try to start, since we are in the correct segment
   if (!re.recording) {
     if (flags & V4L2_BUF_FLAG_KEYFRAME) {
       // only create on iframe
       if (re.dropped_frames) {
         // this should only happen for the first segment, maybe
-        LOGW("%s: dropped %d non iframe packets before init", name.c_str(), re.dropped_frames);
+        LOGW("%s: dropped %d non iframe packets before init", encoder_info.publish_name, re.dropped_frames);
         re.dropped_frames = 0;
       }
       // if we aren't actually recording, don't create the writer
@@ -120,7 +124,6 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
   auto event = cmsg.getRoot<cereal::Event>();
   auto edata = (event.*(encoder_info.get_encode_data_func))();
   auto idx = edata.getIdx();
-  auto flags = idx.getFlags();
 
   // encoderd can have started long before loggerd
   if (!re.seen_first_packet) {
@@ -144,14 +147,15 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
       // we are in this segment now, process any queued messages before this one
       if (!re.q.empty()) {
         for (auto &qmsg : re.q) {
-          bytes_count += write_encoder_data(s, re);
+          capnp::FlatArrayMessageReader qmsg_reader(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
+          bytes_count += write_encode_data(s, qmsg_reader.getRoot<cereal::Event>(), re, encoder_info);
           delete qmsg;
         }
         re.q.clear();
       }
     }
 
-    bytes_count += write_encoder_data(s, re);
+    bytes_count += write_encode_data(s, event, re, encoder_info);
     delete msg;
   } else if (offset_segment_num > s->logger.segment()) {
     // encoderd packet has a newer segment, this means encoderd has rolled over
