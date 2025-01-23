@@ -146,8 +146,8 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
       re.marked_ready_to_rotate = false;
       // we are in this segment now, process any queued messages before this one
       if (!re.q.empty()) {
-        for (auto &qmsg : re.q) {
-          capnp::FlatArrayMessageReader qmsg_reader(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
+        for (auto qmsg : re.q) {
+          capnp::FlatArrayMessageReader qmsg_reader({(capnp::word *)qmsg->getData(), qmsg->getSize() / sizeof(capnp::word)});
           bytes_count += write_encode_data(s, qmsg_reader.getRoot<cereal::Event>(), re, encoder_info);
           delete qmsg;
         }
