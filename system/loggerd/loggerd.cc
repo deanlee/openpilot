@@ -64,6 +64,54 @@ struct RemoteEncoder {
   bool seen_first_packet = false;
 };
 
+size_t write_encoder_data(LoggerdState *s, RemoteEncoder &re) {
+  // if we aren't recording yet, try to start, since we are in the correct segment
+  if (!re.recording) {
+    if (flags & V4L2_BUF_FLAG_KEYFRAME) {
+      // only create on iframe
+      if (re.dropped_frames) {
+        // this should only happen for the first segment, maybe
+        LOGW("%s: dropped %d non iframe packets before init", name.c_str(), re.dropped_frames);
+        re.dropped_frames = 0;
+      }
+      // if we aren't actually recording, don't create the writer
+      if (encoder_info.record) {
+        assert(encoder_info.filename != NULL);
+        re.writer.reset(new VideoWriter(s->logger.segmentPath().c_str(),
+                                        encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
+                                        edata.getWidth(), edata.getHeight(), encoder_info.fps, idx.getType()));
+        // write the header
+        auto header = edata.getHeader();
+        re.writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof() / 1000, true, false);
+      }
+      re.recording = true;
+    } else {
+      // this is a sad case when we aren't recording, but don't have an iframe
+      // nothing we can do but drop the frame
+      ++re.dropped_frames;
+      return 0;
+    }
+  }
+
+  // we have to be recording if we are here
+  assert(re.recording);
+
+  // if we are actually writing the video file, do so
+  if (re.writer) {
+    auto data = edata.getData();
+    re.writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof() / 1000, false, flags & V4L2_BUF_FLAG_KEYFRAME);
+  }
+
+  // put it in log stream as the idx packet
+  MessageBuilder bmsg;
+  auto evt = bmsg.initEvent(event.getValid());
+  evt.setLogMonoTime(event.getLogMonoTime());
+  (evt.*(encoder_info.set_encode_idx_func))(idx);
+  auto new_msg = bmsg.toBytes();
+  s->logger.write((uint8_t *)new_msg.begin(), new_msg.size(), true);  // always in qlog?
+  return new_msg.size();
+}
+
 int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct RemoteEncoder &re, const EncoderInfo &encoder_info) {
   int bytes_count = 0;
 
@@ -96,60 +144,14 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
       // we are in this segment now, process any queued messages before this one
       if (!re.q.empty()) {
         for (auto &qmsg : re.q) {
-          bytes_count += handle_encoder_msg(s, qmsg, name, re, encoder_info);
+          bytes_count += write_encoder_data(s, re);
+          delete qmsg;
         }
         re.q.clear();
       }
     }
 
-    // if we aren't recording yet, try to start, since we are in the correct segment
-    if (!re.recording) {
-      if (flags & V4L2_BUF_FLAG_KEYFRAME) {
-        // only create on iframe
-        if (re.dropped_frames) {
-          // this should only happen for the first segment, maybe
-          LOGW("%s: dropped %d non iframe packets before init", name.c_str(), re.dropped_frames);
-          re.dropped_frames = 0;
-        }
-        // if we aren't actually recording, don't create the writer
-        if (encoder_info.record) {
-          assert(encoder_info.filename != NULL);
-          re.writer.reset(new VideoWriter(s->logger.segmentPath().c_str(),
-            encoder_info.filename, idx.getType() != cereal::EncodeIndex::Type::FULL_H_E_V_C,
-            edata.getWidth(), edata.getHeight(), encoder_info.fps, idx.getType()));
-          // write the header
-          auto header = edata.getHeader();
-          re.writer->write((uint8_t *)header.begin(), header.size(), idx.getTimestampEof()/1000, true, false);
-        }
-        re.recording = true;
-      } else {
-        // this is a sad case when we aren't recording, but don't have an iframe
-        // nothing we can do but drop the frame
-        delete msg;
-        ++re.dropped_frames;
-        return bytes_count;
-      }
-    }
-
-    // we have to be recording if we are here
-    assert(re.recording);
-
-    // if we are actually writing the video file, do so
-    if (re.writer) {
-      auto data = edata.getData();
-      re.writer->write((uint8_t *)data.begin(), data.size(), idx.getTimestampEof()/1000, false, flags & V4L2_BUF_FLAG_KEYFRAME);
-    }
-
-    // put it in log stream as the idx packet
-    MessageBuilder bmsg;
-    auto evt = bmsg.initEvent(event.getValid());
-    evt.setLogMonoTime(event.getLogMonoTime());
-    (evt.*(encoder_info.set_encode_idx_func))(idx);
-    auto new_msg = bmsg.toBytes();
-    s->logger.write((uint8_t *)new_msg.begin(), new_msg.size(), true);   // always in qlog?
-    bytes_count += new_msg.size();
-
-    // free the message, we used it
+    bytes_count += write_encoder_data(s, re);
     delete msg;
   } else if (offset_segment_num > s->logger.segment()) {
     // encoderd packet has a newer segment, this means encoderd has rolled over
