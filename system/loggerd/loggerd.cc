@@ -238,7 +238,6 @@ void loggerd_thread() {
   for (const auto &cam : cameras_logged) {
     for (const auto &encoder_info : cam.encoder_infos) {
       encoder_infos_dict[encoder_info.publish_name] = encoder_info;
-      s.max_waiting++;
     }
   }
 
@@ -261,7 +260,14 @@ void loggerd_thread() {
         const bool in_qlog = service.freq != -1 && (service.counter++ % service.freq == 0);
         if (service.encoder) {
           s.last_camera_seen_tms = millis_since_boot();
-          bytes_count += handle_encoder_msg(&s, msg, service.name, remote_encoders[sock], encoder_infos_dict[service.name]);
+
+          auto encoder_it = remote_encoders.find(sock);
+          if (encoder_it == remote_encoders.end()) {
+            encoder_it = remote_encoders.insert({sock, RemoteEncoder()}).first;
+            ++s.max_waiting;  // Increment if a new encoder is added
+          }
+
+          bytes_count += handle_encoder_msg(&s, msg, service.name, encoder_it->second, encoder_infos_dict[service.name]);
         } else {
           s.logger.write((uint8_t *)msg->getData(), msg->getSize(), in_qlog);
           bytes_count += msg->getSize();
