@@ -50,7 +50,6 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
   std::vector<std::unique_ptr<Encoder>> encoders;
   VisionIpcClient vipc_client = VisionIpcClient("camerad", cam_info.stream_type, false);
 
-  int cur_seg = 0;
   while (!do_exit) {
     if (!vipc_client.connect(false)) {
       util::sleep_for(5);
@@ -70,6 +69,7 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
     }
 
     bool lagging = false;
+    uint32_t frame_cnt = 0;
     while (!do_exit) {
       VisionIpcBufExtra extra;
       VisionBuf* buf = vipc_client.recv(&extra);
@@ -90,22 +90,21 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
       }
       if (do_exit) break;
 
-      // do rotation if required
-      const int frames_per_seg = SEGMENT_LENGTH * MAIN_FPS;
-      if (cur_seg >= 0 && extra.frame_id >= ((cur_seg + 1) * frames_per_seg) + s->start_frame_id) {
-        for (auto &e : encoders) {
-          e->encoder_close();
-          e->encoder_open(NULL);
-        }
-        ++cur_seg;
-      }
-
       // encode a frame
       for (int i = 0; i < encoders.size(); ++i) {
         int out_id = encoders[i]->encode_frame(buf, &extra);
 
         if (out_id == -1) {
           LOGE("Failed to encode frame. frame_id: %d", extra.frame_id);
+        }
+      }
+
+      // do rotation if required
+      const int frames_per_seg = SEGMENT_LENGTH * MAIN_FPS;
+      if ((++frame_cnt % frames_per_seg) == 0) {
+        for (auto &e : encoders) {
+          e->encoder_close();
+          e->encoder_open(NULL);
         }
       }
     }
