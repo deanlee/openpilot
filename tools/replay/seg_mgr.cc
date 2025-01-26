@@ -46,13 +46,11 @@ void SegmentManager::setCurrentSegment(int seg_num) {
 
 void SegmentManager::manageSegmentCache() {
   while (true) {
-    {
-      std::unique_lock lock(mutex_);
-      cv_.wait(lock, [this]() { return exit_ || needs_update_; });
-      if (exit_) break;
+    std::unique_lock lock(mutex_);
+    cv_.wait(lock, [this]() { return exit_ || needs_update_; });
+    if (exit_) break;
 
-      needs_update_ = false;
-    }
+    needs_update_ = false;
     auto cur = segments_.lower_bound(cur_seg_num_);
     if (cur == segments_.end()) continue;
 
@@ -60,6 +58,8 @@ void SegmentManager::manageSegmentCache() {
     auto begin = std::prev(cur, std::min<int>(segment_cache_limit_ / 2, std::distance(segments_.begin(), cur)));
     auto end = std::next(begin, std::min<int>(segment_cache_limit_, std::distance(begin, segments_.end())));
     begin = std::prev(end, std::min<int>(segment_cache_limit_, std::distance(segments_.begin(), end)));
+
+    lock.unlock();
 
     loadSegmentsInRange(begin, cur, end);
     bool merged = mergeSegments(begin, end);
