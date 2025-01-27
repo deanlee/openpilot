@@ -43,6 +43,7 @@ void ReplayStream::mergeSegments() {
       mergeEvents(new_events);
     }
   }
+  updateLastMsgsTo(currentSec());
 }
 
 bool ReplayStream::loadRoute(const QString &route, const QString &data_dir, uint32_t replay_flags) {

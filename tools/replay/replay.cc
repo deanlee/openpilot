@@ -141,7 +141,6 @@ void Replay::handleSegmentMerge() {
   }
   notifyEvent(onSegmentsMerged);
   interruptStream([this, &event_data]() {
-    notifyEvent(onSeeking, toSeconds(cur_mono_time_));
     return event_data->isSegmentLoaded(current_segment_);
   });
 }
