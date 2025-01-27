@@ -25,9 +25,13 @@ ReplayStream::ReplayStream(QObject *parent) : AbstractStream(parent) {
 
 void ReplayStream::mergeSegments() {
   auto event_data = replay->getEventData();
+  bool current_sgement_loaded = false;
   for (const auto &[n, seg] : event_data->segments) {
     if (!processed_segments.count(n)) {
       processed_segments.insert(n);
+      if (n == replay->currentSeconds() / 60) {
+        current_sgement_loaded = true;
+      }
 
       std::vector<const CanEvent *> new_events;
       new_events.reserve(seg->log->events.size());
@@ -43,7 +47,10 @@ void ReplayStream::mergeSegments() {
       mergeEvents(new_events);
     }
   }
-  updateLastMsgsTo(currentSec());
+
+  if (current_sgement_loaded) {
+    updateLastMsgsTo(currentSec());
+  }
 }
 
 bool ReplayStream::loadRoute(const QString &route, const QString &data_dir, uint32_t replay_flags) {
