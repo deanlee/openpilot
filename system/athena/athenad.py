@@ -127,13 +127,6 @@ class UploadManager:
         item.current = True
       return item
 
-  def remove_item(self, id: str):
-    with self._lock:
-      item = self._items.get(id)
-      if id in self._items:
-        del self._items[id]
-        self._write_items_to_params()
-
   def get_item_list(self) -> list[UploadItemDict]:
     with self._lock:
       return [asdict(i) for i in self._items.values()]
@@ -144,7 +137,8 @@ class UploadManager:
       if item:
         item.progress = progress
 
-  def remove_items(self, ids: list[str]) -> bool:
+  def remove_item(self, id: str | list[str]) -> bool:
+    ids = [id] if not isinstance(id, list) else id
     with self._lock:
       old_len = len(self._items)
       self._items = {k: v for k, v in self._items.items() if k not in ids}
@@ -437,10 +431,7 @@ def listUploadQueue() -> list[UploadItemDict]:
 
 @dispatcher.add_method
 def cancelUpload(upload_id: str | list[str]) -> dict[str, int | str]:
-  if not isinstance(upload_id, list):
-    upload_id = [upload_id]
-
-  if upload_manager.remove_items(upload_id):
+  if upload_manager.remove_item(upload_id):
     return {"success": 0, "error": "not found"}
   else:
     return {"success": 1}
