@@ -76,7 +76,7 @@ class TestAthenadMethods:
       self.params.put(k, v)
     self.params.put_bool("GsmMetered", True)
 
-    athenad.upload_handler.clear()
+    athenad.upload_manager.clear()
 
     for i in os.listdir(Paths.log_root()):
       p = os.path.join(Paths.log_root(), i)
