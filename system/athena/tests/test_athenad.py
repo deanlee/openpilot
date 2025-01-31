@@ -249,7 +249,7 @@ class TestAthenadMethods:
     assert athenad.upload_manager.item_size() == (1 if retry else 0)
 
     if retry:
-      assert athenad.upload_queue.get().retry_count == 1
+      assert athenad.upload_manager.item(item.id).retry_count == 1
 
   @with_upload_handler
   def test_upload_handler_timeout(self):
@@ -271,7 +271,7 @@ class TestAthenadMethods:
 
     # Check that upload item was put back in the queue with incremented retry count
     assert athenad.upload_manager.item_size() == 1
-    assert athenad.upload_queue.get().retry_count == 1
+    assert athenad.upload_manager.item(item.id).retry_count == 1
 
   @with_upload_handler
   def test_cancel_upload(self):

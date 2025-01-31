@@ -119,6 +119,10 @@ class UploadManager:
     with self._lock:
       return len(self._items)
 
+  def item(self, item_id: str) -> UploadItem | None:
+    with self._lock:
+      return self._items.get(item_id)
+
   def push_item(self, item: UploadItem) -> None:
     with self._lock:
       self._items[item.id] = item
@@ -163,13 +167,17 @@ class UploadManager:
     except Exception:
       cloudlog.exception("athena.UploadManager.write_items_to_params.exception")
 
-  def retry_upload(self, item: UploadItem, increase_count: bool = True) -> None:
+  def retry_upload(self, item_id: str, increase_count: bool = True) -> None:
     with self._lock:
+      item = self._items.get(item_id)
       if item and item.retry_count < MAX_RETRY_COUNT:
         if increase_count:
           item.retry_count += 1
         item.progress = 0
         item.current = False
+      else:
+        del self._items(item_id)
+
 
 upload_manager = UploadManager()
 
@@ -271,7 +279,7 @@ def upload_handler(end_event: threading.Event) -> None:
       metered = sm['deviceState'].networkMetered
       network_type = sm['deviceState'].networkType.raw
       if metered and (not item.allow_cellular):
-        upload_manager.retry_upload(item, False)
+        upload_manager.retry_upload(item.id, False)
         continue
 
       try:
@@ -286,7 +294,7 @@ def upload_handler(end_event: threading.Event) -> None:
         with _do_upload(item, partial(cb, sm, item, end_event)) as response:
           if response.status_code not in (200, 201, 401, 403, 412):
             cloudlog.event("athena.upload_handler.retry", status_code=response.status_code, fn=fn, sz=sz, network_type=network_type, metered=metered)
-            upload_manager.retry_upload(item)
+            upload_manager.retry_upload(item.id)
           else:
             upload_manager.remove_item(item.id)
             cloudlog.event("athena.upload_handler.success", fn=fn, sz=sz, network_type=network_type, metered=metered)
@@ -294,10 +302,10 @@ def upload_handler(end_event: threading.Event) -> None:
         # UploadQueueCache.cache(upload_queue)
       except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.SSLError):
         cloudlog.event("athena.upload_handler.timeout", fn=fn, sz=sz, network_type=network_type, metered=metered)
-        upload_manager.retry_upload(item)
+        upload_manager.retry_upload(item.id)
       except AbortTransferException:
         cloudlog.event("athena.upload_handler.abort", fn=fn, sz=sz, network_type=network_type, metered=metered)
-        upload_manager.retry_upload(item)
+        upload_manager.retry_upload(item.id)
 
     except Exception:
       cloudlog.exception("athena.upload_handler.exception")
