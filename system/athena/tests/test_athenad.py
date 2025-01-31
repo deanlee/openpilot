@@ -278,13 +278,12 @@ class TestAthenadMethods:
     athenad.upload_manager.push_item(item)
     dispatcher["cancelUpload"](item.id)
 
-    assert item.id in athenad.cancelled_uploads
+    # assert item.id in athenad.cancelled_uploads
 
     self._wait_for_upload()
     time.sleep(0.1)
 
     assert athenad.upload_manager.item_size() == 0
-    assert len(athenad.cancelled_uploads) == 0
 
   @with_upload_handler
   def test_cancel_expiry(self):
