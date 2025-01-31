@@ -15,7 +15,7 @@ import tempfile
 import threading
 import time
 import zstandard as zstd
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from functools import partial
 from queue import Queue
@@ -103,7 +103,7 @@ log_recv_queue: Queue[str] = queue.Queue()
 class UploadManager:
   def __init__(self):
     self._lock = threading.Lock()
-    self._items: dict[str, UploadItem] = {}
+    self._items: dict[str | None, UploadItem] = {}
     self._params = Params()
 
     try:
@@ -131,14 +131,14 @@ class UploadManager:
     with self._lock:
       return [asdict(i) for i in self._items.values()]
 
-  def update_progress(self, id: str, progress: float) -> None:
+  def update_progress(self, item_id: str, progress: float) -> None:
     with self._lock:
-      item = self._items.get(id)
+      item = self._items.get(item_id)
       if item:
         item.progress = progress
 
-  def remove_item(self, id: str | list[str]) -> bool:
-    ids = [id] if not isinstance(id, list) else id
+  def remove_item(self, item_ids: str | list[str] | None) -> bool:
+    ids = [item_ids] if not isinstance(item_ids, list) else item_ids
     with self._lock:
       old_len = len(self._items)
       self._items = {k: v for k, v in self._items.items() if k not in ids}
@@ -154,9 +154,8 @@ class UploadManager:
     except Exception:
       cloudlog.exception("athena.UploadManager.write_items_to_params.exception")
 
-  def retry_upload(self, id: str, increase_count: bool = True) -> None:
+  def retry_upload(self, item: UploadItem, increase_count: bool = True) -> None:
     with self._lock:
-      item = self._items.get(id)
       if item and item.retry_count < MAX_RETRY_COUNT:
         if increase_count:
           item.retry_count += 1
@@ -249,7 +248,8 @@ def upload_handler(end_event: threading.Event) -> None:
   while not end_event.is_set():
     try:
       item = upload_manager.next_item()
-
+      if not item:
+        continue
       # Remove item if too old
       age = datetime.now() - datetime.fromtimestamp(item.created_at / 1000)
       if age.total_seconds() > MAX_AGE:
@@ -262,7 +262,7 @@ def upload_handler(end_event: threading.Event) -> None:
       metered = sm['deviceState'].networkMetered
       network_type = sm['deviceState'].networkType.raw
       if metered and (not item.allow_cellular):
-        upload_manager.retry_upload(item.id, False)
+        upload_manager.retry_upload(item, False)
         continue
 
       try:
@@ -277,17 +277,17 @@ def upload_handler(end_event: threading.Event) -> None:
         with _do_upload(item, partial(cb, sm, item, end_event)) as response:
           if response.status_code not in (200, 201, 401, 403, 412):
             cloudlog.event("athena.upload_handler.retry", status_code=response.status_code, fn=fn, sz=sz, network_type=network_type, metered=metered)
-            upload_manager.retry_upload(item.id)
+            upload_manager.retry_upload(item)
           else:
             cloudlog.event("athena.upload_handler.success", fn=fn, sz=sz, network_type=network_type, metered=metered)
 
         # UploadQueueCache.cache(upload_queue)
       except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.SSLError):
         cloudlog.event("athena.upload_handler.timeout", fn=fn, sz=sz, network_type=network_type, metered=metered)
-        upload_manager.retry_upload(item.id)
+        upload_manager.retry_upload(item)
       except AbortTransferException:
         cloudlog.event("athena.upload_handler.abort", fn=fn, sz=sz, network_type=network_type, metered=metered)
-        upload_manager.retry_upload(item.id)
+        upload_manager.retry_upload(item)
 
     except queue.Empty:
       pass
@@ -388,7 +388,7 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
 
   items: list[UploadItemDict] = []
   failed: list[str] = []
-  queued_urls = {item['url'].split('?')[0] for item in upload_manager.get_item_list()}
+  queued_urls = {item['url'].split('?')[0] for item in upload_manager.get_item_list() if isinstance(item['url'], str)}
   for file in files:
     if len(file.fn) == 0 or file.fn[0] == '/' or '..' in file.fn or len(file.url) == 0:
       failed.append(file.fn)
@@ -412,7 +412,7 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
       id=None,
       allow_cellular=file.allow_cellular,
     )
-    item.upload_id = hashlib.sha1(str(item).encode()).hexdigest()
+    item.id = hashlib.sha1(str(item).encode()).hexdigest()
     upload_manager.push_item(item)
     items.append(asdict(item))
 
@@ -430,7 +430,7 @@ def listUploadQueue() -> list[UploadItemDict]:
 
 
 @dispatcher.add_method
-def cancelUpload(upload_id: str | list[str]) -> dict[str, int | str]:
+def cancelUpload(upload_id: str | list[str] | None) -> dict[str, int | str]:
   if upload_manager.remove_item(upload_id):
     return {"success": 0, "error": "not found"}
   else:
