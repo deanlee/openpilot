@@ -176,7 +176,7 @@ class UploadManager:
         item.progress = 0
         item.current = False
       else:
-        del self._items(item_id)
+        del self._items[item_id]
 
 
 upload_manager = UploadManager()
