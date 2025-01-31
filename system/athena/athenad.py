@@ -115,6 +115,10 @@ class UploadManager:
     except Exception:
       cloudlog.exception("athena.UploadQueueCache.initialize.exception")
 
+  def item_size(self) -> int:
+    with self._lock:
+      return len(self._items)
+
   def push_item(self, item: UploadItem) -> None:
     with self._lock:
       self._items[item.id] = item

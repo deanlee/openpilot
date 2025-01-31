@@ -76,10 +76,6 @@ class TestAthenadMethods:
       self.params.put(k, v)
     self.params.put_bool("GsmMetered", True)
 
-    athenad.upload_queue = queue.Queue()
-    athenad.cur_upload_items.clear()
-    athenad.cancelled_uploads.clear()
-
     for i in os.listdir(Paths.log_root()):
       p = os.path.join(Paths.log_root(), i)
       if os.path.isdir(p):
@@ -93,7 +89,7 @@ class TestAthenadMethods:
   def _wait_for_upload():
     now = time.time()
     while time.time() - now < 5:
-      if athenad.upload_queue.qsize() == 0:
+      if athenad.upload_manager.item_size() == 0:
         break
 
   @staticmethod
@@ -206,7 +202,7 @@ class TestAthenadMethods:
     assert 'failed' not in resp
     assert {"path": fn, "url": f"{host}/qlog.zst", "headers": {}}.items() <= resp['items'][0].items()
     assert resp['items'][0].get('id') is not None
-    assert athenad.upload_queue.qsize() == 1
+    assert athenad.upload_manager.item_size() == 1
 
   def test_upload_file_to_url_duplicate(self, host):
     self._create_file('qlog.zst')
@@ -234,7 +230,7 @@ class TestAthenadMethods:
 
     # TODO: verify that upload actually succeeded
     # TODO: also check that end_event and metered network raises AbortTransferException
-    assert athenad.upload_queue.qsize() == 0
+    assert athenad.upload_manager.item_size() == 0
 
   @pytest.mark.parametrize("status,retry", [(500,True), (412,False)])
   @with_upload_handler
@@ -248,7 +244,7 @@ class TestAthenadMethods:
     self._wait_for_upload()
     time.sleep(0.1)
 
-    assert athenad.upload_queue.qsize() == (1 if retry else 0)
+    assert athenad.upload_manager.item_size() == (1 if retry else 0)
 
     if retry:
       assert athenad.upload_queue.get().retry_count == 1
@@ -265,14 +261,14 @@ class TestAthenadMethods:
     time.sleep(0.1)
 
     # Check that upload with retry count exceeded is not put back
-    assert athenad.upload_queue.qsize() == 0
+    assert athenad.upload_manager.item_size() == 0
 
     athenad.upload_queue.put_nowait(item)
     self._wait_for_upload()
     time.sleep(0.1)
 
     # Check that upload item was put back in the queue with incremented retry count
-    assert athenad.upload_queue.qsize() == 1
+    assert athenad.upload_manager.item_size() == 1
     assert athenad.upload_queue.get().retry_count == 1
 
   @with_upload_handler
@@ -287,7 +283,7 @@ class TestAthenadMethods:
     self._wait_for_upload()
     time.sleep(0.1)
 
-    assert athenad.upload_queue.qsize() == 0
+    assert athenad.upload_manager.item_size() == 0
     assert len(athenad.cancelled_uploads) == 0
 
   @with_upload_handler
@@ -303,7 +299,7 @@ class TestAthenadMethods:
     self._wait_for_upload()
     time.sleep(0.1)
 
-    assert athenad.upload_queue.qsize() == 0
+    assert athenad.upload_manager.item_size() == 0
 
   def test_list_upload_queue_empty(self):
     items = dispatcher["listUploadQueue"]()
@@ -352,7 +348,7 @@ class TestAthenadMethods:
     athenad.upload_queue.queue.clear()
     athenad.UploadQueueCache.initialize(athenad.upload_queue)
 
-    assert athenad.upload_queue.qsize() == 1
+    assert athenad.upload_manager.item_size() == 1
     assert asdict(athenad.upload_queue.queue[-1]) == asdict(item1)
 
   def test_start_local_proxy(self, mock_create_connection):
