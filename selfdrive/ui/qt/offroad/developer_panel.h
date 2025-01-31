@@ -9,6 +9,7 @@ public:
   void showEvent(QShowEvent *event) override;
 
 private:
+  void initDeveloperToggles();
   Params params;
   ParamControl* adbToggle;
   ParamControl* joystickToggle;
