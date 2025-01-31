@@ -124,6 +124,11 @@ class UploadManager:
       self._items[item.id] = item
       self._write_items_to_params()
 
+  def clear(self) -> None:
+    with self._lock:
+      self._items = {}
+      self._write_items_to_params()
+
   def next_item(self) -> UploadItem | None:
     with self._lock:
       item = next((item for item in self._items.values() if not item.current), None)
