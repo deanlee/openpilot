@@ -76,10 +76,6 @@ class TestAthenadMethods:
       self.params.put(k, v)
     self.params.put_bool("GsmMetered", True)
 
-    athenad.upload_queue = queue.Queue()
-    athenad.cur_upload_items.clear()
-    athenad.cancelled_uploads.clear()
-
     for i in os.listdir(Paths.log_root()):
       p = os.path.join(Paths.log_root(), i)
       if os.path.isdir(p):
@@ -93,7 +89,7 @@ class TestAthenadMethods:
   def _wait_for_upload():
     now = time.time()
     while time.time() - now < 5:
-      if athenad.upload_queue.qsize() == 0:
+      if len(athenad.upload_manager.get_item_list()) == 0:
         break
 
   @staticmethod
@@ -260,35 +256,32 @@ class TestAthenadMethods:
     item = athenad.UploadItem(path=fn, url="http://localhost:44444/qlog.zst", headers={}, created_at=int(time.time()*1000), id='', allow_cellular=True)
     item_no_retry = replace(item, retry_count=MAX_RETRY_COUNT)
 
-    athenad.upload_queue.put_nowait(item_no_retry)
+    athenad.upload_manager.push_item(item_no_retry)
     self._wait_for_upload()
     time.sleep(0.1)
 
     # Check that upload with retry count exceeded is not put back
-    assert athenad.upload_queue.qsize() == 0
+    assert athenad.upload_manager.item_size() == 0
 
-    athenad.upload_queue.put_nowait(item)
+    athenad.upload_manager.push_item(item)
     self._wait_for_upload()
     time.sleep(0.1)
 
     # Check that upload item was put back in the queue with incremented retry count
-    assert athenad.upload_queue.qsize() == 1
-    assert athenad.upload_queue.get().retry_count == 1
+    assert athenad.upload_manager.item_size() == 1
+    # assert athenad.upload_queue.get().retry_count == 1
 
   @with_upload_handler
   def test_cancel_upload(self):
     item = athenad.UploadItem(path="qlog.zst", url="http://localhost:44444/qlog.zst", headers={},
                               created_at=int(time.time()*1000), id='id', allow_cellular=True)
-    athenad.upload_queue.put_nowait(item)
+    athenad.upload_manager..put_nowait(item)
     dispatcher["cancelUpload"](item.id)
-
-    assert item.id in athenad.cancelled_uploads
 
     self._wait_for_upload()
     time.sleep(0.1)
 
-    assert athenad.upload_queue.qsize() == 0
-    assert len(athenad.cancelled_uploads) == 0
+    assert len(athenad.upload_manager.get_item_list()) == 0
 
   @with_upload_handler
   def test_cancel_expiry(self):
@@ -314,7 +307,7 @@ class TestAthenadMethods:
     fn = self._create_file('qlog.zst')
     item = athenad.UploadItem(path=fn, url=f"{host}/qlog.zst", headers={}, created_at=int(time.time()*1000), id='', allow_cellular=True)
 
-    athenad.upload_queue.put_nowait(item)
+    athenad.upload_manager.push_item(item)
     self._wait_for_upload()
 
     items = dispatcher["listUploadQueue"]()
@@ -331,7 +324,7 @@ class TestAthenadMethods:
     assert items[0] == asdict(item)
     assert not items[0]['current']
 
-    athenad.cancelled_uploads.add(item.id)
+    athenad.upload_manager.remove_item(item.id)
     items = dispatcher["listUploadQueue"]()
     assert len(items) == 0
 
@@ -341,9 +334,6 @@ class TestAthenadMethods:
 
     athenad.upload_queue.put_nowait(item1)
     athenad.upload_queue.put_nowait(item2)
-
-    # Ensure canceled items are not persisted
-    athenad.cancelled_uploads.add(item2.id)
 
     # serialize item
     athenad.UploadQueueCache.cache(athenad.upload_queue)

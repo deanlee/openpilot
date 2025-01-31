@@ -59,7 +59,7 @@ DEVICE_STATE_UPDATE_INTERVAL = 1.0  # in seconds
 NetworkType = log.DeviceState.NetworkType
 
 UploadFileDict = dict[str, str | int | float | bool]
-UploadItemDict = dict[str, str | bool | int | float | dict[str, str]]
+UploadItemDict = dict[str, str | int | float | bool]
 
 UploadFilesToUrlResponse = dict[str, int | list[UploadItemDict] | list[str]]
 
@@ -106,6 +106,9 @@ class UploadManager:
     self._items: list[UploadItem] = []
     self._params = Params()
 
+  def item_size(self) -> int:
+    with self._lock:
+      return len(self._items)
 
   def push_item(self, item: UploadItem) -> None:
     with self._lock:
@@ -388,7 +391,7 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
 
   items: list[UploadItemDict] = []
   failed: list[str] = []
-  queued_urls = {item['url'].split('?')[0] for item in upload_manager.get_item_list()}
+  queued_urls = {item['url'].split('?')[0] for item in upload_manager.get_item_list() if isinstance(item['url'], str)}
   for file in files:
     if len(file.fn) == 0 or file.fn[0] == '/' or '..' in file.fn or len(file.url) == 0:
       failed.append(file.fn)
