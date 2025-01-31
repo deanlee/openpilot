@@ -294,8 +294,6 @@ def upload_handler(end_event: threading.Event) -> None:
         cloudlog.event("athena.upload_handler.abort", fn=fn, sz=sz, network_type=network_type, metered=metered)
         upload_manager.retry_upload(item)
 
-    except queue.Empty:
-      pass
     except Exception:
       cloudlog.exception("athena.upload_handler.exception")
 
