@@ -97,13 +97,71 @@ class UploadItem:
 dispatcher["echo"] = lambda s: s
 recv_queue: Queue[str] = queue.Queue()
 send_queue: Queue[str] = queue.Queue()
-upload_queue: Queue[UploadItem] = queue.Queue()
 low_priority_send_queue: Queue[str] = queue.Queue()
 log_recv_queue: Queue[str] = queue.Queue()
-cancelled_uploads: set[str] = set()
 
-cur_upload_items: dict[int, UploadItem | None] = {}
+class UploadManager:
+  def __init__(self):
+    self._lock = threading.Lock()
+    self._items: list[UploadItem] = []
 
+    try:
+      upload_queue_json = Params().get("AthenadUploadQueue")
+      if upload_queue_json is not None:
+        for item in json.loads(upload_queue_json):
+          self._items.append(UploadItem.from_dict(item))
+    except Exception:
+      cloudlog.exception("athena.UploadQueueCache.initialize.exception")
+
+  def push_item(self, item: UploadItem) -> None:
+    with self._lock:
+      self._items.append(item)
+      self._write_items_to_params()
+
+  def next_item(self) -> UploadItem | None:
+    with self._lock:
+      item = next((item for item in self._items if not item.current), None)
+      if item:
+        item.current = True
+      return item
+
+  def remove_item(self, item: UploadItem):
+    with self._lock:
+      self._items = [i for i in self._items if i.id != item.id]
+      self._write_items_to_params()
+
+  def get_item_list(self) -> list[UploadItemDict]:
+    with self._lock:
+      return [asdict(i) for i in self._items]
+
+  def update_progress(self, id: str, progress: float) -> None:
+    with self._lock:
+      for item in self._items:
+        if item.id == id:
+          item.progress = progress
+          break
+
+  def remove_items(self, ids: list[str]) -> bool:
+    with self._lock:
+      new_items = [item for item in self._items if item.id in ids]
+      if (len(new_items) == len(self._items)):
+        return False
+
+      self._items = new_items
+      return True
+
+  def _write_items_to_params(self):
+    items = [asdict(i) for i in self._items]
+    Params().put("AthenadUploadQueue", json.dumps(items))
+
+  def retry_upload(self, item, increase_count: bool = True) -> None:
+    with self._lock:
+      if item is not None and item.retry_count < MAX_RETRY_COUNT:
+        item.retry_count = item.retry_count + 1 if increase_count else item.retry_count
+        item.progress = 0
+        item.current = False
+
+upload_manager = UploadManager()
 
 def strip_zst_extension(fn: str) -> str:
   if fn.endswith('.zst'):
@@ -113,28 +171,6 @@ def strip_zst_extension(fn: str) -> str:
 
 class AbortTransferException(Exception):
   pass
-
-
-class UploadQueueCache:
-
-  @staticmethod
-  def initialize(upload_queue: Queue[UploadItem]) -> None:
-    try:
-      upload_queue_json = Params().get("AthenadUploadQueue")
-      if upload_queue_json is not None:
-        for item in json.loads(upload_queue_json):
-          upload_queue.put(UploadItem.from_dict(item))
-    except Exception:
-      cloudlog.exception("athena.UploadQueueCache.initialize.exception")
-
-  @staticmethod
-  def cache(upload_queue: Queue[UploadItem]) -> None:
-    try:
-      queue: list[UploadItem | None] = list(upload_queue.queue)
-      items = [asdict(i) for i in queue if i is not None and (i.id not in cancelled_uploads)]
-      Params().put("AthenadUploadQueue", json.dumps(items))
-    except Exception:
-      cloudlog.exception("athena.UploadQueueCache.cache.exception")
 
 
 def handle_long_poll(ws: WebSocket, exit_event: threading.Event | None) -> None:
@@ -190,29 +226,7 @@ def jsonrpc_handler(end_event: threading.Event) -> None:
       send_queue.put_nowait(json.dumps({"error": str(e)}))
 
 
-def retry_upload(tid: int, end_event: threading.Event, increase_count: bool = True) -> None:
-  item = cur_upload_items[tid]
-  if item is not None and item.retry_count < MAX_RETRY_COUNT:
-    new_retry_count = item.retry_count + 1 if increase_count else item.retry_count
-
-    item = replace(
-      item,
-      retry_count=new_retry_count,
-      progress=0,
-      current=False
-    )
-    upload_queue.put_nowait(item)
-    UploadQueueCache.cache(upload_queue)
-
-    cur_upload_items[tid] = None
-
-    for _ in range(RETRY_DELAY):
-      time.sleep(1)
-      if end_event.is_set():
-        break
-
-
-def cb(sm, item, tid, end_event: threading.Event, sz: int, cur: int) -> None:
+def cb(sm, item, end_event: threading.Event, sz: int, cur: int) -> None:
   # Abort transfer if connection changed to metered after starting upload
   # or if athenad is shutting down to re-connect the websocket
   if not item.allow_cellular:
@@ -224,26 +238,20 @@ def cb(sm, item, tid, end_event: threading.Event, sz: int, cur: int) -> None:
   if end_event.is_set():
     raise AbortTransferException
 
-  cur_upload_items[tid] = replace(item, progress=cur / sz if sz else 1)
+  upload_manager.update_progress(item.id, cur / sz if sz else 1)
 
 
 def upload_handler(end_event: threading.Event) -> None:
   sm = messaging.SubMaster(['deviceState'])
-  tid = threading.get_ident()
 
   while not end_event.is_set():
-    cur_upload_items[tid] = None
-
     try:
-      cur_upload_items[tid] = item = replace(upload_queue.get(timeout=1), current=True)
-
-      if item.id in cancelled_uploads:
-        cancelled_uploads.remove(item.id)
-        continue
+      item = upload_manager.next_item()
 
       # Remove item if too old
       age = datetime.now() - datetime.fromtimestamp(item.created_at / 1000)
       if age.total_seconds() > MAX_AGE:
+        upload_manager.remove_item(item)
         cloudlog.event("athena.upload_handler.expired", item=item, error=True)
         continue
 
@@ -252,7 +260,7 @@ def upload_handler(end_event: threading.Event) -> None:
       metered = sm['deviceState'].networkMetered
       network_type = sm['deviceState'].networkType.raw
       if metered and (not item.allow_cellular):
-        retry_upload(tid, end_event, False)
+        upload_manager.retry_upload(item, False)
         continue
 
       try:
@@ -264,20 +272,20 @@ def upload_handler(end_event: threading.Event) -> None:
 
         cloudlog.event("athena.upload_handler.upload_start", fn=fn, sz=sz, network_type=network_type, metered=metered, retry_count=item.retry_count)
 
-        with _do_upload(item, partial(cb, sm, item, tid, end_event)) as response:
+        with _do_upload(item, partial(cb, sm, item, end_event)) as response:
           if response.status_code not in (200, 201, 401, 403, 412):
             cloudlog.event("athena.upload_handler.retry", status_code=response.status_code, fn=fn, sz=sz, network_type=network_type, metered=metered)
-            retry_upload(tid, end_event)
+            upload_manager.retry_upload(item)
           else:
             cloudlog.event("athena.upload_handler.success", fn=fn, sz=sz, network_type=network_type, metered=metered)
 
-        UploadQueueCache.cache(upload_queue)
+        # UploadQueueCache.cache(upload_queue)
       except (requests.exceptions.Timeout, requests.exceptions.ConnectionError, requests.exceptions.SSLError):
         cloudlog.event("athena.upload_handler.timeout", fn=fn, sz=sz, network_type=network_type, metered=metered)
-        retry_upload(tid, end_event)
+        upload_manager.retry_upload(item)
       except AbortTransferException:
         cloudlog.event("athena.upload_handler.abort", fn=fn, sz=sz, network_type=network_type, metered=metered)
-        retry_upload(tid, end_event, False)
+        upload_manager.retry_upload(item)
 
     except queue.Empty:
       pass
@@ -378,6 +386,7 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
 
   items: list[UploadItemDict] = []
   failed: list[str] = []
+  queued_urls = {item['url'].split('?')[0] for item in upload_manager.get_item_list()}
   for file in files:
     if len(file.fn) == 0 or file.fn[0] == '/' or '..' in file.fn or len(file.url) == 0:
       failed.append(file.fn)
@@ -390,7 +399,7 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
 
     # Skip item if already in queue
     url = file.url.split('?')[0]
-    if any(url == item['url'].split('?')[0] for item in listUploadQueue()):
+    if url in queued_urls:
       continue
 
     item = UploadItem(
@@ -401,12 +410,9 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
       id=None,
       allow_cellular=file.allow_cellular,
     )
-    upload_id = hashlib.sha1(str(item).encode()).hexdigest()
-    item = replace(item, id=upload_id)
-    upload_queue.put_nowait(item)
+    item.upload_id = hashlib.sha1(str(item).encode()).hexdigest()
+    upload_manager.push_item(item)
     items.append(asdict(item))
-
-  UploadQueueCache.cache(upload_queue)
 
   resp: UploadFilesToUrlResponse = {"enqueued": len(items), "items": items}
   if failed:
@@ -418,8 +424,7 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
 
 @dispatcher.add_method
 def listUploadQueue() -> list[UploadItemDict]:
-  items = list(upload_queue.queue) + list(cur_upload_items.values())
-  return [asdict(i) for i in items if (i is not None) and (i.id not in cancelled_uploads)]
+  return upload_manager.get_item_list()
 
 
 @dispatcher.add_method
@@ -427,13 +432,10 @@ def cancelUpload(upload_id: str | list[str]) -> dict[str, int | str]:
   if not isinstance(upload_id, list):
     upload_id = [upload_id]
 
-  uploading_ids = {item.id for item in list(upload_queue.queue)}
-  cancelled_ids = uploading_ids.intersection(upload_id)
-  if len(cancelled_ids) == 0:
+  if upload_manager.remove_items(upload_id):
     return {"success": 0, "error": "not found"}
-
-  cancelled_uploads.update(cancelled_ids)
-  return {"success": 1}
+  else:
+    return {"success": 1}
 
 @dispatcher.add_method
 def setRouteViewed(route: str) -> dict[str, int | str]:
@@ -788,7 +790,6 @@ def main(exit_event: threading.Event = None):
 
   params = Params()
   dongle_id = params.get("DongleId", encoding='utf-8')
-  UploadQueueCache.initialize(upload_queue)
 
   ws_uri = ATHENA_HOST + "/ws/v2/" + dongle_id
   api = Api(dongle_id)
@@ -808,9 +809,7 @@ def main(exit_event: threading.Event = None):
       cloudlog.event("athenad.main.connected_ws", ws_uri=ws_uri, retries=conn_retries,
                      duration=time.monotonic() - conn_start)
       conn_start = None
-
       conn_retries = 0
-      cur_upload_items.clear()
 
       handle_long_poll(ws, exit_event)
 
