@@ -71,6 +71,9 @@ class UploadFile:
   headers: dict[str, str]
   allow_cellular: bool
 
+  def __post_init__(self):
+    self.id = hashlib.sha1(str(self).encode()).hexdigest()
+
   @classmethod
   def from_dict(cls, d: dict) -> UploadFile:
     return cls(d.get("fn", ""), d.get("url", ""), d.get("headers", {}), d.get("allow_cellular", False))
