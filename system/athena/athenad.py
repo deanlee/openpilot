@@ -137,23 +137,29 @@ class UploadManager:
     with self._lock:
       item.progress = progress
 
-  # def remove_item(self, item_ids: str | list[str] | None) -> bool:
-  #   ids = [item_ids] if not isinstance(item_ids, list) else item_ids
-  #   with self._lock:
-  #     new_items = [item for item in self._items if item.id in ids]
-  #     if (len(new_items) == len(self._items)):
-  #       return False
+  def remove_item(self, item_ids: str | list[str] | None) -> bool:
+    ids = [item_ids] if not isinstance(item_ids, list) else item_ids
+    with self._lock:
+      new_items = [item for item in self._uploading_items.values() if item.id in ids]
+      if (len(new_items) == len(self._uploading_items)):
+        return False
 
-  #     self._items = new_items
-  #     self._write_items_to_params()
-  #     return True
+      self._uploading_items = new_items
+      return True
+
+  def remove_from_queue(self, item_ids: str | list[str] | None) -> bool:
+    with self._lock:
+      pass
 
   def retry(self, item, increase_count: bool = True) -> None:
     with self._lock:
-      if item is not None and item.retry_count < MAX_RETRY_COUNT:
+      del self._uploading_items[item.id]
+      if item.retry_count < MAX_RETRY_COUNT:
         item.retry_count = item.retry_count + 1 if increase_count else item.retry_count
         item.progress = 0
         item.current = False
+        self._queued_items.append(item)
+
 
   def _load_items_from_params(self):
     try:
