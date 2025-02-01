@@ -71,6 +71,9 @@ class UploadFile:
   headers: dict[str, str]
   allow_cellular: bool
 
+  def __post_init__(self):
+    self.id = hashlib.sha1(str(self).encode()).hexdigest()
+
   @classmethod
   def from_dict(cls, d: dict) -> UploadFile:
     return cls(d.get("fn", ""), d.get("url", ""), d.get("headers", {}), d.get("allow_cellular", False))
@@ -104,6 +107,7 @@ class UploadManager:
   def __init__(self):
     self._lock = threading.Lock()
     self._items: list[UploadItem] = []
+
     self._params = Params()
 
   def item_size(self) -> int:
@@ -415,7 +419,6 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
       id=None,
       allow_cellular=file.allow_cellular,
     )
-    item.id = hashlib.sha1(str(item).encode()).hexdigest()
     upload_manager.push_item(item)
     items.append(asdict(item))
 
