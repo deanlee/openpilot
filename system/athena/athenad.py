@@ -17,6 +17,7 @@ import time
 import zstandard as zstd
 from dataclasses import asdict, dataclass
 from datetime import datetime
+from collections import deque
 from functools import partial
 from queue import Queue
 from typing import cast
@@ -71,9 +72,6 @@ class UploadFile:
   headers: dict[str, str]
   allow_cellular: bool
 
-  def __post_init__(self):
-    self.id = hashlib.sha1(str(self).encode()).hexdigest()
-
   @classmethod
   def from_dict(cls, d: dict) -> UploadFile:
     return cls(d.get("fn", ""), d.get("url", ""), d.get("headers", {}), d.get("allow_cellular", False))
@@ -85,11 +83,14 @@ class UploadItem:
   url: str
   headers: dict[str, str]
   created_at: int
-  id: str | None
+  id: str
   retry_count: int = 0
   current: bool = False
   progress: float = 0
   allow_cellular: bool = False
+
+  def __post_init__(self):
+    self.id = hashlib.sha1(str(self).encode()).hexdigest()
 
   @classmethod
   def from_dict(cls, d: dict) -> UploadItem:
@@ -106,44 +107,46 @@ log_recv_queue: Queue[str] = queue.Queue()
 class UploadManager:
   def __init__(self):
     self._lock = threading.Lock()
-    self._items: list[UploadItem] = []
-
+    self._queued_items: deque[UploadItem] = []
+    self._uploading_items: dict[str, UploadItem] = {}
     self._params = Params()
 
   def item_size(self) -> int:
     with self._lock:
-      return len(self._items)
+      return len(self._queued_items)
 
   def push_item(self, item: UploadItem) -> None:
     with self._lock:
-      self._items.append(item)
+      self._queued_items.append(item)
       self._write_items_to_params()
 
   def next_item(self) -> UploadItem | None:
     with self._lock:
-      item = next((item for item in self._items if not item.current), None)
-      if item:
+      if self._queued_items:
+        item = self._queued_items.popleft()
         item.current = True
-      return item
+        self._uploading_items[item.id] = item
+        return item
+      return None
 
   def get_item_list(self) -> list[UploadItemDict]:
     with self._lock:
-      return [asdict(i) for i in self._items]
+      return [asdict(i) for i in self._queued_items] + [asdict(i) for i in self._uploading_items.values()]
 
   def update_progress(self, item: UploadItem, progress: float) -> None:
     with self._lock:
       item.progress = progress
 
-  def remove_item(self, item_ids: str | list[str] | None) -> bool:
-    ids = [item_ids] if not isinstance(item_ids, list) else item_ids
-    with self._lock:
-      new_items = [item for item in self._items if item.id in ids]
-      if (len(new_items) == len(self._items)):
-        return False
+  # def remove_item(self, item_ids: str | list[str] | None) -> bool:
+  #   ids = [item_ids] if not isinstance(item_ids, list) else item_ids
+  #   with self._lock:
+  #     new_items = [item for item in self._items if item.id in ids]
+  #     if (len(new_items) == len(self._items)):
+  #       return False
 
-      self._items = new_items
-      self._write_items_to_params()
-      return True
+  #     self._items = new_items
+  #     self._write_items_to_params()
+  #     return True
 
   def retry(self, item, increase_count: bool = True) -> None:
     with self._lock:
@@ -157,13 +160,13 @@ class UploadManager:
       upload_queue_json = self._params.get("AthenadUploadQueue")
       if upload_queue_json is not None:
         for item in json.loads(upload_queue_json):
-          self._items.append(UploadItem.from_dict(item))
+          self._queued_items.append(UploadItem.from_dict(item))
     except Exception:
       cloudlog.exception("failed to load items from params")
 
   def _write_items_to_params(self):
     try:
-      items = [asdict(i) for i in self._items]
+      items = [asdict(i) for i in self._queued_items]
       self._params.put("AthenadUploadQueue", json.dumps(items))
     except Exception:
       cloudlog.exception("failed to write items to params")
@@ -286,6 +289,7 @@ def upload_handler(end_event: threading.Event) -> None:
             cloudlog.event("athena.upload_handler.retry", status_code=response.status_code, fn=fn, sz=sz, network_type=network_type, metered=metered)
             upload_manager.retry(item)
           else:
+            upload_manager.remove_item(item.id)
             cloudlog.event("athena.upload_handler.success", fn=fn, sz=sz, network_type=network_type, metered=metered)
 
         # UploadQueueCache.cache(upload_queue)
