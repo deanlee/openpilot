@@ -107,7 +107,7 @@ log_recv_queue: Queue[str] = queue.Queue()
 class UploadManager:
   def __init__(self):
     self._lock = threading.Lock()
-    self._queued_items: deque[UploadItem] = []
+    self._queued_items: deque[UploadItem] = deque()
     self._uploading_items: dict[str, UploadItem] = {}
     self._params = Params()
 
