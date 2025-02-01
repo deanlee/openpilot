@@ -140,7 +140,7 @@ class UploadManager:
   def remove_item(self, item_ids: str | list[str] | None) -> bool:
     ids = [item_ids] if not isinstance(item_ids, list) else item_ids
     with self._lock:
-      new_items = [item for item in self._uploading_items.values() if item.id in ids]
+      new_items = {item.id: item for item in self._uploading_items.values() if item.id in ids}
       if (len(new_items) == len(self._uploading_items)):
         return False
 
@@ -148,8 +148,13 @@ class UploadManager:
       return True
 
   def remove_from_queue(self, item_ids: str | list[str] | None) -> bool:
+    ids = [item_ids] if not isinstance(item_ids, list) else item_ids
     with self._lock:
-      pass
+      new_items = [item for item in self._queued_items if item.id in ids]
+      if (len(new_items) != len(self._queued_items)):
+        self._queued_items = deque(new_items)
+        return True
+      return False
 
   def retry(self, item, increase_count: bool = True) -> None:
     with self._lock:
@@ -426,7 +431,7 @@ def uploadFilesToUrls(files_data: list[UploadFileDict]) -> UploadFilesToUrlRespo
       url=file.url,
       headers=file.headers,
       created_at=int(time.time() * 1000),
-      id=None,
+      id='',
       allow_cellular=file.allow_cellular,
     )
     upload_manager.push_item(item)
@@ -447,7 +452,7 @@ def listUploadQueue() -> list[UploadItemDict]:
 
 @dispatcher.add_method
 def cancelUpload(upload_id: str | list[str]) -> dict[str, int | str]:
-  if upload_manager.remove_item(upload_id):
+  if upload_manager.remove_from_queue(upload_id):
     return {"success": 0, "error": "not found"}
   else:
     return {"success": 1}
