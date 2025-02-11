@@ -12,7 +12,12 @@
 #include <string>
 #include <vector>
 
+#ifdef QCOM2
 #include "CL/cl_ext_qcom.h"
+#else
+#define CL_PRIORITY_HINT_HIGH_QCOM NULL
+#define CL_CONTEXT_PRIORITY_HINT_QCOM NULL
+#endif
 
 #include "media/cam_sensor_cmn_header.h"
 
@@ -50,7 +55,7 @@ public:
 
   float fl_pix = 0;
 
-  CameraState(SpectraMaster *master, const CameraConfig &config) : camera(master, config) {};
+  CameraState(SpectraMaster *master, const CameraConfig &config) : camera(master, config, config.stream_type == VISION_STREAM_ROAD ? ISP_RAW_OUTPUT : ISP_IFE_PROCESSED) {};
   ~CameraState();
   void init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx);
   void update_exposure_score(float desired_ev, int exp_t, int exp_g_idx, float exp_gain);
@@ -64,9 +69,9 @@ public:
 };
 
 void CameraState::init(VisionIpcServer *v, cl_device_id device_id, cl_context ctx) {
-  if (!camera.enabled) return;
-
   camera.camera_open(v, device_id, ctx);
+
+  if (!camera.enabled) return;
 
   fl_pix = camera.cc.focal_len / camera.sensor->pixel_size_mm;
   set_exposure_rect();
@@ -92,7 +97,7 @@ void CameraState::set_exposure_rect() {
   };
   int h_ref = 1208;
   /*
-    exposure target intrinics is
+    exposure target intrinsics is
     [
       [F, 0, 0.5*ae_xywh[2]]
       [0, F, 0.5*H-ae_xywh[1]]
@@ -122,6 +127,8 @@ void CameraState::update_exposure_score(float desired_ev, int exp_t, int exp_g_i
 
 void CameraState::set_camera_exposure(float grey_frac) {
   if (!camera.enabled) return;
+  std::vector<double> target_grey_minimums = {0.1, 0.1, 0.125}; // wide, road, driver
+
   const float dt = 0.05;
 
   const float ts_grey = 10.0;
@@ -135,14 +142,14 @@ void CameraState::set_camera_exposure(float grey_frac) {
   // Therefore we use the target EV from 3 frames ago, the grey fraction that was just measured was the result of that control action.
   // TODO: Lower latency to 2 frames, by using the histogram outputted by the sensor we can do AE before the debayering is complete
 
-  const float cur_ev_ = cur_ev[camera.buf.cur_frame_data.frame_id % 3];
   const auto &sensor = camera.sensor;
+  const float cur_ev_ = cur_ev[camera.buf.cur_frame_data.frame_id % 3] * sensor->ev_scale;
 
-  // Scale target grey between 0.1 and 0.4 depending on lighting conditions
-  float new_target_grey = std::clamp(0.4 - 0.3 * log2(1.0 + sensor->target_grey_factor*cur_ev_) / log2(6000.0), 0.1, 0.4);
+  // Scale target grey between min and 0.4 depending on lighting conditions
+  float new_target_grey = std::clamp(0.4 - 0.3 * log2(1.0 + sensor->target_grey_factor*cur_ev_) / log2(6000.0), target_grey_minimums[camera.cc.camera_num], 0.4);
   float target_grey = (1.0 - k_grey) * target_grey_fraction + k_grey * new_target_grey;
 
-  float desired_ev = std::clamp(cur_ev_ * target_grey / grey_frac, sensor->min_ev, sensor->max_ev);
+  float desired_ev = std::clamp(cur_ev_ / sensor->ev_scale * target_grey / grey_frac, sensor->min_ev, sensor->max_ev);
   float k = (1.0 - k_ev) / 3.0;
   desired_ev = (k * cur_ev[0]) + (k * cur_ev[1]) + (k * cur_ev[2]) + (k_ev * desired_ev);
 
@@ -224,9 +231,7 @@ void CameraState::set_camera_exposure(float grey_frac) {
 void CameraState::run() {
   util::set_thread_name(camera.cc.publish_name);
 
-  std::vector<const char*> pubs = {camera.cc.publish_name};
-  if (camera.cc.stream_type == VISION_STREAM_ROAD) pubs.push_back("thumbnail");
-  PubMaster pm(pubs);
+  PubMaster pm(std::vector{camera.cc.publish_name});
 
   for (uint32_t cnt = 0; !do_exit; ++cnt) {
     // Acquire the buffer; continue if acquisition fails
@@ -256,15 +261,10 @@ void CameraState::run() {
       framed.setImage(get_raw_frame_image(&camera.buf));
     }
 
-    // Process camera registers and set camera exposure
-    camera.sensor->processRegisters((uint8_t *)camera.buf.cur_camera_buf->addr, framed);
     set_camera_exposure(set_exposure_target(&camera.buf, ae_xywh, 2, camera.cc.stream_type != VISION_STREAM_DRIVER ? 2 : 4));
 
     // Send the message
     pm.send(camera.cc.publish_name, msg);
-    if (camera.cc.stream_type == VISION_STREAM_ROAD && cnt % 100 == 3) {
-      publish_thumbnail(&pm, &camera.buf);  // this takes 10ms???
-    }
   }
 }
 
@@ -283,9 +283,9 @@ void camerad_thread() {
 
   // *** per-cam init ***
   std::vector<std::unique_ptr<CameraState>> cams;
-  for (const auto &config : {ROAD_CAMERA_CONFIG, WIDE_ROAD_CAMERA_CONFIG, DRIVER_CAMERA_CONFIG}) {
+  for (const auto &config : {WIDE_ROAD_CAMERA_CONFIG, DRIVER_CAMERA_CONFIG, ROAD_CAMERA_CONFIG}) {
     auto cam = std::make_unique<CameraState>(&m, config);
-    cam->init(&v, device_id ,ctx);
+    cam->init(&v, device_id, ctx);
     cams.emplace_back(std::move(cam));
   }
 

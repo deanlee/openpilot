@@ -7,19 +7,21 @@ import tempfile
 from itertools import zip_longest
 
 import matplotlib.pyplot as plt
+import numpy as np
+from tabulate import tabulate
 
 from openpilot.common.git import get_commit
 from openpilot.system.hardware import PC
 from openpilot.tools.lib.openpilotci import get_url
 from openpilot.selfdrive.test.process_replay.compare_logs import compare_logs, format_diff
 from openpilot.selfdrive.test.process_replay.process_replay import get_process_config, replay_process
-from openpilot.tools.lib.framereader import FrameReader
+from openpilot.tools.lib.framereader import FrameReader, NumpyFrameReader
 from openpilot.tools.lib.logreader import LogReader, save_log
 from openpilot.tools.lib.github_utils import GithubUtils
 
 TEST_ROUTE = "2f4452b03ccb98f0|2022-12-03--13-45-30"
 SEGMENT = 6
-MAX_FRAMES = 100 if PC else 600
+MAX_FRAMES = 100 if PC else 400
 
 NO_MODEL = "NO_MODEL" in os.environ
 SEND_EXTRA_INPUTS = bool(int(os.getenv("SEND_EXTRA_INPUTS", "0")))
@@ -29,16 +31,21 @@ API_TOKEN = os.getenv("GITHUB_COMMENTS_TOKEN","")
 MODEL_REPLAY_BUCKET="model_replay_master"
 GITHUB = GithubUtils(API_TOKEN, DATA_TOKEN)
 
+EXEC_TIMINGS = [
+  # model, instant max, average max
+  ("modelV2", 0.035, 0.025),
+  ("driverStateV2", 0.02, 0.015),
+]
 
 def get_log_fn(test_route, ref="master"):
-  return f"{test_route}_model_tici_{ref}.bz2"
+  return f"{test_route}_model_tici_{ref}.zst"
 
 def plot(proposed, master, title, tmp):
   proposed = list(proposed)
   master = list(master)
   fig, ax = plt.subplots()
-  ax.plot(proposed, label='PROPOSED')
   ax.plot(master, label='MASTER')
+  ax.plot(proposed, label='PROPOSED')
   plt.legend(loc='best')
   plt.title(title)
   plt.savefig(f'{tmp}/{title}.png')
@@ -50,18 +57,29 @@ def get_event(logs, event):
 def zl(array, fill):
   return zip_longest(array, [], fillvalue=fill)
 
-def generate_report(proposed, master, tmp):
+def get_idx_if_non_empty(l, idx=None):
+  return l if idx is None else (l[idx] if len(l) > 0 else None)
+
+def generate_report(proposed, master, tmp, commit):
   ModelV2_Plots = zl([
-                     (lambda x: x.velocity.x[0], "velocity.x"),
-                     (lambda x: x.action.desiredCurvature, "desiredCurvature"),
-                     (lambda x: x.leadsV3[0].x[0], "leadsV3.x"),
-                     (lambda x: x.laneLines[1].y[0], "laneLines.y"),
-                     (lambda x: x.meta.disengagePredictions.gasPressProbs[1], "gasPressProbs")
+                     (lambda x: get_idx_if_non_empty(x.velocity.x, 0), "velocity.x"),
+                     (lambda x: get_idx_if_non_empty(x.action.desiredCurvature), "desiredCurvature"),
+                     (lambda x: get_idx_if_non_empty(x.leadsV3[0].x, 0), "leadsV3.x"),
+                     (lambda x: get_idx_if_non_empty(x.laneLines[1].y, 0), "laneLines.y"),
+                     (lambda x: get_idx_if_non_empty(x.meta.disengagePredictions.gasPressProbs, 1), "gasPressProbs")
                     ], "modelV2")
+  DriverStateV2_Plots = zl([
+                     (lambda x: get_idx_if_non_empty(x.wheelOnRightProb), "wheelOnRightProb"),
+                     (lambda x: get_idx_if_non_empty(x.leftDriverData.faceProb), "leftDriverData.faceProb"),
+                     (lambda x: get_idx_if_non_empty(x.leftDriverData.faceOrientation, 0), "leftDriverData.faceOrientation0"),
+                     (lambda x: get_idx_if_non_empty(x.leftDriverData.leftBlinkProb), "leftDriverData.leftBlinkProb"),
+                     (lambda x: get_idx_if_non_empty(x.leftDriverData.notReadyProb, 0), "leftDriverData.notReadyProb0"),
+                     (lambda x: get_idx_if_non_empty(x.rightDriverData.faceProb), "rightDriverData.faceProb"),
+                    ], "driverStateV2")
 
   return [plot(map(v[0], get_event(proposed, event)), \
-               map(v[0], get_event(master, event)), v[1], tmp) \
-               for v,event in [*ModelV2_Plots]]
+               map(v[0], get_event(master, event)), f"{v[1]}_{commit[:7]}", tmp) \
+               for v,event in ([*ModelV2_Plots] + [*DriverStateV2_Plots])]
 
 def create_table(title, files, link, open_table=False):
   if not files:
@@ -82,11 +100,18 @@ def comment_replay_report(proposed, master, full_logs):
     PR_BRANCH = os.getenv("GIT_BRANCH","")
     DATA_BUCKET = f"model_replay_{PR_BRANCH}"
 
-    files = generate_report(proposed, master, tmp)
+    try:
+      GITHUB.get_pr_number(PR_BRANCH)
+    except Exception:
+      print("No PR associated with this branch. Skipping report.")
+      return
+
+    commit = get_commit()
+    files = generate_report(proposed, master, tmp, commit)
 
     GITHUB.upload_files(DATA_BUCKET, [(x[0], tmp + '/' + x[0]) for x in files])
 
-    log_name = get_log_fn(TEST_ROUTE, get_commit())
+    log_name = get_log_fn(TEST_ROUTE, commit)
     save_log(log_name, full_logs)
     GITHUB.upload_file(DATA_BUCKET, os.path.basename(log_name), log_name)
 
@@ -94,8 +119,8 @@ def comment_replay_report(proposed, master, full_logs):
     link = GITHUB.get_bucket_link(DATA_BUCKET)
     diff_plots = create_table("Model Replay Differences", diff_files, link, open_table=True)
     all_plots = create_table("All Model Replay Plots", files, link)
-    comment = f"new ref: {link}/{log_name}" + diff_plots + all_plots
-    GITHUB.comment_on_pr(comment, "commaci-public", PR_BRANCH)
+    comment = f"ref for commit {commit}: {link}/{log_name}" + diff_plots + all_plots
+    GITHUB.comment_on_pr(comment, PR_BRANCH)
 
 def trim_logs_to_max_frames(logs, max_frames, frs_types, include_all_types):
   all_msgs = []
@@ -136,8 +161,61 @@ def model_replay(lr, frs):
   dmonitoringmodeld = get_process_config("dmonitoringmodeld")
 
   modeld_msgs = replay_process(modeld, modeld_logs, frs)
+  if isinstance(frs['roadCameraState'], NumpyFrameReader):
+    del frs['roadCameraState'].frames
+    del frs['wideRoadCameraState'].frames
   dmonitoringmodeld_msgs = replay_process(dmonitoringmodeld, dmodeld_logs, frs)
-  return modeld_msgs + dmonitoringmodeld_msgs
+
+  msgs = modeld_msgs + dmonitoringmodeld_msgs
+
+  header = ['model', 'max instant', 'max instant allowed', 'average', 'max average allowed', 'test result']
+  rows = []
+  timings_ok = True
+  for (s, instant_max, avg_max) in EXEC_TIMINGS:
+    ts = [getattr(m, s).modelExecutionTime for m in msgs if m.which() == s]
+    # TODO some init can happen in first iteration
+    ts = ts[1:]
+
+    errors = []
+    if np.max(ts) > instant_max:
+      errors.append("❌ FAILED MAX TIMING CHECK ❌")
+    if np.mean(ts) > avg_max:
+      errors.append("❌ FAILED AVG TIMING CHECK ❌")
+
+    timings_ok = not errors and timings_ok
+    rows.append([s, np.max(ts), instant_max, np.mean(ts), avg_max, "\n".join(errors) or "✅"])
+
+  print("------------------------------------------------")
+  print("----------------- Model Timing -----------------")
+  print("------------------------------------------------")
+  print(tabulate(rows, header, tablefmt="simple_grid", stralign="center", numalign="center", floatfmt=".4f"))
+  assert timings_ok
+
+  return msgs
+
+
+def get_frames():
+  regen_cache = "--regen-cache" in sys.argv
+  cache = "--cache" in sys.argv or not PC or regen_cache
+  videos = ('fcamera.hevc', 'dcamera.hevc', 'ecamera.hevc')
+  cams = ('roadCameraState', 'driverCameraState', 'wideRoadCameraState')
+
+  if cache:
+    frames_cache = '/tmp/model_replay_cache' if PC else '/data/model_replay_cache'
+    os.makedirs(frames_cache, exist_ok=True)
+
+    cache_size = 200
+    for v in videos:
+      if not all(os.path.isfile(f'{frames_cache}/{TEST_ROUTE}_{v}_{i}.npy') for i in range(MAX_FRAMES//cache_size)) or regen_cache:
+        f = FrameReader(get_url(TEST_ROUTE, SEGMENT, v)).get(0, MAX_FRAMES + 1, pix_fmt="nv12")
+        print(f'Caching {v}...')
+        for i in range(MAX_FRAMES//cache_size):
+          np.save(f'{frames_cache}/{TEST_ROUTE}_{v}_{i}', f[(i * cache_size) + 1:((i + 1) * cache_size) + 1])
+        del f
+
+    return {c : NumpyFrameReader(f"{frames_cache}/{TEST_ROUTE}_{v}", 1928, 1208, cache_size) for c,v in zip(cams, videos, strict=True)}
+  else:
+    return {c : FrameReader(get_url(TEST_ROUTE, SEGMENT, v), readahead=True) for c,v in zip(cams, videos, strict=True)}
 
 
 if __name__ == "__main__":
@@ -145,12 +223,8 @@ if __name__ == "__main__":
   replay_dir = os.path.dirname(os.path.abspath(__file__))
 
   # load logs
-  lr = list(LogReader(get_url(TEST_ROUTE, SEGMENT, "rlog.bz2")))
-  frs = {
-    'roadCameraState': FrameReader(get_url(TEST_ROUTE, SEGMENT, "fcamera.hevc"), readahead=True),
-    'driverCameraState': FrameReader(get_url(TEST_ROUTE, SEGMENT, "dcamera.hevc"), readahead=True),
-    'wideRoadCameraState': FrameReader(get_url(TEST_ROUTE, SEGMENT, "ecamera.hevc"), readahead=True)
-  }
+  lr = list(LogReader(get_url(TEST_ROUTE, SEGMENT, "rlog.zst")))
+  frs = get_frames()
 
   log_msgs = []
   # run replays

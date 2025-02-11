@@ -5,13 +5,13 @@ import copy
 import json
 import heapq
 import signal
-import platform
 from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 from collections.abc import Callable, Iterable
 from tqdm import tqdm
 import capnp
+from openpilot.system.hardware.hw import Paths
 
 import cereal.messaging as messaging
 from cereal import car
@@ -508,7 +508,7 @@ CONFIGS = [
   ),
   ProcessConfig(
     proc_name="plannerd",
-    pubs=["modelV2", "carControl", "carState", "controlsState", "radarState", "selfdriveState"],
+    pubs=["modelV2", "carControl", "carState", "controlsState", "liveParameters", "radarState", "selfdriveState"],
     subs=["longitudinalPlan", "driverAssistance"],
     ignore=["logMonoTime", "longitudinalPlan.processingDelay", "longitudinalPlan.solverExecutionTime"],
     init_callback=get_car_params_callback,
@@ -780,8 +780,7 @@ def generate_params_config(lr=None, CP=None, fingerprint=None, custom_params=Non
 
 def generate_environ_config(CP=None, fingerprint=None, log_dir=None) -> dict[str, Any]:
   environ_dict = {}
-  if platform.system() != "Darwin":
-    environ_dict["PARAMS_ROOT"] = "/dev/shm/params"
+  environ_dict["PARAMS_ROOT"] = f"{Paths.shm_path()}/params"
   if log_dir is not None:
     environ_dict["LOG_ROOT"] = log_dir
 

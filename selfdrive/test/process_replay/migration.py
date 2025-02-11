@@ -1,14 +1,17 @@
 from collections import defaultdict
 from collections.abc import Callable
-import functools
 import capnp
+import functools
+import traceback
 
 from cereal import messaging, car, log
 from opendbc.car.fingerprints import MIGRATION
 from opendbc.car.toyota.values import EPS_SCALE
+from opendbc.car.ford.values import CAR as FORD, FordFlags
 from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.selfdrive.modeld.fill_model_msg import fill_xyz_poly, fill_lane_line_meta
 from openpilot.selfdrive.test.process_replay.vision_meta import meta_from_encode_index
+from openpilot.selfdrive.controls.lib.longitudinal_planner import get_accel_from_plan
 from openpilot.system.manager.process_config import managed_processes
 from openpilot.tools.lib.logreader import LogIterable
 from panda import Panda
@@ -39,6 +42,7 @@ def migrate_all(lr: LogIterable, manager_states: bool = False, panda_states: boo
     migrate_drivingModelData,
     migrate_onroadEvents,
     migrate_driverMonitoringState,
+    migrate_longitudinalPlan,
   ]
   if manager_states:
     migrations.append(migrate_managerState)
@@ -89,6 +93,25 @@ def migration(inputs: list[str], product: str|None=None):
     wrapper.product = product
     return wrapper
   return decorator
+
+
+@migration(inputs=["longitudinalPlan", "carParams"])
+def migrate_longitudinalPlan(msgs):
+  ops = []
+
+  needs_migration = all(msg.longitudinalPlan.aTarget == 0.0 for _, msg in msgs if msg.which() == 'longitudinalPlan')
+  CP = next((m.carParams for _, m in msgs if m.which() == 'carParams'), None)
+  if not needs_migration or CP is None:
+    return [], [], []
+
+  for index, msg in msgs:
+    if msg.which() != 'longitudinalPlan':
+      continue
+    new_msg = msg.as_builder()
+    a_target, should_stop = get_accel_from_plan(msg.longitudinalPlan.speeds, msg.longitudinalPlan.accels)
+    new_msg.longitudinalPlan.aTarget, new_msg.longitudinalPlan.shouldStop = float(a_target), bool(should_stop)
+    ops.append((index, new_msg.as_reader()))
+  return ops, [], []
 
 
 @migration(inputs=["longitudinalPlan"], product="driverAssistance")
@@ -250,6 +273,8 @@ def migrate_pandaStates(msgs):
     "TOYOTA_RAV4": EPS_SCALE["TOYOTA_RAV4"] | Panda.FLAG_TOYOTA_ALT_BRAKE,
     "KIA_EV6": Panda.FLAG_HYUNDAI_EV_GAS | Panda.FLAG_HYUNDAI_CANFD_HDA2,
   }
+  # TODO: get new Ford route
+  safety_param_migration |= {car: Panda.FLAG_FORD_LONG_CONTROL for car in (set(FORD) - FORD.with_flags(FordFlags.CANFD))}
 
   # Migrate safety param base on carParams
   CP = next((m.carParams for _, m in msgs if m.which() == 'carParams'), None)
@@ -356,7 +381,7 @@ def migrate_carParams(msgs):
     CP = msg.as_builder()
     CP.carParams.carFingerprint = MIGRATION.get(CP.carParams.carFingerprint, CP.carParams.carFingerprint)
     for car_fw in CP.carParams.carFw:
-      car_fw.brand = CP.carParams.carName
+      car_fw.brand = CP.carParams.brand
     ops.append((index, CP.as_reader()))
   return ops, [], []
 
@@ -401,13 +426,19 @@ def migrate_sensorEvents(msgs):
 def migrate_onroadEvents(msgs):
   ops = []
   for index, msg in msgs:
+    onroadEvents = []
+    for event in msg.onroadEventsDEPRECATED:
+      try:
+        if not str(event.name).endswith('DEPRECATED'):
+          # dict converts name enum into string representation
+          onroadEvents.append(log.OnroadEvent(**event.to_dict()))
+      except RuntimeError:  # Member was null
+        traceback.print_exc()
+
     new_msg = messaging.new_message('onroadEvents', len(msg.onroadEventsDEPRECATED))
     new_msg.valid = msg.valid
     new_msg.logMonoTime = msg.logMonoTime
-
-    # dict converts name enum into string representation
-    new_msg.onroadEvents = [log.OnroadEvent(**event.to_dict()) for event in msg.onroadEventsDEPRECATED if
-                            not str(event.name).endswith('DEPRECATED')]
+    new_msg.onroadEvents = onroadEvents
     ops.append((index, new_msg.as_reader()))
 
   return ops, [], []
@@ -418,10 +449,16 @@ def migrate_driverMonitoringState(msgs):
   ops = []
   for index, msg in msgs:
     msg = msg.as_builder()
-    # dict converts name enum into string representation
-    msg.driverMonitoringState.events = [log.OnroadEvent(**event.to_dict()) for event in
-                                        msg.driverMonitoringState.eventsDEPRECATED if
-                                        not str(event.name).endswith('DEPRECATED')]
+    events = []
+    for event in msg.driverMonitoringState.eventsDEPRECATED:
+      try:
+        if not str(event.name).endswith('DEPRECATED'):
+          # dict converts name enum into string representation
+          events.append(log.OnroadEvent(**event.to_dict()))
+      except RuntimeError:  # Member was null
+        traceback.print_exc()
+
+    msg.driverMonitoringState.events = events
     ops.append((index, msg.as_reader()))
 
   return ops, [], []

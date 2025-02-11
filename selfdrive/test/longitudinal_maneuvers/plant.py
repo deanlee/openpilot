@@ -64,6 +64,7 @@ class Plant:
     control = messaging.new_message('controlsState')
     ss = messaging.new_message('selfdriveState')
     car_state = messaging.new_message('carState')
+    lp = messaging.new_message('liveParameters')
     car_control = messaging.new_message('carControl')
     model = messaging.new_message('modelV2')
     a_lead = (v_lead - self.v_lead_prev)/self.ts
@@ -120,7 +121,7 @@ class Plant:
     ss.selfdriveState.personality = self.personality
     control.controlsState.forceDecel = self.force_decel
     car_state.carState.vEgo = float(self.speed)
-    car_state.carState.standstill = self.speed < 0.01
+    car_state.carState.standstill = bool(self.speed < 0.01)
     car_state.carState.vCruise = float(v_cruise * 3.6)
     car_control.carControl.orientationNED = [0., float(pitch), 0.]
 
@@ -130,6 +131,7 @@ class Plant:
           'carControl': car_control.carControl,
           'controlsState': control.controlsState,
           'selfdriveState': ss.selfdriveState,
+          'liveParameters': lp.liveParameters,
           'modelV2': model.modelV2}
     self.planner.update(sm)
     self.speed = self.planner.v_desired_filter.x
