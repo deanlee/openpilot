@@ -69,4 +69,4 @@ class GuiApplication:
 
     rl.gui_set_font(self._fonts[FontSize.NORMAL])
 
-gui_app = GuiApplication(1280, 960)
+gui_app = GuiApplication(2160, 1080)

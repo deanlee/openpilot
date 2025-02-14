@@ -1,5 +1,6 @@
 import sys
 import pyray as rl
+
 from openpilot.system.ui.raylib.gui.button import gui_button
 from openpilot.system.ui.raylib.gui.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.raylib.gui.application import gui_app
