@@ -12,6 +12,7 @@ class ScrollState(IntEnum):
   DRAGGING_SCROLLBAR = 2
 
 
+
 class GuiScrollPanel:
   def __init__(self, show_vertical_scroll_bar: bool = False):
     self._scroll_state: ScrollState = ScrollState.IDLE
