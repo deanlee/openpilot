@@ -7,7 +7,7 @@ from enum import IntEnum
 
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.button import gui_button
-from openpilot.system.ui.lib.label import gui_label
+from openpilot.system.ui.lib.label import gui_label, gui_text_box
 
 NVME = "/dev/nvme0n1"
 USERDATA = "/dev/disk/by-partlabel/userdata"
@@ -51,29 +51,42 @@ class Reset:
     threading.Timer(0.1, self.do_reset).start()
 
   def render(self, rect: rl.Rectangle):
-    rl.gui_set_font(gui_app.font(FontWeight.BOLD))
-    label_rect = rl.Rectangle(rect.x + 140, rect.y, rect.width - 280, rect.height)
-    gui_label(label_rect, "System Reset", 90)
-    rl.gui_set_font(gui_app.font(FontWeight.NORMAL))
+    HORIZONTAL_PADDING = 140
+    BUTTON_HEIGHT = 160
+    BUTTON_SPACING = 50
+    CONTENT_SPACING = 50
 
-    label_rect.y += 150
-    gui_label(label_rect, self.get_body_text(), 80)
+    label_rect = rl.Rectangle(rect.x + HORIZONTAL_PADDING, rect.y, rect.width - 2 * HORIZONTAL_PADDING, 100)
+    gui_label(label_rect, "System Reset", 90, font_weight=FontWeight.BOLD)
 
-    button_height = 160
-    button_spacing = 50
-    button_top = rect.y + rect.height - button_height
-    button_width = (rect.width - button_spacing) / 2.0
+    y_offset = label_rect.height + CONTENT_SPACING
+    textbox_rect = rl.Rectangle(
+      rect.x + HORIZONTAL_PADDING,
+      rect.y + y_offset,
+      rect.width - 2 * HORIZONTAL_PADDING,
+      rect.height - y_offset - BUTTON_HEIGHT - CONTENT_SPACING,
+    )
+    gui_text_box(textbox_rect, self.get_body_text(), 80)
+
+    button_top = textbox_rect.y + textbox_rect.height + CONTENT_SPACING
+    button_width = (rect.width - BUTTON_SPACING) / 2.0
 
     if self.reset_state != ResetState.RESETTING:
       if self.mode == ResetMode.RECOVER or self.reset_state == ResetState.FAILED:
-        if gui_button(rl.Rectangle(rect.x, button_top, button_width, button_height), "Reboot"):
+        if gui_button(rl.Rectangle(rect.x, button_top, button_width, BUTTON_HEIGHT), "Reboot"):
           os.system("sudo reboot")
       elif self.mode == ResetMode.USER_RESET:
-        if gui_button(rl.Rectangle(rect.x, button_top, button_width, button_height), "Cancel"):
+        if gui_button(rl.Rectangle(rect.x, button_top, button_width, BUTTON_HEIGHT), "Cancel"):
           return False
 
       if self.reset_state != ResetState.FAILED:
-        if gui_button(rl.Rectangle(rect.x + button_width + 50, button_top, button_width, button_height), "Confirm", rl.Color(70, 91, 234, 255)):
+        if gui_button(
+          rl.Rectangle(
+            rect.x + button_width + BUTTON_SPACING, button_top, button_width, BUTTON_HEIGHT
+          ),
+          "Confirm",
+          rl.Color(70, 91, 234, 255),
+        ):
           self.confirm()
 
     return True
