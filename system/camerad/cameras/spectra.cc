@@ -310,6 +310,7 @@ void SpectraCamera::camera_open(VisionIpcServer *v, cl_device_id device_id, cl_c
 }
 
 void SpectraCamera::enqueue_req_multi(uint64_t start, int n, bool dp) {
+  cur_buf_idx = -1;
   for (uint64_t i = start; i < start + n; ++i) {
     uint64_t idx = (i - 1) % ife_buf_depth;
     request_ids[idx] = i;
@@ -941,7 +942,7 @@ void SpectraCamera::enqueue_buffer(int i, bool dp) {
 
     // all good, hand off frame
     if (dp && ret == 0) {
-      buf.queue(i);
+      cur_buf_idx = i;
     }
 
     if (ret != 0) {

@@ -48,14 +48,7 @@ CameraBuf::~CameraBuf() {
   }
 }
 
-bool CameraBuf::acquire() {
-  if (!safe_queue.try_pop(cur_buf_idx, 0)) return false;
-
-  if (frame_metadata[cur_buf_idx].frame_id == -1) {
-    LOGE("no frame data? wtf");
-    return false;
-  }
-
+bool CameraBuf::pushFrame(int cur_buf_idx) {
   cur_frame_data = frame_metadata[cur_buf_idx];
   cur_camera_buf = &camera_bufs_raw[cur_buf_idx];
 
@@ -71,10 +64,6 @@ bool CameraBuf::acquire() {
   vipc_server->send(cur_yuv_buf, &extra);
 
   return true;
-}
-
-void CameraBuf::queue(size_t buf_idx) {
-  safe_queue.push(buf_idx);
 }
 
 // common functions

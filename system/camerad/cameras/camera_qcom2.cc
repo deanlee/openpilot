@@ -221,7 +221,8 @@ void CameraState::set_camera_exposure(float grey_frac) {
 }
 
 void CameraState::sendState() {
-  if (!camera.buf.acquire()) return;
+  if (camera.cur_buf_idx < 0) return;
+  camera.buf.pushFrame(camera.cur_buf_idx);
 
   MessageBuilder msg;
   auto framed = (msg.initEvent().*camera.cc.init_camera_state)();

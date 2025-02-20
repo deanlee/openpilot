@@ -9,6 +9,7 @@
 
 #include "media/cam_req_mgr.h"
 
+#include "common/queue.h"
 #include "common/util.h"
 #include "system/camerad/cameras/hw.h"
 #include "system/camerad/cameras/camera_common.h"
@@ -183,6 +184,7 @@ public:
   std::vector<uint32_t> bps_lin_reg;
   std::vector<uint32_t> bps_ccm_reg;
 
+  int cur_buf_idx = -1;
   int buf_handle_yuv[MAX_IFE_BUFS] = {};
   int buf_handle_raw[MAX_IFE_BUFS] = {};
   int sync_objs_ife[MAX_IFE_BUFS] = {};
