@@ -135,32 +135,10 @@ static cam_cmd_power *power_set_wait(cam_cmd_power *power, int16_t delay_ms) {
 }
 
 // *** MemoryManager ***
-class MemoryManager {
-public:
-  void init(int _video0_fd) { video0_fd = _video0_fd; }
-  ~MemoryManager();
-
-  template <class T>
-  auto alloc(int len, uint32_t *handle) {
-    return std::unique_ptr<T, std::function<void(void *)>>((T*)alloc_buf(len, handle), [this](void *ptr) { this->free(ptr); });
-  }
-
-private:
-  void *alloc_buf(int len, uint32_t *handle);
-  void free(void *ptr);
-
-  struct AllocationInfo {
-    uint32_t handle;
-    int size;
-  };
-
-  std::map<void *, AllocationInfo> allocation_info;
-  std::map<int, std::queue<void *> > cached_allocations;
-  int video0_fd;
-};
 void *MemoryManager::alloc_buf(int size, uint32_t *handle) {
   void *ptr;
   auto &cache = cached_allocations[size];
+
   if (!cache.empty()) {
     ptr = cache.front();
     cache.pop();
