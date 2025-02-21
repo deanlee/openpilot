@@ -137,43 +137,33 @@ static cam_cmd_power *power_set_wait(cam_cmd_power *power, int16_t delay_ms) {
 // *** MemoryManager ***
 
 void *MemoryManager::alloc_buf(int size, uint32_t *handle) {
-  lock.lock();
   void *ptr;
-  if (!cached_allocations[size].empty()) {
-    ptr = cached_allocations[size].front();
-    cached_allocations[size].pop();
-    *handle = handle_lookup[ptr];
+  auto &cache = cached_allocations[size];
+  if (!cache.empty()) {
+    ptr = cache.front();
+    cache.pop();
+    *handle = allocation_info[ptr].handle;
   } else {
     ptr = alloc_w_mmu_hdl(video0_fd, size, handle);
-    handle_lookup[ptr] = *handle;
-    size_lookup[ptr] = size;
+    allocation_info[ptr] = {*handle, size};
   }
-  lock.unlock();
   memset(ptr, 0, size);
   return ptr;
 }
 
 void MemoryManager::free(void *ptr) {
-  lock.lock();
-  cached_allocations[size_lookup[ptr]].push(ptr);
-  lock.unlock();
+  int size = allocation_info[ptr].size;
+  cached_allocations[size].push(ptr);
 }
 
 MemoryManager::~MemoryManager() {
-  for (auto& x : cached_allocations) {
-    while (!x.second.empty()) {
-      void *ptr = x.second.front();
-      x.second.pop();
-      LOGD("freeing cached allocation %p with size %d", ptr, size_lookup[ptr]);
-      munmap(ptr, size_lookup[ptr]);
+  for (auto &[ptr, info] : allocation_info) {
+    LOGD("freeing cached allocation %p with size %d", ptr, info.size);
+    munmap(ptr, info.size);
 
-      // release fd
-      close(handle_lookup[ptr] >> 16);
-      release(video0_fd, handle_lookup[ptr]);
-
-      handle_lookup.erase(ptr);
-      size_lookup.erase(ptr);
-    }
+    // release fd
+    close(info.handle >> 16);
+    release(video0_fd, info.handle);
   }
 }
 
