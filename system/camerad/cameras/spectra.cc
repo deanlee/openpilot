@@ -901,59 +901,11 @@ void SpectraCamera::config_ife(int idx, int request_id, bool init) {
 }
 
 // Enqueue buffer for the given index and return true if the frame is ready
-bool SpectraCamera::enqueue_buffer(int i, uint64_t request_id) {
-  int ret;
-  bool frame_ready = false;
-
-  // Before queuing up a new frame, wait for the
-  // previous one in this slot (index) to come in.
-  if (sync_objs_ife[i]) {
-    // TODO: write a test to stress test w/ a low timeout and check camera frame ids match
-
-    struct cam_sync_wait sync_wait = {0};
-
-    // *** Wait for IFE ***
-    // in RAW_OUTPUT mode, this is just the frame readout from the sensor
-    // in IFE_PROCESSED mode, this is both frame readout and image processing (~1ms)
-    sync_wait.sync_obj = sync_objs_ife[i];
-    sync_wait.timeout_ms = 100;
-    if (stress_test("IFE sync")) {
-      sync_wait.timeout_ms = 1;
-    }
-    ret = do_sync_control(m->cam_sync_fd, CAM_SYNC_WAIT, &sync_wait, sizeof(sync_wait));
-    if (ret != 0) {
-      LOGE("failed to wait for IFE sync: %d %d", ret, sync_wait.sync_obj);
-    }
-
-    // *** Wait for BPS ***
-    if (ret == 0 && sync_objs_bps[i]) {
-      sync_wait.sync_obj = sync_objs_bps[i];
-      sync_wait.timeout_ms = 50; // typically 7ms
-      if (stress_test("BPS sync")) {
-        sync_wait.timeout_ms = 1;
-      }
-      ret = do_sync_control(m->cam_sync_fd, CAM_SYNC_WAIT, &sync_wait, sizeof(sync_wait));
-      if (ret != 0) {
-        LOGE("failed to wait for BPS sync: %d %d", ret, sync_wait.sync_obj);
-      }
-    }
-
-    // all good, hand off frame
-    if (ret == 0) {
-      frame_ready = true;
-    }
-
-    if (ret != 0) {
-      clear_req_queue();
-    }
-
-    destroySyncObjectAt(i);
-  }
-
+void SpectraCamera::enqueue_buffer(int i, uint64_t request_id) {
   // create output fences
   struct cam_sync_info sync_create = {0};
   strcpy(sync_create.name, "NodeOutputPortFence");
-  ret = do_sync_control(m->cam_sync_fd, CAM_SYNC_CREATE, &sync_create, sizeof(sync_create));
+  int ret = do_sync_control(m->cam_sync_fd, CAM_SYNC_CREATE, &sync_create, sizeof(sync_create));
   if (ret != 0) {
     LOGE("failed to create fence: %d %d", ret, sync_create.sync_obj);
   }
@@ -983,8 +935,6 @@ bool SpectraCamera::enqueue_buffer(int i, uint64_t request_id) {
   // submit request to IFE and BPS
   config_ife(i, request_id);
   if (output_type == ISP_BPS_PROCESSED) config_bps(i, request_id);
-
-  return frame_ready;
 }
 
 void SpectraCamera::destroySyncObjectAt(int index) {
@@ -1407,31 +1357,7 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
 
     int buf_idx = (request_id - 1) % ife_buf_depth;
     uint64_t timestamp = event_data->u.frame_msg.timestamp;  // this is timestamped in the kernel's SOF IRQ callback
-    if (syncFirstFrame(cc.camera_num, request_id, frame_id_raw, timestamp)) {
-      // wait for this frame's EOF, then queue up the next one
-      if (enqueue_buffer(buf_idx, request_id + ife_buf_depth)) {
-        // Frame is ready
-
-        // in IFE_PROCESSED mode, we can't know the true EOF, so recover it with sensor readout time
-        uint64_t timestamp_eof = timestamp + sensor->readout_time_ns;
-
-        // Update buffer and frame data
-        buf.cur_buf_idx = buf_idx;
-        buf.cur_frame_data = {
-          .frame_id = (uint32_t)(frame_id_raw - camera_sync_data[cc.camera_num].frame_id_offset),
-          .request_id = (uint32_t)request_id,
-          .timestamp_sof = timestamp,
-          .timestamp_eof = timestamp_eof,
-          .processing_time = float((nanos_since_boot() - timestamp_eof) * 1e-9)
-        };
-        return true;
-      }
-      // LOGW("camerad %d synced req %d fid %d, publishing ts %.2f cereal_frame_id %d", cc.camera_num, (int)request_id, (int)frame_id_raw, (double)(timestamp)*1e-6, meta_data.frame_id);
-    } else {
-      // Frames not yet synced
-      enqueue_req_multi(request_id + ife_buf_depth, 1);
-      // LOGW("camerad %d not synced req %d fid %d", cc.camera_num, (int)request_id, (int)frame_id_raw);
-    }
+    return processFrame(request_id, buf_idx, frame_id_raw, timestamp);
   } else { // not ready
     if (frame_id_raw > frame_id_raw_last + 10) {
       LOGE("camera %d reset after half second of no response", cc.camera_num);
@@ -1443,6 +1369,69 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
   }
 
   return false;
+}
+
+bool SpectraCamera::processFrame(uint64_t request_id, int buf_idx, uint64_t frame_id_raw, uint64_t timestamp) {
+  if (!waitFrameReady(request_id, buf_idx)) {
+    return false;
+  }
+
+  if (!syncFirstFrame(cc.camera_num, request_id, frame_id_raw, timestamp)) {
+    return false;
+  }
+
+  // in IFE_PROCESSED mode, we can't know the true EOF, so recover it with sensor readout time
+  uint64_t timestamp_eof = timestamp + sensor->readout_time_ns;
+
+  buf.cur_buf_idx = buf_idx;
+  buf.cur_frame_data = {
+      .frame_id = (uint32_t)(frame_id_raw - camera_sync_data[cc.camera_num].frame_id_offset),
+      .request_id = (uint32_t)request_id,
+      .timestamp_sof = timestamp,
+      .timestamp_eof = timestamp_eof,
+      .processing_time = float((nanos_since_boot() - timestamp_eof) * 1e-9)};
+
+  return true;
+}
+
+bool SpectraCamera::waitFrameReady(uint64_t request, int buf_idx) {
+  int i = (request - 1) % ife_buf_depth;
+  if (!sync_objs_ife[i]) {
+    return false;
+  }
+
+  // TODO: write a test to stress test w/ a low timeout and check camera frame ids match
+  struct cam_sync_wait sync_wait = {0};
+
+  // *** Wait for IFE ***
+  // in RAW_OUTPUT mode, this is just the frame readout from the sensor
+  // in IFE_PROCESSED mode, this is both frame readout and image processing (~1ms)
+  sync_wait.sync_obj = sync_objs_ife[i];
+  sync_wait.timeout_ms = 100;
+  int ret = do_sync_control(m->cam_sync_fd, CAM_SYNC_WAIT, &sync_wait, sizeof(sync_wait));
+  if (ret != 0) {
+    LOGE("failed to wait for IFE sync: %d %d", ret, sync_wait.sync_obj);
+  }
+
+  // *** Wait for BPS ***
+  if (ret == 0 && sync_objs_bps[i]) {
+    sync_wait.sync_obj = sync_objs_bps[i];
+    sync_wait.timeout_ms = 50;  // typically 7ms
+    ret = do_sync_control(m->cam_sync_fd, CAM_SYNC_WAIT, &sync_wait, sizeof(sync_wait));
+    if (ret != 0) {
+      LOGE("failed to wait for BPS sync: %d %d", ret, sync_wait.sync_obj);
+    }
+  }
+
+  destroySyncObjectAt(i);
+
+  if (ret != 0) {
+    clear_req_queue();
+  }
+  // Schedule the next request for this slot.
+  enqueue_buffer(buf_idx, request + ife_buf_depth);
+
+  return ret == 0;
 }
 
 bool SpectraCamera::syncFirstFrame(int camera_id, uint64_t request_id, uint64_t raw_id, uint64_t timestamp) {
