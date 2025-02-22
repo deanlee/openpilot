@@ -1356,7 +1356,8 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
     uint64_t timestamp = event_data->u.frame_msg.timestamp;  // this is timestamped in the kernel's SOF IRQ callback
 
     bool frame_ready = waitFrameReady(request_id);
-    enqueue_buffer(buf_idx, request_id + ife_buf_depth)
+    // Schedule the next request for this slot.
+    enqueue_buffer(buf_idx, req_id + ife_buf_depth);
     if (syncFirstFrame(cc.camera_num, request_id, frame_id_raw, timestamp) && frame_ready) {
         // in IFE_PROCESSED mode, we can't know the true EOF, so recover it with sensor readout time
         uint64_t timestamp_eof = timestamp + sensor->readout_time_ns;
@@ -1373,10 +1374,6 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
         return true;
       }
       // LOGW("camerad %d synced req %d fid %d, publishing ts %.2f cereal_frame_id %d", cc.camera_num, (int)request_id, (int)frame_id_raw, (double)(timestamp)*1e-6, meta_data.frame_id);
-    } else {
-      // Frames not yet synced
-      enqueue_req_multi(request_id + ife_buf_depth, 1);
-      // LOGW("camerad %d not synced req %d fid %d", cc.camera_num, (int)request_id, (int)frame_id_raw);
     }
   } else { // not ready
     if (frame_id_raw > frame_id_raw_last + 10) {
@@ -1397,10 +1394,7 @@ bool SpectraCamera::waitFrameReady(uint64_t request) {
     return false;
   }
 
-  // Before queuing up a new frame, wait for the
-  // previous one in this slot (index) to come in.
   // TODO: write a test to stress test w/ a low timeout and check camera frame ids match
-
   struct cam_sync_wait sync_wait = {0};
 
   // *** Wait for IFE ***
