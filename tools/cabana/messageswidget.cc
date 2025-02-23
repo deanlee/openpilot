@@ -1,6 +1,7 @@
 #include "tools/cabana/messageswidget.h"
 
 #include <limits>
+#include <unordered_set>
 #include <utility>
 
 #include <QCheckBox>
@@ -307,14 +308,24 @@ bool MessageListModel::match(const MessageListModel::Item &item) {
 
 bool MessageListModel::filterAndSort() {
   // merge CAN and DBC messages
+  size_t total_size = can->lastMessages().size() + dbc_messages_.size();
+
   std::vector<MessageId> all_messages;
-  all_messages.reserve(can->lastMessages().size() + dbc_messages_.size());
-  auto dbc_msgs = dbc_messages_;
+  all_messages.reserve(total_size);
+
+  std::unordered_set<uint32_t> active_addrs;
+  active_addrs.reserve(total_size);
+
   for (const auto &[id, m] : can->lastMessages()) {
     all_messages.push_back(id);
-    dbc_msgs.erase(MessageId{.source = INVALID_SOURCE, .address = id.address});
+    active_addrs.insert(id.address);
   }
-  all_messages.insert(all_messages.end(), dbc_msgs.begin(), dbc_msgs.end());
+
+  for (const auto &id : dbc_messages_) {
+    if (active_addrs.find(id.address) == active_addrs.end()) {
+      all_messages.push_back(id);
+    }
+  }
 
   // filter and sort
   std::vector<Item> items;
