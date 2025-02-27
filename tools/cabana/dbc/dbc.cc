@@ -180,25 +180,40 @@ bool cabana::Signal::operator==(const cabana::Signal &other) const {
 // helper functions
 
 double get_raw_value(const uint8_t *data, size_t data_size, const cabana::Signal &sig) {
-  int64_t val = 0;
+// Assume valid inputs for hot path; debug builds can assert
+if (!data || data_size <= (sig.msb >> 3)) return 0.0;
 
-  int i = sig.msb / 8;
-  int bits = sig.size;
-  while (i >= 0 && i < data_size && bits > 0) {
-    int lsb = (int)(sig.lsb / 8) == i ? sig.lsb : i * 8;
-    int msb = (int)(sig.msb / 8) == i ? sig.msb : (i + 1) * 8 - 1;
-    int size = msb - lsb + 1;
+const uint8_t* ptr = data + (sig.msb >> 3);
+const int lsb_offset = sig.lsb & 7;  // LSB bit offset within byte (mod 8)
+const int total_bits = sig.size;
+const int direction = sig.is_little_endian ? -1 : 1;
 
-    uint64_t d = (data[i] >> (lsb - (i * 8))) & ((1ULL << size) - 1);
-    val |= d << (bits - size);
+uint64_t val = 0;
 
-    bits -= size;
-    i = sig.is_little_endian ? i - 1 : i + 1;
-  }
-  if (sig.is_signed) {
-    val -= ((val >> (sig.size - 1)) & 0x1) ? (1ULL << sig.size) : 0;
-  }
-  return val * sig.factor + sig.offset;
+// Handle up to 64 bits with switch for common sizes
+switch ((total_bits + 7) >> 3) {  // Ceiling division to get byte count
+    case 8: val |= static_cast<uint64_t>(ptr[7 * direction]) << 56; [[fallthrough]];
+    case 7: val |= static_cast<uint64_t>(ptr[6 * direction]) << 48; [[fallthrough]];
+    case 6: val |= static_cast<uint64_t>(ptr[5 * direction]) << 40; [[fallthrough]];
+    case 5: val |= static_cast<uint64_t>(ptr[4 * direction]) << 32; [[fallthrough]];
+    case 4: val |= static_cast<uint64_t>(ptr[3 * direction]) << 24; [[fallthrough]];
+    case 3: val |= static_cast<uint64_t>(ptr[2 * direction]) << 16; [[fallthrough]];
+    case 2: val |= static_cast<uint64_t>(ptr[direction]) << 8; [[fallthrough]];
+    case 1: val |= static_cast<uint64_t>(ptr[0]);
+}
+
+// Adjust for bit offsets and mask excess bits
+val >>= lsb_offset;
+if (total_bits < 64) {
+    val &= (1ULL << total_bits) - 1;
+}
+
+// Sign extension if needed
+if (sig.is_signed) {
+  val -= ((val >> (sig.size - 1)) & 0x1) ? (1ULL << sig.size) : 0;
+}
+// Apply scaling and offset
+return static_cast<double>(static_cast<int64_t>(val)) * sig.factor + sig.offset;
 }
 
 void updateMsbLsb(cabana::Signal &s) {
