@@ -180,42 +180,45 @@ bool cabana::Signal::operator==(const cabana::Signal &other) const {
 // helper functions
 
 double get_raw_value(const uint8_t *data, size_t data_size, const cabana::Signal &sig) {
-// Assume valid inputs for hot path; debug builds can assert
-if (!data || data_size <= (sig.msb >> 3)) return 0.0;
+  if (!data || data_size <= (sig.msb >> 3)) return 0.0;
 
-const uint8_t* ptr = data + (sig.msb >> 3);
-const int lsb_offset = sig.lsb & 7;  // LSB bit offset within byte (mod 8)
-const int total_bits = sig.size;
-const int direction = sig.is_little_endian ? -1 : 1;
+  const int msb_byte = sig.msb >> 3;
+  const int lsb_byte = sig.lsb >> 3;
+  const int byte_count = (sig.size + 7) >> 3;
+  const int lsb_bit_offset = sig.lsb & 7;  // Bit offset in LSB byte
 
-uint64_t val = 0;
+  uint64_t val = 0;
 
-// Handle up to 64 bits with switch for common sizes
-switch ((total_bits + 7) >> 3) {  // Ceiling division to get byte count
-    case 8: val |= static_cast<uint64_t>(ptr[7 * direction]) << 56; [[fallthrough]];
-    case 7: val |= static_cast<uint64_t>(ptr[6 * direction]) << 48; [[fallthrough]];
-    case 6: val |= static_cast<uint64_t>(ptr[5 * direction]) << 40; [[fallthrough]];
-    case 5: val |= static_cast<uint64_t>(ptr[4 * direction]) << 32; [[fallthrough]];
-    case 4: val |= static_cast<uint64_t>(ptr[3 * direction]) << 24; [[fallthrough]];
-    case 3: val |= static_cast<uint64_t>(ptr[2 * direction]) << 16; [[fallthrough]];
-    case 2: val |= static_cast<uint64_t>(ptr[direction]) << 8; [[fallthrough]];
-    case 1: val |= static_cast<uint64_t>(ptr[0]);
+  if (sig.is_little_endian) {
+      // Little-endian: Start at LSB byte, build upward
+      const uint8_t* ptr = data + lsb_byte;
+      for (int i = 0; i < byte_count; ++i) {
+          val |= static_cast<uint64_t>(ptr[i]) << (i * 8);
+      }
+      val >>= lsb_bit_offset;  // Align LSB to bit 0
+  } else {
+      // Big-endian: Start at MSB byte, build downward
+      const uint8_t* ptr = data + msb_byte;
+      for (int i = 0; i < byte_count; ++i) {
+          val = (val << 8) | ptr[-i];  // Move from MSB to LSB
+      }
+      // Adjust for bits beyond the signal’s LSB byte
+      int shift = (byte_count * 8 - sig.size) - (lsb_bit_offset * (lsb_byte == msb_byte ? 0 : 1));
+      if (shift > 0) val >>= shift;
+  }
+
+  // Mask to signal size
+  if (sig.size < 64) {
+      val &= (1ULL << sig.size) - 1;
+  }
+
+  // Sign extension
+  if (sig.is_signed && (val >> (sig.size - 1))) {
+      val |= ~((1ULL << sig.size) - 1);
+  }
+
+  return static_cast<double>(static_cast<int64_t>(val)) * sig.factor + sig.offset;
 }
-
-// Adjust for bit offsets and mask excess bits
-val >>= lsb_offset;
-if (total_bits < 64) {
-    val &= (1ULL << total_bits) - 1;
-}
-
-// Sign extension if needed
-if (sig.is_signed) {
-  val -= ((val >> (sig.size - 1)) & 0x1) ? (1ULL << sig.size) : 0;
-}
-// Apply scaling and offset
-return static_cast<double>(static_cast<int64_t>(val)) * sig.factor + sig.offset;
-}
-
 void updateMsbLsb(cabana::Signal &s) {
   if (s.is_little_endian) {
     s.lsb = s.start_bit;
