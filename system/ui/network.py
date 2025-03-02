@@ -90,7 +90,10 @@ class WifiManagerUI:
 
     if self.current_action == ActionState.NONE and rl.check_collision_point_rec(rl.get_mouse_position(), label_rect) and clicked:
       self._selected_network = network
-      asyncio.create_task(self.connect_to_network())
+      if not self._selected_network.is_saved:
+         self.current_action = ActionState.NEED_AUTH
+      else:
+        asyncio.create_task(self.connect_to_network())
 
   async def forgot_network(self):
     self.current_action = ActionState.FORGETTING
