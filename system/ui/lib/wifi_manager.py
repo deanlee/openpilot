@@ -9,11 +9,11 @@ from dataclasses import dataclass
 from openpilot.common.swaglog import cloudlog
 
 NM = "org.freedesktop.NetworkManager"
-NM_DBUS_PATH = '/org/freedesktop/NetworkManager'
+NM_PATH = '/org/freedesktop/NetworkManager'
 NM_IFACE = 'org.freedesktop.NetworkManager'
 NM_SETTINGS_PATH = '/org/freedesktop/NetworkManager/Settings'
 NM_SETTINGS_IFACE = 'org.freedesktop.NetworkManager.Settings'
-NM_DBUS_INTERFACE_SETTINGS_CONNECTION = 'org.freedesktop.NetworkManager.Settings.Connection'
+NM_CONNECTION_IFACE = 'org.freedesktop.NetworkManager.Settings.Connection'
 NM_WIRELESS_IFACE = 'org.freedesktop.NetworkManager.Device.Wireless'
 NM_PROPERTIES_IFACE = 'org.freedesktop.DBus.Properties'
 NM_DEVICE_IFACE = "org.freedesktop.NetworkManager.Device"
@@ -71,7 +71,7 @@ class WifiManager:
       await self.bus.disconnect()
 
   async def _find_wifi_device(self) -> bool:
-    nm_iface = await self._get_interface(NM, NM_DBUS_PATH, NM_IFACE)
+    nm_iface = await self._get_interface(NM, NM_PATH, NM_IFACE)
     devices = await nm_iface.get_devices()
 
     for device_path in devices:
@@ -116,9 +116,12 @@ class WifiManager:
   def _on_properties_changed(self, interface: str, changed: dict, invalidated: list):
     """Handle property changes."""
     print("property changed", interface, changed, invalidated)
-    # if "ActiveAccessPoint" in changed:
-    #   self.active_ap_path = changed["ActiveAccessPoint"].value
-    #   asyncio.create_task(self.get_available_networks())
+    if 'LastScan' in changed:
+      asyncio.create_task(self.get_available_networks())
+    elif "ActiveAccessPoint" in changed:
+      self.active_ap_path = changed["ActiveAccessPoint"].value
+      print(self.activate_connection, 'active')
+      asyncio.create_task(self.get_available_networks())
 
   def _on_state_changed(self, new_state: int, old_state: int, reason: int):
     """Handle device state changes."""
@@ -214,7 +217,7 @@ class WifiManager:
     """Fetch connection settings for a specific connection path."""
     connection_proxy = await self.bus.introspect(NM, path)
     connection = self.bus.get_proxy_object(NM, path, connection_proxy)
-    settings = connection.get_interface(NM_DBUS_INTERFACE_SETTINGS_CONNECTION)
+    settings = connection.get_interface(NM_CONNECTION_IFACE)
     return await settings.call_get_settings()
 
   async def process_chunk(self, paths_chunk):
@@ -262,8 +265,8 @@ class WifiManager:
     connection_path = self.saved_connections.get(ssid)
     if connection_path:
       print('activate connection:', connection_path)
-      introspection = await self.bus.introspect(NM, NM_DBUS_PATH)
-      proxy = self.bus.get_proxy_object(NM, NM_DBUS_PATH, introspection)
+      introspection = await self.bus.introspect(NM, NM_PATH)
+      proxy = self.bus.get_proxy_object(NM, NM_PATH, introspection)
       interface = proxy.get_interface(NM_IFACE)
 
       await interface.call_activate_connection(connection_path, self.device_path, '/')
@@ -305,7 +308,7 @@ class WifiManager:
   async def forgot_connection(self, ssid: str):
     path = self.saved_connections.get(ssid)
     if path:
-      nm_iface = self._get_interface(NM, path, NM_DBUS_INTERFACE_SETTINGS_CONNECTION)
+      nm_iface = self._get_interface(NM, path, NM_CONNECTION_IFACE)
       await nm_iface.call_delete()
       #   self.saved_connections.pop(ssid, None)
       # if self.connected_network == ssid:

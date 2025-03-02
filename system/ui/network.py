@@ -42,7 +42,9 @@ class WifiManagerUI:
 
   def draw_network_list(self, rect: rl.Rectangle):
     if not self.wifi_manager.networks:
-      gui_label(rect, "Scanning Wi-Fi networks...", 40, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+      gui_label(
+        rect, "Scanning Wi-Fi networks...", 40, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER
+      )
       return
 
     if self.current_action == ActionState.NEED_AUTH:
@@ -53,7 +55,9 @@ class WifiManagerUI:
         self.current_action = ActionState.NONE
         asyncio.create_task(self.connect_to_network(self.keyboard.text))
 
-    content_rect = rl.Rectangle(rect.x, rect.y, rect.width, len(self.wifi_manager.networks) * self.item_height)
+    content_rect = rl.Rectangle(
+      rect.x, rect.y, rect.width, len(self.wifi_manager.networks) * self.item_height
+    )
     offset = self.scroll_panel.handle_scroll(rect, content_rect)
     rl.begin_scissor_mode(int(rect.x), int(rect.y), int(rect.width), int(rect.height))
     clicked = offset.y < 10 and rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT)
@@ -65,32 +69,49 @@ class WifiManagerUI:
         self.render_network_item(item_rect, network, clicked)
         if i < len(self.wifi_manager.networks) - 1:
           line_y = int(item_rect.y + item_rect.height - 1)
-          rl.draw_line(int(item_rect.x), int(line_y), int(item_rect.x + item_rect.width), line_y, rl.LIGHTGRAY)
+          rl.draw_line(
+            int(item_rect.x), int(line_y), int(item_rect.x + item_rect.width), line_y, rl.LIGHTGRAY
+          )
 
     rl.end_scissor_mode()
 
   def render_network_item(self, rect, network: NetworkInfo, clicked: bool):
     label_rect = rl.Rectangle(rect.x, rect.y, rect.width - self.btn_width * 2, self.item_height)
-    state_rect = rl.Rectangle(rect.x + rect.width - self.btn_width * 2 - 30, rect.y, self.btn_width, self.item_height)
+    state_rect = rl.Rectangle(
+      rect.x + rect.width - self.btn_width * 2 - 30, rect.y, self.btn_width, self.item_height
+    )
 
     gui_label(label_rect, network.ssid, 55)
 
     if network.is_connected and self.current_action == ActionState.NONE:
       rl.gui_label(state_rect, "Connected")
-    elif self.current_action == "Connecting" and self._selected_network and self._selected_network.ssid == network.ssid:
+    elif (
+      self.current_action == "Connecting"
+      and self._selected_network
+      and self._selected_network.ssid == network.ssid
+    ):
       rl.gui_label(state_rect, "CONNECTING...")
 
     # If the network is saved, show the "Forget" button
     if network.is_saved:
-      forget_btn_rect = rl.Rectangle(rect.x + rect.width - self.btn_width, rect.y + (self.item_height - 80) / 2, self.btn_width, 80)
+      forget_btn_rect = rl.Rectangle(
+        rect.x + rect.width - self.btn_width,
+        rect.y + (self.item_height - 80) / 2,
+        self.btn_width,
+        80,
+      )
       if rl.gui_button(forget_btn_rect, "Forget") and self.current_action == ActionState.NONE:
         self._selected_network = network
         asyncio.create_task(self.forgot_network())
 
-    if self.current_action == ActionState.NONE and rl.check_collision_point_rec(rl.get_mouse_position(), label_rect) and clicked:
+    if (
+      self.current_action == ActionState.NONE
+      and rl.check_collision_point_rec(rl.get_mouse_position(), label_rect)
+      and clicked
+    ):
       self._selected_network = network
       if not self._selected_network.is_saved:
-         self.current_action = ActionState.NEED_AUTH
+        self.current_action = ActionState.NEED_AUTH
       else:
         asyncio.create_task(self.connect_to_network())
 
@@ -118,12 +139,6 @@ class WifiManagerUI:
         _, new_state = message.body[0], message.body[1]
         if new_state == NM_DEVICE_STATE_NEED_AUTH:
           self.current_action = ActionState.NEED_AUTH
-    elif message.interface == 'org.freedesktop.DBus.Properties' and message.member == 'PropertiesChanged':
-      body = message.body
-      if len(body) >= 2:
-        changed_properties = body[1]
-        if 'LastScan' in changed_properties:
-          asyncio.create_task(self.wifi_manager.get_available_networks())
 
 
 async def main():
