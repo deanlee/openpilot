@@ -18,8 +18,14 @@ NM_WIRELESS_IFACE = 'org.freedesktop.NetworkManager.Device.Wireless'
 NM_PROPERTIES_IFACE = 'org.freedesktop.DBus.Properties'
 NM_DEVICE_IFACE = "org.freedesktop.NetworkManager.Device"
 
-NM_DEVICE_STATE_NEED_AUTH = 60
 
+# NetworkManager device states
+class NMDeviceState(IntEnum):
+  DISCONNECTED = 30
+  PREPARE = 40
+  NEED_AUTH = 60
+  IP_CONFIG = 70
+  ACTIVATED = 100
 
 class SecurityType(IntEnum):
   OPEN = 0
@@ -121,6 +127,7 @@ class WifiManager:
     elif "ActiveAccessPoint" in changed:
       self.active_ap_path = changed["ActiveAccessPoint"].value
       print(self.activate_connection, 'active')
+      assert(0)
       asyncio.create_task(self.get_available_networks())
 
   def _on_state_changed(self, new_state: int, old_state: int, reason: int):
