@@ -22,7 +22,7 @@ class ActionState(IntEnum):
 
 class WifiManagerUI:
   def __init__(self, wifi_manager):
-    self._wifi_manager = wifi_manager
+    self.wifi_manager = wifi_manager
     self._selected_network = None
     self.item_height = 160
     self.btn_width = 200
@@ -31,18 +31,27 @@ class WifiManagerUI:
     self.scroll_panel = GuiScrollPanel()
     self.keyboard = Keyboard()
 
-    asyncio.create_task(self.periodic_network_fetch())
+    asyncio.create_task(self._initialize())
 
-  async def periodic_network_fetch(self):
-    await self._wifi_manager.connect()
-    self._wifi_manager.bus.add_message_handler(self._handle_dbus_signal)
-    await self._wifi_manager.get_available_networks()
+  async def _initialize(self) -> None:
+    try:
+      await self.wifi_manager.connect()
+      self.wifi_manager.bus.add_message_handler(self._handle_dbus_signal)
+      await self.wifi_manager.get_available_networks()
+      asyncio.create_task(self._scan_periodically())
+    except Exception as e:
+      print(f"Initialization error: {e}")
+
+  async def _scan_periodically(self):
     while True:
-      await self._wifi_manager.request_scan()
-      await asyncio.sleep(60)  # Wait for 1 minute before refetching
+      try:
+        await self.wifi_manager.request_scan()
+        await asyncio.sleep(60)  # Wait for 1 minute before refetching
+      except Exception as e:
+        print(f"Scan error: {e}")
 
   def draw_network_list(self, rect: rl.Rectangle):
-    if not self._wifi_manager.networks:
+    if not self.wifi_manager.networks:
       gui_label(rect, "Scanning Wi-Fi networks...", 40, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
       return
 
@@ -54,17 +63,17 @@ class WifiManagerUI:
         self.current_action = ActionState.NONE
         asyncio.create_task(self.connect_to_network(self.keyboard.text))
 
-    content_rect = rl.Rectangle(rect.x, rect.y, rect.width, len(self._wifi_manager.networks) * self.item_height)
+    content_rect = rl.Rectangle(rect.x, rect.y, rect.width, len(self.wifi_manager.networks) * self.item_height)
     offset = self.scroll_panel.handle_scroll(rect, content_rect)
     rl.begin_scissor_mode(int(rect.x), int(rect.y), int(rect.width), int(rect.height))
     clicked = offset.y < 10 and rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT)
-    for i, network in enumerate(self._wifi_manager.networks):
+    for i, network in enumerate(self.wifi_manager.networks):
       y_offset = i * self.item_height + offset.y
       item_rect = rl.Rectangle(rect.x, y_offset, rect.width, self.item_height)
 
       if rl.check_collision_recs(item_rect, rect):
         self.render_network_item(item_rect, network, clicked)
-        if i < len(self._wifi_manager.networks) - 1:
+        if i < len(self.wifi_manager.networks) - 1:
           line_y = int(item_rect.y + item_rect.height - 1)
           rl.draw_line(int(item_rect.x), int(line_y), int(item_rect.x + item_rect.width), line_y, rl.LIGHTGRAY)
 
@@ -97,7 +106,7 @@ class WifiManagerUI:
 
   async def forgot_network(self):
     self.current_action = ActionState.FORGETTING
-    await self._wifi_manager.forgot_connection(self._selected_network.ssid)
+    await self.wifi_manager.forgot_connection(self._selected_network.ssid)
     self.saved_networks.discard(self.selected_network.ssid)
     self._selected_network.is_saved = False
     self.current_action = ActionState.NONE
@@ -105,9 +114,9 @@ class WifiManagerUI:
   async def connect_to_network(self, password=''):
     self.current_action = ActionState.CONNECTING
     if self._selected_network.is_saved and not password:
-      await self._wifi_manager.activate_connection(self._selected_network.ssid)
+      await self.wifi_manager.activate_connection(self._selected_network.ssid)
     else:
-      await self._wifi_manager.connect_to_network(self._selected_network.ssid, password)
+      await self.wifi_manager.connect_to_network(self._selected_network.ssid, password)
     self.current_action = ActionState.NONE
 
   def _handle_dbus_signal(self, message):
@@ -124,7 +133,7 @@ class WifiManagerUI:
       if len(body) >= 2:
         changed_properties = body[1]
         if 'LastScan' in changed_properties:
-          asyncio.create_task(self._wifi_manager.get_available_networks())
+          asyncio.create_task(self.wifi_manager.get_available_networks())
 
 
 async def main():
