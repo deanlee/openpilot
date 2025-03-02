@@ -11,11 +11,12 @@ from openpilot.common.swaglog import cloudlog
 NM = "org.freedesktop.NetworkManager"
 NM_DBUS_PATH = '/org/freedesktop/NetworkManager'
 NM_IFACE = 'org.freedesktop.NetworkManager'
-NM_DBUS_PATH_SETTINGS = '/org/freedesktop/NetworkManager/Settings'
-NM_DBUS_INTERFACE_SETTINGS = 'org.freedesktop.NetworkManager.Settings'
+NM_SETTINGS_PATH = '/org/freedesktop/NetworkManager/Settings'
+NM_SETTINGS_IFACE = 'org.freedesktop.NetworkManager.Settings'
 NM_DBUS_INTERFACE_SETTINGS_CONNECTION = 'org.freedesktop.NetworkManager.Settings.Connection'
-NM_DBUS_INTERFACE_DEVICE_WIRELESS = 'org.freedesktop.NetworkManager.Device.Wireless'
-NM_DBUS_INTERFACE_PROPERTIES = 'org.freedesktop.DBus.Properties'
+NM_WIRELESS_IFACE = 'org.freedesktop.NetworkManager.Device.Wireless'
+NM_PROPERTIES_IFACE = 'org.freedesktop.DBus.Properties'
+NM_DEVICE_IFACE = "org.freedesktop.NetworkManager.Device"
 
 NM_DEVICE_STATE_NEED_AUTH = 60
 
@@ -55,8 +56,9 @@ class WifiManager:
       self.bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
       await self._find_wifi_device()
       await self._setup_signals(self.device_path)
+
       self.active_ap_path = await self.get_active_access_point()
-      self.saved_connections = await self.get_saved_ssids()
+      self.saved_connections = await self.get_saved_connections()
       self.scan_task = asyncio.create_task(self._periodic_scan())
     except DBusError as e:
       print(f"Failed to connect to DBus: {e}")
@@ -68,17 +70,14 @@ class WifiManager:
     if self.bus:
       await self.bus.disconnect()
 
-
-  async def _find_wifi_device(self)-> bool:
+  async def _find_wifi_device(self) -> bool:
     nm_iface = await self._get_interface(NM, NM_DBUS_PATH, NM_IFACE)
-    # Get the list of available devices (WiFi devices)
     devices = await nm_iface.get_devices()
 
     for device_path in devices:
-      # Introspect each device and check if it's a WiFi device (DeviceType == 2)
       device = await self.bus.introspect(NM, device_path)
       device_proxy = self.bus.get_proxy_object(NM, device_path, device)
-      device_interface = device_proxy.get_interface('org.freedesktop.NetworkManager.Device')
+      device_interface = device_proxy.get_interface(NM_DEVICE_IFACE)
       device_type = await device_interface.get_device_type()
       if device_type == 2:  # WiFi device
         self.device_path = device_path
@@ -97,37 +96,55 @@ class WifiManager:
         cloudlog.error(f"Scan error: {e}")
         await asyncio.sleep(5)
 
-
   async def _setup_signals(self, device_path: str) -> None:
-    """Set up DBus signal subscriptions."""
     rules = [
-      f"type='signal',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',path='{device_path}'",
-      f"type='signal',interface='org.freedesktop.NetworkManager.Device',member='StateChanged',path='{device_path}'",
-      "type='signal',interface='org.freedesktop.NetworkManager.Settings',member='NewConnection',path='/org/freedesktop/NetworkManager/Settings'",
+      f"type='signal',interface='{NM_PROPERTIES_IFACE}',member='PropertiesChanged',path='{device_path}'",
+      f"type='signal',interface='{NM_DEVICE_IFACE}',member='StateChanged',path='{device_path}'",
+      f"type='signal',interface='{NM_SETTINGS_IFACE}',member='NewConnection',path='{NM_SETTINGS_PATH}'",
+      f"type='signal',interface='{NM_SETTINGS_IFACE}',member='ConnectionRemoved',path='{NM_SETTINGS_PATH}'",
     ]
     for rule in rules:
-      await self._dbus_add_match(rule)
+      await self._add_match_rule(rule)
+
+    self.device_proxy.get_interface(NM_PROPERTIES_IFACE).on_properties_changed(
+      self._on_properties_changed
+    )
+    self.device_proxy.get_interface(NM_DEVICE_IFACE).on_state_changed(
+      self._on_state_changed
+    )
+
+  def _on_properties_changed(self, interface: str, changed: dict, invalidated: list):
+    """Handle property changes."""
+    print("property changed", interface, changed, invalidated)
+    # if "ActiveAccessPoint" in changed:
+    #   self.active_ap_path = changed["ActiveAccessPoint"].value
+    #   asyncio.create_task(self.get_available_networks())
+
+  def _on_state_changed(self, new_state: int, old_state: int, reason: int):
+    """Handle device state changes."""
+    print(f"State changed: {old_state} -> {new_state}, reason: {reason}")
+    # if new_state == NMDeviceState.ACTIVATED:
+    #   asyncio.create_task(self._update_connection_status())
+    # elif new_state in (NMDeviceState.DISCONNECTED, NMDeviceState.NEED_AUTH):
+    #   self.connected_network = None
 
   async def request_scan(self):
     try:
-      interface = self.device_proxy.get_interface(NM_DBUS_INTERFACE_DEVICE_WIRELESS)
+      interface = self.device_proxy.get_interface(NM_WIRELESS_IFACE)
       await interface.call_request_scan({})
     except Exception as e:
       cloudlog.warning(f"Scan request failed: {e}")
 
-
   async def get_active_access_point(self):
     try:
-      properties_interface = self.device_proxy.get_interface(NM_DBUS_INTERFACE_PROPERTIES)
-      response = await properties_interface.call_get(
-        NM_DBUS_INTERFACE_DEVICE_WIRELESS, 'ActiveAccessPoint'
-      )
-      return response.value
+      props_iface = self.device_proxy.get_interface(NM_PROPERTIES_IFACE)
+      ap_path = await props_iface.call_get(NM_WIRELESS_IFACE, 'ActiveAccessPoint')
+      return ap_path.value
     except DBusError as e:
       print(f"Error fetching active access point: {e}")
       return ''
 
-  async def _dbus_add_match(self, body):
+  async def _add_match_rule(self, rule):
     """ "Add a match rule on the bus."""
     reply = await self.bus.call(
       Message(
@@ -137,7 +154,7 @@ class WifiManager:
         path='/org/freedesktop/DBus',
         member='AddMatch',
         signature='s',
-        body=[body],
+        body=[rule],
       )
     )
 
@@ -148,13 +165,13 @@ class WifiManager:
     """Get a list of available networks via NetworkManager."""
     networks = []
     try:
-      wifi_interface = self.device_proxy.get_interface(NM_DBUS_INTERFACE_DEVICE_WIRELESS)
+      wifi_interface = self.device_proxy.get_interface(NM_WIRELESS_IFACE)
       access_points = await wifi_interface.get_access_points()
 
       for ap_path in access_points:
         ap = await self.bus.introspect(NM, ap_path)
         ap_proxy = self.bus.get_proxy_object(NM, ap_path, ap)
-        properties_interface = ap_proxy.get_interface(NM_DBUS_INTERFACE_PROPERTIES)
+        properties_interface = ap_proxy.get_interface(NM_PROPERTIES_IFACE)
         properties = await properties_interface.call_get_all(
           'org.freedesktop.NetworkManager.AccessPoint'
         )
@@ -206,14 +223,11 @@ class WifiManager:
     results = await asyncio.gather(*tasks)
     return results
 
-  async def get_saved_ssids(self):
-    # Get the NetworkManager object
-    introspection = await self.bus.introspect(NM, NM_DBUS_PATH_SETTINGS)
-    network_manager = self.bus.get_proxy_object(NM, NM_DBUS_PATH_SETTINGS, introspection)
-    settings_interface = network_manager.get_interface(NM_DBUS_INTERFACE_SETTINGS)
-    connection_paths = await settings_interface.call_list_connections()
+  async def get_saved_connections(self):
+    settings_iface = await self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
+    connection_paths = await settings_iface.call_list_connections()
 
-    saved_ssids = dict()
+    saved_ssids = {}
     batch_size = 120
     for i in range(0, len(connection_paths), batch_size):
       chunk = connection_paths[i : i + batch_size]
@@ -257,13 +271,7 @@ class WifiManager:
   async def connect_to_network(self, ssid: str, password: str = None, is_hidden: bool = False):
     """Connect to a selected WiFi network."""
     try:
-      network_manager = await self.bus.introspect(NM, '/org/freedesktop/NetworkManager/Settings')
-      proxy_object = self.bus.get_proxy_object(
-        NM, '/org/freedesktop/NetworkManager/Settings', network_manager
-      )
-      settings_interface = proxy_object.get_interface('org.freedesktop.NetworkManager.Settings')
-
-      # Create a connection dictionary
+      settings_iface = self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
       connection = {
         'connection': {
           'type': Variant('s', '802-11-wireless'),
@@ -287,7 +295,7 @@ class WifiManager:
           'psk': Variant('s', password),
         }
 
-      await settings_interface.call_add_connection(connection)
+      await settings_iface.call_add_connection(connection)
 
       self.connected_network = ssid
 
@@ -297,7 +305,9 @@ class WifiManager:
   async def forgot_connection(self, ssid: str):
     path = self.saved_connections.get(ssid)
     if path:
-      connection_proxy = await self.bus.introspect(NM, path)
-      connection = self.bus.get_proxy_object(NM, path, connection_proxy)
-      settings = connection.get_interface(NM_DBUS_INTERFACE_SETTINGS_CONNECTION)
-      await settings.call_delete()
+      nm_iface = self._get_interface(NM, path, NM_DBUS_INTERFACE_SETTINGS_CONNECTION)
+      await nm_iface.call_delete()
+      #   self.saved_connections.pop(ssid, None)
+      # if self.connected_network == ssid:
+      #   self.connected_network = None
+      # return True
