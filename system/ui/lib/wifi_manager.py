@@ -133,7 +133,7 @@ class WifiManager:
         )
 
         ssid_variant = properties['Ssid'].value
-        ssid = ''.join([chr(byte) for byte in ssid_variant])
+        ssid = ''.join(chr(byte) for byte in ssid_variant)
         if not ssid:
           continue
 
