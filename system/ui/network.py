@@ -37,18 +37,8 @@ class WifiManagerUI:
     try:
       await self.wifi_manager.connect()
       self.wifi_manager.bus.add_message_handler(self._handle_dbus_signal)
-      await self.wifi_manager.get_available_networks()
-      asyncio.create_task(self._scan_periodically())
     except Exception as e:
       print(f"Initialization error: {e}")
-
-  async def _scan_periodically(self):
-    while True:
-      try:
-        await self.wifi_manager.request_scan()
-        await asyncio.sleep(60)  # Wait for 1 minute before refetching
-      except Exception as e:
-        print(f"Scan error: {e}")
 
   def draw_network_list(self, rect: rl.Rectangle):
     if not self.wifi_manager.networks:
