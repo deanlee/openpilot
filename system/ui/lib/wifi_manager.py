@@ -175,17 +175,12 @@ class WifiManager:
     """Get a list of available networks via NetworkManager."""
     networks = []
     try:
-      wifi_interface = self.device_proxy.get_interface(NM_WIRELESS_IFACE)
-      access_points = await wifi_interface.get_access_points()
+      wifi_iface = self.device_proxy.get_interface(NM_WIRELESS_IFACE)
+      access_points = await wifi_iface.get_access_points()
 
       for ap_path in access_points:
-        ap = await self.bus.introspect(NM, ap_path)
-        ap_proxy = self.bus.get_proxy_object(NM, ap_path, ap)
-        properties_interface = ap_proxy.get_interface(NM_PROPERTIES_IFACE)
-        properties = await properties_interface.call_get_all(
-          'org.freedesktop.NetworkManager.AccessPoint'
-        )
-
+        props_iface = await self._get_interface(NM, ap_path, NM_PROPERTIES_IFACE)
+        properties = await props_iface.call_get_all('org.freedesktop.NetworkManager.AccessPoint')
         ssid_variant = properties['Ssid'].value
         ssid = ''.join(chr(byte) for byte in ssid_variant)
         if not ssid:
