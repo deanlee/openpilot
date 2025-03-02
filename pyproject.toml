@@ -112,6 +112,7 @@ dev = [
   "types-requests",
   "types-tabulate",
   "raylib",
+  "dbus_next",
 ]
 
 tools = [

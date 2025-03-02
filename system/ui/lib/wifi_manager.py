@@ -230,7 +230,6 @@ class WifiManager:
   async def connect_to_network(self, ssid: str, password: str = None, is_hidden: bool = False):
     """Connect to a selected WiFi network."""
     try:
-      print('connect_to_network', ssid, password)
       network_manager = await self.bus.introspect(NM, '/org/freedesktop/NetworkManager/Settings')
       proxy_object = self.bus.get_proxy_object(
         NM, '/org/freedesktop/NetworkManager/Settings', network_manager

@@ -57,7 +57,7 @@ class Keyboard:
   def render(self, rect, title, sub_title):
     gui_label((rect.x, rect.y, rect.width, 95), title, 90)
     gui_label((rect.x, rect.y + 95, rect.width, 60), sub_title, 55, rl.GRAY)
-    gui_button((rect.x + rect.width - 300, rect.y, 300, 100), "Cancel")
+    gui_button(rl.Rectangle(rect.x + rect.width - 300, rect.y, 300, 100), "Cancel")
 
     # Text box for input
     rl.gui_text_box(rl.Rectangle(rect.x, rect.y + 160, rect.width, 100), self._input_text, self._max_text_size, True)
