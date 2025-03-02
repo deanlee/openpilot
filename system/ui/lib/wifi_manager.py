@@ -6,7 +6,7 @@ from dbus_next.constants import MessageType
 from enum import IntEnum
 import uuid
 from dataclasses import dataclass
-from openpilot.common.swaglog import cloudlog
+# from openpilot.common.swaglog import cloudlog
 
 NM = "org.freedesktop.NetworkManager"
 NM_DBUS_PATH = '/org/freedesktop/NetworkManager'
@@ -97,7 +97,7 @@ class WifiManager:
       )
       return response.value
     except DBusError as e:
-      cloudlog.warning(f"Error fetching active access point: {e}")
+      print(f"Error fetching active access point: {e}")
       return ''
 
   async def _dbus_add_match(self, body):
