@@ -35,7 +35,7 @@ class WifiManagerUI:
 
   async def periodic_network_fetch(self):
     await self._wifi_manager.connect()
-    self._wifi_manager.bus.add_message_handler(self.handle_signal)
+    self._wifi_manager.bus.add_message_handler(self._handle_dbus_signal)
     await self._wifi_manager.get_available_networks()
     while True:
       await self._wifi_manager.request_scan()
@@ -43,7 +43,7 @@ class WifiManagerUI:
 
   def draw_network_list(self, rect: rl.Rectangle):
     if not self._wifi_manager.networks:
-      gui_label(rect, "Loading Wi-Fi networks...", 40, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+      gui_label(rect, "Scanning Wi-Fi networks...", 40, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
       return
 
     if self.current_action == ActionState.NEED_AUTH:
@@ -64,7 +64,7 @@ class WifiManagerUI:
 
       if rl.check_collision_recs(item_rect, rect):
         self.render_network_item(item_rect, network, clicked)
-        if i != len(self._wifi_manager.networks) - 1:
+        if i < len(self._wifi_manager.networks) - 1:
           line_y = int(item_rect.y + item_rect.height - 1)
           rl.draw_line(int(item_rect.x), int(line_y), int(item_rect.x + item_rect.width), line_y, rl.LIGHTGRAY)
 
@@ -95,6 +95,7 @@ class WifiManagerUI:
   async def forgot_network(self):
     self.current_action = ActionState.FORGETTING
     await self._wifi_manager.forgot_connection(self._selected_network.ssid)
+    self.saved_networks.discard(self.selected_network.ssid)
     self._selected_network.is_saved = False
     self.current_action = ActionState.NONE
 
@@ -106,7 +107,7 @@ class WifiManagerUI:
       await self._wifi_manager.connect_to_network(self._selected_network.ssid, password)
     self.current_action = ActionState.NONE
 
-  def handle_signal(self, message):
+  def _handle_dbus_signal(self, message):
     if message.message_type != MessageType.SIGNAL:
       return
 
@@ -136,7 +137,7 @@ async def main():
     wifi_ui.draw_network_list(rl.Rectangle(50, 50, gui_app.width - 100, gui_app.height - 100))
 
     rl.end_drawing()
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.001)
 
 
 if __name__ == "__main__":
