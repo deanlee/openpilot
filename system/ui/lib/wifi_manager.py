@@ -109,6 +109,7 @@ class WifiManager:
       f"type='signal',interface='{NM_SETTINGS_IFACE}',member='NewConnection',path='{NM_SETTINGS_PATH}'",
       f"type='signal',interface='{NM_SETTINGS_IFACE}',member='ConnectionRemoved',path='{NM_SETTINGS_PATH}'",
     ]
+
     for rule in rules:
       await self._add_match_rule(rule)
 
@@ -119,8 +120,8 @@ class WifiManager:
     self.device_proxy.get_interface(NM_DEVICE_IFACE).on_state_changed(self._on_state_changed)
 
     settings_iface = await self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
-    settings_iface.on_new_connection = self._on_new_connection
-    settings_iface.on_connection_removed = self._on_connection_removed
+    settings_iface.on_new_connection(self._on_new_connection)
+    settings_iface.on_connection_removed(self._on_connection_removed)
 
   def _on_properties_changed(self, interface: str, changed: dict, invalidated: list):
     # print("property changed", interface, changed, invalidated)
@@ -186,11 +187,11 @@ class WifiManager:
   async def get_available_networks(self):
     """Get a list of available networks via NetworkManager."""
     networks = []
-    try:
-      wifi_iface = self.device_proxy.get_interface(NM_WIRELESS_IFACE)
-      access_points = await wifi_iface.get_access_points()
+    wifi_iface = self.device_proxy.get_interface(NM_WIRELESS_IFACE)
+    access_points = await wifi_iface.get_access_points()
 
-      for ap_path in access_points:
+    for ap_path in access_points:
+      try:
         props_iface = await self._get_interface(NM, ap_path, NM_PROPERTIES_IFACE)
         properties = await props_iface.call_get_all('org.freedesktop.NetworkManager.AccessPoint')
         ssid_variant = properties['Ssid'].value
@@ -212,20 +213,19 @@ class WifiManager:
             is_saved=ssid in self.saved_connections,
           )
         )
+      except DBusError as e:
+        print(f"Error fetching networks: {e}")
+      except Exception as e:
+        print({e})
 
-    except DBusError as e:
-      print(f"Error fetching networks: {e}")
-    except Exception as e:
-      print({e})
-    finally:
-      self.networks = sorted(
-        networks,
-        key=lambda network: (
-          not network.is_connected,
-          -network.strength,  # Higher signal strength first
-          network.ssid.lower(),
-        ),
-      )
+    self.networks = sorted(
+      networks,
+      key=lambda network: (
+        not network.is_connected,
+        -network.strength,  # Higher signal strength first
+        network.ssid.lower(),
+      ),
+    )
 
   async def get_connection_settings(self, path):
     """Fetch connection settings for a specific connection path."""
