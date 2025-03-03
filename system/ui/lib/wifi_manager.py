@@ -76,7 +76,7 @@ class WifiManager:
       cloudlog.error(f"Unexpected error during connect: {e}")
       raise
 
-  async def shutdown(self):
+  async def shutdown(self) -> None:
     self.running = False
     if self.scan_task:
       self.scan_task.cancel()
@@ -105,11 +105,11 @@ class WifiManager:
       try:
         await self.request_scan()
         await self.get_available_networks()
-        await asyncio.sleep(30)  # Scan every 30 seconds
+        await asyncio.sleep(30)
       except asyncio.CancelledError:
         break
-      except Exception as e:
-        cloudlog.error(f"Scan error: {e}")
+      except DBusError as e:
+        cloudlog.error(f"Scan failed: {e}")
         await asyncio.sleep(5)
 
   async def _setup_signals(self, device_path: str) -> None:
@@ -161,12 +161,11 @@ class WifiManager:
         del self.saved_connections[ssid]
         break
 
-  async def _add_saved_connection(self, path: str):
+  async def _add_saved_connection(self, path: str) -> None:
     """Add a new saved connection to the dictionary."""
     try:
       settings = await self.get_connection_settings(path)
-      ssid = self._extract_ssid(settings)
-      if ssid:
+      if ssid := self._extract_ssid(settings):
         self.saved_connections[ssid] = path
     except DBusError as e:
       cloudlog.error(f"Failed to add connection {path}: {e}")
@@ -180,7 +179,7 @@ class WifiManager:
     try:
       interface = self.device_proxy.get_interface(NM_WIRELESS_IFACE)
       await interface.call_request_scan({})
-    except Exception as e:
+    except DBusError as e:
       cloudlog.warning(f"Scan request failed: {e}")
 
   async def get_active_access_point(self):
@@ -272,7 +271,7 @@ class WifiManager:
     settings_iface = await self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
     connection_paths = await settings_iface.call_list_connections()
 
-    saved_ssids = {}
+    saved_ssids : dict[str, str] = {}
     batch_size = 120
     for i in range(0, len(connection_paths), batch_size):
       chunk = connection_paths[i : i + batch_size]
@@ -281,9 +280,7 @@ class WifiManager:
       # Loop through the results and filter Wi-Fi connections
       for path, config in zip(chunk, results, strict=True):
         if '802-11-wireless' in config:
-          ssid_variant = config['802-11-wireless']['ssid']
-          ssid = ''.join(chr(b) for b in ssid_variant.value)
-          saved_ssids[ssid] = path
+          saved_ssids[self._extract_ssid(config)] = path
 
     return saved_ssids
 
@@ -296,14 +293,14 @@ class WifiManager:
     """Helper function to determine the security type of a network."""
     if flags == 0:
       return SecurityType.OPEN
-    elif wpa_flags != 0:
+    if wpa_flags:
       return SecurityType.WPA
-    elif rsn_flags != 0:
+    if rsn_flags:
       return SecurityType.WPA2
     else:
       return SecurityType.UNSUPPORTED
 
-  async def activate_connection(self, ssid: str):
+  async def activate_connection(self, ssid: str) -> None:
     connection_path = self.saved_connections.get(ssid)
     if connection_path:
       cloudlog.info('activate connection:', connection_path)
