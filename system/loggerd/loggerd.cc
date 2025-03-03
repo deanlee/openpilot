@@ -109,7 +109,10 @@ size_t write_encode_data(LoggerdState *s, cereal::Event::Reader event, RemoteEnc
   MessageBuilder bmsg;
   auto evt = bmsg.initEvent(event.getValid());
   evt.setLogMonoTime(event.getLogMonoTime());
-  (evt.*(encoder_info.set_encode_idx_func))(idx);
+  auto edat = (evt.*(encoder_info.init_encode_data_func))();
+  auto edata = edat.initIdx();
+
+  // (evt.*(encoder_info.set_encode_idx_func))(idx);
   auto new_msg = bmsg.toBytes();
   s->logger.write((uint8_t *)new_msg.begin(), new_msg.size(), true);  // always in qlog?
   return new_msg.size();
