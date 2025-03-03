@@ -335,6 +335,9 @@ class WifiManager:
         'ipv6': {'method': Variant('s', 'ignore')},
       }
 
+      # if bssid:
+      #   connection['802-11-wireless']['bssid'] = Variant('ay', bssid.encode('utf-8'))
+
       if password:
         connection['802-11-wireless-security'] = {
           'key-mgmt': Variant('s', 'wpa-psk'),
