@@ -312,12 +312,23 @@ class WifiManager:
     proxy = self.bus.get_proxy_object(bus_name, path, introspection)
     return proxy.get_interface(name)
 
-  async def forgot_connection(self, ssid: str):
+  async def forgot_connection(self, ssid: str) -> bool:
     path = self.saved_connections.get(ssid)
-    if path:
+    if not path:
+      return False
+
+    try:
       nm_iface = await self._get_interface(NM, path, NM_CONNECTION_IFACE)
       await nm_iface.call_delete()
+      self.saved_connections.pop(ssid)
       for network in self.networks:
         if network.ssid == ssid:
           network.is_saved = False
           break
+      return True
+    except DBusError as e:
+      print(f"Failed to delete connection for SSID: {ssid}. Error: {e}")
+      return False
+    except Exception as e:
+      print(f"Unexpected error while deleting connection for SSID: {ssid}: {e}")
+      return False
