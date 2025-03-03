@@ -244,7 +244,7 @@ class WifiManager:
       except DBusError as e:
         cloudlog.error(f"Error fetching networks: {e}")
       except Exception as e:
-        print({e})
+        cloudlog.error({e})
 
     self.networks = sorted(
       networks,
@@ -306,7 +306,7 @@ class WifiManager:
   async def activate_connection(self, ssid: str):
     connection_path = self.saved_connections.get(ssid)
     if connection_path:
-      print('activate connection:', connection_path)
+      cloudlog.info('activate connection:', connection_path)
       introspection = await self.bus.introspect(NM, NM_PATH)
       proxy = self.bus.get_proxy_object(NM, NM_PATH, introspection)
       interface = proxy.get_interface(NM_IFACE)
@@ -346,7 +346,7 @@ class WifiManager:
         network.is_connected = True if network.ssid == ssid else False
 
     except DBusError as e:
-      print(f"Error connecting to network: {e}")
+      cloudlog.error(f"Error connecting to network: {e}")
 
   async def _get_interface(self, bus_name: str, path: str, name: str):
     introspection = await self.bus.introspect(bus_name, path)
@@ -364,8 +364,8 @@ class WifiManager:
       self.saved_connections.pop(ssid)
       return True
     except DBusError as e:
-      print(f"Failed to delete connection for SSID: {ssid}. Error: {e}")
+      cloudlog.error(f"Failed to delete connection for SSID: {ssid}. Error: {e}")
       return False
     except Exception as e:
-      print(f"Unexpected error while deleting connection for SSID: {ssid}: {e}")
+      cloudlog.error(f"Unexpected error while deleting connection for SSID: {ssid}: {e}")
       return False
