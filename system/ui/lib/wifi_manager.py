@@ -120,10 +120,10 @@ class WifiManager:
 
     settings_iface = await self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
     settings_iface.on_new_connection = self._on_new_connection
-    settings_iface.on_connection_removed = self.on_connection_removed
+    settings_iface.on_connection_removed = self._on_connection_removed
 
   def _on_properties_changed(self, interface: str, changed: dict, invalidated: list):
-    print("property changed", interface, changed, invalidated)
+    # print("property changed", interface, changed, invalidated)
     if 'LastScan' in changed:
       asyncio.create_task(self.get_available_networks())
     elif "ActiveAccessPoint" in changed:
