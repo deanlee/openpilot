@@ -27,6 +27,7 @@ class NMDeviceState(IntEnum):
   IP_CONFIG = 70
   ACTIVATED = 100
 
+
 class SecurityType(IntEnum):
   OPEN = 0
   WPA = 1
@@ -47,7 +48,6 @@ class NetworkInfo:
 class WifiManager:
   def __init__(self):
     self.networks = []
-    self.connected_network = None
     self.bus = None
     self.device_path = None
     self.device_proxy = None
@@ -115,9 +115,7 @@ class WifiManager:
     self.device_proxy.get_interface(NM_PROPERTIES_IFACE).on_properties_changed(
       self._on_properties_changed
     )
-    self.device_proxy.get_interface(NM_DEVICE_IFACE).on_state_changed(
-      self._on_state_changed
-    )
+    self.device_proxy.get_interface(NM_DEVICE_IFACE).on_state_changed(self._on_state_changed)
 
   def _on_properties_changed(self, interface: str, changed: dict, invalidated: list):
     """Handle property changes."""
@@ -126,17 +124,16 @@ class WifiManager:
       asyncio.create_task(self.get_available_networks())
     elif "ActiveAccessPoint" in changed:
       self.active_ap_path = changed["ActiveAccessPoint"].value
-      print(self.activate_connection, 'active')
-      assert(0)
       asyncio.create_task(self.get_available_networks())
 
   def _on_state_changed(self, new_state: int, old_state: int, reason: int):
     """Handle device state changes."""
     print(f"State changed: {old_state} -> {new_state}, reason: {reason}")
-    # if new_state == NMDeviceState.ACTIVATED:
-    #   asyncio.create_task(self._update_connection_status())
-    # elif new_state in (NMDeviceState.DISCONNECTED, NMDeviceState.NEED_AUTH):
-    #   self.connected_network = None
+    if new_state == NMDeviceState.ACTIVATED:
+      asyncio.create_task(self._update_connection_status())
+    elif new_state in (NMDeviceState.DISCONNECTED, NMDeviceState.NEED_AUTH):
+      for network in self.networks:
+        network.is_connected = False
 
   async def request_scan(self):
     try:
@@ -153,6 +150,10 @@ class WifiManager:
     except DBusError as e:
       print(f"Error fetching active access point: {e}")
       return ''
+
+  async def _update_connection_status(self):
+    self.active_ap_path = await self.get_active_access_point()
+    await self.get_available_networks()
 
   async def _add_match_rule(self, rule):
     """ "Add a match rule on the bus."""
@@ -302,7 +303,8 @@ class WifiManager:
 
       await settings_iface.call_add_connection(connection)
 
-      self.connected_network = ssid
+      for network in self.networks:
+        network.is_connected = True if network.ssid == ssid else False
 
     except DBusError as e:
       print(f"Error connecting to network: {e}")
@@ -312,7 +314,7 @@ class WifiManager:
     if path:
       nm_iface = self._get_interface(NM, path, NM_CONNECTION_IFACE)
       await nm_iface.call_delete()
-      #   self.saved_connections.pop(ssid, None)
-      # if self.connected_network == ssid:
-      #   self.connected_network = None
-      # return True
+      for network in self.networks:
+        if network.ssid == ssid:
+          network.is_saved = False
+          break
