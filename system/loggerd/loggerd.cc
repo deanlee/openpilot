@@ -55,13 +55,12 @@ void rotate_if_needed(LoggerdState *s) {
 
 struct RemoteEncoder {
   std::unique_ptr<VideoWriter> writer;
-  int encoderd_segment_offset;
   int current_segment = -1;
   std::vector<Message *> q;
   int dropped_frames = 0;
   bool recording = false;
+  uint64_t frame_cnt = 0;
   bool marked_ready_to_rotate = false;
-  bool seen_first_packet = false;
 };
 
 size_t write_encode_data(LoggerdState *s, cereal::Event::Reader event, RemoteEncoder &re, const EncoderInfo &encoder_info) {
@@ -125,17 +124,10 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
   auto edata = (event.*(encoder_info.get_encode_data_func))();
   auto idx = edata.getIdx();
 
-  // encoderd can have started long before loggerd
-  if (!re.seen_first_packet) {
-    re.seen_first_packet = true;
-    re.encoderd_segment_offset = idx.getSegmentNum();
-    LOGD("%s: has encoderd offset %d", name.c_str(), re.encoderd_segment_offset);
-  }
-  int offset_segment_num = idx.getSegmentNum() - re.encoderd_segment_offset;
-
-  if (offset_segment_num == s->logger.segment()) {
+  ++re.frame_cnt;
+  int encoder_segment_cnt = re.frame_cnt;
+  if (encoder_segment_cnt == s->logger.segment()) {
     // loggerd is now on the segment that matches this packet
-
     // if this is a new segment, we close any possible old segments, move to the new, and process any queued packets
     if (re.current_segment != s->logger.segment()) {
       if (re.recording) {
@@ -156,24 +148,14 @@ int handle_encoder_msg(LoggerdState *s, Message *msg, std::string &name, struct 
     }
     bytes_count += write_encode_data(s, event, re, encoder_info);
     delete msg;
-  } else if (offset_segment_num > s->logger.segment()) {
+  } else {
     // encoderd packet has a newer segment, this means encoderd has rolled over
     if (!re.marked_ready_to_rotate) {
       re.marked_ready_to_rotate = true;
       ++s->ready_to_rotate;
-      LOGD("rotate %d -> %d ready %d/%d for %s",
-        s->logger.segment(), offset_segment_num,
-        s->ready_to_rotate.load(), s->max_waiting, name.c_str());
     }
     // queue up all the new segment messages, they go in after the rotate
     re.q.push_back(msg);
-  } else {
-    LOGE("%s: encoderd packet has a older segment!!! idx.getSegmentNum():%d s->logger.segment():%d re.encoderd_segment_offset:%d",
-      name.c_str(), idx.getSegmentNum(), s->logger.segment(), re.encoderd_segment_offset);
-    // free the message, it's useless. this should never happen
-    // actually, this can happen if you restart encoderd
-    re.encoderd_segment_offset = -s->logger.segment();
-    delete msg;
   }
 
   return bytes_count;

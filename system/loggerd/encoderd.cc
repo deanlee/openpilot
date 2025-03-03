@@ -53,7 +53,6 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
 
   std::unique_ptr<JpegEncoder> jpeg_encoder;
 
-  int cur_seg = 0;
   while (!do_exit) {
     if (!vipc_client.connect(false)) {
       util::sleep_for(5);
@@ -97,16 +96,6 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
         continue;
       }
       if (do_exit) break;
-
-      // do rotation if required
-      const int frames_per_seg = SEGMENT_LENGTH * MAIN_FPS;
-      if (cur_seg >= 0 && extra.frame_id >= ((cur_seg + 1) * frames_per_seg) + s->start_frame_id) {
-        for (auto &e : encoders) {
-          e->encoder_close();
-          e->encoder_open();
-        }
-        ++cur_seg;
-      }
 
       // encode a frame
       for (int i = 0; i < encoders.size(); ++i) {
