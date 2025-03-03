@@ -27,7 +27,6 @@ class WifiManagerUI:
     self.item_height = 160
     self.btn_width = 200
     self.current_action: ActionState = ActionState.NONE
-    self._saved_networks: set[NetworkInfo] = {}
     self.scroll_panel = GuiScrollPanel()
     self.keyboard = Keyboard()
 
@@ -118,7 +117,6 @@ class WifiManagerUI:
   async def forgot_network(self):
     self.current_action = ActionState.FORGETTING
     await self.wifi_manager.forgot_connection(self._selected_network.ssid)
-    self.saved_networks.discard(self.selected_network.ssid)
     self._selected_network.is_saved = False
     self.current_action = ActionState.NONE
 

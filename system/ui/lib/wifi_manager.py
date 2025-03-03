@@ -275,7 +275,7 @@ class WifiManager:
   async def connect_to_network(self, ssid: str, password: str = None, is_hidden: bool = False):
     """Connect to a selected WiFi network."""
     try:
-      settings_iface = self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
+      settings_iface = await self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
       connection = {
         'connection': {
           'type': Variant('s', '802-11-wireless'),
@@ -307,10 +307,15 @@ class WifiManager:
     except DBusError as e:
       print(f"Error connecting to network: {e}")
 
+  async def _get_interface(self, bus_name: str, path: str, name: str):
+    introspection = await self.bus.introspect(bus_name, path)
+    proxy = self.bus.get_proxy_object(bus_name, path, introspection)
+    return proxy.get_interface(name)
+
   async def forgot_connection(self, ssid: str):
     path = self.saved_connections.get(ssid)
     if path:
-      nm_iface = self._get_interface(NM, path, NM_CONNECTION_IFACE)
+      nm_iface = await self._get_interface(NM, path, NM_CONNECTION_IFACE)
       await nm_iface.call_delete()
       for network in self.networks:
         if network.ssid == ssid:
