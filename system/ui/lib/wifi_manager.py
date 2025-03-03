@@ -42,7 +42,6 @@ class NetworkInfo:
   is_connected: bool
   security_type: SecurityType
   path: str
-  is_saved: bool
 
 
 class WifiManager:
@@ -51,10 +50,13 @@ class WifiManager:
     self.bus = None
     self.device_path = None
     self.device_proxy = None
-    self.saved_connections = dict()
+    self.saved_connections: dict[str, str] = dict()
     self.active_ap_path = ''
     self.scan_task = None
     self.running = True
+
+  def is_saved(self, ssid: str)-> bool:
+    return ssid in self.saved_connections
 
   async def connect(self):
     """Connect to the DBus system bus."""
@@ -210,7 +212,6 @@ class WifiManager:
             security_type=self._get_security_type(flags, wpa_flags, rsn_flags),
             path=ap_path,
             is_connected=self.active_ap_path == ap_path,
-            is_saved=ssid in self.saved_connections,
           )
         )
       except DBusError as e:
@@ -334,10 +335,6 @@ class WifiManager:
       nm_iface = await self._get_interface(NM, path, NM_CONNECTION_IFACE)
       await nm_iface.call_delete()
       self.saved_connections.pop(ssid)
-      for network in self.networks:
-        if network.ssid == ssid:
-          network.is_saved = False
-          break
       return True
     except DBusError as e:
       print(f"Failed to delete connection for SSID: {ssid}. Error: {e}")

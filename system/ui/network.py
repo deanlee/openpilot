@@ -92,7 +92,7 @@ class WifiManagerUI:
       rl.gui_label(state_rect, "CONNECTING...")
 
     # If the network is saved, show the "Forget" button
-    if network.is_saved:
+    if self.wifi_manager.is_saved(network.ssid):
       forget_btn_rect = rl.Rectangle(
         rect.x + rect.width - self.btn_width,
         rect.y + (self.item_height - 80) / 2,
@@ -109,7 +109,7 @@ class WifiManagerUI:
       and clicked
     ):
       self._selected_network = network
-      if not self._selected_network.is_saved:
+      if not self.wifi_manager.is_saved(self._selected_network.ssid):
         self.current_action = ActionState.NEED_AUTH
       else:
         asyncio.create_task(self.connect_to_network())
@@ -117,12 +117,11 @@ class WifiManagerUI:
   async def forgot_network(self):
     self.current_action = ActionState.FORGETTING
     await self.wifi_manager.forgot_connection(self._selected_network.ssid)
-    self._selected_network.is_saved = False
     self.current_action = ActionState.NONE
 
   async def connect_to_network(self, password=''):
     self.current_action = ActionState.CONNECTING
-    if self._selected_network.is_saved and not password:
+    if self.wifi_manager.is_saved(self._selected_network.ssid) and not password:
       await self.wifi_manager.activate_connection(self._selected_network.ssid)
     else:
       await self.wifi_manager.connect_to_network(self._selected_network.ssid, password)
