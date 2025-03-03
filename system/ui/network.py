@@ -116,14 +116,14 @@ class WifiManagerUI:
 
   async def forgot_network(self):
     self.current_action = ActionState.FORGETTING
-    await self.wifi_manager.forgot_connection(self._selected_network.ssid)
+    await self.wifi_manager.forgot_connection(self._selected_network.path)
     self._selected_network.is_saved = False
     self.current_action = ActionState.NONE
 
   async def connect_to_network(self, password=''):
     self.current_action = ActionState.CONNECTING
     if self._selected_network.is_saved and not password:
-      await self.wifi_manager.activate_connection(self._selected_network.ssid)
+      await self.wifi_manager.activate_connection(self._selected_network.path)
     else:
       await self.wifi_manager.connect_to_network(self._selected_network.ssid, password)
     self.current_action = ActionState.NONE

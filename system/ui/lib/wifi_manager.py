@@ -51,7 +51,7 @@ class WifiManager:
     self.bus = None
     self.device_path = None
     self.device_proxy = None
-    self.saved_connections = dict()
+    self.saved_connections: set[str] = set()
     self.active_ap_path = ''
     self.scan_task = None
     self.running = True
@@ -142,10 +142,12 @@ class WifiManager:
   def _on_new_connection(self, path: str) -> None:
     """Callback for NewConnection signal."""
     print(f"New connection added: {path}")
+    self.saved_connections.add(path)
+    asyncio.create_task(self.get_available_networks())
 
   def _on_connection_removed(self, path: str) -> None:
-    """Callback for ConnectionRemoved signal."""
     print(f"Connection removed: {path}")
+    self.saved_connections.discard(path)
 
   async def request_scan(self):
     try:
@@ -202,7 +204,7 @@ class WifiManager:
         flags = properties['Flags'].value
         wpa_flags = properties['WpaFlags'].value
         rsn_flags = properties['RsnFlags'].value
-
+        print(self.saved_connections, ap_path)
         networks.append(
           NetworkInfo(
             ssid=ssid,
@@ -210,7 +212,7 @@ class WifiManager:
             security_type=self._get_security_type(flags, wpa_flags, rsn_flags),
             path=ap_path,
             is_connected=self.active_ap_path == ap_path,
-            is_saved=ssid in self.saved_connections,
+            is_saved=ap_path in self.saved_connections,
           )
         )
       except DBusError as e:
@@ -244,7 +246,7 @@ class WifiManager:
     settings_iface = await self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
     connection_paths = await settings_iface.call_list_connections()
 
-    saved_ssids = {}
+    saved_paths = set()
     batch_size = 120
     for i in range(0, len(connection_paths), batch_size):
       chunk = connection_paths[i : i + batch_size]
@@ -253,11 +255,9 @@ class WifiManager:
       # Loop through the results and filter Wi-Fi connections
       for path, config in zip(chunk, results, strict=True):
         if '802-11-wireless' in config:
-          ssid_variant = config['802-11-wireless']['ssid']
-          ssid = ''.join(chr(b) for b in ssid_variant.value)
-          saved_ssids[ssid] = path
+          saved_paths.add(path)
 
-    return saved_ssids
+    return saved_paths
 
   async def _get_interface(self, bus_name: str, path: str, name: str):
     introspection = await self.bus.introspect(bus_name, path)
@@ -275,15 +275,13 @@ class WifiManager:
     else:
       return SecurityType.UNSUPPORTED
 
-  async def activate_connection(self, ssid: str):
-    connection_path = self.saved_connections.get(ssid)
-    if connection_path:
-      print('activate connection:', connection_path)
-      introspection = await self.bus.introspect(NM, NM_PATH)
-      proxy = self.bus.get_proxy_object(NM, NM_PATH, introspection)
-      interface = proxy.get_interface(NM_IFACE)
+  async def activate_connection(self, path: str):
+    print('activate connection:', path)
+    introspection = await self.bus.introspect(NM, NM_PATH)
+    proxy = self.bus.get_proxy_object(NM, NM_PATH, introspection)
+    interface = proxy.get_interface(NM_IFACE)
 
-      await interface.call_activate_connection(connection_path, self.device_path, '/')
+    await interface.call_activate_connection(path, self.device_path, '/')
 
   async def connect_to_network(self, ssid: str, password: str = None, is_hidden: bool = False):
     """Connect to a selected WiFi network."""
@@ -325,23 +323,19 @@ class WifiManager:
     proxy = self.bus.get_proxy_object(bus_name, path, introspection)
     return proxy.get_interface(name)
 
-  async def forgot_connection(self, ssid: str) -> bool:
-    path = self.saved_connections.get(ssid)
-    if not path:
-      return False
-
+  async def forgot_connection(self, path: str) -> bool:
     try:
       nm_iface = await self._get_interface(NM, path, NM_CONNECTION_IFACE)
       await nm_iface.call_delete()
-      self.saved_connections.pop(ssid)
+      self.saved_connections.discard(path)
       for network in self.networks:
-        if network.ssid == ssid:
+        if network.path == path:
           network.is_saved = False
           break
       return True
     except DBusError as e:
-      print(f"Failed to delete connection for SSID: {ssid}. Error: {e}")
+      print(f"Failed to delete connection: {path}. Error: {e}")
       return False
     except Exception as e:
-      print(f"Unexpected error while deleting connection for SSID: {ssid}: {e}")
+      print(f"Unexpected error while deleting connection: {path}: {e}")
       return False
