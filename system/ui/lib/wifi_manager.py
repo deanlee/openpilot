@@ -118,7 +118,6 @@ class WifiManager:
     self.device_proxy.get_interface(NM_DEVICE_IFACE).on_state_changed(self._on_state_changed)
 
   def _on_properties_changed(self, interface: str, changed: dict, invalidated: list):
-    """Handle property changes."""
     print("property changed", interface, changed, invalidated)
     if 'LastScan' in changed:
       asyncio.create_task(self.get_available_networks())
@@ -127,7 +126,6 @@ class WifiManager:
       asyncio.create_task(self.get_available_networks())
 
   def _on_state_changed(self, new_state: int, old_state: int, reason: int):
-    """Handle device state changes."""
     print(f"State changed: {old_state} -> {new_state}, reason: {reason}")
     if new_state == NMDeviceState.ACTIVATED:
       asyncio.create_task(self._update_connection_status())
