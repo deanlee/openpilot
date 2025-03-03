@@ -112,10 +112,15 @@ class WifiManager:
     for rule in rules:
       await self._add_match_rule(rule)
 
+    # Set up signal handlers
     self.device_proxy.get_interface(NM_PROPERTIES_IFACE).on_properties_changed(
       self._on_properties_changed
     )
     self.device_proxy.get_interface(NM_DEVICE_IFACE).on_state_changed(self._on_state_changed)
+
+    settings_iface = await self._get_interface(NM, NM_SETTINGS_PATH, NM_SETTINGS_IFACE)
+    settings_iface.on_new_connection = self._on_new_connection
+    settings_iface.on_connection_removed = self.on_connection_removed
 
   def _on_properties_changed(self, interface: str, changed: dict, invalidated: list):
     print("property changed", interface, changed, invalidated)
@@ -132,6 +137,14 @@ class WifiManager:
     elif new_state in (NMDeviceState.DISCONNECTED, NMDeviceState.NEED_AUTH):
       for network in self.networks:
         network.is_connected = False
+
+  def _on_new_connection(self, path: str) -> None:
+    """Callback for NewConnection signal."""
+    print(f"New connection added: {path}")
+
+  def _on_connection_removed(self, path: str) -> None:
+    """Callback for ConnectionRemoved signal."""
+    print(f"Connection removed: {path}")
 
   async def request_scan(self):
     try:
