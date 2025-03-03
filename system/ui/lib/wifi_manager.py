@@ -151,6 +151,7 @@ class WifiManager:
   def _on_new_connection(self, path: str) -> None:
     """Callback for NewConnection signal."""
     print(f"New connection added: {path}")
+    asyncio.create_task(self._add_saved_connection(path))
 
   def _on_connection_removed(self, path: str) -> None:
     """Callback for ConnectionRemoved signal."""
@@ -159,6 +160,21 @@ class WifiManager:
       if path == p:
         del self.saved_connections[ssid]
         break
+
+  async def _add_saved_connection(self, path: str):
+    """Add a new saved connection to the dictionary."""
+    try:
+      settings = await self.get_connection_settings(path)
+      ssid = self._extract_ssid(settings)
+      if ssid:
+        self.saved_connections[ssid] = path
+    except DBusError as e:
+      cloudlog.error(f"Failed to add connection {path}: {e}")
+
+  def _extract_ssid(self, settings: dict) -> str | None:
+    """Extract SSID from connection settings."""
+    ssid_variant = settings.get('802-11-wireless', {}).get('ssid', Variant('ay', b'')).value
+    return ''.join(chr(b) for b in ssid_variant) if ssid_variant else None
 
   async def request_scan(self):
     try:
