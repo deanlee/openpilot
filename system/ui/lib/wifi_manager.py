@@ -46,35 +46,41 @@ class NetworkInfo:
 
 class WifiManager:
   def __init__(self):
-    self.networks = []
-    self.bus = None
-    self.device_path = None
+    self.networks: list[NetworkInfo] = []
+    self.bus: MessageBus | None = None
+    self.device_path: str | None = None
     self.device_proxy = None
     self.saved_connections: dict[str, str] = dict()
-    self.active_ap_path = ''
-    self.scan_task = None
-    self.running = True
+    self.active_ap_path: str = ''
+    self.scan_task: asyncio.Task | None = None
+    self.running: bool = True
 
-  def is_saved(self, ssid: str)-> bool:
+  def is_saved(self, ssid: str) -> bool:
     return ssid in self.saved_connections
 
   async def connect(self):
     """Connect to the DBus system bus."""
     try:
       self.bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
-      await self._find_wifi_device()
+      if not await self._find_wifi_device():
+        raise ValueError("No Wi-Fi device found")
       await self._setup_signals(self.device_path)
 
       self.active_ap_path = await self.get_active_access_point()
       self.saved_connections = await self.get_saved_connections()
       self.scan_task = asyncio.create_task(self._periodic_scan())
     except DBusError as e:
-      print(f"Failed to connect to DBus: {e}")
+      cloudlog.error(f"Failed to connect to DBus: {e}")
+      raise
+    except Exception as e:
+      cloudlog.error(f"Unexpected error during connect: {e}")
+      raise
 
   async def shutdown(self):
     self.running = False
     if self.scan_task:
       self.scan_task.cancel()
+      await self.scan_task
     if self.bus:
       await self.bus.disconnect()
 
@@ -100,6 +106,8 @@ class WifiManager:
         await self.request_scan()
         await self.get_available_networks()
         await asyncio.sleep(30)  # Scan every 30 seconds
+      except asyncio.CancelledError:
+        break
       except Exception as e:
         cloudlog.error(f"Scan error: {e}")
         await asyncio.sleep(5)
@@ -111,7 +119,6 @@ class WifiManager:
       f"type='signal',interface='{NM_SETTINGS_IFACE}',member='NewConnection',path='{NM_SETTINGS_PATH}'",
       f"type='signal',interface='{NM_SETTINGS_IFACE}',member='ConnectionRemoved',path='{NM_SETTINGS_PATH}'",
     ]
-
     for rule in rules:
       await self._add_match_rule(rule)
 
@@ -148,6 +155,10 @@ class WifiManager:
   def _on_connection_removed(self, path: str) -> None:
     """Callback for ConnectionRemoved signal."""
     print(f"Connection removed: {path}")
+    for ssid, p in self.saved_connections.items():
+      if path == p:
+        del self.saved_connections[ssid]
+        break
 
   async def request_scan(self):
     try:
@@ -162,7 +173,7 @@ class WifiManager:
       ap_path = await props_iface.call_get(NM_WIRELESS_IFACE, 'ActiveAccessPoint')
       return ap_path.value
     except DBusError as e:
-      print(f"Error fetching active access point: {e}")
+      cloudlog.error(f"Error fetching active access point: {e}")
       return ''
 
   async def _update_connection_status(self):
@@ -215,7 +226,7 @@ class WifiManager:
           )
         )
       except DBusError as e:
-        print(f"Error fetching networks: {e}")
+        cloudlog.error(f"Error fetching networks: {e}")
       except Exception as e:
         print({e})
 
