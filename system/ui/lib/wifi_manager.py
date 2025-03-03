@@ -42,6 +42,8 @@ class NetworkInfo:
   is_connected: bool
   security_type: SecurityType
   path: str
+  bssid: str
+  # saved_path: str
 
 
 class WifiManager:
@@ -227,6 +229,8 @@ class WifiManager:
         if not ssid:
           continue
 
+        bssid = properties.get('HwAddress', Variant('s', '')).value
+        print(bssid)
         flags = properties['Flags'].value
         wpa_flags = properties['WpaFlags'].value
         rsn_flags = properties['RsnFlags'].value
@@ -237,6 +241,7 @@ class WifiManager:
             strength=properties['Strength'].value,
             security_type=self._get_security_type(flags, wpa_flags, rsn_flags),
             path=ap_path,
+            bssid=bssid,
             is_connected=self.active_ap_path == ap_path,
           )
         )
