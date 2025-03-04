@@ -1356,10 +1356,10 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
 
   destroySyncObjectAt(buf_idx);
   enqueue_buffer(buf_idx, request_id + ife_buf_depth);
-  return processFrame(request_id, frame_id_raw, timestamp);
+  return processFrame(buf_idx, request_id, frame_id_raw, timestamp);
 }
 
-bool SpectraCamra::isEventValid(uint64_t request_id, uint64_t frame_id_raw) {
+bool SpectraCamera::isEventValid(uint64_t request_id, uint64_t frame_id_raw) {
   if (request_id == 0) {  // not ready
     if (frame_id_raw > frame_id_raw_last + 10) {
       LOGE("camera %d reset after half second of no response", cc.camera_num);
