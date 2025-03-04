@@ -1330,14 +1330,9 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
     return false;
   }
 
-  // ID from the qcom camera request manager
-  uint64_t request_id = event_data->u.frame_msg.request_id;
-
-  // raw as opposed to our re-indexed frame ID
-  uint64_t frame_id_raw = event_data->u.frame_msg.frame_id;
-
-  // this is timestamped in the kernel's SOF IRQ callback
-  uint64_t timestamp = event_data->u.frame_msg.timestamp;
+  uint64_t request_id = event_data->u.frame_msg.request_id;  // ID from the qcom camera request manager
+  uint64_t frame_id_raw = event_data->u.frame_msg.frame_id;  // raw as opposed to our re-indexed frame ID
+  uint64_t timestamp = event_data->u.frame_msg.timestamp;    // this is timestamped in the kernel's SOF IRQ callback
 
   if (request_id == 0) {  // not ready
     if (frame_id_raw > frame_id_raw_last + 10) {
