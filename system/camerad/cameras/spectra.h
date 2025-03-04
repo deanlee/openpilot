@@ -200,7 +200,7 @@ public:
 
 private:
   void clearAndRequeue(uint64_t from_request_id);
-  bool resetOnInvalidEvent(uint64_t request_id, uint64_t frame_id_raw);
+  bool isEventValid(uint64_t request_id, uint64_t frame_id_raw);
   bool waitForFrameReady(int buf_idx, uint64_t request_id);
   bool processFrame(int buf_idx, uint64_t request_id, uint64_t frame_id_raw, uint64_t timestamp);
   static bool syncFirstFrame(int camera_id, uint64_t request_id, uint64_t raw_id, uint64_t timestamp);
