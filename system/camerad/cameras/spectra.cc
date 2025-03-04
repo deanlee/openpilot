@@ -1347,14 +1347,18 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
   if (frame_id_raw > frame_id_raw_last + 1 && !skipped_last) {
     LOGE("camera %d realign", cc.camera_num);
     clearAndRequeue(request_id + 1);
-  } else if (frame_id_raw == frame_id_raw_last + 1) {
-    skipped_last = false;
+    return false;
   }
 
   // check for dropped requests
   if (!skipped_last && request_id > request_id_last + 1) {
     LOGE("camera %d dropped requests %ld %ld", cc.camera_num, request_id, request_id_last);
     clearAndRequeue(request_id_last + 1);
+    return false;
+  }
+
+  if (frame_id_raw == frame_id_raw_last + 1) {
+    skipped_last = false;
   }
 
   frame_id_raw_last = frame_id_raw;
