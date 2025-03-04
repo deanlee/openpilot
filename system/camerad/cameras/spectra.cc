@@ -1332,7 +1332,7 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
 
   uint64_t request_id = event_data->u.frame_msg.request_id;  // ID from the qcom camera request manager
   uint64_t frame_id_raw = event_data->u.frame_msg.frame_id;  // raw as opposed to our re-indexed frame ID
-  uint64_t timestamp = event_data->u.frame_msg.timestamp;    // this is timestamped in the kernel's SOF IRQ callback
+  uint64_t timestamp = event_data->u.frame_msg.timestamp;    // timestamped in the kernel's SOF IRQ callback
 
   if (request_id == 0) {  // not ready
     if (frame_id_raw > frame_id_raw_last + 10) {
@@ -1365,8 +1365,6 @@ bool SpectraCamera::handle_camera_event(const cam_req_mgr_message *event_data) {
   request_id_last = request_id;
 
   int buf_idx = (request_id - 1) % ife_buf_depth;
-
-  // Wait for the frame to be ready
   if (!waitForFrameReady(buf_idx, request_id)) {
     // Reset queue on sync failure to prevent frame tearing
     clearAndRequeue(request_id + 1);
