@@ -23,5 +23,12 @@
     "system/**",
     "third_party/**",
     "tools/**",
-  ]
+  ],
+  "files.associations": {
+    "*.py": "python",
+    "typeinfo": "cpp",
+    "array": "cpp",
+    "string_view": "cpp",
+    "regex": "cpp"
+  }
 }
