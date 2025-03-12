@@ -30,11 +30,6 @@ public:
     return &input_frames[0];
   }
 
-  int MODEL_WIDTH;
-  int MODEL_HEIGHT;
-  int MODEL_FRAME_SIZE;
-  int buf_size;
-
 protected:
   cl_mem y_cl, u_cl, v_cl;
   Transform transform;
