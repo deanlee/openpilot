@@ -19,10 +19,20 @@
 
 class ModelFrame {
 public:
-  ModelFrame(cl_device_id device_id, cl_context context) {
+  ModelFrame(cl_device_id device_id, cl_context context, int model_width, int model_height) {
     q = CL_CHECK_ERR(clCreateCommandQueue(context, device_id, 0, &err));
+    y_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, model_width * model_height, NULL, &err));
+    u_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
+    v_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
+    transform_init(&transform, context, device_id);
   }
-  virtual ~ModelFrame() {}
+  virtual ~ModelFrame() {
+    transform_destroy(&transform);
+    CL_CHECK(clReleaseMemObject(v_cl));
+    CL_CHECK(clReleaseMemObject(u_cl));
+    CL_CHECK(clReleaseMemObject(y_cl));
+    CL_CHECK(clReleaseCommandQueue(q));
+  }
   virtual cl_mem* prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection) { return NULL; }
   uint8_t* buffer_from_cl(cl_mem *in_frames, int buffer_size) {
     CL_CHECK(clEnqueueReadBuffer(q, *in_frames, CL_TRUE, 0, buffer_size, input_frames.get(), 0, nullptr, nullptr));
@@ -35,20 +45,6 @@ protected:
   Transform transform;
   cl_command_queue q;
   std::unique_ptr<uint8_t[]> input_frames;
-
-  void init_transform(cl_device_id device_id, cl_context context, int model_width, int model_height) {
-    y_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, model_width * model_height, NULL, &err));
-    u_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
-    v_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
-    transform_init(&transform, context, device_id);
-  }
-
-  void deinit_transform() {
-    transform_destroy(&transform);
-    CL_CHECK(clReleaseMemObject(v_cl));
-    CL_CHECK(clReleaseMemObject(u_cl));
-    CL_CHECK(clReleaseMemObject(y_cl));
-  }
 
   void run_transform(cl_mem yuv_cl, int model_width, int model_height, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection) {
     transform_queue(&transform, q,

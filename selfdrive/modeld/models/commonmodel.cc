@@ -5,7 +5,7 @@
 
 #include "common/clutil.h"
 
-DrivingModelFrame::DrivingModelFrame(cl_device_id device_id, cl_context context, int _temporal_skip) : ModelFrame(device_id, context) {
+DrivingModelFrame::DrivingModelFrame(cl_device_id device_id, cl_context context, int _temporal_skip) : ModelFrame(device_id, context, MODEL_WIDTH, MODEL_HEIGHT) {
   input_frames = std::make_unique<uint8_t[]>(buf_size);
   temporal_skip = _temporal_skip;
   input_frames_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, buf_size, NULL, &err));
@@ -15,7 +15,6 @@ DrivingModelFrame::DrivingModelFrame(cl_device_id device_id, cl_context context,
   last_img_cl = CL_CHECK_ERR(clCreateSubBuffer(img_buffer_20hz_cl, CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &err));
 
   loadyuv_init(&loadyuv, context, device_id, MODEL_WIDTH, MODEL_HEIGHT);
-  init_transform(device_id, context, MODEL_WIDTH, MODEL_HEIGHT);
 }
 
 cl_mem* DrivingModelFrame::prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection) {
@@ -35,20 +34,16 @@ cl_mem* DrivingModelFrame::prepare(cl_mem yuv_cl, int frame_width, int frame_hei
 }
 
 DrivingModelFrame::~DrivingModelFrame() {
-  deinit_transform();
   loadyuv_destroy(&loadyuv);
   CL_CHECK(clReleaseMemObject(input_frames_cl));
   CL_CHECK(clReleaseMemObject(img_buffer_20hz_cl));
   CL_CHECK(clReleaseMemObject(last_img_cl));
-  CL_CHECK(clReleaseCommandQueue(q));
 }
 
 
-MonitoringModelFrame::MonitoringModelFrame(cl_device_id device_id, cl_context context) : ModelFrame(device_id, context) {
+MonitoringModelFrame::MonitoringModelFrame(cl_device_id device_id, cl_context context) : ModelFrame(device_id, context, MODEL_WIDTH, MODEL_HEIGHT) {
   input_frames = std::make_unique<uint8_t[]>(buf_size);
   input_frame_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, buf_size, NULL, &err));
-
-  init_transform(device_id, context, MODEL_WIDTH, MODEL_HEIGHT);
 }
 
 cl_mem* MonitoringModelFrame::prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection) {
@@ -58,7 +53,5 @@ cl_mem* MonitoringModelFrame::prepare(cl_mem yuv_cl, int frame_width, int frame_
 }
 
 MonitoringModelFrame::~MonitoringModelFrame() {
-  deinit_transform();
   CL_CHECK(clReleaseMemObject(input_frame_cl));
-  CL_CHECK(clReleaseCommandQueue(q));
 }
