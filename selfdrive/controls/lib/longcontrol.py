@@ -10,39 +10,34 @@ CONTROL_N_T_IDX = ModelConstants.T_IDXS[:CONTROL_N]
 LongCtrlState = car.CarControl.Actuators.LongControlState
 
 
-def long_control_state_trans(CP, active, long_control_state, v_ego,
-                             should_stop, brake_pressed, cruise_standstill):
-  stopping_condition = should_stop
-  starting_condition = (not should_stop and
-                        not cruise_standstill and
-                        not brake_pressed)
-  started_condition = v_ego > CP.vEgoStarting
+def long_control_state_trans(CP, active, long_control_state, v_ego, should_stop, brake_pressed, cruise_standstill):
+  stopping = should_stop
+  starting = not should_stop and not cruise_standstill and not brake_pressed
+  started = v_ego > CP.vEgoStarting
 
   if not active:
-    long_control_state = LongCtrlState.off
+    return LongCtrlState.off
 
-  else:
-    if long_control_state == LongCtrlState.off:
-      if not starting_condition:
-        long_control_state = LongCtrlState.stopping
-      else:
-        if starting_condition and CP.startingState:
-          long_control_state = LongCtrlState.starting
-        else:
-          long_control_state = LongCtrlState.pid
+  # From off state
+  if long_control_state == LongCtrlState.off:
+    if starting:
+      return LongCtrlState.starting if CP.startingState else LongCtrlState.pid
+    return LongCtrlState.stopping
 
-    elif long_control_state == LongCtrlState.stopping:
-      if starting_condition and CP.startingState:
-        long_control_state = LongCtrlState.starting
-      elif starting_condition:
-        long_control_state = LongCtrlState.pid
+  # From stopping state
+  if long_control_state == LongCtrlState.stopping:
+    if starting:
+      return LongCtrlState.starting if CP.startingState else LongCtrlState.pid
 
-    elif long_control_state in [LongCtrlState.starting, LongCtrlState.pid]:
-      if stopping_condition:
-        long_control_state = LongCtrlState.stopping
-      elif started_condition:
-        long_control_state = LongCtrlState.pid
+  # From starting or pid states
+  if long_control_state in [LongCtrlState.starting, LongCtrlState.pid]:
+    if stopping:
+      return LongCtrlState.stopping
+    if started:
+      return LongCtrlState.pid
+
   return long_control_state
+
 
 class LongControl:
   def __init__(self, CP):
