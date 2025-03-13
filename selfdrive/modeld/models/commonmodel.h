@@ -1,7 +1,8 @@
 #pragma once
 
+#include <cassert>
 #include <memory>
-
+#define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 #include "common/clutil.h"
 #include "common/mat.h"
 #include "selfdrive/modeld/transforms/loadyuv.h"
@@ -49,11 +50,11 @@ public:
   ~DrivingModelFrame();
   cl_mem* prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection);
 
-  const int MODEL_WIDTH = 512;
-  const int MODEL_HEIGHT = 256;
-  const int MODEL_FRAME_SIZE = MODEL_WIDTH * MODEL_HEIGHT * 3 / 2;
-  const int buf_size = MODEL_FRAME_SIZE * 2; // 2 frames are temporal_skip frames apart
-  const size_t frame_size_bytes = MODEL_FRAME_SIZE * sizeof(uint8_t);
+  constexpr int MODEL_WIDTH = 512;
+  constexpr int MODEL_HEIGHT = 256;
+  constexpr int MODEL_FRAME_SIZE = MODEL_WIDTH * MODEL_HEIGHT * 3 / 2;
+  constexpr int buf_size = MODEL_FRAME_SIZE * 2; // 2 frames are temporal_skip frames apart
+  constexpr size_t frame_size_bytes = MODEL_FRAME_SIZE * sizeof(uint8_t);
 
 private:
   LoadYUVState loadyuv;
@@ -68,10 +69,10 @@ public:
   ~MonitoringModelFrame();
   cl_mem* prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection);
 
-  const int MODEL_WIDTH = 1440;
-  const int MODEL_HEIGHT = 960;
-  const int MODEL_FRAME_SIZE = MODEL_WIDTH * MODEL_HEIGHT;
-  const int buf_size = MODEL_FRAME_SIZE;
+  constexpr int MODEL_WIDTH = 1440;
+  constexpr int MODEL_HEIGHT = 960;
+  constexpr int MODEL_FRAME_SIZE = MODEL_WIDTH * MODEL_HEIGHT;
+  constexpr int buf_size = MODEL_FRAME_SIZE;
 
 private:
   cl_mem input_frame_cl;
