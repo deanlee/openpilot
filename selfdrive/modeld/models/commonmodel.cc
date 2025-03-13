@@ -2,8 +2,11 @@
 
 #include <cmath>
 #include <cstring>
+
 #include "common/clutil.h"
-DrivingModelFrame::DrivingModelFrame(cl_device_id device_id, cl_context context, int _temporal_skip) : ModelFrame(device_id, context, MODEL_WIDTH, MODEL_HEIGHT) {
+
+DrivingModelFrame::DrivingModelFrame(cl_device_id device_id, cl_context context, int _temporal_skip)
+  : ModelFrame(device_id, context, this->MODEL_WIDTH, this->MODEL_HEIGHT) {
   input_frames = std::make_unique<uint8_t[]>(buf_size);
   temporal_skip = _temporal_skip;
   input_frames_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, buf_size, NULL, &err));
@@ -39,7 +42,8 @@ DrivingModelFrame::~DrivingModelFrame() {
 }
 
 
-MonitoringModelFrame::MonitoringModelFrame(cl_device_id device_id, cl_context context) : ModelFrame(device_id, context, MODEL_WIDTH, MODEL_HEIGHT) {
+MonitoringModelFrame::MonitoringModelFrame(cl_device_id device_id, cl_context context)
+: ModelFrame(device_id, context, MODEL_WIDTH, MODEL_HEIGHT) {
   input_frames = std::make_unique<uint8_t[]>(buf_size);
   input_frame_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, buf_size, NULL, &err));
 }

@@ -1,9 +1,18 @@
 #pragma once
 
+#include <cfloat>
+#include <cstdlib>
 #include <cassert>
+
 #include <memory>
+
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
-#include "common/clutil.h"
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
+
 #include "common/mat.h"
 #include "selfdrive/modeld/transforms/loadyuv.h"
 #include "selfdrive/modeld/transforms/transform.h"
@@ -12,18 +21,9 @@ class ModelFrame {
 public:
   ModelFrame(cl_device_id device_id, cl_context context, int model_width, int model_height) {
     q = CL_CHECK_ERR(clCreateCommandQueue(context, device_id, 0, &err));
-    y_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, model_width * model_height, NULL, &err));
-    u_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
-    v_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
-    transform_init(&transform, context, device_id);
+    init_transform(device_id, context, model_width, model_height);
   }
-  virtual ~ModelFrame() {
-    transform_destroy(&transform);
-    CL_CHECK(clReleaseMemObject(v_cl));
-    CL_CHECK(clReleaseMemObject(u_cl));
-    CL_CHECK(clReleaseMemObject(y_cl));
-    CL_CHECK(clReleaseCommandQueue(q));
-  }
+  virtual ~ModelFrame() { CL_CHECK(clReleaseCommandQueue(q)); }
   virtual cl_mem* prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection) { return NULL; }
   uint8_t* buffer_from_cl(cl_mem *in_frames, int buffer_size) {
     CL_CHECK(clEnqueueReadBuffer(q, *in_frames, CL_TRUE, 0, buffer_size, input_frames.get(), 0, nullptr, nullptr));
@@ -36,6 +36,20 @@ protected:
   Transform transform;
   cl_command_queue q;
   std::unique_ptr<uint8_t[]> input_frames;
+
+  void init_transform(cl_device_id device_id, cl_context context, int model_width, int model_height) {
+    y_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, model_width * model_height, NULL, &err));
+    u_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
+    v_cl = CL_CHECK_ERR(clCreateBuffer(context, CL_MEM_READ_WRITE, (model_width / 2) * (model_height / 2), NULL, &err));
+    transform_init(&transform, context, device_id);
+  }
+
+  void deinit_transform() {
+    transform_destroy(&transform);
+    CL_CHECK(clReleaseMemObject(v_cl));
+    CL_CHECK(clReleaseMemObject(u_cl));
+    CL_CHECK(clReleaseMemObject(y_cl));
+  }
 
   void run_transform(cl_mem yuv_cl, int model_width, int model_height, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection) {
     transform_queue(&transform, q,
@@ -50,11 +64,11 @@ public:
   ~DrivingModelFrame();
   cl_mem* prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection);
 
-  constexpr int MODEL_WIDTH = 512;
-  constexpr int MODEL_HEIGHT = 256;
-  constexpr int MODEL_FRAME_SIZE = MODEL_WIDTH * MODEL_HEIGHT * 3 / 2;
-  constexpr int buf_size = MODEL_FRAME_SIZE * 2; // 2 frames are temporal_skip frames apart
-  constexpr size_t frame_size_bytes = MODEL_FRAME_SIZE * sizeof(uint8_t);
+  static const int MODEL_WIDTH = 512;
+  static const int MODEL_HEIGHT = 256;
+  static const int MODEL_FRAME_SIZE = MODEL_WIDTH * MODEL_HEIGHT * 3 / 2;
+  static const int buf_size = MODEL_FRAME_SIZE * 2; // 2 frames are temporal_skip frames apart
+  static const size_t frame_size_bytes = MODEL_FRAME_SIZE * sizeof(uint8_t);
 
 private:
   LoadYUVState loadyuv;
@@ -69,10 +83,10 @@ public:
   ~MonitoringModelFrame();
   cl_mem* prepare(cl_mem yuv_cl, int frame_width, int frame_height, int frame_stride, int frame_uv_offset, const mat3& projection);
 
-  constexpr int MODEL_WIDTH = 1440;
-  constexpr int MODEL_HEIGHT = 960;
-  constexpr int MODEL_FRAME_SIZE = MODEL_WIDTH * MODEL_HEIGHT;
-  constexpr int buf_size = MODEL_FRAME_SIZE;
+  static const int MODEL_WIDTH = 1440;
+  static const int MODEL_HEIGHT = 960;
+  static const int MODEL_FRAME_SIZE = MODEL_WIDTH * MODEL_HEIGHT;
+  static const int buf_size = MODEL_FRAME_SIZE;
 
 private:
   cl_mem input_frame_cl;
