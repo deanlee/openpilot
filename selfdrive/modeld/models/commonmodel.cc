@@ -1,10 +1,5 @@
 #include "selfdrive/modeld/models/commonmodel.h"
 
-#include <cmath>
-#include <cstring>
-
-#include "common/clutil.h"
-
 DrivingModelFrame::DrivingModelFrame(cl_device_id device_id, cl_context context, int _temporal_skip)
   : ModelFrame(device_id, context, this->MODEL_WIDTH, this->MODEL_HEIGHT) {
   input_frames = std::make_unique<uint8_t[]>(buf_size);
