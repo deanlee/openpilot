@@ -63,4 +63,3 @@ if __name__ == "__main__":
   text_window = TextWindow(DEMO_TEXT)
   for _ in gui_app.render():
     text_window.render()
-
