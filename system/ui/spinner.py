@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import pyray as rl
 import os
+import threading
 
 from openpilot.common.basedir import BASEDIR
 from openpilot.system.ui.lib.application import gui_app
@@ -24,9 +25,11 @@ class Spinner:
     self._spinner_texture = gui_app.load_texture_from_image(os.path.join(BASEDIR, "selfdrive/assets/img_spinner_track.png"), TEXTURE_SIZE, TEXTURE_SIZE)
     self._rotation = 0.0
     self._text: str = ""
+    self._lock = threading.Lock()
 
   def set_text(self, text: str) -> None:
-    self._text = text
+    with self._lock:
+      self._text = text
 
   def render(self):
     center = rl.Vector2(gui_app.width / 2.0, gui_app.height / 2.0)
@@ -45,18 +48,22 @@ class Spinner:
     rl.draw_texture_v(self._comma_texture, comma_position, rl.WHITE)
 
     # Display progress bar or text based on user input
-    if self._text:
+    text = None
+    with self._lock:
+      text = self._text
+
+    if text:
       y_pos = rl.get_screen_height() - MARGIN - PROGRESS_BAR_HEIGHT
-      if self._text.isdigit():
-        progress = clamp(int(self._text), 0, 100)
+      if text.isdigit():
+        progress = clamp(int(text), 0, 100)
         bar = rl.Rectangle(center.x - PROGRESS_BAR_WIDTH / 2.0, y_pos, PROGRESS_BAR_WIDTH, PROGRESS_BAR_HEIGHT)
         rl.draw_rectangle_rounded(bar, 0.5, 10, rl.GRAY)
 
         bar.width *= progress / 100.0
         rl.draw_rectangle_rounded(bar, 0.5, 10, rl.WHITE)
       else:
-        text_size = rl.measure_text_ex(gui_app.font(), self._text, FONT_SIZE, 1.0)
-        rl.draw_text_ex(gui_app.font(), self._text,
+        text_size = rl.measure_text_ex(gui_app.font(), text, FONT_SIZE, 1.0)
+        rl.draw_text_ex(gui_app.font(), text,
                         rl.Vector2(center.x - text_size.x / 2, y_pos), FONT_SIZE, 1.0, rl.WHITE)
 
 
