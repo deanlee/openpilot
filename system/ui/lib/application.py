@@ -64,11 +64,16 @@ class GuiApplication:
     return texture
 
   def close(self):
+    if not rl.is_window_ready():
+      return
+
     for texture in self._textures:
       rl.unload_texture(texture)
+    self._textures = []
 
     for font in self._fonts.values():
       rl.unload_font(font)
+    self._fonts = []
 
     rl.close_window()
 

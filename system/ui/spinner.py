@@ -23,8 +23,12 @@ class Spinner:
     self._comma_texture = gui_app.load_texture_from_image(os.path.join(BASEDIR, "selfdrive/assets/img_spinner_comma.png"), TEXTURE_SIZE, TEXTURE_SIZE)
     self._spinner_texture = gui_app.load_texture_from_image(os.path.join(BASEDIR, "selfdrive/assets/img_spinner_track.png"), TEXTURE_SIZE, TEXTURE_SIZE)
     self._rotation = 0.0
+    self._text: str = ""
 
-  def render(self, user_input: str):
+  def set_text(self, text: str) -> None:
+    self._text = text
+
+  def render(self):
     center = rl.Vector2(gui_app.width / 2.0, gui_app.height / 2.0)
     spinner_origin = rl.Vector2(TEXTURE_SIZE / 2.0, TEXTURE_SIZE / 2.0)
     comma_position = rl.Vector2(center.x - TEXTURE_SIZE / 2.0, center.y - TEXTURE_SIZE / 2.0)
@@ -41,18 +45,18 @@ class Spinner:
     rl.draw_texture_v(self._comma_texture, comma_position, rl.WHITE)
 
     # Display progress bar or text based on user input
-    if user_input:
+    if self._text:
       y_pos = rl.get_screen_height() - MARGIN - PROGRESS_BAR_HEIGHT
-      if user_input.isdigit():
-        progress = clamp(int(user_input), 0, 100)
+      if self._text.isdigit():
+        progress = clamp(int(self._text), 0, 100)
         bar = rl.Rectangle(center.x - PROGRESS_BAR_WIDTH / 2.0, y_pos, PROGRESS_BAR_WIDTH, PROGRESS_BAR_HEIGHT)
         rl.draw_rectangle_rounded(bar, 0.5, 10, rl.GRAY)
 
         bar.width *= progress / 100.0
         rl.draw_rectangle_rounded(bar, 0.5, 10, rl.WHITE)
       else:
-        text_size = rl.measure_text_ex(gui_app.font(), user_input, FONT_SIZE, 1.0)
-        rl.draw_text_ex(gui_app.font(), user_input,
+        text_size = rl.measure_text_ex(gui_app.font(), self._text, FONT_SIZE, 1.0)
+        rl.draw_text_ex(gui_app.font(), self._text,
                         rl.Vector2(center.x - text_size.x / 2, y_pos), FONT_SIZE, 1.0, rl.WHITE)
 
 
