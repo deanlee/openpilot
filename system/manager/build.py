@@ -53,6 +53,7 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
         rl.clear_background(rl.BLACK)
         spinner.render(str(progress))
         rl.end_drawing()
+
         readable, _, _ = select.select([scons.stderr], [], [], 0.02)  # Timeout of 0.01s
         if scons.stderr in readable:
           line = scons.stderr.readline()
@@ -102,7 +103,5 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
 
 
 if __name__ == "__main__":
-  # spinner = Spinner()
-  # spinner.update_progress(0, 100)
   build_metadata = get_build_metadata()
   build(build_metadata.openpilot.is_dirty, minimal = AGNOS)
