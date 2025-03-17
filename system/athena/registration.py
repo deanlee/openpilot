@@ -2,9 +2,9 @@
 import time
 import json
 import jwt
-import threading
 import pyray as rl
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 from datetime import datetime, timedelta, UTC
 from openpilot.common.api import api_get
@@ -25,7 +25,7 @@ def is_registered_device() -> bool:
   return dongle not in (None, UNREGISTERED_DONGLE_ID)
 
 
-def do_register(spinner = None) -> str | None:
+def do_register(spinner = None, done_event=None) -> str | None:
   """
   All devices built since March 2024 come with all
   info stored in /persist/. This is kept around
@@ -102,15 +102,18 @@ def do_register(spinner = None) -> str | None:
 
 def register(show_spinner=False) -> str | None:
   if show_spinner:
-    gui_app.init_window("Register")
-    spinner = Spinner()
-    do_register(spinner)
-    while True:
-      rl.begin_drawing()
-      rl.clear_background(rl.BLACK)
-      spinner.render()
-      rl.end_drawing()
-    gui_app.close()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+      gui_app.init_window("Register")
+      spinner = Spinner()
+      future = executor.submit(do_register, spinner)
+      while not future.done():
+        rl.begin_drawing()
+        rl.clear_background(rl.BLACK)
+        spinner.render()
+        rl.end_drawing()
+      gui_app.close()
+      return future.result()
+
   else:
     do_register()
 
