@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-import sys
 import pyray as rl
-
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.ui.lib.button import gui_button, ButtonStyle
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
@@ -42,7 +40,6 @@ class TextWindow:
 
   def render(self):
     scroll = self._scroll_panel.handle_scroll(self._textarea_rect, self._content_rect)
-
     rl.begin_scissor_mode(int(self._textarea_rect.x), int(self._textarea_rect.y), int(self._textarea_rect.width), int(self._textarea_rect.height))
     for i, line in enumerate(self._wrapped_lines):
       position = rl.Vector2(self._textarea_rect.x + scroll.x, self._textarea_rect.y + scroll.y + i * LINE_HEIGHT)
