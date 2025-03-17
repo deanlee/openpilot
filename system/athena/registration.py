@@ -18,13 +18,16 @@ from openpilot.common.swaglog import cloudlog
 
 
 UNREGISTERED_DONGLE_ID = "UnregisteredDevice"
+# spinner = None
 
 def is_registered_device() -> bool:
   dongle = Params().get("DongleId", encoding='utf-8')
   return dongle not in (None, UNREGISTERED_DONGLE_ID)
 
 def spinnter_thread(spinner: Spinner, end_evt: threading.Event):
+  print("1111111111")
   gui_app.init_window("Register")
+  print('here')
   while not end_evt.set():
     rl.begin_drawing()
     spinner.render()
@@ -50,12 +53,12 @@ def register(show_spinner=False) -> str | None:
       dongle_id = f.read().strip()
 
   pubkey = Path(Paths.persist_root()+"/comma/id_rsa.pub")
-  if not pubkey.is_file():
-    dongle_id = UNREGISTERED_DONGLE_ID
-    cloudlog.warning(f"missing public key: {pubkey}")
-  elif dongle_id is None:
+  # if not pubkey.is_file():
+  #   dongle_id = UNREGISTERED_DONGLE_ID
+  #   cloudlog.warning(f"missing public key: {pubkey}")
+  # elif dongle_id is None:
+  if True:
     if show_spinner:
-      spinner = Spinner()
       end_evt = threading.Event()
       spinner.set_text("registering device")
       spinner_thread = threading.Thread(show_spinner, end_evt)

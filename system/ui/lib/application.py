@@ -43,7 +43,9 @@ class GuiApplication:
     atexit.register(self.close)  # Automatically call close() on exit
 
     rl.set_config_flags(rl.ConfigFlags.FLAG_MSAA_4X_HINT | rl.ConfigFlags.FLAG_VSYNC_HINT)
+    print('1')
     rl.init_window(self._width, self._height, title)
+    print('2')
     rl.set_target_fps(fps)
 
     self._target_fps = fps
