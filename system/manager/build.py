@@ -36,7 +36,7 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
 
   # building with all cores can result in using too
   # much memory, so retry with less parallelism
-  gui_app("Spinner")
+  gui_app.init_window("Spinner")
   spinner = Spinner
   compile_output: list[bytes] = []
   for n in (nproc, nproc/2, 1):
