@@ -2,6 +2,7 @@
 import os
 import subprocess
 import pyray as rl
+import select
 from pathlib import Path
 
 # NOTE: Do NOT import anything here that needs be built (e.g. params)
@@ -37,7 +38,7 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
   # building with all cores can result in using too
   # much memory, so retry with less parallelism
   gui_app.init_window("Spinner")
-  spinner = Spinner
+  spinner = Spinner()
   compile_output: list[bytes] = []
   for n in (nproc, nproc/2, 1):
     compile_output.clear()
@@ -45,17 +46,25 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
     assert scons.stderr is not None
 
     # Read progress from stderr and update spinner
+    progress = 0
     while scons.poll() is None:
       try:
-        line = scons.stderr.readline()
-        if line is None:
-          continue
+        rl.begin_drawing()
+        rl.clear_background(rl.BLACK)
+        spinner.render(str(progress))
+        rl.end_drawing()
+        readable, _, _ = select.select([scons.stderr], [], [], 0.02)  # Timeout of 0.01s
+        if scons.stderr in readable:
+          line = scons.stderr.readline()
+          if not line:
+            continue
+
         line = line.rstrip()
 
         prefix = b'progress: '
         if line.startswith(prefix):
           i = int(line[len(prefix):])
-          spinner.update_progress(MAX_BUILD_PROGRESS * min(1., i / TOTAL_SCONS_NODES), 100.)
+          progress = int(MAX_BUILD_PROGRESS * min(1., i / TOTAL_SCONS_NODES))
         elif len(line):
           compile_output.append(line)
           print(line.decode('utf8', 'replace'))
@@ -64,10 +73,6 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
 
     if scons.returncode == 0:
       break
-
-    rl.begin_drawing()
-    spinner.render("here")
-    rl.end_drawing()
 
   if scons.returncode != 0:
     # Read remaining output
