@@ -6,10 +6,10 @@ from pathlib import Path
 # NOTE: Do NOT import anything here that needs be built (e.g. params)
 from openpilot.common.basedir import BASEDIR
 from openpilot.common.spinner import Spinner
-# from openpilot.common.text_window import TextWindow
 from openpilot.system.hardware import HARDWARE, AGNOS
 from openpilot.common.swaglog import cloudlog, add_file_handler
 from openpilot.system.version import get_build_metadata
+from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.text import TextWindow
 
 MAX_CACHE_SIZE = 4e9 if "CI" in os.environ else 2e9
@@ -35,12 +35,14 @@ def build(spinner: Spinner, dirty: bool = False, minimal: bool = False) -> None:
   # much memory, so retry with less parallelism
   compile_output: list[bytes] = []
   for n in (nproc, nproc/2, 1):
+    print("loop", n)
     compile_output.clear()
     scons: subprocess.Popen = subprocess.Popen(["scons", f"-j{int(n)}", "--cache-populate", *extra_args], cwd=BASEDIR, env=env, stderr=subprocess.PIPE)
     assert scons.stderr is not None
 
     # Read progress from stderr and update spinner
     while scons.poll() is None:
+      # print('poll')
       try:
         line = scons.stderr.readline()
         if line is None:
@@ -70,12 +72,17 @@ def build(spinner: Spinner, dirty: bool = False, minimal: bool = False) -> None:
     add_file_handler(cloudlog)
     cloudlog.error("scons build failed\n" + error_s)
 
-    # Show TextWindow
-    spinner.close()
-    if not os.getenv("CI"):
-      with TextWindow("openpilot failed to build\n \n" + error_s) as t:
-        t.wait_for_exit()
-    exit(1)
+    # # Show TextWindow
+    # spinner.close()
+    # if not os.getenv("CI"):
+    #   with TextWindow("openpilot failed to build\n \n" + error_s) as t:
+    #     t.wait_for_exit()
+    # exit(1)
+
+  # gui_app.init_window("Text")
+  # text_window = TextWindow('openpilot failed to build')
+  # for _ in gui_app.render():
+  #   text_window.render()
 
   # enforce max cache size
   cache_files = [f for f in CACHE_DIR.rglob('*') if f.is_file()]
