@@ -70,5 +70,6 @@ class Spinner:
 if __name__ == "__main__":
   gui_app.init_window("Spinner")
   spinner = Spinner()
+  spinner.set_text("Spinner text")
   for _ in gui_app.render():
-    spinner.render("Spinner text")
+    spinner.render()

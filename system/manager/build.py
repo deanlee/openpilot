@@ -41,12 +41,12 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
     os.set_blocking(scons.stderr.fileno(), False)  # Non-blocking reads
 
     # Read progress from stderr and update spinner
-    progress = 0
+    spinner.set_text("0")
     while scons.poll() is None:
       try:
         rl.begin_drawing()
         rl.clear_background(rl.BLACK)
-        spinner.render(str(progress))
+        spinner.render()
         rl.end_drawing()
 
         if scons.stderr in select.select([scons.stderr], [], [], 0.02)[0]:
@@ -58,7 +58,7 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
         prefix = b'progress: '
         if line.startswith(prefix):
           i = int(line[len(prefix):])
-          progress = int(MAX_BUILD_PROGRESS * min(1., i / TOTAL_SCONS_NODES))
+          spinner.set_text(str(int(MAX_BUILD_PROGRESS * min(1., i / TOTAL_SCONS_NODES))))
         elif line:
           compile_output.append(line)
           print(line.decode('utf8', 'replace'))
