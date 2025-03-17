@@ -80,8 +80,11 @@ def build(dirty: bool = False, minimal: bool = False) -> None:
 
     # Show TextWindow
     if not os.getenv("CI"):
-      with TextWindow("openpilot failed to build\n \n" + error_s) as t:
-        t.wait_for_exit()
+      text_window = TextWindow("openpilot failed to build\n \n" + error_s)
+      while True:
+        rl.begin_drawing()
+        text_window.render()
+        rl.end_drawing()
     exit(1)
 
   # enforce max cache size
