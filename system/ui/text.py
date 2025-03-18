@@ -55,8 +55,11 @@ class TextWindow:
     return ret
 
 
-if __name__ == "__main__":
+def display_text_window(text: str):
   gui_app.init_window("Text")
-  text_window = TextWindow(DEMO_TEXT)
+  text_window = TextWindow(text)
   for _ in gui_app.render():
     text_window.render()
+
+if __name__ == "__main__":
+  display_text_window(DEMO_TEXT)
