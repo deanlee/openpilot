@@ -283,7 +283,7 @@ void ChartView::updateSeriesPoints() {
 }
 
 void ChartView::appendCanEvents(const cabana::Signal *sig, const std::vector<const CanEvent *> &events,
-                                std::vector<QPointF> &vals, std::vector<QPointF> &step_vals) {
+                                QVector<QPointF> &vals, QVector<QPointF> &step_vals) {
   vals.reserve(vals.size() + events.capacity());
   step_vals.reserve(step_vals.size() + events.capacity() * 2);
 
@@ -291,10 +291,10 @@ void ChartView::appendCanEvents(const cabana::Signal *sig, const std::vector<con
   for (const CanEvent *e : events) {
     if (sig->getValue(e->dat, e->size, &value)) {
       const double ts = can->toSeconds(e->mono_time);
-      vals.emplace_back(ts, value);
+      vals.append({ts, value});
       if (!step_vals.empty())
-        step_vals.emplace_back(ts, step_vals.back().y());
-      step_vals.emplace_back(ts, value);
+        step_vals.append({ts, step_vals.back().y()});
+      step_vals.append({ts, value});
     }
   }
 }
@@ -313,18 +313,28 @@ void ChartView::updateSeries(const cabana::Signal *sig, const MessageEventsMap *
       if (s.vals.empty() || can->toSeconds(it->second.back()->mono_time) > s.vals.back().x()) {
         appendCanEvents(s.sig, it->second, s.vals, s.step_vals);
       } else {
-        std::vector<QPointF> vals, step_vals;
+        QVector<QPointF> vals, step_vals;
         appendCanEvents(s.sig, it->second, vals, step_vals);
-        s.vals.insert(std::lower_bound(s.vals.begin(), s.vals.end(), vals.front().x(), xLessThan),
-                      vals.begin(), vals.end());
-        s.step_vals.insert(std::lower_bound(s.step_vals.begin(), s.step_vals.end(), step_vals.front().x(), xLessThan),
-                           step_vals.begin(), step_vals.end());
+        // Find insertion positions
+        int vals_pos = std::lower_bound(s.vals.begin(), s.vals.end(),
+                                        new_vals.first().x(), xLessThan) -
+                       s.vals.begin();
+        int step_pos = std::lower_bound(s.step_vals.begin(), s.step_vals.end(),
+                                        new_step_vals.first().x(), xLessThan) -
+                       s.step_vals.begin();
+
+        // Insert using QVector's insert
+        s.vals.insert(vals_pos, new_vals.size(), QPointF());
+        std::copy(new_vals.begin(), new_vals.end(), s.vals.begin() + vals_pos);
+
+        s.step_vals.insert(step_pos, new_step_vals.size(), QPointF());
+        std::copy(new_step_vals.begin(), new_step_vals.end(), s.step_vals.begin() + step_pos);
       }
 
       if (!can->liveStreaming()) {
         s.segment_tree.build(s.vals);
       }
-      s.series->replace(QVector<QPointF>::fromStdVector(series_type == SeriesType::StepLine ? s.step_vals : s.vals));
+      s.series->replace(series_type == SeriesType::StepLine ? s.step_vals : s.vals);
     }
   }
   updateAxisY();

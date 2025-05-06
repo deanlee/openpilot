@@ -55,7 +55,7 @@ enum {
 class SegmentTree {
 public:
   SegmentTree() = default;
-  void build(const std::vector<QPointF> &arr);
+  void build(const QVector<QPointF> &arr);
   inline std::pair<double, double> minmax(int left, int right) const { return get_minmax(1, 0, size - 1, left, right); }
 
 private:

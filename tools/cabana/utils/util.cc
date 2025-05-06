@@ -18,7 +18,7 @@
 
 // SegmentTree
 
-void SegmentTree::build(const std::vector<QPointF> &arr) {
+void SegmentTree::build(const QVector<QPointF> &arr) {
   size = arr.size();
   tree.resize(4 * size);  // size of the tree is 4 times the size of the array
   if (size > 0) {
