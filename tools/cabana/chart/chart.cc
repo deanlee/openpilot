@@ -315,6 +315,7 @@ void ChartView::updateSeries(const cabana::Signal *sig, const MessageEventsMap *
       } else {
         QVector<QPointF> new_vals, new_step_vals;
         appendCanEvents(s.sig, it->second, new_vals, new_step_vals);
+
         // Find insertion positions
         int vals_pos = std::lower_bound(s.vals.begin(), s.vals.end(),
                                         new_vals.first().x(), xLessThan) -
