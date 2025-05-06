@@ -313,8 +313,8 @@ void ChartView::updateSeries(const cabana::Signal *sig, const MessageEventsMap *
       if (s.vals.empty() || can->toSeconds(it->second.back()->mono_time) > s.vals.back().x()) {
         appendCanEvents(s.sig, it->second, s.vals, s.step_vals);
       } else {
-        QVector<QPointF> vals, step_vals;
-        appendCanEvents(s.sig, it->second, vals, step_vals);
+        QVector<QPointF> new_vals, new_step_vals;
+        appendCanEvents(s.sig, it->second, new_vals, new_step_vals);
         // Find insertion positions
         int vals_pos = std::lower_bound(s.vals.begin(), s.vals.end(),
                                         new_vals.first().x(), xLessThan) -
@@ -848,7 +848,7 @@ void ChartView::setSeriesType(SeriesType type) {
     }
     for (auto &s : sigs) {
       s.series = createSeries(series_type, s.sig->color);
-      s.series->replace(QVector<QPointF>::fromStdVector(series_type == SeriesType::StepLine ? s.step_vals : s.vals));
+      s.series->replace(series_type == SeriesType::StepLine ? s.step_vals : s.vals);
     }
     updateSeriesPoints();
     updateTitle();

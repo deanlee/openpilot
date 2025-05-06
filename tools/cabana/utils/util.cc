@@ -26,7 +26,7 @@ void SegmentTree::build(const QVector<QPointF> &arr) {
   }
 }
 
-void SegmentTree::build_tree(const std::vector<QPointF> &arr, int n, int left, int right) {
+void SegmentTree::build_tree(const QVector<QPointF> &arr, int n, int left, int right) {
   if (left == right) {
     const double y = arr[left].y();
     tree[n] = {y, y};
