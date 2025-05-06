@@ -316,14 +316,13 @@ void ChartView::updateSeries(const cabana::Signal *sig, const MessageEventsMap *
         QVector<QPointF> vals, step_vals;
         appendCanEvents(s.sig, it->second, vals, step_vals);
 
-        int vals_pos = std::lower_bound(s.vals.begin(), s.vals.end(), vals.first().x(), xLessThan) - s.vals.begin();
-        int step_pos = std::lower_bound(s.step_vals.begin(), s.step_vals.end(), step_vals.first().x(), xLessThan) - s.step_vals.begin();
-
-        s.vals.insert(vals_pos, vals.size(), QPointF());
-        std::copy(vals.begin(), vals.end(), s.vals.begin() + vals_pos);
-
-        s.step_vals.insert(step_pos, step_vals.size(), QPointF());
-        std::copy(step_vals.begin(), step_vals.end(), s.step_vals.begin() + step_pos);
+        auto insertPoints = [](QVector<QPointF> &target, const QVector<QPointF> &source) {
+          int pos = std::lower_bound(target.begin(), target.end(), source.first().x(), xLessThan) - target.begin();
+          target.insert(pos, source.size(), QPointF());
+          std::copy(source.begin(), source.end(), target.begin() + pos);
+        };
+        insertPoints(s.vals, vals);
+        insertPoints(s.step_vals, step_vals);
       }
 
       if (!can->liveStreaming()) {
