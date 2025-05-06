@@ -313,23 +313,17 @@ void ChartView::updateSeries(const cabana::Signal *sig, const MessageEventsMap *
       if (s.vals.empty() || can->toSeconds(it->second.back()->mono_time) > s.vals.back().x()) {
         appendCanEvents(s.sig, it->second, s.vals, s.step_vals);
       } else {
-        QVector<QPointF> new_vals, new_step_vals;
-        appendCanEvents(s.sig, it->second, new_vals, new_step_vals);
+        QVector<QPointF> vals, step_vals;
+        appendCanEvents(s.sig, it->second, vals, step_vals);
 
-        // Find insertion positions
-        int vals_pos = std::lower_bound(s.vals.begin(), s.vals.end(),
-                                        new_vals.first().x(), xLessThan) -
-                       s.vals.begin();
-        int step_pos = std::lower_bound(s.step_vals.begin(), s.step_vals.end(),
-                                        new_step_vals.first().x(), xLessThan) -
-                       s.step_vals.begin();
+        int vals_pos = std::lower_bound(s.vals.begin(), s.vals.end(), vals.first().x(), xLessThan) - s.vals.begin();
+        int step_pos = std::lower_bound(s.step_vals.begin(), s.step_vals.end(), step_vals.first().x(), xLessThan) - s.step_vals.begin();
 
-        // Insert using QVector's insert
-        s.vals.insert(vals_pos, new_vals.size(), QPointF());
-        std::copy(new_vals.begin(), new_vals.end(), s.vals.begin() + vals_pos);
+        s.vals.insert(vals_pos, vals.size(), QPointF());
+        std::copy(vals.begin(), vals.end(), s.vals.begin() + vals_pos);
 
-        s.step_vals.insert(step_pos, new_step_vals.size(), QPointF());
-        std::copy(new_step_vals.begin(), new_step_vals.end(), s.step_vals.begin() + step_pos);
+        s.step_vals.insert(step_pos, step_vals.size(), QPointF());
+        std::copy(step_vals.begin(), step_vals.end(), s.step_vals.begin() + step_pos);
       }
 
       if (!can->liveStreaming()) {
