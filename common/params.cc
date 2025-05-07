@@ -132,12 +132,17 @@ int Params::put(const char* key, const char* value, size_t value_size) {
 
   int result = -1;
   do {
-    // Write value to temp.
-    ssize_t bytes_written = HANDLE_EINTR(write(tmp_fd, value, value_size));
-    if (bytes_written < 0 || (size_t)bytes_written != value_size) {
-      result = -20;
-      break;
+    // Write value to temp, handling partial writes
+    size_t total_written = 0;
+    while (total_written < value_size) {
+      ssize_t bytes_written = HANDLE_EINTR(write(tmp_fd, value + total_written, value_size - total_written));
+      if (bytes_written <= 0) {
+        result = (bytes_written < 0) ? -errno : -EIO;
+        break;
+      }
+      total_written += bytes_written;
     }
+    if (result != 0) break;
 
     // fsync to force persist the changes.
     if ((result = fsync(tmp_fd)) < 0) break;
