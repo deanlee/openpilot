@@ -158,6 +158,16 @@ class WifiManager:
     """Connect to a selected Wi-Fi network."""
     try:
       self._current_connection_ssid = ssid
+
+      if ssid in self.saved_connections:
+        # Forget old connection if new password provided
+        if password:
+          await self.forget_connection(ssid)
+          await asyncio.sleep(0.2)  # NetworkManager delay
+        else:
+          # Just activate existing connection
+          return await self.activate_connection(ssid)
+
       connection = {
         'connection': {
           'type': Variant('s', '802-11-wireless'),
