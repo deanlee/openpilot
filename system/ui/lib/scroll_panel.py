@@ -1,17 +1,6 @@
-import pyray as rl
-from enum import IntEnum
-
-MOUSE_WHEEL_SCROLL_SPEED = 30
-INERTIA_FRICTION = 0.95  # The rate at which the inertia slows down
-MIN_VELOCITY = 0.1  # Minimum velocity before stopping the inertia
-DRAG_THRESHOLD = 5  # Pixels of movement to consider it a drag, not a click
-
-
-class ScrollState(IntEnum):
-  IDLE = 0
-  DRAGGING_CONTENT = 1
-  DRAGGING_SCROLLBAR = 2
-
+MAX_VELOCITY = 80.0
+RUBBER_BAND_FACTOR = 0.4  # Lower is stretchier
+SNAP_BACK_SPEED = 0.25    # Higher is snappier
 
 class GuiScrollPanel:
   def __init__(self, show_vertical_scroll_bar: bool = False):
@@ -52,12 +41,23 @@ class GuiScrollPanel:
           self._is_dragging = True
 
         if self._scroll_state == ScrollState.DRAGGING_CONTENT:
+          # Rubber-banding when out of bounds
+          max_scroll_y = max(content.height - bounds.height, 0)
+          over_scroll = 0
+          if self._offset.y > 0:
+            over_scroll = self._offset.y
+          elif self._offset.y < -max_scroll_y:
+            over_scroll = self._offset.y + max_scroll_y
+          if over_scroll != 0:
+            delta_y *= RUBBER_BAND_FACTOR
+
           self._offset.y += delta_y
         elif self._scroll_state == ScrollState.DRAGGING_SCROLLBAR:
           delta_y = -delta_y
 
+        # Use difference between last two positions for velocity
+        self._velocity_y = max(min(delta_y, MAX_VELOCITY), -MAX_VELOCITY)
         self._last_mouse_y = mouse_pos.y
-        self._velocity_y = delta_y  # Update velocity during drag
       elif rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT):
         self._scroll_state = ScrollState.IDLE
 
@@ -69,20 +69,28 @@ class GuiScrollPanel:
     else:
       self._offset.y += wheel_move * MOUSE_WHEEL_SCROLL_SPEED
 
-    # Apply inertia (continue scrolling after mouse release)
+    max_scroll_y = max(content.height - bounds.height, 0)
+
+    # Inertia and snap-back
     if self._scroll_state == ScrollState.IDLE:
       self._offset.y += self._velocity_y
-      self._velocity_y *= INERTIA_FRICTION  # Slow down velocity over time
+      self._velocity_y *= INERTIA_FRICTION
 
-      # Stop scrolling when velocity is low
-      if abs(self._velocity_y) < MIN_VELOCITY:
+      # Rubber-band snap-back if out of bounds
+      if self._offset.y > 0:
+        self._offset.y -= self._offset.y * SNAP_BACK_SPEED
+        if abs(self._offset.y) < 1.0:
+          self._offset.y = 0
+          self._velocity_y = 0
+      elif self._offset.y < -max_scroll_y:
+        over = self._offset.y + max_scroll_y
+        self._offset.y -= over * SNAP_BACK_SPEED
+        if abs(over) < 1.0:
+          self._offset.y = -max_scroll_y
+          self._velocity_y = 0
+
+      # Stop scrolling when velocity is low and in bounds
+      if abs(self._velocity_y) < MIN_VELOCITY and 0 >= self._offset.y >= -max_scroll_y:
         self._velocity_y = 0.0
 
-    # Ensure scrolling doesn't go beyond bounds
-    max_scroll_y = max(content.height - bounds.height, 0)
-    self._offset.y = max(min(self._offset.y, 0), -max_scroll_y)
-
     return self._offset
-
-  def is_click_valid(self) -> bool:
-    return self._scroll_state == ScrollState.IDLE and not self._is_dragging and rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT)
