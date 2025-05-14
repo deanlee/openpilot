@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import pyray as rl
-from openpilot.system.ui.lib.wifi_manager import NetworkInfo, WifiManagerCallbacks, WifiManagerWrapper
+from openpilot.system.ui.lib.wifi_manager import NetworkInfo, WifiManagerCallbacks, WifiManagerWrapper, SecurityType
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.button import gui_button
 from openpilot.system.ui.lib.label import gui_label
@@ -139,7 +139,7 @@ class WifiManagerUI:
         self.state = StateShowForgetConfirm(network)
 
     if isinstance(self.state, StateIdle) and rl.check_collision_point_rec(rl.get_mouse_position(), label_rect) and clicked:
-      if not network.is_saved:
+      if not network.is_saved and network.security_type != SecurityType.OPEN:
         self.state = StateNeedsAuth(network)
       else:
         self.connect_to_network(network)
