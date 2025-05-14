@@ -145,7 +145,12 @@ class WifiManagerUI:
         self.connect_to_network(network)
 
   def connect_to_network(self, network: NetworkInfo, password=''):
+    # Prevent duplicate requests
+    if isinstance(self.state, StateConnecting):
+      return
+
     self.state = StateConnecting(network)
+
     if network.is_saved and not password:
       self.wifi_manager.activate_connection(network.ssid)
     else:
@@ -160,14 +165,13 @@ class WifiManagerUI:
     self._networks = networks
 
   def _on_need_auth(self, ssid):
-    match self.state:
-      case StateConnecting(ssid):
-        self.state = StateNeedsAuth(ssid)
-      case _:
-        # Find network by SSID
-        network = next((n for n in self.wifi_manager.networks if n.ssid == ssid), None)
-        if network:
-          self.state = StateNeedsAuth(network)
+      # Find network by SSID
+      network = next((n for n in self.wifi_manager.networks if n.ssid == ssid), None)
+      if not network:
+        self.state = StateIdle()
+        return
+
+      self.state = StateNeedsAuth(network)
 
   def _on_activated(self):
     if isinstance(self.state, StateConnecting):
