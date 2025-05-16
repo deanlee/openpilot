@@ -21,9 +21,9 @@ class Spacing:
 class LayoutItem:
   def __init__(self):
     self.rect = rl.Rectangle(0, 0, 0, 0)
-    self.min_size: [float, float] = (0, 0)
-    self.max_size: [float, float] = (float('inf'), float('inf'))
-    self.fixed_size: [float, float] | None = None
+    self.min_size: Tuple[float, float] = (0, 0)
+    self.max_size: Tuple[float, float] = (float('inf'), float('inf'))
+    self.fixed_size: Optional[Tuple[float, float]] = None
     self.stretch: float = 1.0
     self.margin = Spacing()
     self.alignment = (Alignment.START, Alignment.START)  # (horizontal, vertical)
@@ -31,17 +31,17 @@ class LayoutItem:
   def set_geometry(self, rect: rl.Rectangle):
     self.rect = rect
 
-  def minimum_size(self) -> [float, float]:
+  def minimum_size(self) -> Tuple[float, float]:
     if self.fixed_size:
       return self.fixed_size
     return self.min_size
 
-  def maximum_size(self) -> [float, float]:
+  def maximum_size(self) -> Tuple[float, float]:
     if self.fixed_size:
       return self.fixed_size
     return self.max_size
 
-  def size_hint(self) -> [float, float]:
+  def size_hint(self) -> Tuple[float, float]:
     if self.fixed_size:
       return self.fixed_size
     return self.min_size
@@ -50,7 +50,7 @@ class LayoutItem:
 class Layout(LayoutItem):
   def __init__(self):
     super().__init__()
-    self.items: list[LayoutItem] = []
+    self.items: List[LayoutItem] = []
     self.spacing: float = 0
     self.padding = Spacing()
 
