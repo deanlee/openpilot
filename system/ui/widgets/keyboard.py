@@ -1,6 +1,11 @@
 import pyray as rl
 from openpilot.system.ui.lib.application import gui_app, FontWeight
+<<<<<<< HEAD
 from openpilot.system.ui.lib.button import ButtonStyle, gui_button
+=======
+from openpilot.system.ui.lib.button import gui_button
+from openpilot.system.ui.lib.layout import HLayout, VLayout, Spacing, Alignment
+>>>>>>> 7f3f49c45 (layout)
 from openpilot.system.ui.lib.inputbox import InputBox
 from openpilot.system.ui.lib.label import gui_label
 
@@ -72,51 +77,77 @@ class Keyboard:
     self._input_box.clear()
 
   def render(self, title: str, sub_title: str):
-    rect = rl.Rectangle(CONTENT_MARGIN, CONTENT_MARGIN, gui_app.width - 2 * CONTENT_MARGIN, gui_app.height - 2 * CONTENT_MARGIN)
-    gui_label(rl.Rectangle(rect.x, rect.y, rect.width, 95), title, 90, font_weight=FontWeight.BOLD)
-    gui_label(rl.Rectangle(rect.x, rect.y + 95, rect.width, 60), sub_title, 55, font_weight=FontWeight.NORMAL)
-    if gui_button(rl.Rectangle(rect.x + rect.width - 386, rect.y, 386, 125), "Cancel"):
+    main_layout = VLayout(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
+    main_layout.padding = Spacing(CONTENT_MARGIN, CONTENT_MARGIN, CONTENT_MARGIN, CONTENT_MARGIN)
+    main_layout.spacing = 25
+
+    head_layout = main_layout.add_layout(HLayout(rl.Rectangle(0, 0, gui_app.width, 120)))
+    head_layout.fixed_size = (gui_app.width, 120)
+
+    tt_layout = head_layout.add_layout(VLayout(rl.Rectangle(0, 0, gui_app.width, 120)))
+    title_item = tt_layout.add_fixed_item(0, 90)
+    cancel_item = head_layout.add_fixed_item(386, 120)
+    sub_title_item = tt_layout.add_fixed_item(gui_app.width, 60)
+
+    input_item = main_layout.add_fixed_item(gui_app.width, 100)
+    keys_item = main_layout.add_stretch_item()
+
+    main_layout.update_layout()
+
+    gui_label(title_item.rect, title, 90, font_weight=FontWeight.BOLD)
+    gui_label(sub_title_item.rect, sub_title, 55, font_weight=FontWeight.NORMAL)
+    if gui_button(cancel_item.rect, "Cancel"):
       self.clear()
       return 0
 
     # Draw input box and password toggle
-    input_margin = 25
-    input_box_rect = rl.Rectangle(rect.x + input_margin, rect.y + 160, rect.width - input_margin, 100)
-    self._render_input_area(input_box_rect)
+    # input_margin = 25
+    # input_box_rect = rl.Rectangle(rect.x + input_margin, rect.y + 160, rect.width - input_margin, 100)
+    self._render_input_area(input_item.rect)
 
     h_space, v_space = 15, 15
-    row_y_start = rect.y + 300  # Starting Y position for the first row
-    key_height = (rect.height - 300 - 3 * v_space) / 4
+    rect = keys_item.rect
+    row_y_start = rect.y# + 300  # Starting Y position for the first row
+    key_height = (rect.height - 3 * v_space) / 4
     key_max_width = (rect.width - (len(self._layout[2]) - 1) * h_space) / len(self._layout[2])
+
+    return_code = -1
+    def draw_key(key: str, key_rect: rl.Rectangle):
+      nonlocal return_code
+      is_enabled = key != ENTER_KEY or len(self._input_box.text) >= self._min_text_size
+      result = -1
+      if key in self._key_icons:
+        texture = self._key_icons[key]
+        result = gui_button(key_rect, "", icon=texture, button_style=ButtonStyle.PRIMARY if key == ENTER_KEY else ButtonStyle.NORMAL, is_enabled=is_enabled)
+      else:
+        result = gui_button(key_rect, key, is_enabled=is_enabled)
+
+      if result:
+        if key == ENTER_KEY:
+          return_code = 1
+        else:
+          self.handle_key_press(key)
 
     # Iterate over the rows of keys in the current layout
     for row, keys in enumerate(self._layout):
-      key_width = min((rect.width - (180 if row == 1 else 0) - h_space * (len(keys) - 1)) / len(keys), key_max_width)
-      start_x = rect.x + (90 if row == 1 else 0)
+      layout = HLayout(rl.Rectangle(rect.x, row_y_start + row * (key_height + v_space), rect.width, key_height))
+      if row == 1:
+        layout.padding = Spacing(80, 0, 80, 0)
+      layout.spacing = 20
+      layout.fixed_size = (rect.width, key_height)
+      layout.alignment = (Alignment.CENTER, Alignment.CENTER)
 
       for i, key in enumerate(keys):
-        if i > 0:
-          start_x += h_space
+        stretch = 1.0
+        if key == SPACE_KEY:
+          stretch = 3.0
+        elif key == ENTER_KEY:
+          stretch = 2.0
+        layout.add_stretch_item(100, key_height, stretch,
+          lambda rect, key=key: draw_key(key, rect))
 
-        new_width = (key_width * 3 + h_space * 2) if key == SPACE_KEY else (key_width * 2 + h_space if key == ENTER_KEY else key_width)
-        key_rect = rl.Rectangle(start_x, row_y_start + row * (key_height + v_space), new_width, key_height)
-        start_x += new_width
-
-        is_enabled = key != ENTER_KEY or len(self._input_box.text) >= self._min_text_size
-        result = -1
-        if key in self._key_icons:
-          texture = self._key_icons[key]
-          result = gui_button(key_rect, "", icon=texture, button_style=ButtonStyle.PRIMARY if key == ENTER_KEY else ButtonStyle.NORMAL, is_enabled=is_enabled)
-        else:
-          result = gui_button(key_rect, key, KEY_FONT_SIZE, is_enabled=is_enabled)
-
-        if result:
-          if key == ENTER_KEY:
-            return 1
-          else:
-            self.handle_key_press(key)
-
-    return -1
+      layout.render()
+    return return_code
 
   def _render_input_area(self, input_rect: rl.Rectangle):
     if self._show_password_toggle:
