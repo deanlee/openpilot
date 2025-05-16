@@ -5,6 +5,7 @@ import pyray as rl
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.button import gui_button
 from openpilot.system.ui.lib.label import gui_label
+from openpilot.system.ui.lib.layout import HLayout, Alignment
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.wifi_manager import NetworkInfo, WifiManagerCallbacks, WifiManagerWrapper, SecurityType
 from openpilot.system.ui.widgets.keyboard import Keyboard
@@ -116,12 +117,13 @@ class WifiManagerUI:
     rl.end_scissor_mode()
 
   def _draw_network_item(self, rect, network: NetworkInfo, clicked: bool):
-    spacing = 50
-    ssid_rect = rl.Rectangle(rect.x, rect.y, rect.width - self.btn_width * 2, ITEM_HEIGHT)
-    signal_icon_rect = rl.Rectangle(rect.x + rect.width - ICON_SIZE, rect.y + (ITEM_HEIGHT - ICON_SIZE) / 2, ICON_SIZE, ICON_SIZE)
-    security_icon_rect = rl.Rectangle(signal_icon_rect.x - spacing - ICON_SIZE, rect.y + (ITEM_HEIGHT - ICON_SIZE) / 2, ICON_SIZE, ICON_SIZE)
-
-    gui_label(ssid_rect, network.ssid, 55)
+    layout = HLayout(rect)
+    layout.spacing = 50
+    ssid_item = layout.add_stretch_item(min_height=ITEM_HEIGHT)
+    status_item = layout.add_fixed_item(410, ITEM_HEIGHT)
+    forget_item = layout.add_fixed_item(self.btn_width, 80)
+    security_item = layout.add_fixed_item(ICON_SIZE, ICON_SIZE)
+    signal_item = layout.add_fixed_item(ICON_SIZE, ICON_SIZE)
 
     status_text = ""
     match self.state:
@@ -132,24 +134,21 @@ class WifiManagerUI:
         if forgetting.ssid == network.ssid:
           status_text = "FORGETTING..."
 
-    if status_text:
-      status_text_rect = rl.Rectangle(security_icon_rect.x - 410, rect.y, 410, ITEM_HEIGHT)
-      rl.gui_label(status_text_rect, status_text)
-    else:
-      # If the network is saved, show the "Forget" button
-      if network.is_saved:
-        forget_btn_rect = rl.Rectangle(security_icon_rect.x - self.btn_width - spacing,
-          rect.y + (ITEM_HEIGHT - 80) / 2,
-          self.btn_width,
-          80,
-        )
-        if isinstance(self.state, StateIdle) and gui_button(forget_btn_rect, "Forget") and clicked:
-          self.state = StateShowForgetConfirm(network)
+    status_item.set_visible(status_text != "")
+    forget_item.set_visible(not status_item.visible and network.is_saved)
+    layout.update_layout()
 
-    self._draw_status_icon(security_icon_rect, network)
-    self._draw_signal_strength_icon(signal_icon_rect, network)
+    gui_label(ssid_item.rect, network.ssid, 55)
+    if status_item.visible:
+      gui_label(status_item.rect, status_text)
+    if forget_item.visible:
+      if isinstance(self.state, StateIdle) and gui_button(forget_item.rect, "Forget") and clicked:
+        self.state = StateShowForgetConfirm(network)
 
-    if isinstance(self.state, StateIdle) and rl.check_collision_point_rec(rl.get_mouse_position(), ssid_rect) and clicked:
+    self._draw_status_icon(security_item.rect, network)
+    self._draw_signal_strength_icon(signal_item.rect, network)
+
+    if isinstance(self.state, StateIdle) and rl.check_collision_point_rec(rl.get_mouse_position(), ssid_item.rect) and clicked:
       if not network.is_saved:
         self.state = StateNeedsAuth(network)
       else:
