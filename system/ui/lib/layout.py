@@ -81,6 +81,11 @@ class Layout(LayoutItem):
 
 
 class HLayout(Layout):
+  def __init__(self, rect: rl.Rectangle = None):
+    super().__init__()
+    self.alignment = (Alignment.START, Alignment.CENTER)  # (horizontal, vertical)
+    self.rect = rect if rect else rl.Rectangle(0, 0, 0, 0)
+
   def update_layout(self):
     visible_items = [item for item in self.items if getattr(item, "visible", True)]
     if not visible_items:
@@ -133,6 +138,11 @@ class HLayout(Layout):
 
 
 class VLayout(Layout):
+  def __init__(self, rect: None = None):
+    super().__init__()
+    self.alignment = (Alignment.START, Alignment.START)
+    self.rect = rect if rect else rl.Rectangle(0, 0, 0, 0)
+
   def update_layout(self):
     visible_items = [item for item in self.items if getattr(item, "visible", True)]
     if not visible_items:

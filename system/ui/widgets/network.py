@@ -117,14 +117,13 @@ class WifiManagerUI:
     rl.end_scissor_mode()
 
   def _draw_network_item(self, rect, network: NetworkInfo, clicked: bool):
-    layout = HLayout()
+    layout = HLayout(rect)
     layout.spacing = 50
     ssid_item = layout.add_stretch()
     status_item = layout.add_fixed_item(410, ITEM_HEIGHT)
     forget_item = layout.add_fixed_item(self.btn_width, 80)
     security_item = layout.add_fixed_item(ICON_SIZE, ICON_SIZE)
     signal_item = layout.add_fixed_item(ICON_SIZE, ICON_SIZE)
-    layout.set_geometry(rect)
 
     status_text = ""
     match self.state:
