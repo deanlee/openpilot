@@ -1,6 +1,7 @@
 import pyray as rl
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.button import gui_button
+from openpilot.system.ui.lib.layout import HLayout, VLayout
 from openpilot.system.ui.lib.inputbox import InputBox
 from openpilot.system.ui.lib.label import gui_label
 
@@ -69,7 +70,29 @@ class Keyboard:
     self._input_box.clear()
 
   def render(self, title: str, sub_title: str):
-    rect = rl.Rectangle(CONTENT_MARGIN, CONTENT_MARGIN, gui_app.width - 2 * CONTENT_MARGIN, gui_app.height - 2 * CONTENT_MARGIN)
+    # rect = rl.Rectangle(CONTENT_MARGIN, CONTENT_MARGIN, gui_app.width - 2 * CONTENT_MARGIN, gui_app.height - 2 * CONTENT_MARGIN)
+    main_layout = VLayout(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
+
+    title_layout = main_layout.add_layout(HLayout(rl.Rectangle(0, 0, gui_app.width, 90)))
+    title_item = title_layout.add_stretch_item(0, 90)
+    cancel_item = title_layout.add_fixed_item(386, 90)
+
+    sub_title_item = main_layout.add_fixed_item(gui_app.width, 60)
+    input_item = main_layout.add_fixed_item(gui_app.width, 100)
+
+    key_layouts = []
+    for  keys in self._layout:
+      h_layout = HLayout(rl.Rectangle(0, 0, gui_app.width, 100))
+      for key in keys:
+        if key in self._key_icons:
+          texture = self._key_icons[key]
+          h_layout.add_fixed_item(texture.width, 100)
+        else:
+          h_layout.add_fixed_item(100, 100)
+      key_layouts
+
+
+    keyboard_layout = main_layout.add_layout(VLayout(rl.Rectangle(0, 0, gui_app.width, gui_app.height - 300)))
     gui_label(rl.Rectangle(rect.x, rect.y, rect.width, 95), title, 90, font_weight=FontWeight.BOLD)
     gui_label(rl.Rectangle(rect.x, rect.y + 95, rect.width, 60), sub_title, 55, font_weight=FontWeight.NORMAL)
     if gui_button(rl.Rectangle(rect.x + rect.width - 386, rect.y, 386, 125), "Cancel"):

@@ -15,24 +15,18 @@ def confirm_dialog(message: str, confirm_text: str, cancel_text: str = "Cancel")
   dialog_x = (gui_app.width - DIALOG_WIDTH) / 2
   dialog_y = (gui_app.height - DIALOG_HEIGHT) / 2
   dialog_rect = rl.Rectangle(dialog_x, dialog_y, DIALOG_WIDTH, DIALOG_HEIGHT)
-
   rl.draw_rectangle_rec(dialog_rect, BACKGROUND_COLOR)
 
   # Layout setup
   layout = VLayout(dialog_rect)
   layout.padding = Spacing(MARGIN, MARGIN, MARGIN, MARGIN)
   layout.spacing = 40
-
-  # Text area
   text_item = layout.add_stretch_item()
-  # Button row
+
   button_row = layout.add_layout(HLayout())
   button_row.spacing = MARGIN
-
-  button_width = (DIALOG_WIDTH - 3 * MARGIN) // 2
-
-  cancel_item = button_row.add_stretch_item(button_width, BUTTON_HEIGHT)
-  confirm_item = button_row.add_stretch_item(button_width, BUTTON_HEIGHT)
+  cancel_item = button_row.add_stretch_item(min_height=BUTTON_HEIGHT)
+  confirm_item = button_row.add_stretch_item(min_height=BUTTON_HEIGHT)
 
   layout.update_layout()
 
