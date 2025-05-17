@@ -79,32 +79,23 @@ class Keyboard:
 
     sub_title_item = main_layout.add_fixed_item(gui_app.width, 60)
     input_item = main_layout.add_fixed_item(gui_app.width, 100)
+    keys_item = main_layout.add_stretch_item()
 
-    key_layouts = []
-    for  keys in self._layout:
-      h_layout = HLayout(rl.Rectangle(0, 0, gui_app.width, 100))
-      for key in keys:
-        if key in self._key_icons:
-          texture = self._key_icons[key]
-          h_layout.add_fixed_item(texture.width, 100)
-        else:
-          h_layout.add_fixed_item(100, 100)
-      key_layouts
+    main_layout.update_layout()
 
-
-    keyboard_layout = main_layout.add_layout(VLayout(rl.Rectangle(0, 0, gui_app.width, gui_app.height - 300)))
-    gui_label(rl.Rectangle(rect.x, rect.y, rect.width, 95), title, 90, font_weight=FontWeight.BOLD)
-    gui_label(rl.Rectangle(rect.x, rect.y + 95, rect.width, 60), sub_title, 55, font_weight=FontWeight.NORMAL)
-    if gui_button(rl.Rectangle(rect.x + rect.width - 386, rect.y, 386, 125), "Cancel"):
+    gui_label(title_item.rect, title, 90, font_weight=FontWeight.BOLD)
+    gui_label(sub_title_item.rect, sub_title, 55, font_weight=FontWeight.NORMAL)
+    if gui_button(cancel_item.rect, "Cancel"):
       self.clear()
       return 0
 
     # Draw input box and password toggle
-    input_margin = 25
-    input_box_rect = rl.Rectangle(rect.x + input_margin, rect.y + 160, rect.width - input_margin, 100)
-    self._render_input_area(input_box_rect)
+    # input_margin = 25
+    # input_box_rect = rl.Rectangle(rect.x + input_margin, rect.y + 160, rect.width - input_margin, 100)
+    self._render_input_area(input_item.rect)
 
     h_space, v_space = 15, 15
+    rect = keys_item.rect
     row_y_start = rect.y + 300  # Starting Y position for the first row
     key_height = (rect.height - 300 - 3 * v_space) / 4
     key_max_width = (rect.width - (len(self._layout[2]) - 1) * h_space) / len(self._layout[2])
