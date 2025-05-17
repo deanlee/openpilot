@@ -27,6 +27,10 @@ class LayoutItem:
     self.stretch: float = 1.0
     self.margin = Spacing()
     self.alignment = (Alignment.START, Alignment.START)  # (horizontal, vertical)
+    self.visible: bool = True
+
+  def set_visible(self, visible: bool):
+    self.visible = visible
 
   def set_geometry(self, rect: rl.Rectangle):
     self.rect = rect
@@ -79,24 +83,25 @@ class Layout(LayoutItem):
 
 class HLayout(Layout):
   def update_layout(self):
-    if not self.items:
+    visible_items = [item for item in self.items if getattr(item, "visible", True)]
+    if not visible_items:
       return
 
     # Calculate available space
-    content_width = self.rect.width - self.padding.left - self.padding.right - self.spacing * (len(self.items) - 1)
+    content_width = self.rect.width - self.padding.left - self.padding.right - self.spacing * (len(visible_items) - 1)
     content_height = self.rect.height - self.padding.top - self.padding.bottom
 
     # Calculate stretch units
     total_fixed_width = sum(
-      item.fixed_size[0] + item.margin.left + item.margin.right for item in self.items if item.fixed_size
+      item.fixed_size[0] + item.margin.left + item.margin.right for item in visible_items if item.fixed_size
     )
-    total_stretch = sum(item.stretch for item in self.items if not item.fixed_size)
+    total_stretch = sum(item.stretch for item in visible_items if not item.fixed_size)
 
     stretch_unit = max(0, (content_width - total_fixed_width) / total_stretch) if total_stretch else 0
 
     # Position items
     x = self.rect.x + self.padding.left
-    for item in self.items:
+    for item in visible_items:
       # Calculate item width
       if item.fixed_size:
         width = item.fixed_size[0]
@@ -127,24 +132,25 @@ class HLayout(Layout):
 
 class VLayout(Layout):
   def update_layout(self):
-    if not self.items:
+    visible_items = [item for item in self.items if getattr(item, "visible", True)]
+    if not visible_items:
       return
 
     # Calculate available space
     content_width = self.rect.width - self.padding.left - self.padding.right
-    content_height = self.rect.height - self.padding.top - self.padding.bottom - self.spacing * (len(self.items) - 1)
+    content_height = self.rect.height - self.padding.top - self.padding.bottom - self.spacing * (len(visible_items) - 1)
 
     # Calculate stretch units
     total_fixed_height = sum(
-      item.fixed_size[1] + item.margin.top + item.margin.bottom for item in self.items if item.fixed_size
+      item.fixed_size[1] + item.margin.top + item.margin.bottom for item in visible_items if item.fixed_size
     )
-    total_stretch = sum(item.stretch for item in self.items if not item.fixed_size)
+    total_stretch = sum(item.stretch for item in visible_items if not item.fixed_size)
 
     stretch_unit = max(0, (content_height - total_fixed_height) / total_stretch) if total_stretch else 0
 
     # Position items
     y = self.rect.y + self.padding.top
-    for item in self.items:
+    for item in visible_items:
       # Calculate item height
       if item.fixed_size:
         height = item.fixed_size[1]
