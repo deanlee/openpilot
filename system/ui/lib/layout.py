@@ -62,8 +62,7 @@ class Layout(LayoutItem):
     self.items.append(item)
     return item
 
-  def add_layout(self) -> 'Layout':
-    layout = type(self)()
+  def add_layout(self, layout: 'Layout') -> 'Layout':
     self.add_item(layout)
     return layout
 
