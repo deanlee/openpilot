@@ -26,7 +26,7 @@ class LayoutItem:
     self.fixed_size: Optional[Tuple[float, float]] = None
     self.stretch: float = 1.0
     self.margin = Spacing()
-    self.alignment = (Alignment.START, Alignment.START)  # (horizontal, vertical)
+    self.alignment = (Alignment.START, Alignment.CENTER)  # (horizontal, vertical)
     self.visible: bool = True
 
   def set_visible(self, visible: bool):
@@ -105,8 +105,10 @@ class HLayout(Layout):
       # Calculate item width
       if item.fixed_size:
         width = item.fixed_size[0]
+        height = item.fixed_size[1]
       else:
         width = stretch_unit * item.stretch
+        height = item.size_hint()[1]
 
       # Apply margins
       x += item.margin.left
@@ -115,12 +117,13 @@ class HLayout(Layout):
       # Calculate vertical position based on alignment
       y = self.rect.y + self.padding.top + item.margin.top
       if item.alignment[1] == Alignment.CENTER:
-        y += (effective_height - item.size_hint()[1]) / 2
+        y += (effective_height - height) / 2
+        print(y)
       elif item.alignment[1] == Alignment.END:
-        y += effective_height - item.size_hint()[1]
+        y += effective_height - height
 
       # Set item geometry
-      item.set_geometry(rl.Rectangle(x, y, width, effective_height))
+      item.set_geometry(rl.Rectangle(x, y, width, height))
 
       # Update position for next item
       x += width + item.margin.right + self.spacing
