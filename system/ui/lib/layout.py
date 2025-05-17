@@ -71,8 +71,9 @@ class Layout(LayoutItem):
     item.fixed_size = (width, height)
     return self.add_item(item)
 
-  def add_stretch(self, stretch: float = 1.0) -> LayoutItem:
+  def add_stretch_item(self, min_width = 0, min_height = 0, stretch: float = 1.0) -> LayoutItem:
     item = LayoutItem()
+    item.min_size = (min_width, min_height)
     item.stretch = stretch
     return self.add_item(item)
 
@@ -122,7 +123,6 @@ class HLayout(Layout):
       y = self.rect.y + self.padding.top + item.margin.top
       if item.alignment[1] == Alignment.CENTER:
         y += (effective_height - height) / 2
-        print(y)
       elif item.alignment[1] == Alignment.END:
         y += effective_height - height
 

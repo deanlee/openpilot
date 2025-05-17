@@ -24,15 +24,15 @@ def confirm_dialog(message: str, confirm_text: str, cancel_text: str = "Cancel")
   layout.spacing = 40
 
   # Text area
-  text_item = layout.add_stretch()
+  text_item = layout.add_stretch_item()
   # Button row
   button_row = layout.add_layout(HLayout())
   button_row.spacing = MARGIN
 
   button_width = (DIALOG_WIDTH - 3 * MARGIN) // 2
 
-  cancel_item = button_row.add_fixed_item(button_width, BUTTON_HEIGHT)
-  confirm_item = button_row.add_fixed_item(button_width, BUTTON_HEIGHT)
+  cancel_item = button_row.add_stretch_item(button_width, BUTTON_HEIGHT)
+  confirm_item = button_row.add_stretch_item(button_width, BUTTON_HEIGHT)
 
   layout.update_layout()
 
