@@ -138,6 +138,7 @@ class WifiManagerUI:
     status_item.set_visible(status_text != "")
     forget_item.set_visible(not status_item.visible and network.is_saved)
     layout.update_layout()
+
     print(rect.y, ssid_item.rect.y, forget_item.rect.y)
     gui_label(ssid_item.rect, network.ssid, 55)
     if status_item.visible:
