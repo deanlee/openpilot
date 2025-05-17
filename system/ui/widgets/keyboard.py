@@ -79,7 +79,7 @@ class Keyboard:
     # title_layout
     title_layout.fixed_size = (gui_app.width, 120)
     title_item = title_layout.add_stretch_item(0, 90)
-    cancel_item = title_layout.add_fixed_item(386, 90)
+    cancel_item = title_layout.add_fixed_item(386, 120)
 
     sub_title_item = main_layout.add_fixed_item(gui_app.width, 60)
     input_item = main_layout.add_fixed_item(gui_app.width, 100)
