@@ -1,7 +1,7 @@
 import pyray as rl
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.button import gui_button
-from openpilot.system.ui.lib.layout import HLayout, VLayout
+from openpilot.system.ui.lib.layout import HLayout, VLayout, Spacing
 from openpilot.system.ui.lib.inputbox import InputBox
 from openpilot.system.ui.lib.label import gui_label
 
@@ -72,8 +72,12 @@ class Keyboard:
   def render(self, title: str, sub_title: str):
     # rect = rl.Rectangle(CONTENT_MARGIN, CONTENT_MARGIN, gui_app.width - 2 * CONTENT_MARGIN, gui_app.height - 2 * CONTENT_MARGIN)
     main_layout = VLayout(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
+    main_layout.padding = Spacing(CONTENT_MARGIN, CONTENT_MARGIN, CONTENT_MARGIN, CONTENT_MARGIN)
+    main_layout.spacing = 25
 
-    title_layout = main_layout.add_layout(HLayout(rl.Rectangle(0, 0, gui_app.width, 90)))
+    title_layout = main_layout.add_layout(HLayout(rl.Rectangle(0, 0, gui_app.width, 120)))
+    # title_layout
+    title_layout.fixed_size = (gui_app.width, 120)
     title_item = title_layout.add_stretch_item(0, 90)
     cancel_item = title_layout.add_fixed_item(386, 90)
 
@@ -82,6 +86,7 @@ class Keyboard:
     keys_item = main_layout.add_stretch_item()
 
     main_layout.update_layout()
+    print(title_layout.rect.x, title_item.rect.y, title_layout.rect.width, title_layout.rect.height)
 
     gui_label(title_item.rect, title, 90, font_weight=FontWeight.BOLD)
     gui_label(sub_title_item.rect, sub_title, 55, font_weight=FontWeight.NORMAL)
@@ -96,8 +101,8 @@ class Keyboard:
 
     h_space, v_space = 15, 15
     rect = keys_item.rect
-    row_y_start = rect.y + 300  # Starting Y position for the first row
-    key_height = (rect.height - 300 - 3 * v_space) / 4
+    row_y_start = rect.y# + 300  # Starting Y position for the first row
+    key_height = (rect.height - 3 * v_space) / 4
     key_max_width = (rect.width - (len(self._layout[2]) - 1) * h_space) / len(self._layout[2])
 
     # Iterate over the rows of keys in the current layout

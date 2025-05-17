@@ -166,8 +166,10 @@ class VLayout(Layout):
       # Calculate item height
       if item.fixed_size:
         height = item.fixed_size[1]
+        print('fixed height', height)
       else:
         height = stretch_unit * item.stretch
+        print('stretc', height)
 
       # Apply margins
       y += item.margin.top
