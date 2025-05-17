@@ -75,18 +75,18 @@ class Keyboard:
     main_layout.padding = Spacing(CONTENT_MARGIN, CONTENT_MARGIN, CONTENT_MARGIN, CONTENT_MARGIN)
     main_layout.spacing = 25
 
-    title_layout = main_layout.add_layout(HLayout(rl.Rectangle(0, 0, gui_app.width, 120)))
-    # title_layout
-    title_layout.fixed_size = (gui_app.width, 120)
-    title_item = title_layout.add_stretch_item(0, 90)
-    cancel_item = title_layout.add_fixed_item(386, 120)
+    head_layout = main_layout.add_layout(HLayout(rl.Rectangle(0, 0, gui_app.width, 120)))
+    head_layout.fixed_size = (gui_app.width, 120)
 
-    sub_title_item = main_layout.add_fixed_item(gui_app.width, 60)
+    tt_layout = head_layout.add_layout(VLayout(rl.Rectangle(0, 0, gui_app.width, 120)))
+    title_item = tt_layout.add_fixed_item(0, 90)
+    cancel_item = head_layout.add_fixed_item(386, 120)
+    sub_title_item = tt_layout.add_fixed_item(gui_app.width, 60)
+
     input_item = main_layout.add_fixed_item(gui_app.width, 100)
     keys_item = main_layout.add_stretch_item()
 
     main_layout.update_layout()
-    print(title_layout.rect.x, title_item.rect.y, title_layout.rect.width, title_layout.rect.height)
 
     gui_label(title_item.rect, title, 90, font_weight=FontWeight.BOLD)
     gui_label(sub_title_item.rect, sub_title, 55, font_weight=FontWeight.NORMAL)
