@@ -119,7 +119,6 @@ class WifiManagerUI:
   def _draw_network_item(self, rect, network: NetworkInfo, clicked: bool):
     layout = HLayout()
     layout.spacing = 50
-    layout.alignment = ((Alignment.START, Alignment.CENTER) )
     ssid_item = layout.add_stretch()
     status_item = layout.add_fixed_item(410, ITEM_HEIGHT)
     forget_item = layout.add_fixed_item(self.btn_width, 80)
