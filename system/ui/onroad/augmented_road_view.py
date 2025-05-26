@@ -118,6 +118,13 @@ class AugmentedRoadView(CameraView):
     matrix.m3 = -x_offset / w * 2
     matrix.m7 = -y_offset / h * 2
     matrix.m10 = matrix.m15 = 1.0
+
+
+    # matrix.m0 = 0
+    # matrix.m5 = 0
+    # matrix.m3 = 0
+    # matrix.m7 = 0
+    # matrix.m10 = 0
     return matrix
 
 
