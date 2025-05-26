@@ -10,6 +10,14 @@ CLIP_MARGIN = 500
 MIN_DRAW_DISTANCE = 10.0
 MAX_DRAW_DISTANCE = 100.0
 
+# void DrawTexturePoly(Texture2D texture, Vector2 center, Vector2 *points, Vector2 *texcoords, int pointsCount, Color tint); // Draw a textured polygon
+
+# the down side of this is that it is only suitable for shapes where there is a unobstructed line between the centre points and the points defining the polygon, theres a name for that sort of poly but I can't bring it to mind!
+
+
+
+
+
 
 class ModelRenderer:
   """
@@ -46,36 +54,173 @@ class ModelRenderer:
     self.max_vertices = 64  # Maximum vertices in any polygon we'll render
     self._init_polygon_mesh()
 
+  def draw_polygon(self, points, color):
+    # print('hhh')
+    """Draw a filled polygon with even-odd fill rule using shader"""
+    if len(points) < 3:
+      return
+
+    # For very simple polygons (3-4 vertices), use triangle fan directly
+    if len(points) <= 4:
+      vertices = []
+      for p in points:
+        vertices.append(rl.Vector2(p[0], p[1]))
+
+      rl.draw_triangle_fan(vertices, len(vertices), color)
+
+      # Draw outline
+      outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+      for i in range(len(vertices)):
+        start = vertices[i]
+        end = vertices[(i + 1) % len(vertices)]
+        rl.draw_line_ex(start, end, 1.0, outline_color)
+
+      return
+
+    # Find bounding box of polygon
+    min_x = min(p[0] for p in points)
+    min_y = min(p[1] for p in points)
+    max_x = max(p[0] for p in points)
+    max_y = max(p[1] for p in points)
+
+    # Create a rectangle covering the polygon bounds
+    rect_vertices = [
+      rl.Vector2(min_x, min_y),
+      rl.Vector2(max_x, min_y),
+      rl.Vector2(max_x, max_y),
+      rl.Vector2(min_x, max_y),
+    ]
+
+    # Create array of polygon vertices for shader
+    point_count = min(len(points), 64)  # Limit to max vertices shader can handle
+    poly_points = rl.ffi.new("float[]", point_count * 2)
+
+    for i in range(point_count):
+      poly_points[i * 2] = float(points[i][0])
+      poly_points[i * 2 + 1] = float(points[i][1])
+
+    # Begin shader mode
+    rl.begin_shader_mode(self.polygon_shader)
+
+    # Set shader uniforms
+    rl.set_shader_value(self.polygon_shader, self.poly_points_loc, poly_points, rl.SHADER_UNIFORM_VEC2)
+    rl.set_shader_value(
+      self.polygon_shader, self.point_count_loc, rl.ffi.new("int[]", [point_count]), rl.SHADER_UNIFORM_INT
+    )
+
+    # Draw a rectangle that covers the polygon bounds
+    # The shader will determine which pixels to fill based on even-odd rule
+    rl.draw_triangle_fan(rect_vertices, 4, color)
+
+    # End shader mode
+    rl.end_shader_mode()
+
+    # Draw outline for better definition
+    vertices = []
+    for p in points[:point_count]:
+      vertices.append(rl.Vector2(p[0], p[1]))
+
+    outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+    for i in range(len(vertices)):
+      start = vertices[i]
+      end = vertices[(i + 1) % len(vertices)]
+      rl.draw_line_ex(start, end, 1.0, outline_color)
+
+  # def _load_polygon_shader(self):
+  #   """Load shader for polygon rendering"""
+  #   # Vertex shader with gradient support
+  #   vs_code = """
+  #   #version 330
+  #   in vec2 vertexPosition;
+  #   in vec4 vertexColor;
+  #   out vec4 fragColor;
+  #   uniform mat4 mvp;
+
+  #   void main() {
+  #       gl_Position = mvp * vec4(vertexPosition, 0.0, 1.0);
+  #       fragColor = vertexColor;
+  #   }
+  #   """
+
+  #   # Fragment shader with even-odd fill rule
+  #   fs_code = """
+  #   #version 330
+  #   in vec4 fragColor;
+  #   out vec4 finalColor;
+
+  #   void main() {
+  #       finalColor = fragColor;
+  #   }
+  #   """
+
+  #   # Create shader
+  #   shader = rl.load_shader_from_memory(vs_code, fs_code)
+  #   return shader
+
   def _load_polygon_shader(self):
-    """Load shader for polygon rendering"""
-    # Vertex shader with gradient support
+    """Load shader for polygon rendering with even-odd fill rule"""
+    # Vertex shader passes position for point-in-polygon test
     vs_code = """
-    #version 330
-    in vec2 vertexPosition;
-    in vec4 vertexColor;
-    out vec4 fragColor;
-    uniform mat4 mvp;
+      #version 330
+      in vec3 vertexPosition;
+      in vec4 vertexColor;
+      in vec2 vertexTexCoord;
 
-    void main() {
-        gl_Position = mvp * vec4(vertexPosition, 0.0, 1.0);
-        fragColor = vertexColor;
-    }
-    """
+      uniform mat4 mvp;
 
-    # Fragment shader with even-odd fill rule
+      out vec4 fragColor;
+      out vec2 fragPos;
+
+      void main() {
+          gl_Position = mvp * vec4(vertexPosition, 1.0);
+          fragColor = vertexColor;
+          fragPos = vertexPosition.xy;  // Pass position to fragment shader
+      }
+      """
+
+    # Fragment shader implements point-in-polygon test
     fs_code = """
-    #version 330
-    in vec4 fragColor;
-    out vec4 finalColor;
+      #version 330
+      in vec4 fragColor;
+      in vec2 fragPos;
 
-    void main() {
-        finalColor = fragColor;
-    }
-    """
+      uniform vec2 polyPoints[64];  // Max vertices in polygon
+      uniform int pointCount;
+
+      out vec4 finalColor;
+
+      void main() {
+          // Implement even-odd fill rule using ray casting algorithm
+          bool inside = false;
+
+          // Cast ray from current fragment to the right
+          for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
+              // Check if edge crosses horizontal ray from point
+              if (((polyPoints[i].y > fragPos.y) != (polyPoints[j].y > fragPos.y)) &&
+                  (fragPos.x < polyPoints[i].x + (polyPoints[j].x - polyPoints[i].x) *
+                  (fragPos.y - polyPoints[i].y) / (polyPoints[j].y - polyPoints[i].y))) {
+                  inside = !inside;
+              }
+          }
+
+          // Set color based on whether point is inside polygon
+          if (inside) {
+              finalColor = fragColor;
+          } else {
+              discard;  // Don't draw outside polygon
+          }
+      }
+      """
 
     # Create shader
     shader = rl.load_shader_from_memory(vs_code, fs_code)
+
+    # Get shader uniform locations for later use
+    self.poly_points_loc = rl.get_shader_location(shader, "polyPoints")
+    self.point_count_loc = rl.get_shader_location(shader, "pointCount")
+
     return shader
+
 
   def _init_polygon_mesh(self):
     """Initialize mesh for polygon rendering"""
@@ -103,7 +248,7 @@ class ModelRenderer:
     # Upload mesh to GPU
     rl.upload_mesh(self.polygon_mesh, False)
 
-  def draw_polygon(self, points, color):
+  def draw_polygondd(self, points, color):
     """Draw a filled polygon with the given points and color using a shader"""
     if len(points) < 3:
       return
@@ -275,83 +420,101 @@ class ModelRenderer:
   def draw_path(self, model, height):
     """Draw the path polygon with gradient based on acceleration"""
     if not self.track_vertices:
-      return
+        return
 
     if self.experimental_mode:
-      # Draw with acceleration coloring
-      acceleration = model.acceleration.x
-      max_len = min(len(self.track_vertices) // 2, len(acceleration))
+        # Draw with acceleration coloring
+        acceleration = model.acceleration.x
+        max_len = min(len(self.track_vertices) // 2, len(acceleration))
 
-      # Create gradient colors for path sections
-      for i in range(max_len):
-        track_idx = max_len - i - 1  # flip idx to start from bottom right
+        # Find midpoint index for polygon
+        mid_point = len(self.track_vertices) // 2
 
-        # Skip points out of frame
-        if self.track_vertices[track_idx][1] < 0 or self.track_vertices[track_idx][1] > height:
-          continue
+        # For acceleration-based coloring, process segments separately
+        left_side = self.track_vertices[:mid_point]
+        right_side = self.track_vertices[mid_point:][::-1]  # Reverse for proper winding
 
-        # Calculate color based on acceleration
-        lin_grad_point = (height - self.track_vertices[track_idx][1]) / height
+        # Create segments for gradient coloring
+        segments = []
+        segment_colors = []
 
-        # speed up: 120, slow down: 0
-        path_hue = max(min(60 + acceleration[i] * 35, 120), 0)
-        path_hue = int(path_hue * 100 + 0.5) / 100
+        for i in range(max_len - 1):
+            if i >= len(left_side) - 1 or i >= len(right_side) - 1:
+                break
 
-        saturation = min(abs(acceleration[i] * 1.5), 1)
-        lightness = self.map_val(saturation, 0.0, 1.0, 0.95, 0.62)
-        alpha = self.map_val(lin_grad_point, 0.75 / 2.0, 0.75, 0.4, 0.0)
+            track_idx = max_len - i - 1  # flip idx to start from bottom right
 
-        # Use HSL to RGB conversion
-        color = self.hsla_to_color(path_hue / 360.0, saturation, lightness, alpha)
+            # Skip points out of frame
+            if (left_side[track_idx][1] < 0 or left_side[track_idx][1] > height):
+                continue
 
-        # Draw segment
-        # (This is simplified - a full implementation would create a gradient fill)
-        segment = self.track_vertices[track_idx : track_idx + 2] + self.track_vertices[-track_idx - 2 : -track_idx]
-        self.draw_polygon(segment, color)
+            # Calculate color based on acceleration
+            lin_grad_point = (height - left_side[track_idx][1]) / height
 
-        # Skip a point, unless next is last
-        i += 1 if i + 2 < max_len else 0
+            # speed up: 120, slow down: 0
+            path_hue = max(min(60 + acceleration[i] * 35, 120), 0)
+            path_hue = int(path_hue * 100 + 0.5) / 100
+
+            saturation = min(abs(acceleration[i] * 1.5), 1)
+            lightness = self.map_val(saturation, 0.0, 1.0, 0.95, 0.62)
+            alpha = self.map_val(lin_grad_point, 0.75 / 2.0, 0.75, 0.4, 0.0)
+
+            # Use HSL to RGB conversion
+            color = self.hsla_to_color(path_hue / 360.0, saturation, lightness, alpha)
+
+            # Create quad segment
+            segment = [
+                left_side[track_idx],
+                left_side[track_idx-1],
+                right_side[track_idx-1],
+                right_side[track_idx]
+            ]
+
+            segments.append(segment)
+            segment_colors.append(color)
+
+        # Draw each segment with its color
+        for i, (segment, color) in enumerate(zip(segments, segment_colors)):
+            self.draw_polygon(segment, color)
     else:
-      # Draw with throttle/no throttle gradient
-      # Get throttle state
-      # allow_throttle = False
-      allow_throttle = self.sm['longitudinalPlan'].allowThrottle or not self.longitudinal_control
+        # Draw with throttle/no throttle gradient
+        # Get throttle state
+        allow_throttle = self.sm['longitudinalPlan'].allowThrottle or not self.longitudinal_control
 
-      # Start transition if throttle state changes
-      if allow_throttle != self.prev_allow_throttle:
-        self.prev_allow_throttle = allow_throttle
-        self.blend_factor = max(1.0 - self.blend_factor, 0.0)
+        # Start transition if throttle state changes
+        if allow_throttle != self.prev_allow_throttle:
+            self.prev_allow_throttle = allow_throttle
+            self.blend_factor = max(1.0 - self.blend_factor, 0.0)
 
-      # Update blend factor
-      if self.blend_factor < 1.0:
-        self.blend_factor = min(self.blend_factor + 0.1, 1.0)
+        # Update blend factor
+        if self.blend_factor < 1.0:
+            self.blend_factor = min(self.blend_factor + 0.1, 1.0)
 
-      # Define gradient colors
-      throttle_colors = [
-        self.hsla_to_color(148 / 360, 0.94, 0.51, 0.4),
-        self.hsla_to_color(112 / 360, 1.0, 0.68, 0.35),
-        self.hsla_to_color(112 / 360, 1.0, 0.68, 0.0),
-      ]
+        # Define gradient colors
+        throttle_colors = [
+            self.hsla_to_color(148 / 360, 0.94, 0.51, 0.4),
+            self.hsla_to_color(112 / 360, 1.0, 0.68, 0.35),
+            self.hsla_to_color(112 / 360, 1.0, 0.68, 0.0),
+        ]
 
-      no_throttle_colors = [
-        self.hsla_to_color(148 / 360, 0.0, 0.95, 0.4),
-        self.hsla_to_color(112 / 360, 0.0, 0.95, 0.35),
-        self.hsla_to_color(112 / 360, 0.0, 0.95, 0.0),
-      ]
+        no_throttle_colors = [
+            self.hsla_to_color(148 / 360, 0.0, 0.95, 0.4),
+            self.hsla_to_color(112 / 360, 0.0, 0.95, 0.35),
+            self.hsla_to_color(112 / 360, 0.0, 0.95, 0.0),
+        ]
 
-      begin_colors = no_throttle_colors if allow_throttle else throttle_colors
-      end_colors = throttle_colors if allow_throttle else no_throttle_colors
+        begin_colors = no_throttle_colors if allow_throttle else throttle_colors
+        end_colors = throttle_colors if allow_throttle else no_throttle_colors
 
-      # Blend colors based on transition
-      colors = [
-        self.blend_colors(begin_colors[0], end_colors[0], self.blend_factor),
-        self.blend_colors(begin_colors[1], end_colors[1], self.blend_factor),
-        self.blend_colors(begin_colors[2], end_colors[2], self.blend_factor),
-      ]
+        # Blend colors based on transition
+        colors = [
+            self.blend_colors(begin_colors[0], end_colors[0], self.blend_factor),
+            self.blend_colors(begin_colors[1], end_colors[1], self.blend_factor),
+            self.blend_colors(begin_colors[2], end_colors[2], self.blend_factor),
+        ]
 
-      # Draw path with gradient
-      # (Simplified implementation - would need more complex gradient in real implementation)
-      self.draw_polygon(self.track_vertices, colors[0])
+        # Draw path with gradient
+        self.draw_polygon_gradient(self.track_vertices, colors)
 
   def draw_lead(self, lead_data, vd, rect):
     """Draw lead vehicle indicator"""
@@ -406,6 +569,7 @@ class ModelRenderer:
     # Return 2D point with perspective divide
     screen_pt = (pt[0] / pt[2], pt[1] / pt[2])
 
+    # return screen_pt
     # Check if point is in clip region
     if (
       self.clip_region.x <= screen_pt[0] <= self.clip_region.x + self.clip_region.width
@@ -599,6 +763,33 @@ class ModelRenderer:
 
     return triangles
 
+  def is_simple_polygon(self, points):
+    """Check if this is likely a simple convex or nearly-convex polygon"""
+    # Simple heuristic: check if polygon is roughly convex
+    # by calculating cross products of consecutive edges
+    if len(points) < 4:
+        return True
+
+    last_sign = None
+    sign_changes = 0
+
+    for i in range(len(points)):
+        a = points[i]
+        b = points[(i + 1) % len(points)]
+        c = points[(i + 2) % len(points)]
+
+        # Cross product to determine convexity
+        cross = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+
+        # Check sign change
+        current_sign = cross > 0
+        if last_sign is not None and current_sign != last_sign:
+            sign_changes += 1
+        last_sign = current_sign
+
+    # If only a few sign changes, it's mostly convex
+    return sign_changes <= 2
+
   def is_ear(self, vertices, prev, curr, next_idx):
     """Check if the vertex at index curr forms an ear with its adjacent vertices"""
     # Get the three vertices that form the potential ear
@@ -617,6 +808,95 @@ class ModelRenderer:
           return False
 
     return True
+
+  def draw_polygon_gradient(self, points, colors):
+    """Draw a filled polygon with gradient coloring using shader"""
+    if len(points) < 3:
+        return
+
+    # For simple polygons, use the built-in gradient methods
+    if len(points) <= 4:
+        vertices = []
+        for p in points:
+            vertices.append(rl.Vector2(p[0], p[1]))
+
+        # Find midpoint
+        mid_x = sum(p[0] for p in points) / len(points)
+        mid_y = sum(p[1] for p in points) / len(points)
+
+        # Draw gradient rectangle using Raylib's built-in function
+        rl.draw_rectangle_gradient_v(
+            int(min(p[0] for p in points)),
+            int(min(p[1] for p in points)),
+            int(max(p[0] for p in points) - min(p[0] for p in points)),
+            int(max(p[1] for p in points) - min(p[1] for p in points)),
+            colors[0],
+            colors[-1]
+        )
+
+        # Clip to polygon shape by using stencil buffer
+        rl.rl_enable_stencil_test()
+        rl.rl_clear_stencil_buffer(0)
+        rl.rl_stencil_func(0x0207, 1, 0xFF)  # GL_EQUAL
+        rl.rl_stencil_op(0x1E00, 0x1E00, 0x1E01)  # GL_KEEP, GL_KEEP, GL_REPLACE
+
+        # Draw polygon to stencil buffer
+        rl.draw_triangle_fan(vertices, len(vertices), rl.Color(255, 255, 255, 255))
+
+        # Draw outline
+        outline_color = rl.Color(max(0, colors[0].r - 15), max(0, colors[0].g - 15), max(0, colors[0].b - 15), colors[0].a)
+        for i in range(len(vertices)):
+            start = vertices[i]
+            end = vertices[(i + 1) % len(vertices)]
+            rl.draw_line_ex(start, end, 1.0, outline_color)
+
+        rl.rl_disable_stencil_test()
+        return
+
+    # For path polygon with gradient, use a special approach:
+    # Split the polygon into multiple segments and color each with gradient steps
+    if len(points) >= 6:  # Path-like polygon with enough points for segments
+        # Assume path polygon has left side and right side like your track_vertices
+        mid_point = len(points) // 2
+        left_side = points[:mid_point]
+        right_side = points[mid_point:][::-1]  # Reverse right side
+
+        # Create segments
+        segments = []
+        for i in range(len(left_side) - 1):
+            if i < len(right_side) - 1:
+                segment = [
+                    left_side[i],
+                    left_side[i+1],
+                    right_side[i+1],
+                    right_side[i]
+                ]
+                segments.append(segment)
+
+        # Calculate color for each segment
+        segment_colors = []
+        for i in range(len(segments)):
+            t = i / max(1, len(segments) - 1)
+            # Interpolate between gradient colors
+            if len(colors) == 2:
+                color = self.blend_colors(colors[0], colors[1], t)
+            elif len(colors) == 3:
+                if t < 0.5:
+                    color = self.blend_colors(colors[0], colors[1], t * 2)
+                else:
+                    color = self.blend_colors(colors[1], colors[2], (t - 0.5) * 2)
+            else:
+                color = colors[0]  # Default to first color
+            segment_colors.append(color)
+
+        # Draw each segment with its color
+        for i, segment in enumerate(segments):
+            self.draw_polygon(segment, segment_colors[i])
+
+        return
+
+    # Fall back to non-gradient fill for complex polygons
+    self.draw_polygon(points, colors[0])
 
   def is_convex(self, a, b, c):
     """Check if the angle at vertex b is convex"""
