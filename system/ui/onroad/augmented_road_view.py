@@ -40,26 +40,8 @@ class AugmentedRoadView(CameraView):
     # - Lead vehicle indicators
     # - Additional features
      # Update model renderer transformation
-    if self.device_camera:
-      # Calculate the car space to normalized image space transformation
-      intrinsic = self.device_camera.fcam.intrinsics if self.is_wide_camera else self.device_camera.ecam.intrinsics
-      calibration = self.view_from_wide_calib if self.is_wide_camera else self.view_from_calib
-
-      # Create the projection matrix
-      fx, fy = intrinsic[0, 0], intrinsic[1, 1]
-      cx, cy = intrinsic[0, 2], intrinsic[1, 2]
-
-      sz = max(rect.width, rect.height)
-      sf_x = rect.width / sz
-      sf_y = rect.height / sz
-
-      # Create combined transform matrix (car space -> image space)
-      car_to_image = np.array([[fx * sf_x, 0.0, cx * sf_x], [0.0, fy * sf_y, cy * sf_y], [0.0, 0.0, 1.0]]) @ calibration
-
-      # self.model_renderer.set_transform(car_to_image)
-
-      # Draw model visualization
-      self.model_renderer.draw(rect, self.sm)
+    # if self.device_camera:
+    self.model_renderer.draw(rect, self.sm)
 
   def _update_calibration(self):
     # Update device camera if not already set
@@ -117,6 +99,7 @@ class AugmentedRoadView(CameraView):
         [0.0, zoom, (h / 2 - y_offset) - (cy * zoom)],
         [0.0, 0.0, 1.0]
     ])
+    # print(video_transform, calib_transform)
 
     # Set the transform on the model renderer
     # This matches model.setTransform(video_transform * calib_transform) in C++

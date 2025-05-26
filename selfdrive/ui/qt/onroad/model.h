@@ -8,7 +8,9 @@
 class ModelRenderer {
 public:
   ModelRenderer() {}
-  void setTransform(const Eigen::Matrix3f &transform) { car_space_transform = transform; }
+  void setTransform(const Eigen::Matrix3f &transform) {
+    printf("Setting car space transform: %f %f %f\n", transform(0, 0), transform(1, 1), transform(2, 2));
+    car_space_transform = transform; }
   void draw(QPainter &painter, const QRect &surface_rect);
 
 private:
