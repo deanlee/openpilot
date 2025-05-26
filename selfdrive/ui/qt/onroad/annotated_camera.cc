@@ -37,7 +37,7 @@ void AnnotatedCameraWidget::initializeGL() {
   prev_draw_t = millis_since_boot();
   setBackgroundColor(bg_colors[STATUS_DISENGAGED]);
 }
-
+#include <iostream>
 mat4 AnnotatedCameraWidget::calcFrameMatrix() {
   // Project point at "infinity" to compute x and y offsets
   // to ensure this ends up in the middle of the screen
@@ -86,12 +86,20 @@ mat4 AnnotatedCameraWidget::calcFrameMatrix() {
 
   float zx = zoom * 2 * center_x / w;
   float zy = zoom * 2 * center_y / h;
-  return mat4{{
+
+  a = mat4{{
     zx, 0.0, 0.0, -x_offset / w * 2,
     0.0, zy, 0.0, y_offset / h * 2,
     0.0, 0.0, 1.0, 0.0,
     0.0, 0.0, 0.0, 1.0,
   }};
+  // Print matrix a for debugging
+  std::cout << "Matrix a: " << std::endl;
+  std::cout << "[[" << a.v[0][0] << ", " << a.v[0][1] << ", " << a.v[0][2] << ", " << a.v[0][3] << "]," << std::endl;
+  std::cout << " [" << a.v[1][0] << ", " << a.v[1][1] << ", " << a.v[1][2] << ", " << a.v[1][3] << "]," << std::endl;
+  std::cout << " [" << a.v[2][0] << ", " << a.v[2][1] << ", " << a.v[2][2] << ", " << a.v[2][3] << "]," << std::endl;
+  std::cout << " [" << a.v[3][0] << ", " << a.v[3][1] << ", " << a.v[3][2] << ", " << a.v[3][3] << "]]" << std::endl;
+  return a;
 }
 
 void AnnotatedCameraWidget::paintGL() {

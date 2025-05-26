@@ -119,7 +119,12 @@ class AugmentedRoadView(CameraView):
     matrix.m7 = -y_offset / h * 2
     matrix.m10 = matrix.m15 = 1.0
 
-
+    # Debug print of the matrix values
+    # print(f"Matrix values:")
+    # print(f"m0: {matrix.m0:.4f}, m1: {matrix.m1:.4f}, m2: {matrix.m2:.4f}, m3: {matrix.m3:.4f}")
+    # print(f"m4: {matrix.m4:.4f}, m5: {matrix.m5:.4f}, m6: {matrix.m6:.4f}, m7: {matrix.m7:.4f}")
+    # print(f"m8: {matrix.m8:.4f}, m9: {matrix.m9:.4f}, m10: {matrix.m10:.4f}, m11: {matrix.m11:.4f}")
+    # print(f"m12: {matrix.m12:.4f}, m13: {matrix.m13:.4f}, m14: {matrix.m14:.4f}, m15: {matrix.m15:.4f}")
     # matrix.m0 = 0
     # matrix.m5 = 0
     # matrix.m3 = 0
