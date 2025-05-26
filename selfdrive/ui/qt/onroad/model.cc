@@ -21,6 +21,7 @@ void ModelRenderer::draw(QPainter &painter, const QRect &surface_rect) {
       sm.rcv_frame("modelV2") < s->scene.started_frame) {
     return;
   }
+  printf("%d %d\n\n", surface_rect.width(), surface_rect.height());
 
   clip_region = surface_rect.adjusted(-CLIP_MARGIN, -CLIP_MARGIN, CLIP_MARGIN, CLIP_MARGIN);
   experimental_mode = sm["selfdriveState"].getSelfdriveState().getExperimentalMode();
