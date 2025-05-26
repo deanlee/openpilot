@@ -638,3 +638,4 @@ class ModelRenderer:
 
     # Fall back to non-gradient fill for complex polygons
     self.draw_polygon(points, colors[0])
+
