@@ -2,14 +2,18 @@
 
 #include <QPainter>
 #include <QPolygonF>
-
+#include <iostream>
 #include "selfdrive/ui/ui.h"
 
 class ModelRenderer {
 public:
   ModelRenderer() {}
   void setTransform(const Eigen::Matrix3f &transform) {
-    printf("Setting car space transform: %f %f %f\n", transform(0, 0), transform(1, 1), transform(2, 2));
+    // Format and print the transform matrix for debugging purposes
+    std::cout << "Transform matrix:\n"
+          << transform(0, 0) << " " << transform(0, 1) << " " << transform(0, 2) << "\n"
+          << transform(1, 0) << " " << transform(1, 1) << " " << transform(1, 2) << "\n"
+          << transform(2, 0) << " " << transform(2, 1) << " " << transform(2, 2) << std::endl;
     car_space_transform = transform; }
   void draw(QPainter &painter, const QRect &surface_rect);
 
