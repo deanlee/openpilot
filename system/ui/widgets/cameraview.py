@@ -121,24 +121,16 @@ class CameraView:
       return
 
     transform = self._calc_frame_matrix(rect)
-    # src_rect = rl.Rectangle(0, 0, float(self.frame.width), float(self.frame.height))
-    # scale_x = rect.width * transform.m0
-    # scale_y = rect.height * transform.m5
-
-    # x_offset = rect.x + (rect.width - scale_x) / 2
-    # y_offset = rect.y + (rect.height - scale_y) / 2
-
-       # Calculate scaled dimensions that maintain aspect ratio
     src_rect = rl.Rectangle(0, 0, float(self.frame.width), float(self.frame.height))
 
-    # Use the full destination rectangle - transformation will be applied via shader
-    dst_rect = rect
+    scale_x = rect.width * transform.m0
+    scale_y = rect.height * transform.m5
 
-    # Create destination rectangle that maintains aspect ratio
-    # dst_rect = rl.Rectangle(x_offset, y_offset, scale_x, scale_y)
+    x_offset = rect.x + (rect.width - scale_x) / 2
+    y_offset = rect.y + (rect.height - scale_y) / 2
+    # x_offset = -500
 
-    # Use full source rectangle - aspect ratio is handled by the destination rectangle
-    # src_rect = rl.Rectangle(0, 0, frame_width, frame_height)
+    dst_rect = rl.Rectangle(x_offset, y_offset, scale_x, scale_y)
 
 
 
@@ -146,7 +138,7 @@ class CameraView:
     if TICI:
       self._render_egl(src_rect, dst_rect)
     else:
-      self._render_textures(src_rect, dst_rect, transform)
+      self._render_textures(src_rect, dst_rect)
 
   def _render_egl(self, src_rect: rl.Rectangle, dst_rect: rl.Rectangle) -> None:
     """Render using EGL for direct buffer access"""
@@ -176,10 +168,10 @@ class CameraView:
     rl.draw_texture_pro(self.egl_texture, src_rect, dst_rect, rl.Vector2(0, 0), 0.0, rl.WHITE)
     rl.end_shader_mode()
 
-  def _render_textures(self, src_rect: rl.Rectangle, dst_rect: rl.Rectangle, transform: rl.Matrix) -> None:
+  def _render_textures(self, src_rect: rl.Rectangle, dst_rect: rl.Rectangle) -> None:
     """Render using texture copies"""
     if not self.texture_y or not self.texture_uv or self.frame is None:
-        return
+      return
 
     # Update textures with new frame data
     y_data = self.frame.data[: self.frame.uv_offset]
@@ -188,36 +180,10 @@ class CameraView:
     rl.update_texture(self.texture_y, rl.ffi.cast("void *", y_data.ctypes.data))
     rl.update_texture(self.texture_uv, rl.ffi.cast("void *", uv_data.ctypes.data))
 
-    # Set viewport to match destination rectangle
-    # rl.rl_viewport(int(dst_rect.x), int(dst_rect.y), int(dst_rect.width), int(dst_rect.height))
-
-    # Render with shader, passing the transformation matrix
+    # Render with shader
     rl.begin_shader_mode(self.shader)
-    rl.set_shader_value_matrix(self.shader, rl.get_shader_location(self.shader, "mvp"), transform)
     rl.set_shader_value_texture(self.shader, rl.get_shader_location(self.shader, "texture1"), self.texture_uv)
-
-    # Create a mesh to draw a quad that fills the viewport
-    rl.rl_begin(7)  # RL_QUADS
-    rl.rl_color4ub(255, 255, 255, 255)
-
-    # Bottom-left corner
-    rl.rl_tex_coord2f(0.0, 1.0)
-    rl.rl_vertex2f(-1.0, -1.0)
-
-    # Top-left corner
-    rl.rl_tex_coord2f(0.0, 0.0)
-    rl.rl_vertex2f(-1.0, 1.0)
-
-    # Top-right corner
-    rl.rl_tex_coord2f(1.0, 0.0)
-    rl.rl_vertex2f(1.0, 1.0)
-
-    # Bottom-right corner
-    rl.rl_tex_coord2f(1.0, 1.0)
-    rl.rl_vertex2f(1.0, -1.0)
-
-    rl.rl_end()
-
+    rl.draw_texture_pro(self.texture_y, src_rect, dst_rect, rl.Vector2(0, 0), 0.0, rl.WHITE)
     rl.end_shader_mode()
 
     # Reset viewport
