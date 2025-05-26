@@ -65,7 +65,7 @@ class AugmentedRoadView(CameraView):
       wide_from_device = rot_from_euler(calib.wideFromDeviceEuler)
       self.view_from_wide_calib = view_frame_from_device_frame @ wide_from_device @ device_from_calib
 
-  def _calc_frame_matrix(self, rect: rl.Rectangle) -> rl.Matrix:
+  def _calc_frame_matrix(self, rect: rl.Rectangle) -> np.ndarray:
     device_camera = self.device_camera or DEFAULT_DEVICE_CAMERA
     intrinsic = device_camera.ecam.intrinsics if self.is_wide_camera else device_camera.fcam.intrinsics
     calibration = self.view_from_wide_calib if self.is_wide_camera else self.view_from_calib
@@ -111,26 +111,11 @@ class AugmentedRoadView(CameraView):
     print('final transform\n', np.array2string(a, precision=6, suppress_small=True, separator=', '))
     self.model_renderer.set_transform(video_transform @ calib_transform)
 
-    # Create transform matrix
-    matrix = rl.Matrix()
-    matrix.m0 = zoom * 2 * cx / w
-    matrix.m5 = zoom * 2 * cy / h
-    matrix.m3 = -x_offset / w * 2
-    matrix.m7 = -y_offset / h * 2
-    matrix.m10 = matrix.m15 = 1.0
-
-    # Debug print of the matrix values
-    # print(f"Matrix values:")
-    # print(f"m0: {matrix.m0:.4f}, m1: {matrix.m1:.4f}, m2: {matrix.m2:.4f}, m3: {matrix.m3:.4f}")
-    # print(f"m4: {matrix.m4:.4f}, m5: {matrix.m5:.4f}, m6: {matrix.m6:.4f}, m7: {matrix.m7:.4f}")
-    # print(f"m8: {matrix.m8:.4f}, m9: {matrix.m9:.4f}, m10: {matrix.m10:.4f}, m11: {matrix.m11:.4f}")
-    # print(f"m12: {matrix.m12:.4f}, m13: {matrix.m13:.4f}, m14: {matrix.m14:.4f}, m15: {matrix.m15:.4f}")
-    # matrix.m0 = 0
-    # matrix.m5 = 0
-    # matrix.m3 = 0
-    # matrix.m7 = 0
-    # matrix.m10 = 0
-    return matrix
+    return np.array([
+      [zoom * 2 * cx / w, 0, -x_offset / w * 2],
+      [0, zoom * 2 * cy / h, -y_offset / h * 2],
+      [0, 0, 1.0]
+    ])
 
 
 if __name__ == "__main__":
