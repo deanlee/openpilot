@@ -14,6 +14,56 @@ MAX_DRAW_DISTANCE = 100.0
 # the down side of this is that it is only suitable for shapes where there is a unobstructed line between the centre points and the points defining the polygon, theres a name for that sort of poly but I can't bring it to mind!
 
 
+# GLSL fragment shader for odd-even filling
+fragment_shader_code = """
+#version 330
+in vec2 fragTexCoord;
+out vec4 finalColor;
+
+uniform vec2 points[100]; // Array of polygon vertices (max 100 points)
+uniform int pointCount;   // Number of points in polygon
+uniform vec4 fillColor;   // Fill color
+uniform vec2 resolution;  // Bounding box resolution
+
+bool isPointInsidePolygon(vec2 p) {
+    int crossings = 0;
+    for (int i = 0; i < pointCount; i++) {
+        vec2 p1 = points[i];
+        vec2 p2 = points[(i + 1) % pointCount];
+        if ((p1.y > p.y) != (p2.y > p.y)) {
+            float xIntersect = p1.x + (p2.x - p1.x) * (p.y - p1.y) / (p2.y - p1.y);
+            if (xIntersect > p.x) {
+                crossings++;
+            }
+        }
+    }
+    return (crossings % 2) == 1;
+}
+
+void main() {
+    vec2 pixel = fragTexCoord * resolution;
+    if (isPointInsidePolygon(pixel)) {
+        finalColor = fillColor;
+    } else {
+        finalColor = vec4(0.0, 0.0, 0.0, 0.0);
+    }
+}
+"""
+
+# Default vertex shader
+vertex_shader_code = """
+#version 330
+in vec3 vertexPosition;
+in vec2 vertexTexCoord;
+out vec2 fragTexCoord;
+uniform mat4 mvp;
+
+void main() {
+    fragTexCoord = vertexTexCoord;
+    gl_Position = mvp * vec4(vertexPosition, 1.0);
+}
+"""
+
 class ModelRenderer:
   """
   Renders road model visualization elements like path, lane lines,
@@ -43,6 +93,8 @@ class ModelRenderer:
 
     # Initialize shader for polygon rendering
     self.polygon_shader = self._load_polygon_shader()
+    self.my_shader = rl.load_shader_from_memory(vertex_shader_code, fragment_shader_code)
+    assert(self.my_shader.id != 0), "Failed to load shader"
 
   # def draw_polygon(self, points, color):
   #   # print('hhh')
@@ -104,6 +156,86 @@ class ModelRenderer:
 
   #   # End shader mode
   #   rl.end_shader_mode()
+
+  def draw_complex_polygon(self, points, color: rl.Color):
+    """Draw a complex polygon using shader-based even-odd fill rule"""
+    if len(points) < 3:
+        return
+
+    # Find bounding box
+    min_x = min(p[0] for p in points)
+    max_x = max(p[0] for p in points)
+    min_y = min(p[1] for p in points)
+    max_y = max(p[1] for p in points)
+
+   # Scale and translate points to fit within window
+    padding = 10.0
+    bbox_width = max_x - min_x
+    bbox_height = max_y - min_y
+    scale = min((2160 - 2 * padding) / bbox_width, (1080 - 2 * padding) / bbox_height)
+    offset_x = padding - min_x * scale
+    offset_y = padding - min_y * scale
+
+    # Transform points
+    transformed_points = [(p[0] * scale + offset_x, p[1] * scale + offset_y) for p in points]
+
+    # Recalculate bounding box for transformed points
+    min_x = min(p[0] for p in transformed_points)
+    max_x = max(p[0] for p in transformed_points)
+    min_y = min(p[1] for p in transformed_points)
+    max_y = max(p[1] for p in transformed_points)
+    print(f"Transformed bounding box: min_x={min_x}, max_x={max_x}, min_y={min_y}, max_y={max_y}")
+
+    min_x = max(0, min_x)
+    min_y = max(0, min_y)
+    max_x = min(2160, max_x)
+    max_y = min(1080, max_y)
+
+    if max_x <= min_x or max_y <= min_y:
+        assert(0)
+        print("Bounding box is invalid or outside screen")
+        return
+
+    # Get uniform locations
+    point_count_loc = rl.get_shader_location(self.my_shader, "pointCount")
+    fill_color_loc = rl.get_shader_location(self.my_shader, "fillColor")
+    resolution_loc = rl.get_shader_location(self.my_shader, "resolution")
+    points_loc = rl.get_shader_location(self.my_shader, "points")
+
+    print('***********', [min_x, min_y, max_x - min_x, max_y - min_y])
+    # Create cdata pointers for FFI
+    point_count_ptr = rl.ffi.new("int[]", [len(transformed_points)])
+    fill_color_ptr = rl.ffi.new("float[]", [color.r/255.0, color.g/255.0, color.b/255.0, color.a/255.0])
+    resolution_ptr = rl.ffi.new("float[]", [max_x - min_x, max_y - min_y])
+    # points_array = np.array([[p[0] - min_x, p[1] - min_y] for p in points], dtype=np.float32).flatten()
+    points_ptr = rl.ffi.new("float[]", len(transformed_points) * 2)
+    for i, p in enumerate(transformed_points):
+      points_ptr[i*2] = float(p[0] - min_x)
+      points_ptr[i*2+1] = float(p[1] - min_y)
+
+    # Set shader uniforms
+    rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
+    rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
+    rl.set_shader_value(self.my_shader, resolution_loc, resolution_ptr, rl.SHADER_UNIFORM_VEC2)
+    rl.set_shader_value(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2)
+
+    # Begin shader mode
+    rl.begin_shader_mode(self.my_shader)
+
+    # Draw rectangle covering the polygon's bounding box
+    rl.draw_rectangle(int(min_x), int(min_y), int(max_x - min_x), int(max_y - min_y), color)
+
+    # End shader mode
+    rl.end_shader_mode()
+
+    # Draw outline for visibility
+    outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+    for i in range(len(transformed_points)):
+        p1 = points[i]
+        p2 = points[(i + 1) % len(transformed_points)]
+        rl.draw_line(int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1]), outline_color)
+
+    # raylib.EndDrawing()
 
   # Function to calculate intersection x-coordinate for a given y
   def get_intersection_x(self, p1, p2, y):
@@ -513,7 +645,7 @@ class ModelRenderer:
       # Draw lane line
       alpha = np.clip(self.lane_line_probs[i], 0.0, 0.7)
       color = rl.Color(255, 255, 255, int(alpha * 255))
-      self.draw_polygon(self.lane_line_vertices[i], color)
+      self.draw_complex_polygon(self.lane_line_vertices[i], color)
 
     for i in range(2):
       # Skip if no vertices
@@ -524,7 +656,7 @@ class ModelRenderer:
       alpha = np.clip(1.0 - self.road_edge_stds[i], 0.0, 1.0)
       color = rl.Color(255, 0, 0, int(alpha * 255))
       # color = rl.ColorAlpha(rl.RED, alpha)
-      self.draw_polygon(self.road_edge_vertices[i], color)
+      self.draw_complex_polygon(self.road_edge_vertices[i], color)
 
   def draw_path(self, model, height):
     """Draw the path polygon with gradient based on acceleration"""
