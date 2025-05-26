@@ -327,27 +327,22 @@ class ModelRenderer:
     if len(points) < 3:
       return
 
-    # Convert to list of tuples if not already
-    points_list = [(p[0], p[1]) for p in points]
+    # Convert to Raylib Vector2 format
+    vertices = []
+    for p in points:
+      vertices.append(rl.Vector2(p[0], p[1]))
 
-    # Create a triangle fan for filling the polygon
-    # First, find the "center" point - average of all points works for most convex polygons
-    center_x = sum(p[0] for p in points_list) / len(points_list)
-    center_y = sum(p[1] for p in points_list) / len(points_list)
+    # Draw the filled polygon using DrawTriangleFan
+    # This is the key function that matches Qt's polygon filling behavior
+    # First vertex is treated as the center, and triangles are formed with adjacent vertices
+    rl.draw_triangle_fan(vertices, len(vertices), color)
 
-    # Draw triangles from center to each adjacent pair of vertices
-    for i in range(len(points_list)):
-      v1 = rl.Vector2(center_x, center_y)
-      v2 = rl.Vector2(points_list[i][0], points_list[i][1])
-      v3 = rl.Vector2(points_list[(i + 1) % len(points_list)][0], points_list[(i + 1) % len(points_list)][1])
-      rl.draw_triangle(v1, v2, v3, color)
+    # Draw polygon outline with anti-aliasing for Qt-like appearance
+    for i in range(len(vertices)):
+      start = vertices[i]
+      end = vertices[(i + 1) % len(vertices)]
 
-    # Draw polygon outline to match Qt's antialiased edges
-    for i in range(len(points_list)):
-      start = rl.Vector2(points_list[i][0], points_list[i][1])
-      end = rl.Vector2(points_list[(i + 1) % len(points_list)][0], points_list[(i + 1) % len(points_list)][1])
-
-      # Use a slightly darker color for the outline
+      # Use a slightly darker color for the outline for better definition
       outline_color = rl.Color(
         max(0, color.r - 15),
         max(0, color.g - 15),
@@ -355,7 +350,7 @@ class ModelRenderer:
         color.a
       )
 
-      # Draw antialiased line
+      # Draw anti-aliased line with appropriate thickness
       rl.draw_line_ex(start, end, 1.0, outline_color)
 
   @staticmethod
