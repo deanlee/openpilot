@@ -327,21 +327,36 @@ class ModelRenderer:
     if len(points) < 3:
       return
 
-    # Convert to Raylib Vector2 array
-    vertices = []
-    for p in points:
-      vertices.append(rl.Vector2(p[0], p[1]))
+    # Convert to list of tuples if not already
+    points_list = [(p[0], p[1]) for p in points]
 
-    # Draw filled polygon
-    # rl.draw_poly_ex(vertices, len(vertices), color)
-    points = [(v.x, v.y) for v in vertices]
-    if len(points) >= 3:
-      # Draw polygon manually by breaking it into triangles
-      for i in range(1, len(points) - 1):
-        v1 = rl.Vector2(points[0][0], points[0][1])
-        v2 = rl.Vector2(points[i][0], points[i][1])
-        v3 = rl.Vector2(points[i + 1][0], points[i + 1][1])
-        rl.draw_triangle(v1, v2, v3, color)
+    # Create a triangle fan for filling the polygon
+    # First, find the "center" point - average of all points works for most convex polygons
+    center_x = sum(p[0] for p in points_list) / len(points_list)
+    center_y = sum(p[1] for p in points_list) / len(points_list)
+
+    # Draw triangles from center to each adjacent pair of vertices
+    for i in range(len(points_list)):
+      v1 = rl.Vector2(center_x, center_y)
+      v2 = rl.Vector2(points_list[i][0], points_list[i][1])
+      v3 = rl.Vector2(points_list[(i + 1) % len(points_list)][0], points_list[(i + 1) % len(points_list)][1])
+      rl.draw_triangle(v1, v2, v3, color)
+
+    # Draw polygon outline to match Qt's antialiased edges
+    for i in range(len(points_list)):
+      start = rl.Vector2(points_list[i][0], points_list[i][1])
+      end = rl.Vector2(points_list[(i + 1) % len(points_list)][0], points_list[(i + 1) % len(points_list)][1])
+
+      # Use a slightly darker color for the outline
+      outline_color = rl.Color(
+        max(0, color.r - 15),
+        max(0, color.g - 15),
+        max(0, color.b - 15),
+        color.a
+      )
+
+      # Draw antialiased line
+      rl.draw_line_ex(start, end, 1.0, outline_color)
 
   @staticmethod
   def map_val(x, x0, x1, y0, y1):
