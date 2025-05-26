@@ -38,6 +38,121 @@ class ModelRenderer:
     self.clip_region = None
     self.sm = None
 
+    # Initialize shader for polygon rendering
+    self.polygon_shader = self._load_polygon_shader()
+
+    # Create mesh for rendering polygons
+    self.polygon_mesh = None
+    self.max_vertices = 64  # Maximum vertices in any polygon we'll render
+    self._init_polygon_mesh()
+
+  def _load_polygon_shader(self):
+    """Load shader for polygon rendering"""
+    # Vertex shader with gradient support
+    vs_code = """
+    #version 330
+    in vec2 vertexPosition;
+    in vec4 vertexColor;
+    out vec4 fragColor;
+    uniform mat4 mvp;
+
+    void main() {
+        gl_Position = mvp * vec4(vertexPosition, 0.0, 1.0);
+        fragColor = vertexColor;
+    }
+    """
+
+    # Fragment shader with even-odd fill rule
+    fs_code = """
+    #version 330
+    in vec4 fragColor;
+    out vec4 finalColor;
+
+    void main() {
+        finalColor = fragColor;
+    }
+    """
+
+    # Create shader
+    shader = rl.load_shader_from_memory(vs_code, fs_code)
+    return shader
+
+  def _init_polygon_mesh(self):
+    """Initialize mesh for polygon rendering"""
+    self.polygon_mesh = rl.Mesh()
+    self.polygon_mesh.triangles_count = self.max_vertices - 2
+    self.polygon_mesh.vertices_count = self.max_vertices
+
+    # Allocate memory for vertices and colors
+    self.polygon_mesh.vertices = rl.rl_malloc(self.max_vertices * 3 * 4)  # 3 floats per vertex (x,y,z) * 4 bytes
+    self.polygon_mesh.colors = rl.rl_malloc(self.max_vertices * 4 * 4)  # 4 floats per color (r,g,b,a) * 4 bytes
+
+    # Set up indices for triangle fan
+    indices = []
+    for i in range(2, self.max_vertices):
+      indices.extend([0, i - 1, i])
+
+    # Upload indices
+    self.polygon_mesh.indices = rl.rl_malloc(len(indices) * 2)  # 2 bytes per index (unsigned short)
+    rl.ffi.memmove(self.polygon_mesh.indices, rl.ffi.new("unsigned short[]", indices), len(indices) * 2)
+
+    # Upload mesh to GPU
+    rl.upload_mesh(self.polygon_mesh, False)
+
+  def draw_polygon(self, points, color):
+    """Draw a filled polygon with the given points and color using a shader"""
+    if len(points) < 3:
+      return
+
+    # Convert points to vertex array
+    vertices = []
+    for p in points:
+      vertices.extend([p[0], p[1], 0.0])  # x, y, z
+
+    # Fill remaining vertices with the last point (if needed)
+    while len(vertices) < self.max_vertices * 3:
+      vertices.extend([points[-1][0], points[-1][1], 0.0])
+
+    # Update vertex buffer
+    rl.ffi.memmove(self.polygon_mesh.vertices, rl.ffi.new("float[]", vertices), len(vertices) * 4)
+
+    # Create colors array - all vertices same color for solid fill
+    colors = []
+    for _ in range(min(len(points), self.max_vertices)):
+      colors.extend([color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0])
+
+    # Fill remaining colors if needed
+    while len(colors) < self.max_vertices * 4:
+      colors.extend([color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0])
+
+    # Update color buffer
+    rl.ffi.memmove(self.polygon_mesh.colors, rl.ffi.new("float[]", colors), len(colors) * 4)
+
+    # Update mesh on GPU
+    rl.update_mesh_buffer(self.polygon_mesh, 0, self.polygon_mesh.vertices, len(vertices) * 4, 0)
+    rl.update_mesh_buffer(self.polygon_mesh, 3, self.polygon_mesh.colors, len(colors) * 4, 0)
+
+    # Set shader and draw
+    rl.begin_shader_mode(self.polygon_shader)
+
+    # Draw only the triangles we need based on vertex count
+    triangle_count = min(len(points) - 2, self.polygon_mesh.triangles_count)
+    rl.draw_mesh_instanced(self.polygon_mesh, rl.Material(), rl.Matrix(), 1)
+
+    rl.end_shader_mode()
+
+    # Draw outline
+    vertices = []
+    for p in points:
+      vertices.append(rl.Vector2(p[0], p[1]))
+
+    # Draw polygon outline
+    outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+    for i in range(len(vertices)):
+      start = vertices[i]
+      end = vertices[(i + 1) % len(vertices)]
+      rl.draw_line_ex(start, end, 1.0, outline_color)
+
   def set_transform(self, transform: np.ndarray):
     """Set the transformation matrix from car space to screen space"""
     self.car_space_transform = transform
@@ -196,9 +311,7 @@ class ModelRenderer:
       # Draw with throttle/no throttle gradient
       # Get throttle state
       # allow_throttle = False
-      allow_throttle = (
-        self.sm['longitudinalPlan'].allowThrottle or not self.longitudinal_control
-      )
+      allow_throttle = self.sm['longitudinalPlan'].allowThrottle or not self.longitudinal_control
 
       # Start transition if throttle state changes
       if allow_throttle != self.prev_allow_throttle:
@@ -344,12 +457,7 @@ class ModelRenderer:
       end = vertices[(i + 1) % len(vertices)]
 
       # Use a slightly darker color for the outline for better definition
-      outline_color = rl.Color(
-        max(0, color.r - 15),
-        max(0, color.g - 15),
-        max(0, color.b - 15),
-        color.a
-      )
+      outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
 
       # Draw anti-aliased line with appropriate thickness
       rl.draw_line_ex(start, end, 1.0, outline_color)
@@ -405,12 +513,12 @@ class ModelRenderer:
   def draw_polygon(self, points, color):
     """Draw a filled polygon with the given points and color to match Qt's fillPolygon behavior"""
     if len(points) < 3:
-        return
+      return
 
     # Convert to Raylib Vector2 format
     vertices = []
     for p in points:
-        vertices.append(rl.Vector2(p[0], p[1]))
+      vertices.append(rl.Vector2(p[0], p[1]))
 
     # Qt uses the "even-odd" fill rule for polygons
     # To emulate this in Raylib, we need to triangulate the polygon manually
@@ -420,40 +528,32 @@ class ModelRenderer:
     triangles = self.triangulate_polygon(vertices)
 
     for i in range(0, len(triangles), 3):
-        if i + 2 < len(triangles):
-            rl.draw_triangle(
-                triangles[i],
-                triangles[i+1],
-                triangles[i+2],
-                color
-            )
+      if i + 2 < len(triangles):
+        rl.draw_triangle(triangles[i], triangles[i + 1], triangles[i + 2], color)
 
     # Draw polygon outline with anti-aliasing for Qt-like appearance
     for i in range(len(vertices)):
-        start = vertices[i]
-        end = vertices[(i + 1) % len(vertices)]
+      start = vertices[i]
+      end = vertices[(i + 1) % len(vertices)]
 
-        # Use a slightly darker color for the outline for better definition
-        outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+      # Use a slightly darker color for the outline for better definition
+      outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
 
-        # Draw anti-aliased line with appropriate thickness
-        rl.draw_line_ex(start, end, 1.0, outline_color)
+      # Draw anti-aliased line with appropriate thickness
+      rl.draw_line_ex(start, end, 1.0, outline_color)
 
   def triangulate_polygon(self, vertices):
     """Triangulate a polygon using ear clipping algorithm"""
     if len(vertices) < 3:
-        return []
+      return []
 
     # Handle simple case for triangles
     if len(vertices) == 3:
-        return vertices
+      return vertices
 
     # Handle simple case for quads (most common in our path segments)
     if len(vertices) == 4:
-        return [
-            vertices[0], vertices[1], vertices[2],
-            vertices[0], vertices[2], vertices[3]
-        ]
+      return [vertices[0], vertices[1], vertices[2], vertices[0], vertices[2], vertices[3]]
 
     # For more complex polygons, implement ear clipping
     # Create a working copy of vertices
@@ -462,44 +562,36 @@ class ModelRenderer:
 
     # Continue until we have triangulated the entire polygon
     while len(remaining) > 3:
-        # Find an ear
-        ear_found = False
-        for i in range(len(remaining)):
-            prev = (i - 1) % len(remaining)
-            curr = i
-            next_idx = (i + 1) % len(remaining)
+      # Find an ear
+      ear_found = False
+      for i in range(len(remaining)):
+        prev = (i - 1) % len(remaining)
+        curr = i
+        next_idx = (i + 1) % len(remaining)
 
-            # Check if vertex i is an ear
-            if self.is_ear(remaining, prev, curr, next_idx):
-                # Add the ear triangle to our result
-                triangles.extend([
-                    remaining[prev],
-                    remaining[curr],
-                    remaining[next_idx]
-                ])
+        # Check if vertex i is an ear
+        if self.is_ear(remaining, prev, curr, next_idx):
+          # Add the ear triangle to our result
+          triangles.extend([remaining[prev], remaining[curr], remaining[next_idx]])
 
-                # Remove the ear tip
-                del remaining[curr]
-                ear_found = True
-                break
+          # Remove the ear tip
+          del remaining[curr]
+          ear_found = True
+          break
 
-        # If no ear was found but we still have vertices,
-        # we might have a complex/self-intersecting polygon
-        # Just create a fan triangulation as fallback
-        if not ear_found:
-            # Fall back to fan triangulation from first vertex
-            center = remaining[0]
-            for i in range(1, len(remaining) - 1):
-                triangles.extend([
-                    center,
-                    remaining[i],
-                    remaining[i+1]
-                ])
-            break
+      # If no ear was found but we still have vertices,
+      # we might have a complex/self-intersecting polygon
+      # Just create a fan triangulation as fallback
+      if not ear_found:
+        # Fall back to fan triangulation from first vertex
+        center = remaining[0]
+        for i in range(1, len(remaining) - 1):
+          triangles.extend([center, remaining[i], remaining[i + 1]])
+        break
 
     # Add the final triangle
     if len(remaining) == 3:
-        triangles.extend(remaining)
+      triangles.extend(remaining)
 
     return triangles
 
@@ -512,13 +604,13 @@ class ModelRenderer:
 
     # Check if the angle at b is convex (internal angle < 180°)
     if not self.is_convex(a, b, c):
-        return False
+      return False
 
     # Check if any other vertex is inside this triangle
     for i in range(len(vertices)):
-        if i != prev and i != curr and i != next_idx:
-            if self.point_in_triangle(vertices[i], a, b, c):
-                return False
+      if i != prev and i != curr and i != next_idx:
+        if self.point_in_triangle(vertices[i], a, b, c):
+          return False
 
     return True
 
@@ -532,9 +624,9 @@ class ModelRenderer:
   def point_in_triangle(self, p, a, b, c):
     """Check if point p is inside triangle abc"""
     # Calculate barycentric coordinates
-    d = ((b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y))
+    d = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y)
     if d == 0:
-        return False
+      return False
 
     alpha = ((b.y - c.y) * (p.x - c.x) + (c.x - b.x) * (p.y - c.y)) / d
     beta = ((c.y - a.y) * (p.x - c.x) + (a.x - c.x) * (p.y - c.y)) / d
