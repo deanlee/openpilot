@@ -80,12 +80,16 @@ class ModelRenderer:
   def _init_polygon_mesh(self):
     """Initialize mesh for polygon rendering"""
     self.polygon_mesh = rl.Mesh()
-    self.polygon_mesh.triangles_count = self.max_vertices - 2
-    self.polygon_mesh.vertices_count = self.max_vertices
+
+    # Use the correct field names from Raylib API
+    # triangleCount instead of triangles_count
+    # vertexCount instead of vertices_count
+    self.polygon_mesh.triangleCount = self.max_vertices - 2
+    self.polygon_mesh.vertexCount = self.max_vertices
 
     # Allocate memory for vertices and colors
-    self.polygon_mesh.vertices = rl.rl_malloc(self.max_vertices * 3 * 4)  # 3 floats per vertex (x,y,z) * 4 bytes
-    self.polygon_mesh.colors = rl.rl_malloc(self.max_vertices * 4 * 4)  # 4 floats per color (r,g,b,a) * 4 bytes
+    self.polygon_mesh.vertices = rl.mem_alloc(self.max_vertices * 3 * 4)  # 3 floats per vertex (x,y,z) * 4 bytes
+    self.polygon_mesh.colors = rl.mem_alloc(self.max_vertices * 4 * 4)  # 4 floats per color (r,g,b,a) * 4 bytes
 
     # Set up indices for triangle fan
     indices = []
@@ -93,7 +97,7 @@ class ModelRenderer:
       indices.extend([0, i - 1, i])
 
     # Upload indices
-    self.polygon_mesh.indices = rl.rl_malloc(len(indices) * 2)  # 2 bytes per index (unsigned short)
+    self.polygon_mesh.indices = rl.mem_alloc(len(indices) * 2)  # 2 bytes per index (unsigned short)
     rl.ffi.memmove(self.polygon_mesh.indices, rl.ffi.new("unsigned short[]", indices), len(indices) * 2)
 
     # Upload mesh to GPU
@@ -136,7 +140,7 @@ class ModelRenderer:
     rl.begin_shader_mode(self.polygon_shader)
 
     # Draw only the triangles we need based on vertex count
-    triangle_count = min(len(points) - 2, self.polygon_mesh.triangles_count)
+    # triangle_count = min(len(points) - 2, self.polygon_mesh.triangles_count)
     rl.draw_mesh_instanced(self.polygon_mesh, rl.Material(), rl.Matrix(), 1)
 
     rl.end_shader_mode()
@@ -510,7 +514,7 @@ class ModelRenderer:
       int((1 - t) * start.a + t * end.a),
     )
 
-  def draw_polygon(self, points, color):
+  def draw_polygon3(self, points, color):
     """Draw a filled polygon with the given points and color to match Qt's fillPolygon behavior"""
     if len(points) < 3:
       return
