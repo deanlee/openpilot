@@ -74,7 +74,12 @@ mat4 AnnotatedCameraWidget::calcFrameMatrix() {
     zoom, 0.0f, (w / 2 - x_offset) - (center_x * zoom),
     0.0f, zoom, (h / 2 - y_offset) - (center_y * zoom),
     0.0f, 0.0f, 1.0f).finished();
-
+  // print(video_transform * calib_transform)
+  // Print video_transform matrix for debugging
+  std::cout << "video_transform: " << std::endl;
+  std::cout << video_transform << std::endl;
+  std::cout << "calib_transform: " << std::endl;
+  std::cout << calib_transform << std::endl;
   model.setTransform(video_transform * calib_transform);
 
   float zx = zoom * 2 * center_x / w;

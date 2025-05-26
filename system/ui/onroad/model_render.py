@@ -41,7 +41,7 @@ class ModelRenderer:
   def set_transform(self, transform: np.ndarray):
     """Set the transformation matrix from car space to screen space"""
     self.car_space_transform = transform
-    print(transform)
+    # print(transform)
 
   def draw(self, rect: rl.Rectangle, sm: messaging.SubMaster):
     """

@@ -94,12 +94,13 @@ class AugmentedRoadView(CameraView):
     # 1) Put (0, 0) in the middle of the video
     # 2) Apply same scaling as video
     # 3) Put (0, 0) in top left corner of video
+    print(rect.x, rect.y, rect.width, rect.height)
     video_transform = np.array([
         [zoom, 0.0, (w / 2 - x_offset) - (cx * zoom)],
         [0.0, zoom, (h / 2 - y_offset) - (cy * zoom)],
         [0.0, 0.0, 1.0]
     ])
-    # print(video_transform, calib_transform)
+    print('calib transform\n', calib_transform)
 
     # Set the transform on the model renderer
     # This matches model.setTransform(video_transform * calib_transform) in C++
