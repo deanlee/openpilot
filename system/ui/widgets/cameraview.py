@@ -122,14 +122,7 @@ class CameraView:
 
     transform = self._calc_frame_matrix(rect)
     src_rect = rl.Rectangle(0, 0, float(self.frame.width), float(self.frame.height))
-
-    scale_x = rect.width * transform.m0
-    scale_y = rect.height * transform.m5
-
-    x_offset = rect.x + (rect.width - scale_x) / 2
-    y_offset = rect.y + (rect.height - scale_y) / 2
-
-    dst_rect = rl.Rectangle(x_offset, y_offset, scale_x, scale_y)
+    dst_rect = rect#rl.Rectangle(x_offset, y_offset, scale_x, scale_y)
 
 
     # Render with appropriate method
@@ -180,7 +173,7 @@ class CameraView:
 
     # Render with shader
     rl.begin_shader_mode(self.shader)
-    # rl.set_shader_value_matrix(self.shader, rl.get_shader_location(self.shader, "mvp"), transform)
+    rl.set_shader_value_matrix(self.shader, rl.get_shader_location(self.shader, "mvp"), transform)
     rl.set_shader_value_texture(self.shader, rl.get_shader_location(self.shader, "texture1"), self.texture_uv)
     rl.draw_texture_pro(self.texture_y, src_rect, dst_rect, rl.Vector2(0, 0), 0.0, rl.WHITE)
     rl.end_shader_mode()
