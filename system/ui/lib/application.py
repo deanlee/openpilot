@@ -255,4 +255,4 @@ class GuiApplication:
       os._exit(1)
 
 
-gui_app = GuiApplication(1860, 952)
+gui_app = GuiApplication(2160, 1080)
