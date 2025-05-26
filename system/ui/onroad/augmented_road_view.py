@@ -7,7 +7,7 @@ from openpilot.system.ui.widgets.cameraview import CameraView
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.common.transformations.camera import DEVICE_CAMERAS, DeviceCameraConfig, view_frame_from_device_frame
 from openpilot.common.transformations.orientation import rot_from_euler
-from openpilot.system.ui.onroad.model_renderer import ModelRenderer
+from openpilot.system.ui.onroad.model_render import ModelRenderer
 
 CALIBRATED = log.LiveCalibrationData.Status.calibrated
 DEFAULT_DEVICE_CAMERA = DEVICE_CAMERAS["tici", "ar0231"]
@@ -122,7 +122,7 @@ if __name__ == "__main__":
   gui_app.init_window("OnRoad Camera View")
   sm = messaging.SubMaster(["modelV2", "controlsState", "liveCalibration", "radarState", "deviceState",
     "pandaStates", "carParams", "driverMonitoringState", "carState", "driverStateV2",
-    "wideRoadCameraState", "managerState", "selfdriveState", "longitudinalPlan"])
+    "roadCameraState", "wideRoadCameraState", "managerState", "selfdriveState", "longitudinalPlan"])
   road_camera_view = AugmentedRoadView(sm, VisionStreamType.VISION_STREAM_ROAD)
   try:
     for _ in gui_app.render():
