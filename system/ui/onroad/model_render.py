@@ -45,41 +45,234 @@ class ModelRenderer:
     # Initialize shader for polygon rendering
     self.polygon_shader = self._load_polygon_shader()
 
+  # def draw_polygon(self, points, color):
+  #   # print('hhh')
+  #   """Draw a filled polygon with even-odd fill rule using shader"""
+  #   if len(points) < 3:
+  #     return
+
+  #   # For very simple polygons (3-4 vertices), use triangle fan directly
+  #   if len(points) <= 4:
+  #     vertices = []
+  #     for p in points:
+  #       vertices.append(rl.Vector2(p[0], p[1]))
+
+  #     rl.draw_triangle_fan(vertices, len(vertices), color)
+
+  #     # Draw outline
+  #     outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+  #     for i in range(len(vertices)):
+  #       start = vertices[i]
+  #       end = vertices[(i + 1) % len(vertices)]
+  #       rl.draw_line_ex(start, end, 1.0, outline_color)
+
+  #     return
+
+  #   # Find bounding box of polygon
+  #   min_x = min(p[0] for p in points)
+  #   min_y = min(p[1] for p in points)
+  #   max_x = max(p[0] for p in points)
+  #   max_y = max(p[1] for p in points)
+
+  #   # Create a rectangle covering the polygon bounds
+  #   rect_vertices = [
+  #     rl.Vector2(min_x, min_y),
+  #     rl.Vector2(max_x, min_y),
+  #     rl.Vector2(max_x, max_y),
+  #     rl.Vector2(min_x, max_y),
+  #   ]
+
+  #   # Create array of polygon vertices for shader
+  #   point_count = min(len(points), 64)  # Limit to max vertices shader can handle
+  #   poly_points = rl.ffi.new("float[]", point_count * 2)
+
+  #   for i in range(point_count):
+  #     poly_points[i * 2] = float(points[i][0])
+  #     poly_points[i * 2 + 1] = float(points[i][1])
+
+  #   # Begin shader mode
+  #   rl.begin_shader_mode(self.polygon_shader)
+
+  #   # Set shader uniforms
+  #   rl.set_shader_value(self.polygon_shader, self.poly_points_loc, poly_points, rl.SHADER_UNIFORM_VEC2)
+  #   rl.set_shader_value(
+  #     self.polygon_shader, self.point_count_loc, rl.ffi.new("int[]", [point_count]), rl.SHADER_UNIFORM_INT
+  #   )
+
+  #   # Draw a rectangle that covers the polygon bounds
+  #   # The shader will determine which pixels to fill based on even-odd rule
+  #   rl.draw_triangle_fan(rect_vertices, 4, color)
+
+  #   # End shader mode
+  #   rl.end_shader_mode()
+
   def draw_polygon(self, points, color):
-    # print('hhh')
     """Draw a filled polygon with even-odd fill rule using shader"""
     if len(points) < 3:
-      return
+        return
 
     # For very simple polygons (3-4 vertices), use triangle fan directly
     if len(points) <= 4:
-      vertices = []
-      for p in points:
-        vertices.append(rl.Vector2(p[0], p[1]))
+        vertices = []
+        for p in points:
+            vertices.append(rl.Vector2(p[0], p[1]))
 
-      rl.draw_triangle_fan(vertices, len(vertices), color)
+        rl.draw_triangle_fan(vertices, len(vertices), color)
 
-      # Draw outline
-      outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
-      for i in range(len(vertices)):
-        start = vertices[i]
-        end = vertices[(i + 1) % len(vertices)]
-        rl.draw_line_ex(start, end, 1.0, outline_color)
+        # Draw outline
+        outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+        for i in range(len(vertices)):
+            start = vertices[i]
+            end = vertices[(i + 1) % len(vertices)]
+            rl.draw_line_ex(start, end, 1.0, outline_color)
 
-      return
+        return
 
+    # Check for self-intersection and nearly duplicate points
+    # This is likely the path polygon with a reflection point
+    if len(points) > 30:  # Typical path has many vertices
+        # Find potential reflection point where x or y values start increasing again
+        reflection_index = -1
+
+        for i in range(1, len(points) // 2):
+            # If points are very close together (potential reflection point)
+            p1 = points[i]
+            p2 = points[i+1]
+
+            # Check for near duplication (points very close together)
+            if abs(p1[0] - p2[0]) < 1.0 and abs(p1[1] - p2[1]) < 1.0:
+                reflection_index = i
+                break
+
+            # Or if points start going back in direction
+            elif i > 1:
+                p0 = points[i-1]
+                # Direction change detection
+                if (p1[0] - p0[0]) * (p2[0] - p1[0]) < 0 or (p1[1] - p0[1]) * (p2[1] - p1[1]) < 0:
+                    reflection_index = i
+                    break
+
+        # If we found a reflection point, draw as separate segments
+        if reflection_index > 0:
+            # Draw in segments to avoid self-intersection
+            # Split into two halves at the midpoint
+            mid_point = len(points) // 2
+
+            # Create left and right side arrays
+            left_side = points[:mid_point]
+            right_side = points[mid_point:]
+
+            # Draw segments from the outside in
+            for i in range(min(len(left_side), len(right_side)) - 1):
+                # Skip segments with potential issues
+                if i == reflection_index or i + 1 == reflection_index:
+                    continue
+
+                # Create a quad segment
+                segment = [
+                    left_side[i],
+                    left_side[i+1],
+                    right_side[-(i+2)],
+                    right_side[-(i+1)]
+                ]
+
+                # Draw quad
+                quad_vertices = []
+                for p in segment:
+                    quad_vertices.append(rl.Vector2(p[0], p[1]))
+
+                rl.draw_triangle_fan(quad_vertices, len(quad_vertices), color)
+
+            # Draw outline for the entire polygon
+            vertices = []
+            for p in points:
+                vertices.append(rl.Vector2(p[0], p[1]))
+
+            outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+            for i in range(len(vertices)):
+                start = vertices[i]
+                end = vertices[(i + 1) % len(vertices)]
+                rl.draw_line_ex(start, end, 1.0, outline_color)
+
+            return
+
+    # For complex lane line or path polygons, use a segmented approach
+    if len(points) > 15:  # Likely a lane line or complex path
+        # Find if the points form left/right sides (lane or path structure)
+        mid_point = len(points) // 2
+
+        # Try to detect if this is a properly formed lane-like polygon
+        # (first half ascending, second half descending or vice versa)
+        is_lane_like = False
+        if len(points) >= 6:
+            left_side = points[:mid_point]
+            right_side = points[mid_point:]
+
+            # Check if the sides form a proper structure
+            if (len(left_side) > 1 and len(right_side) > 1):
+                # Check if sides have opposite y-direction
+                left_direction = left_side[-1][1] - left_side[0][1]
+                right_direction = right_side[-1][1] - right_side[0][1]
+
+                if left_direction * right_direction < 0:  # Opposite directions
+                    is_lane_like = True
+
+        if is_lane_like:
+            # Draw lane with segments for better control
+            segments = []
+            max_segments = min(mid_point - 1, len(points) - mid_point - 1)
+
+            for i in range(max_segments):
+                segment = [
+                    points[i],
+                    points[i+1],
+                    points[len(points)-i-2],
+                    points[len(points)-i-1]
+                ]
+                segments.append(segment)
+
+            # Draw segments
+            for segment in segments:
+                # Convert to vector2
+                vertices = []
+                for p in segment:
+                    vertices.append(rl.Vector2(p[0], p[1]))
+
+                rl.draw_triangle_fan(vertices, len(vertices), color)
+
+            # Draw outline for the entire polygon
+            vertices = []
+            for p in points:
+                vertices.append(rl.Vector2(p[0], p[1]))
+
+            outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+            for i in range(len(vertices)):
+                start = vertices[i]
+                end = vertices[(i + 1) % len(vertices)]
+                rl.draw_line_ex(start, end, 1.0, outline_color)
+
+            return
+
+    # For regular polygons, use the shader-based approach
     # Find bounding box of polygon
     min_x = min(p[0] for p in points)
     min_y = min(p[1] for p in points)
     max_x = max(p[0] for p in points)
     max_y = max(p[1] for p in points)
 
+    # Expand bounds slightly to ensure coverage
+    padding = 1.0
+    min_x -= padding
+    min_y -= padding
+    max_x += padding
+    max_y += padding
+
     # Create a rectangle covering the polygon bounds
     rect_vertices = [
-      rl.Vector2(min_x, min_y),
-      rl.Vector2(max_x, min_y),
-      rl.Vector2(max_x, max_y),
-      rl.Vector2(min_x, max_y),
+        rl.Vector2(min_x, min_y),
+        rl.Vector2(max_x, min_y),
+        rl.Vector2(max_x, max_y),
+        rl.Vector2(min_x, max_y),
     ]
 
     # Create array of polygon vertices for shader
@@ -87,8 +280,8 @@ class ModelRenderer:
     poly_points = rl.ffi.new("float[]", point_count * 2)
 
     for i in range(point_count):
-      poly_points[i * 2] = float(points[i][0])
-      poly_points[i * 2 + 1] = float(points[i][1])
+        poly_points[i * 2] = float(points[i][0])
+        poly_points[i * 2 + 1] = float(points[i][1])
 
     # Begin shader mode
     rl.begin_shader_mode(self.polygon_shader)
@@ -96,7 +289,7 @@ class ModelRenderer:
     # Set shader uniforms
     rl.set_shader_value(self.polygon_shader, self.poly_points_loc, poly_points, rl.SHADER_UNIFORM_VEC2)
     rl.set_shader_value(
-      self.polygon_shader, self.point_count_loc, rl.ffi.new("int[]", [point_count]), rl.SHADER_UNIFORM_INT
+        self.polygon_shader, self.point_count_loc, rl.ffi.new("int[]", [point_count]), rl.SHADER_UNIFORM_INT
     )
 
     # Draw a rectangle that covers the polygon bounds
@@ -109,13 +302,13 @@ class ModelRenderer:
     # Draw outline for better definition
     vertices = []
     for p in points[:point_count]:
-      vertices.append(rl.Vector2(p[0], p[1]))
+        vertices.append(rl.Vector2(p[0], p[1]))
 
     outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
     for i in range(len(vertices)):
-      start = vertices[i]
-      end = vertices[(i + 1) % len(vertices)]
-      rl.draw_line_ex(start, end, 1.0, outline_color)
+        start = vertices[i]
+        end = vertices[(i + 1) % len(vertices)]
+        rl.draw_line_ex(start, end, 1.0, outline_color)
 
   def _load_polygon_shader(self):
     """Load shader for polygon rendering with even-odd fill rule"""
@@ -452,30 +645,64 @@ class ModelRenderer:
       return screen_pt
     return None
 
+  # def map_line_to_polygon(self, line, y_off, z_off, max_idx, allow_invert=True):
+  #   """Convert a 3D line to a 2D polygon for drawing"""
+  #   line_x = line.x
+  #   line_y = line.y
+  #   line_z = line.z
+
+  #   points = []
+  #   for i in range(max_idx + 1):
+  #     # Skip points with negative x (behind camera)
+  #     if line_x[i] < 0:
+  #       continue
+
+  #     left = self.map_to_screen(line_x[i], line_y[i] - y_off, line_z[i] + z_off)
+  #     right = self.map_to_screen(line_x[i], line_y[i] + y_off, line_z[i] + z_off)
+
+  #     if left and right:
+  #       # Check for inversion when going over hills
+  #       if not allow_invert and points and left[1] > points[-1][1]:
+  #         continue
+
+  #       # Add points to create a polygon
+  #       points.append(left)
+  #       points.insert(0, right)
+
+  #   return points
+
   def map_line_to_polygon(self, line, y_off, z_off, max_idx, allow_invert=True):
     """Convert a 3D line to a 2D polygon for drawing"""
     line_x = line.x
     line_y = line.y
     line_z = line.z
 
-    points = []
+    # Store left and right sides separately
+    left_points = []
+    right_points = []
+
     for i in range(max_idx + 1):
-      # Skip points with negative x (behind camera)
-      if line_x[i] < 0:
-        continue
+        # Skip points with negative x (behind camera)
+        if line_x[i] < 0:
+            continue
 
-      left = self.map_to_screen(line_x[i], line_y[i] - y_off, line_z[i] + z_off)
-      right = self.map_to_screen(line_x[i], line_y[i] + y_off, line_z[i] + z_off)
+        left = self.map_to_screen(line_x[i], line_y[i] - y_off, line_z[i] + z_off)
+        right = self.map_to_screen(line_x[i], line_y[i] + y_off, line_z[i] + z_off)
 
-      if left and right:
-        # Check for inversion when going over hills
-        if not allow_invert and points and left[1] > points[-1][1]:
-          continue
+        if left and right:
+            # Check for inversion when going over hills
+            if not allow_invert and left_points and left[1] > left_points[-1][1]:
+                continue
 
-        # Add points to create a polygon
-        points.append(left)
-        points.insert(0, right)
+            # Add points to their respective sides
+            left_points.append(left)
+            right_points.append(right)
 
+    # Create final polygon by correctly ordering the points
+    points = []
+    points.extend(left_points)          # Left side from front to back
+    points.extend(right_points[::-1])   # Right side from back to front
+    print(points)
     return points
 
   @staticmethod
