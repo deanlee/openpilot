@@ -56,7 +56,7 @@ class AugmentedRoadView(CameraView):
       # Create combined transform matrix (car space -> image space)
       car_to_image = np.array([[fx * sf_x, 0.0, cx * sf_x], [0.0, fy * sf_y, cy * sf_y], [0.0, 0.0, 1.0]]) @ calibration
 
-      self.model_renderer.set_transform(car_to_image)
+      # self.model_renderer.set_transform(car_to_image)
 
       # Draw model visualization
       self.model_renderer.draw(rect, self.sm)
@@ -107,6 +107,20 @@ class AugmentedRoadView(CameraView):
       y_offset = np.clip((Kep[1] / Kep[2] - cy) * zoom, -max_y_offset, max_y_offset)
     else:
       x_offset, y_offset = 0, 0
+
+    # Create video transform matrix matching the C++ implementation
+    # 1) Put (0, 0) in the middle of the video
+    # 2) Apply same scaling as video
+    # 3) Put (0, 0) in top left corner of video
+    video_transform = np.array([
+        [zoom, 0.0, (w / 2 - x_offset) - (cx * zoom)],
+        [0.0, zoom, (h / 2 - y_offset) - (cy * zoom)],
+        [0.0, 0.0, 1.0]
+    ])
+
+    # Set the transform on the model renderer
+    # This matches model.setTransform(video_transform * calib_transform) in C++
+    self.model_renderer.set_transform(video_transform @ calib_transform)
 
     # Create transform matrix
     matrix = rl.Matrix()
