@@ -102,11 +102,13 @@ class AugmentedRoadView(CameraView):
         [0.0, zoom, (h / 2 - y_offset) - (cy * zoom)],
         [0.0, 0.0, 1.0]
     ])
-    print('calib transform\n', np.array2string(calib_transform, precision=6, suppress_small=True, separator=', '))
+    # print('calib transform\n', np.array2string(calib_transform, precision=6, suppress_small=True, separator=', '))
     # print('calib transform\n', calib_transform)
 
     # Set the transform on the model renderer
     # This matches model.setTransform(video_transform * calib_transform) in C++
+    a = video_transform @ calib_transform
+    print('final transform\n', np.array2string(a, precision=6, suppress_small=True, separator=', '))
     self.model_renderer.set_transform(video_transform @ calib_transform)
 
     # Create transform matrix
