@@ -67,13 +67,14 @@ class AugmentedRoadView(CameraView):
 
   def _calc_frame_matrix(self, rect: rl.Rectangle) -> rl.Matrix:
     device_camera = self.device_camera or DEFAULT_DEVICE_CAMERA
-    intrinsic = device_camera.fcam.intrinsics if self.is_wide_camera else device_camera.ecam.intrinsics
+    intrinsic = device_camera.ecam.intrinsics if self.is_wide_camera else device_camera.fcam.intrinsics
     calibration = self.view_from_wide_calib if self.is_wide_camera else self.view_from_calib
     zoom = 2.0 if self.is_wide_camera else 1.1
 
     # Calculate transforms
     inf_point = np.array([1000.0, 0.0, 0.0])
-    print('calibration\n', calibration)
+    print('intrinsic', intrinsic)
+    print('calibration\n', np.array2string(calibration, precision=6, suppress_small=True, separator=', '))
     calib_transform = intrinsic @ calibration
     Kep = calib_transform @ inf_point
 
@@ -101,7 +102,8 @@ class AugmentedRoadView(CameraView):
         [0.0, zoom, (h / 2 - y_offset) - (cy * zoom)],
         [0.0, 0.0, 1.0]
     ])
-    print('calib transform\n', calib_transform)
+    print('calib transform\n', np.array2string(calib_transform, precision=6, suppress_small=True, separator=', '))
+    # print('calib transform\n', calib_transform)
 
     # Set the transform on the model renderer
     # This matches model.setTransform(video_transform * calib_transform) in C++
