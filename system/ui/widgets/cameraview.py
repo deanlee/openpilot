@@ -121,15 +121,21 @@ class CameraView:
       return
 
     transform = self._calc_frame_matrix(rect)
-    src_rect = rl.Rectangle(0, 0, float(self.frame.width), float(self.frame.height))
+    center_x = self.frame.width / 2
+    center_y = self.frame.height / 2
+    crop_width = self.frame.width * (1.0 / transform.m0)
+    crop_height = self.frame.height * (1.0 / transform.m5)
 
-    scale_x = rect.width * transform.m0
-    scale_y = rect.height * transform.m5
+    src_rect = rl.Rectangle(
+        center_x - crop_width/2 + (transform.m3 * crop_width/2),  # Adjust for translation
+        center_y - crop_height/2 + (transform.m7 * crop_height/2),
+        crop_width,
+        crop_height
+    )
 
-    x_offset = rect.x + (rect.width - scale_x) / 2
-    y_offset = rect.y + (rect.height - scale_y) / 2
-
-    dst_rect = rl.Rectangle(x_offset, y_offset, scale_x, scale_y)
+    # Use the full destination rectangle
+    dst_rect = rect
+    print(f"Rendering frame {dst_rect.x}, {dst_rect.y} with size {dst_rect.width}x{dst_rect.height}")
 
     # Render with appropriate method
     if TICI:
