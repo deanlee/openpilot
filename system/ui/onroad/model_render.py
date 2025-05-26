@@ -4,7 +4,6 @@ from cereal import messaging, log
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
 
-
 # Constants matching the C++ implementation
 CLIP_MARGIN = 500
 MIN_DRAW_DISTANCE = 10.0
@@ -105,6 +104,44 @@ class ModelRenderer:
 
   #   # End shader mode
   #   rl.end_shader_mode()
+
+  # Function to calculate intersection x-coordinate for a given y
+  def get_intersection_x(self, p1, p2, y):
+      if p1[1] == p2[1]:  # Skip horizontal edges
+          return None
+      # Check if y is within the edge's y-range
+      if (p1[1] <= y < p2[1]) or (p2[1] <= y < p1[1]):
+          t = (y - p1[1]) / (p2[1] - p1[1])
+          return p1[0] + t * (p2[0] - p1[0])
+      return None
+
+  # Function to fill the polygon using the scanline algorithm
+  def fill_polygon(self, poly, color):
+
+      n = len(poly)
+      # Find the y-range of the polygon
+      min_y = min(p[1] for p in poly)
+      max_y = max(p[1] for p in poly)
+
+      # Process each scanline
+      for y in range(int(min_y), int(max_y) + 1):
+          intersections = []
+          # Calculate intersections with all edges
+          for i in range(n):
+              p1 = poly[i]
+              p2 = poly[(i + 1) % n]  # Wrap around to the first point
+              x = self.get_intersection_x(p1, p2, y)
+              if x is not None:
+                  intersections.append(x)
+
+          # Sort intersections by x-coordinate
+          intersections.sort()
+          # Fill spans between pairs of intersections (odd-even rule)
+          for i in range(0, len(intersections), 2):
+              if i + 1 < len(intersections):  # Ensure we have a pair
+                  x1 = int(intersections[i])
+                  x2 = int(intersections[i + 1])
+                  rl.draw_line(x1, y, x2, y, color)
 
   def draw_polygon(self, points, color):
     """Draw a filled polygon with even-odd fill rule using shader"""
