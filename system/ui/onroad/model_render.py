@@ -26,58 +26,44 @@ uniform vec4 fillColor;   // Fill color
 uniform vec2 resolution;  // Bounding box resolution
 
 bool isPointInsidePolygon(vec2 p) {
-    bool inside = false;
+    // Simple triangle test for debugging
+    if (pointCount == 3) {
+        vec2 v0 = points[0];
+        vec2 v1 = points[1];
+        vec2 v2 = points[2];
 
-    // Use a more robust algorithm with explicit loop indices
-    for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-        vec2 vi = points[i];
-        vec2 vj = points[j];
+        // Compute barycentric coordinates
+        float d = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
+        float a = ((v1.y - v2.y) * (p.x - v2.x) + (v2.x - v1.x) * (p.y - v2.y)) / d;
+        float b = ((v2.y - v0.y) * (p.x - v2.x) + (v0.x - v2.x) * (p.y - v2.y)) / d;
+        float c = 1.0 - a - b;
 
-        // Check if point is exactly on a vertex, using absolute values for distance calc
-        if (distance(abs(p), abs(vi)) < 0.1) {
-            return true;
-        }
-
-        // Handle negative coordinates in ray-casting algorithm
-        float py = p.y;
-        float viy = vi.y;
-        float vjy = vj.y;
-
-        // More robust edge crossing test
-        if (((viy > py) != (vjy > py)) &&
-            (p.x < (vj.x - vi.x) * (py - viy) / (vjy - viy) + vi.x)) {
-            inside = !inside;
-        }
+        // Check if point is inside triangle
+        return (a >= 0.0 && b >= 0.0 && c >= 0.0);
     }
 
-    return inside;
+    return false;
 }
 
 void main() {
-    // Convert normalized coordinates [0,1] to bounding box coordinates
+    // Convert normalized coordinates [0,1] to local bounding box coordinates
     vec2 pixel = fragTexCoord * resolution;
 
-    // Debug border
-    if (pixel.x < 5.0 || pixel.y < 5.0 ||
-        pixel.x > resolution.x - 5.0 || pixel.y > resolution.y - 5.0) {
-        finalColor = vec4(1.0, 0.0, 0.0, 1.0); // Red border
-        return;
-    }
+    // Make the whole rectangle red to see if shader is running
+    // finalColor = vec4(1.0, 0.0, 0.0, 0.3);
 
-    // Show dots at vertex positions with much larger radius for testing
+    // Show dots at vertex positions
     for (int i = 0; i < pointCount; i++) {
         float dist = distance(pixel, points[i]);
-        if (dist < 30.0) { // Even larger dots for testing
+        if (dist < 0.1) { // Very large dots for testing
             finalColor = vec4(0.0, 1.0, 0.0, 1.0); // Green dots
             return;
         }
     }
 
-    // Apply stronger coloring for debugging
+    // Apply fill using point-in-polygon test
     if (isPointInsidePolygon(pixel)) {
         finalColor = fillColor;
-    } else {
-        finalColor = vec4(0.0, 0.0, 0.0, 0.0); // Transparent
     }
 }
 """
@@ -191,48 +177,35 @@ class ModelRenderer:
 
   def draw_complex_polygon(self, points, color: rl.Color):
     """Draw a complex polygon using shader-based even-odd fill rule"""
-    if len(points) < 3:
-        return
+    # For testing, use a simple triangle
+    # points = [(100, 100), (300, 100), (200, 300)]
+    # color = rl.Color(255, 0, 0, 128)
 
-    # Find bounding box
     min_x = min(p[0] for p in points)
     max_x = max(p[0] for p in points)
     min_y = min(p[1] for p in points)
     max_y = max(p[1] for p in points)
 
-    # Add padding to ensure all points are visible
-    padding = 10.0
-    min_x = max(0, min_x - padding)
-    min_y = max(0, min_y - padding)
-    max_x = min(2160, max_x + padding)
-    max_y = min(1080, max_y + padding)
-
     width = max_x - min_x
     height = max_y - min_y
 
-    # Ensure we have valid dimensions
-    if width <= 0 or height <= 0:
-        print("Invalid bounding box dimensions")
-        return
-
     # Transform points to be relative to bounding box origin
-    transformed_points = [(p[0] - min_x, p[1] - min_y) for p in points]
+    transformed_points = []
+    for p in points:
+        tx = p[0] - min_x
+        ty = p[1] - min_y
+        transformed_points.append((tx, ty))
 
-    # Get uniform locations
+    # Get shader locations
     point_count_loc = rl.get_shader_location(self.my_shader, "pointCount")
     fill_color_loc = rl.get_shader_location(self.my_shader, "fillColor")
     resolution_loc = rl.get_shader_location(self.my_shader, "resolution")
     points_loc = rl.get_shader_location(self.my_shader, "points")
 
+    # Check if locations are valid
     if point_count_loc == -1 or fill_color_loc == -1 or resolution_loc == -1 or points_loc == -1:
-      print("Error: Failed to get shader uniform locations")
-      print(f"point_count_loc: {point_count_loc}, fill_color_loc: {fill_color_loc}")
-      print(f"resolution_loc: {resolution_loc}, points_loc: {points_loc}")
-      assert(0)
-    # Debug info
-    print("Transformed points:", [f"({p[0]:.1f}, {p[1]:.1f})" for p in transformed_points])
-    print(f"Bounding box: {min_x:.1f}, {min_y:.1f}, {max_x:.1f}, {max_y:.1f}")
-    print(f"Resolution: {width:.1f} x {height:.1f}")
+        print("Error: Failed to get shader uniform locations")
+        return
 
     # Create uniform data
     point_count_ptr = rl.ffi.new("int[]", [len(transformed_points)])
@@ -245,26 +218,36 @@ class ModelRenderer:
         points_ptr[i*2] = float(p[0])
         points_ptr[i*2+1] = float(p[1])
 
-    print(f"First point in shader space: ({transformed_points[0][0]}, {transformed_points[0][1]})")
     # Set shader uniforms
     rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
     rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
     rl.set_shader_value(self.my_shader, resolution_loc, resolution_ptr, rl.SHADER_UNIFORM_VEC2)
     rl.set_shader_value(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2)
 
-    # Begin shader mode
+    # Draw directly with triangle fan as a fallback to verify rendering works
+    vertices = []
+    for p in points:
+        vertices.append(rl.Vector2(p[0], p[1]))
+
+    # Try both approaches
+
+    # 1. Shader approach
     rl.begin_shader_mode(self.my_shader)
-
-    # Draw rectangle covering the polygon's bounding box
     rl.draw_rectangle(int(min_x), int(min_y), int(width), int(height), color)
-
-    # End shader mode
     rl.end_shader_mode()
 
-    # Debug: Draw explicit dots at vertex positions
-    dot_color = rl.Color(0, 255, 0, 255)  # Bright green
-    for p in points:
-        rl.draw_circle(int(p[0]), int(p[1]), 8.0, dot_color)
+    # 2. Direct drawing approach
+    direct_color = rl.Color(0, 0, 255, 128)  # Blue, to distinguish from shader
+    rl.draw_triangle(
+        rl.Vector2(points[0][0], points[0][1]),
+        rl.Vector2(points[1][0], points[1][1]),
+        rl.Vector2(points[2][0], points[2][1]),
+        direct_color
+    )
+
+    # 3. Draw points as circles for debugging
+    # for p in points:
+    #     rl.draw_circle(int(p[0]), int(p[1]), 10.0, rl.GREEN)
         # break
     # Draw outline for visibility
     # outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
