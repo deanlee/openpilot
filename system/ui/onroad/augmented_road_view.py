@@ -73,6 +73,7 @@ class AugmentedRoadView(CameraView):
 
     # Calculate transforms
     inf_point = np.array([1000.0, 0.0, 0.0])
+    print('calibration\n', calibration)
     calib_transform = intrinsic @ calibration
     Kep = calib_transform @ inf_point
 
