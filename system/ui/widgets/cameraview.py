@@ -126,9 +126,13 @@ class CameraView:
     scale_x = rect.width * transform.m0
     scale_y = rect.height * transform.m5
 
+    # Calculate base position (centered)
     x_offset = rect.x + (rect.width - scale_x) / 2
     y_offset = rect.y + (rect.height - scale_y) / 2
-    # x_offset = -500
+
+    # Apply translation from matrix (convert from normalized coordinates to pixels)
+    x_offset += transform.m3 * rect.width / 2
+    y_offset += transform.m7 * rect.height / 2
 
     dst_rect = rl.Rectangle(x_offset, y_offset, scale_x, scale_y)
 
