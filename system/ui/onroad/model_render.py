@@ -323,7 +323,7 @@ class ModelRenderer:
 
     return points
 
-  def draw_polygon(self, points, color):
+  def draw_polygon2(self, points, color):
     """Draw a filled polygon with the given points and color"""
     if len(points) < 3:
       return
@@ -401,3 +401,144 @@ class ModelRenderer:
       int((1 - t) * start.b + t * end.b),
       int((1 - t) * start.a + t * end.a),
     )
+
+  def draw_polygon(self, points, color):
+    """Draw a filled polygon with the given points and color to match Qt's fillPolygon behavior"""
+    if len(points) < 3:
+        return
+
+    # Convert to Raylib Vector2 format
+    vertices = []
+    for p in points:
+        vertices.append(rl.Vector2(p[0], p[1]))
+
+    # Qt uses the "even-odd" fill rule for polygons
+    # To emulate this in Raylib, we need to triangulate the polygon manually
+    # We'll use the ear clipping method for triangulation
+
+    # First, draw the filled triangles
+    triangles = self.triangulate_polygon(vertices)
+
+    for i in range(0, len(triangles), 3):
+        if i + 2 < len(triangles):
+            rl.draw_triangle(
+                triangles[i],
+                triangles[i+1],
+                triangles[i+2],
+                color
+            )
+
+    # Draw polygon outline with anti-aliasing for Qt-like appearance
+    for i in range(len(vertices)):
+        start = vertices[i]
+        end = vertices[(i + 1) % len(vertices)]
+
+        # Use a slightly darker color for the outline for better definition
+        outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+
+        # Draw anti-aliased line with appropriate thickness
+        rl.draw_line_ex(start, end, 1.0, outline_color)
+
+  def triangulate_polygon(self, vertices):
+    """Triangulate a polygon using ear clipping algorithm"""
+    if len(vertices) < 3:
+        return []
+
+    # Handle simple case for triangles
+    if len(vertices) == 3:
+        return vertices
+
+    # Handle simple case for quads (most common in our path segments)
+    if len(vertices) == 4:
+        return [
+            vertices[0], vertices[1], vertices[2],
+            vertices[0], vertices[2], vertices[3]
+        ]
+
+    # For more complex polygons, implement ear clipping
+    # Create a working copy of vertices
+    remaining = vertices.copy()
+    triangles = []
+
+    # Continue until we have triangulated the entire polygon
+    while len(remaining) > 3:
+        # Find an ear
+        ear_found = False
+        for i in range(len(remaining)):
+            prev = (i - 1) % len(remaining)
+            curr = i
+            next_idx = (i + 1) % len(remaining)
+
+            # Check if vertex i is an ear
+            if self.is_ear(remaining, prev, curr, next_idx):
+                # Add the ear triangle to our result
+                triangles.extend([
+                    remaining[prev],
+                    remaining[curr],
+                    remaining[next_idx]
+                ])
+
+                # Remove the ear tip
+                del remaining[curr]
+                ear_found = True
+                break
+
+        # If no ear was found but we still have vertices,
+        # we might have a complex/self-intersecting polygon
+        # Just create a fan triangulation as fallback
+        if not ear_found:
+            # Fall back to fan triangulation from first vertex
+            center = remaining[0]
+            for i in range(1, len(remaining) - 1):
+                triangles.extend([
+                    center,
+                    remaining[i],
+                    remaining[i+1]
+                ])
+            break
+
+    # Add the final triangle
+    if len(remaining) == 3:
+        triangles.extend(remaining)
+
+    return triangles
+
+  def is_ear(self, vertices, prev, curr, next_idx):
+    """Check if the vertex at index curr forms an ear with its adjacent vertices"""
+    # Get the three vertices that form the potential ear
+    a = vertices[prev]
+    b = vertices[curr]
+    c = vertices[next_idx]
+
+    # Check if the angle at b is convex (internal angle < 180°)
+    if not self.is_convex(a, b, c):
+        return False
+
+    # Check if any other vertex is inside this triangle
+    for i in range(len(vertices)):
+        if i != prev and i != curr and i != next_idx:
+            if self.point_in_triangle(vertices[i], a, b, c):
+                return False
+
+    return True
+
+  def is_convex(self, a, b, c):
+    """Check if the angle at vertex b is convex"""
+    # Calculate the cross product
+    cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x)
+    # For counterclockwise vertices, cross product should be positive
+    return cross > 0
+
+  def point_in_triangle(self, p, a, b, c):
+    """Check if point p is inside triangle abc"""
+    # Calculate barycentric coordinates
+    d = ((b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y))
+    if d == 0:
+        return False
+
+    alpha = ((b.y - c.y) * (p.x - c.x) + (c.x - b.x) * (p.y - c.y)) / d
+    beta = ((c.y - a.y) * (p.x - c.x) + (a.x - c.x) * (p.y - c.y)) / d
+    gamma = 1.0 - alpha - beta
+
+    # Point is inside if all coordinates are between 0 and 1
+    return 0 <= alpha <= 1 and 0 <= beta <= 1 and 0 <= gamma <= 1
