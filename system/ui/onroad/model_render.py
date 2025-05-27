@@ -28,36 +28,35 @@ uniform vec2 resolution;  // Bounding box resolution
 bool isPointInsidePolygon(vec2 p) {
     if (pointCount < 3) return false;
 
-    // Debug visualization - color everything to verify shader is running
-    // return true;  // Uncomment to test if shader is running at all
-
-    // For triangles, use the faster barycentric method
+    // For triangles, use barycentric coordinates
     if (pointCount == 3) {
         vec2 v0 = points[0];
         vec2 v1 = points[1];
         vec2 v2 = points[2];
 
-        // Compute barycentric coordinates
         float d = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
-        if (abs(d) < 0.0001) return false;  // Avoid division by zero
+        if (abs(d) < 0.0001) return false;
 
         float a = ((v1.y - v2.y) * (p.x - v2.x) + (v2.x - v1.x) * (p.y - v2.y)) / d;
         float b = ((v2.y - v0.y) * (p.x - v2.x) + (v0.x - v2.x) * (p.y - v2.y)) / d;
         float c = 1.0 - a - b;
 
-        // Check if point is inside triangle
         return (a >= 0.0 && b >= 0.0 && c >= 0.0);
     }
 
-    // For all other polygons, use ray casting algorithm (even-odd rule)
+    // Ray-casting algorithm for even-odd rule
     bool inside = false;
     for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-        // Skip degenerate edges
-        if (points[i] == points[j]) continue;
+        if (points[i] == points[j]) continue; // Skip degenerate edges
 
-        if (((points[i].y > p.y) != (points[j].y > p.y)) &&
-            (p.x < points[i].x + (points[j].x - points[i].x) * (p.y - points[i].y) / (points[j].y - points[i].y))) {
-            inside = !inside;
+        float dy = points[j].y - points[i].y;
+        if (abs(dy) < 0.0001) continue; // Skip near-horizontal edges
+
+        if (((points[i].y > p.y) != (points[j].y > p.y))) {
+            float x_intersect = points[i].x + (points[j].x - points[i].x) * (p.y - points[i].y) / dy;
+            if (p.x < x_intersect) {
+                inside = !inside;
+            }
         }
     }
     return inside;
@@ -67,16 +66,27 @@ void main() {
     // Get pixel coordinates in screen space
     vec2 pixel = fragTexCoord * resolution;
 
-    if (pointCount == 4) {
-      finalColor = vec4(0.0, 1.0, 0.0, 1.0);
-      return;
+    // Initial debug coloring - set to fully transparent
+    finalColor = vec4(1.0, 1.0, 0.0, 0.0);
+
+
+    // Show red band on left side of screen
+    if (pixel.x < 500) {
+        finalColor = vec4(1.0, 0.0, 0.0, 1.0); // Red band on left
+        return;
     }
-    // Test if the current pixel is inside the polygon
-    if (isPointInsidePolygon(pixel)) {
-        // finalColor = fillColor;
-        finalColor = vec4(0.0, 1.0, 0.0, 1.0);  // Debug color
+
+    // Draw border around rectangle
+    if (pixel.x < 5.0 || pixel.y < 5.0 ||
+        pixel.x > resolution.x - 5.0 || pixel.y > resolution.y - 5.0) {
+        finalColor = vec4(1.0, 0.0, 0.0, 1.0);  // Red border
+    }
+
+    // Apply polygon test only if we haven't set a debug color already
+    if (finalColor.a < 0.1 && isPointInsidePolygon(pixel)) {
+        finalColor = fillColor;
     } else {
-        finalColor = vec4(1.0, 0.0, 0.0, 1.0);
+        //finalColor = vec4(1.0, 0.0, 0.0, 1.0); // Fully transparent if outside polygon
     }
 }
 """
@@ -156,6 +166,12 @@ class ModelRenderer:
     resolution_loc = rl.get_shader_location(self.my_shader, "resolution")
     points_loc = rl.get_shader_location(self.my_shader, "points")
     transformed_points = transformed_points[:15]
+    assert(point_count_loc >= 0)
+    assert(fill_color_loc >= 0)
+    assert(resolution_loc >= 0)
+    assert(points_loc >= 0)
+
+
     # print(len(transformed_points))
     transformed_points = [(10.0, 800.0), (20.0, 800.0), (20.0, 900.0), (10.0, 900.0)]
     # Check if locations are valid
@@ -186,6 +202,25 @@ class ModelRenderer:
     #   location = rl.get_shader_location_attrib(self.my_shader, f"points[{i}]")
     #   rl.set_shader_value_v(self.my_shader, points_loc + i, point_ptr, rl.SHADER_UNIFORM_VEC2)
     # Set shader uniforms
+
+    mvp_loc = rl.get_shader_location(self.my_shader, "mvp")
+    assert(mvp_loc >= 0)
+    # Set MVP matrix - use identity if you want coordinates to remain unchanged
+    mvp_ptr = rl.ffi.new("float[16]", [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    ])
+    # mvp = rl.Matrix(min_x, max_x, max_y, min_y, -1.0, 1.0)
+    # mvp_ptr = rl.ffi.new("float[16]", [
+    #     mvp.m0, mvp.m4, mvp.m8, mvp.m12,
+    #     mvp.m1, mvp.m5, mvp.m9, mvp.m13,
+    #     mvp.m2, mvp.m6, mvp.m10, mvp.m14,
+    #     mvp.m3, mvp.m7, mvp.m11, mvp.m15
+    # ])
+    rl.set_shader_value_matrix(self.my_shader, mvp_loc, rl.Matrix(*mvp_ptr))
+
     rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
     rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
     rl.set_shader_value(self.my_shader, resolution_loc, resolution_ptr, rl.SHADER_UNIFORM_VEC2)
@@ -195,9 +230,11 @@ class ModelRenderer:
 
     # Draw with the shader
     rl.begin_shader_mode(self.my_shader)
-    print('00000000000000', int(min_x), int(min_y), int(width), int(height))
-    rl.draw_rectangle(0, 0, 2000, 1900, color)#int(min_x), int(min_y), int(width), int(height), color)
+    rl.draw_rectangle(0, 0, 2000, 1900, rl.RED)#int(min_x), int(min_y), int(width), int(height), color)
     rl.end_shader_mode()
+
+
+    rl.draw_rectangle(0, 0, 100, 100, rl.RED)
 
     # Draw outline for better visibility
     # vertices = [rl.Vector2(p[0], p[1]) for p in points]
