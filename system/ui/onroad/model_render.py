@@ -52,18 +52,12 @@ void main() {
     // Make the whole rectangle red to see if shader is running
     // finalColor = vec4(1.0, 0.0, 0.0, 0.3);
 
-    // Show dots at vertex positions
-    for (int i = 0; i < pointCount; i++) {
-        float dist = distance(pixel, points[i]);
-        if (dist < 0.1) { // Very large dots for testing
-            finalColor = vec4(0.0, 1.0, 0.0, 1.0); // Green dots
-            return;
-        }
-    }
 
-    // Apply fill using point-in-polygon test
     if (isPointInsidePolygon(pixel)) {
-        finalColor = fillColor;
+      // finalColor = fillColor;
+      finalColor = vec4(1.0, 0.0, 0.0, 0.3);
+    } else {
+      finalColor = vec4(0.0, 0.0, 0.0, 0.0);
     }
 }
 """
@@ -192,8 +186,8 @@ class ModelRenderer:
     # Transform points to be relative to bounding box origin
     transformed_points = []
     for p in points:
-        tx = p[0] - min_x
-        ty = p[1] - min_y
+        tx = p[0]
+        ty = p[1]
         transformed_points.append((tx, ty))
 
     # Get shader locations
@@ -1000,7 +994,7 @@ class ModelRenderer:
       rl.rl_clear_stencil_buffer(0)
       rl.rl_stencil_func(0x0207, 1, 0xFF)  # GL_EQUAL
       rl.rl_stencil_op(0x1E00, 0x1E00, 0x1E01)  # GL_KEEP, GL_KEEP, GL_REPLACE
-
+      assert(0)
       # Draw polygon to stencil buffer
       rl.draw_triangle_fan(vertices, len(vertices), rl.Color(255, 255, 255, 255))
 
