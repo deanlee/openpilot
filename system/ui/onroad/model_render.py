@@ -67,13 +67,13 @@ void main() {
     vec2 pixel = fragTexCoord * resolution;
 
     // Flip Y coordinate to match screen space orientation
-    pixel.y = resolution.y - pixel.y;
+    //pixel.y = resolution.y - pixel.y;
 
     // Initial debug coloring - set to fully transparent
     finalColor = vec4(0.0, 0.0, 0.0, 0.0);
 
     // Make a very simple test that will definitely show something
-    if (fragTexCoord.x > 0.2) {  // Left 20% of texture
+    if (fragTexCoord.x > 0.5) {  // Left 20% of texture
         finalColor = vec4(1.0, 0.0, 0.0, 1.0);  // Red
         return;  // Important: return here to prevent overwriting
     }
