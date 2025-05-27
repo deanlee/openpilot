@@ -266,7 +266,7 @@ def draw_polygon(points: np.ndarray, color=None, gradient=None):
   rl.set_shader_value(state.shader, state.locations['resolution'], resolution_ptr, rl.ShaderUniformDataType.SHADER_UNIFORM_VEC2)
 
   # Set points
-  flat_points = np.ascontiguousarray(transformed_points.flatten().astype(np.float32))
+  flat_points = transformed_points.flatten().astype(np.float32)
   points_ptr = rl.ffi.cast("float *", flat_points.ctypes.data)
   rl.set_shader_value_v(
     state.shader, state.locations['points'], points_ptr, rl.ShaderUniformDataType.SHADER_UNIFORM_VEC2, len(transformed_points)
@@ -287,21 +287,24 @@ def draw_polygon(points: np.ndarray, color=None, gradient=None):
     # Set gradient colors
     colors = gradient['colors']
     color_count = min(len(colors), 8)  # Max 8 colors
-    colors_ptr = rl.ffi.new("float[]", color_count * 4)
+    # Pre-allocate colors array and fill in one pass
+    colors_array = np.zeros(color_count * 4, dtype=np.float32)
     for i, c in enumerate(colors[:color_count]):
-      colors_ptr[i * 4] = c.r / 255.0
-      colors_ptr[i * 4 + 1] = c.g / 255.0
-      colors_ptr[i * 4 + 2] = c.b / 255.0
-      colors_ptr[i * 4 + 3] = c.a / 255.0
+      colors_array[i*4:(i+1)*4] = [c.r/255.0, c.g/255.0, c.b/255.0, c.a/255.0]
+
+    colors_ptr = rl.ffi.cast("float *", colors_array.ctypes.data)
     rl.set_shader_value_v(
       state.shader, state.locations['gradientColors'], colors_ptr, rl.ShaderUniformDataType.SHADER_UNIFORM_VEC4, color_count
     )
 
     # Set gradient stops
-    stops = gradient.get('stops', [i / (color_count - 1) for i in range(color_count)])
-    stops_ptr = rl.ffi.new("float[]", color_count)
-    for i, s in enumerate(stops[:color_count]):
-      stops_ptr[i] = s
+    stops = gradient.get('stops', None)
+    if stops is None:
+      stops_array = np.linspace(0, 1, color_count, dtype=np.float32)
+    else:
+      stops_array = np.array(stops[:color_count], dtype=np.float32)
+
+    stops_ptr = rl.ffi.cast("float *", stops_array.ctypes.data)
     rl.set_shader_value_v(
       state.shader, state.locations['gradientStops'], stops_ptr, rl.ShaderUniformDataType.SHADER_UNIFORM_FLOAT, color_count
     )

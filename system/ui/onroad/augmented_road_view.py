@@ -37,7 +37,8 @@ class AugmentedRoadView(CameraView):
     self._update_calibration()
 
     # Render the base camera view
-    super().render(rect)
+    # super().render(rect)
+    self._calc_frame_matrix(rect)
 
     # TODO: Add road visualization overlays like:
     # - Lane lines and road edges
@@ -127,6 +128,8 @@ class AugmentedRoadView(CameraView):
 
 
 if __name__ == "__main__":
+  import os
+  os.setpriority(os.PRIO_PROCESS, 0, -20)
   gui_app.init_window("OnRoad Camera View")
   sm = messaging.SubMaster(["modelV2", "controlsState", "liveCalibration", "radarState", "deviceState",
     "pandaStates", "carParams", "driverMonitoringState", "carState", "driverStateV2",
