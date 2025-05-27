@@ -186,15 +186,15 @@ class ModelRenderer:
     #   rl.set_shader_value_v(self.my_shader, points_loc + i, point_ptr, rl.SHADER_UNIFORM_VEC2)
     # Set shader uniforms
 
-    mvp_loc = rl.get_shader_location(self.my_shader, "mvp")
-    assert(mvp_loc >= 0)
-    # Set MVP matrix - use identity if you want coordinates to remain unchanged
-    mvp_ptr = rl.ffi.new("float[16]", [
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 1.0, 0.0,
-        0.0, 0.0, 0.0, 1.0
-    ])
+    # mvp_loc = rl.get_shader_location(self.my_shader, "mvp")
+    # assert(mvp_loc >= 0)
+    # # Set MVP matrix - use identity if you want coordinates to remain unchanged
+    # mvp_ptr = rl.ffi.new("float[16]", [
+    #     1.0, 0.0, 0.0, 0.0,
+    #     0.0, 1.0, 0.0, 0.0,
+    #     0.0, 0.0, 1.0, 0.0,
+    #     0.0, 0.0, 0.0, 1.0
+    # ])
     # mvp = rl.Matrix(min_x, max_x, max_y, min_y, -1.0, 1.0)
     # mvp_ptr = rl.ffi.new("float[16]", [
     #     mvp.m0, mvp.m4, mvp.m8, mvp.m12,
@@ -202,7 +202,7 @@ class ModelRenderer:
     #     mvp.m2, mvp.m6, mvp.m10, mvp.m14,
     #     mvp.m3, mvp.m7, mvp.m11, mvp.m15
     # ])
-    rl.set_shader_value_matrix(self.my_shader, mvp_loc, rl.Matrix(*mvp_ptr))
+    # rl.set_shader_value_matrix(self.my_shader, mvp_loc, rl.Matrix(*mvp_ptr))
 
     rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
     rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
