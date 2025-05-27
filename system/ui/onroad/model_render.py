@@ -67,11 +67,16 @@ void main() {
     // Get pixel coordinates in screen space
     vec2 pixel = fragTexCoord * resolution;
 
+    if (pointCount == 4) {
+      finalColor = vec4(0.0, 1.0, 0.0, 1.0);
+      return;
+    }
     // Test if the current pixel is inside the polygon
     if (isPointInsidePolygon(pixel)) {
-        finalColor = fillColor;
+        // finalColor = fillColor;
+        finalColor = vec4(0.0, 1.0, 0.0, 1.0);  // Debug color
     } else {
-        finalColor = vec4(0.0, 0.0, 0.0, 0.0);
+        finalColor = vec4(1.0, 0.0, 0.0, 1.0);
     }
 }
 """
@@ -138,14 +143,21 @@ class ModelRenderer:
     height = max(1, max_y - min_y)
 
     # Transform points to shader space
-    transformed_points = points.copy()
+    transformed_points = []
+    for p in points:
+      # Transform to local coordinates relative to bounding box
+      tx = p[0] - min_x  # Offset X coordinate by min_x
+      ty = p[1] - min_y  # Offset Y coordinate by min_y
+      transformed_points.append((tx, ty))
 
     # Get shader locations
     point_count_loc = rl.get_shader_location(self.my_shader, "pointCount")
     fill_color_loc = rl.get_shader_location(self.my_shader, "fillColor")
     resolution_loc = rl.get_shader_location(self.my_shader, "resolution")
     points_loc = rl.get_shader_location(self.my_shader, "points")
-
+    transformed_points = transformed_points[:15]
+    # print(len(transformed_points))
+    transformed_points = [(10.0, 800.0), (20.0, 800.0), (20.0, 900.0), (10.0, 900.0)]
     # Check if locations are valid
     if point_count_loc == -1 or fill_color_loc == -1 or resolution_loc == -1 or points_loc == -1:
         print("Error: Failed to get shader uniform locations")
@@ -156,7 +168,8 @@ class ModelRenderer:
     # Create uniform data
     point_count_ptr = rl.ffi.new("int[]", [len(transformed_points)])
     fill_color_ptr = rl.ffi.new("float[]", [color.r/255.0, color.g/255.0, color.b/255.0, color.a/255.0])
-    resolution_ptr = rl.ffi.new("float[]", [width, height])
+    # resolution_ptr = rl.ffi.new("float[]", [width, height])
+    resolution_ptr = rl.ffi.new("float[]", [2000, 1900])
 
     # Populate points array for shader
     points_ptr = rl.ffi.new("float[]", len(transformed_points) * 2)
@@ -164,15 +177,26 @@ class ModelRenderer:
         points_ptr[i*2] = float(p[0])
         points_ptr[i*2+1] = float(p[1])
 
+
+    # for i, p in enumerate(transformed_points):
+    #   # Create a float array for each vec2 point
+    #   point_ptr = rl.ffi.new("float[2]", [float(p[0]), float(p[1])])
+
+    #   # Set each array element individually using array index notation
+    #   location = rl.get_shader_location_attrib(self.my_shader, f"points[{i}]")
+    #   rl.set_shader_value_v(self.my_shader, points_loc + i, point_ptr, rl.SHADER_UNIFORM_VEC2)
     # Set shader uniforms
     rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
     rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
     rl.set_shader_value(self.my_shader, resolution_loc, resolution_ptr, rl.SHADER_UNIFORM_VEC2)
-    rl.set_shader_value(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2)
+    # rl.set_shader_value(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2)
+    rl.set_shader_value_v(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2, len(transformed_points))
+
 
     # Draw with the shader
     rl.begin_shader_mode(self.my_shader)
-    rl.draw_rectangle(int(min_x), int(min_y), int(width), int(height), color)
+    print('00000000000000', int(min_x), int(min_y), int(width), int(height))
+    rl.draw_rectangle(0, 0, 2000, 1900, color)#int(min_x), int(min_y), int(width), int(height), color)
     rl.end_shader_mode()
 
     # Draw outline for better visibility
