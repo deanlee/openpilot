@@ -26,7 +26,12 @@ uniform vec4 fillColor;   // Fill color
 uniform vec2 resolution;  // Bounding box resolution
 
 bool isPointInsidePolygon(vec2 p) {
-    // Simple triangle test for debugging
+    if (pointCount < 3) return false;
+
+    // Debug visualization - color everything to verify shader is running
+    // return true;  // Uncomment to test if shader is running at all
+
+    // For triangles, use the faster barycentric method
     if (pointCount == 3) {
         vec2 v0 = points[0];
         vec2 v1 = points[1];
@@ -34,6 +39,8 @@ bool isPointInsidePolygon(vec2 p) {
 
         // Compute barycentric coordinates
         float d = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
+        if (abs(d) < 0.0001) return false;  // Avoid division by zero
+
         float a = ((v1.y - v2.y) * (p.x - v2.x) + (v2.x - v1.x) * (p.y - v2.y)) / d;
         float b = ((v2.y - v0.y) * (p.x - v2.x) + (v0.x - v2.x) * (p.y - v2.y)) / d;
         float c = 1.0 - a - b;
@@ -42,22 +49,29 @@ bool isPointInsidePolygon(vec2 p) {
         return (a >= 0.0 && b >= 0.0 && c >= 0.0);
     }
 
-    return false;
+    // For all other polygons, use ray casting algorithm (even-odd rule)
+    bool inside = false;
+    for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
+        // Skip degenerate edges
+        if (points[i] == points[j]) continue;
+
+        if (((points[i].y > p.y) != (points[j].y > p.y)) &&
+            (p.x < points[i].x + (points[j].x - points[i].x) * (p.y - points[i].y) / (points[j].y - points[i].y))) {
+            inside = !inside;
+        }
+    }
+    return inside;
 }
 
 void main() {
-    // Convert normalized coordinates [0,1] to local bounding box coordinates
+    // Get pixel coordinates in screen space
     vec2 pixel = fragTexCoord * resolution;
 
-    // Make the whole rectangle red to see if shader is running
-    // finalColor = vec4(1.0, 0.0, 0.0, 0.3);
-
-
+    // Test if the current pixel is inside the polygon
     if (isPointInsidePolygon(pixel)) {
-      // finalColor = fillColor;
-      finalColor = vec4(1.0, 0.0, 0.0, 0.3);
+        finalColor = fillColor;
     } else {
-      finalColor = vec4(0.0, 0.0, 0.0, 0.0);
+        finalColor = vec4(0.0, 0.0, 0.0, 0.0);
     }
 }
 """
@@ -107,7 +121,70 @@ class ModelRenderer:
     self.polygon_shader = self._load_polygon_shader()
     self.my_shader = rl.load_shader_from_memory(vertex_shader_code, fragment_shader_code)
     assert(self.my_shader.id != 0), "Failed to load shader"
+    assert(self.my_shader.id >=0)
 
+  def draw_complex_polygon(self, points, color: rl.Color):
+    """Draw a complex polygon using shader-based even-odd fill rule"""
+    if len(points) < 3:
+        return
+
+    # Find bounding box
+    min_x = min(p[0] for p in points)
+    max_x = max(p[0] for p in points)
+    min_y = min(p[1] for p in points)
+    max_y = max(p[1] for p in points)
+
+    width = max(1, max_x - min_x)
+    height = max(1, max_y - min_y)
+
+    # Transform points to shader space
+    transformed_points = points.copy()
+
+    # Get shader locations
+    point_count_loc = rl.get_shader_location(self.my_shader, "pointCount")
+    fill_color_loc = rl.get_shader_location(self.my_shader, "fillColor")
+    resolution_loc = rl.get_shader_location(self.my_shader, "resolution")
+    points_loc = rl.get_shader_location(self.my_shader, "points")
+
+    # Check if locations are valid
+    if point_count_loc == -1 or fill_color_loc == -1 or resolution_loc == -1 or points_loc == -1:
+        print("Error: Failed to get shader uniform locations")
+        # Fall back to simple polygon drawing
+        self.draw_polygon(points, color)
+        return
+
+    # Create uniform data
+    point_count_ptr = rl.ffi.new("int[]", [len(transformed_points)])
+    fill_color_ptr = rl.ffi.new("float[]", [color.r/255.0, color.g/255.0, color.b/255.0, color.a/255.0])
+    resolution_ptr = rl.ffi.new("float[]", [width, height])
+
+    # Populate points array for shader
+    points_ptr = rl.ffi.new("float[]", len(transformed_points) * 2)
+    for i, p in enumerate(transformed_points):
+        points_ptr[i*2] = float(p[0])
+        points_ptr[i*2+1] = float(p[1])
+
+    # Set shader uniforms
+    rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
+    rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
+    rl.set_shader_value(self.my_shader, resolution_loc, resolution_ptr, rl.SHADER_UNIFORM_VEC2)
+    rl.set_shader_value(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2)
+
+    # Draw with the shader
+    rl.begin_shader_mode(self.my_shader)
+    rl.draw_rectangle(int(min_x), int(min_y), int(width), int(height), color)
+    rl.end_shader_mode()
+
+    # Draw outline for better visibility
+    # vertices = [rl.Vector2(p[0], p[1]) for p in points]
+    # outline_color = rl.Color(max(0, color.r - 15), max(0, color.g - 15), max(0, color.b - 15), color.a)
+    # for i in range(len(vertices)):
+    #     rl.draw_line_ex(
+    #         vertices[i],
+    #         vertices[(i+1) % len(vertices)],
+    #         1.0,
+    #         outline_color
+    #     )
   # def draw_polygon(self, points, color):
   #   # print('hhh')
   #   """Draw a filled polygon with even-odd fill rule using shader"""
@@ -169,75 +246,6 @@ class ModelRenderer:
   #   # End shader mode
   #   rl.end_shader_mode()
 
-  def draw_complex_polygon(self, points, color: rl.Color):
-    """Draw a complex polygon using shader-based even-odd fill rule"""
-    # For testing, use a simple triangle
-    # points = [(100, 100), (300, 100), (200, 300)]
-    # color = rl.Color(255, 0, 0, 128)
-
-    min_x = min(p[0] for p in points)
-    max_x = max(p[0] for p in points)
-    min_y = min(p[1] for p in points)
-    max_y = max(p[1] for p in points)
-
-    width = max_x - min_x
-    height = max_y - min_y
-
-    # Transform points to be relative to bounding box origin
-    transformed_points = []
-    for p in points:
-        tx = p[0]
-        ty = p[1]
-        transformed_points.append((tx, ty))
-
-    # Get shader locations
-    point_count_loc = rl.get_shader_location(self.my_shader, "pointCount")
-    fill_color_loc = rl.get_shader_location(self.my_shader, "fillColor")
-    resolution_loc = rl.get_shader_location(self.my_shader, "resolution")
-    points_loc = rl.get_shader_location(self.my_shader, "points")
-
-    # Check if locations are valid
-    if point_count_loc == -1 or fill_color_loc == -1 or resolution_loc == -1 or points_loc == -1:
-        print("Error: Failed to get shader uniform locations")
-        return
-
-    # Create uniform data
-    point_count_ptr = rl.ffi.new("int[]", [len(transformed_points)])
-    fill_color_ptr = rl.ffi.new("float[]", [color.r/255.0, color.g/255.0, color.b/255.0, color.a/255.0])
-    resolution_ptr = rl.ffi.new("float[]", [width, height])
-
-    # Populate points array for shader
-    points_ptr = rl.ffi.new("float[]", len(transformed_points) * 2)
-    for i, p in enumerate(transformed_points):
-        points_ptr[i*2] = float(p[0])
-        points_ptr[i*2+1] = float(p[1])
-
-    # Set shader uniforms
-    rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
-    rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
-    rl.set_shader_value(self.my_shader, resolution_loc, resolution_ptr, rl.SHADER_UNIFORM_VEC2)
-    rl.set_shader_value(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2)
-
-    # Draw directly with triangle fan as a fallback to verify rendering works
-    vertices = []
-    for p in points:
-        vertices.append(rl.Vector2(p[0], p[1]))
-
-    # Try both approaches
-
-    # 1. Shader approach
-    rl.begin_shader_mode(self.my_shader)
-    rl.draw_rectangle(int(min_x), int(min_y), int(width), int(height), color)
-    rl.end_shader_mode()
-
-    # 2. Direct drawing approach
-    direct_color = rl.Color(0, 0, 255, 128)  # Blue, to distinguish from shader
-    rl.draw_triangle(
-        rl.Vector2(points[0][0], points[0][1]),
-        rl.Vector2(points[1][0], points[1][1]),
-        rl.Vector2(points[2][0], points[2][1]),
-        direct_color
-    )
 
     # 3. Draw points as circles for debugging
     # for p in points:
