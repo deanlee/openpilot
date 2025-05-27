@@ -66,27 +66,27 @@ void main() {
     // Get pixel coordinates in screen space
     vec2 pixel = fragTexCoord * resolution;
 
+    // Flip Y coordinate to match screen space orientation
+    pixel.y = resolution.y - pixel.y;
+
     // Initial debug coloring - set to fully transparent
-    finalColor = vec4(1.0, 1.0, 0.0, 0.0);
+    finalColor = vec4(0.0, 0.0, 0.0, 0.0);
 
-
-    // Show red band on left side of screen
-    if (pixel.x < 500) {
-        finalColor = vec4(1.0, 0.0, 0.0, 1.0); // Red band on left
-        return;
+    // Make a very simple test that will definitely show something
+    if (fragTexCoord.x > 0.2) {  // Left 20% of texture
+        finalColor = vec4(1.0, 0.0, 0.0, 1.0);  // Red
+        return;  // Important: return here to prevent overwriting
     }
 
-    // Draw border around rectangle
-    if (pixel.x < 5.0 || pixel.y < 5.0 ||
-        pixel.x > resolution.x - 5.0 || pixel.y > resolution.y - 5.0) {
-        finalColor = vec4(1.0, 0.0, 0.0, 1.0);  // Red border
+    // Add grid lines with visible alpha
+    if (mod(fragTexCoord.x, 0.1) < 0.01 || mod(fragTexCoord.y, 0.1) < 0.01) {
+        finalColor = vec4(1.0, 1.0, 0.0, 1.0);  // Yellow grid with full alpha
+        return;  // Return to prevent overwriting
     }
 
-    // Apply polygon test only if we haven't set a debug color already
-    if (finalColor.a < 0.1 && isPointInsidePolygon(pixel)) {
+    // Apply polygon test only if we haven't set a color already
+    if (isPointInsidePolygon(pixel)) {
         finalColor = fillColor;
-    } else {
-        //finalColor = vec4(1.0, 0.0, 0.0, 1.0); // Fully transparent if outside polygon
     }
 }
 """
@@ -165,7 +165,7 @@ class ModelRenderer:
     fill_color_loc = rl.get_shader_location(self.my_shader, "fillColor")
     resolution_loc = rl.get_shader_location(self.my_shader, "resolution")
     points_loc = rl.get_shader_location(self.my_shader, "points")
-    transformed_points = transformed_points[:15]
+    # transformed_points = transformed_points[:15]
     assert(point_count_loc >= 0)
     assert(fill_color_loc >= 0)
     assert(resolution_loc >= 0)
@@ -173,7 +173,7 @@ class ModelRenderer:
 
 
     # print(len(transformed_points))
-    transformed_points = [(10.0, 800.0), (20.0, 800.0), (20.0, 900.0), (10.0, 900.0)]
+    # transformed_points = [(10.0, 800.0), (20.0, 800.0), (20.0, 900.0), (10.0, 900.0)]
     # Check if locations are valid
     if point_count_loc == -1 or fill_color_loc == -1 or resolution_loc == -1 or points_loc == -1:
         print("Error: Failed to get shader uniform locations")
@@ -184,8 +184,8 @@ class ModelRenderer:
     # Create uniform data
     point_count_ptr = rl.ffi.new("int[]", [len(transformed_points)])
     fill_color_ptr = rl.ffi.new("float[]", [color.r/255.0, color.g/255.0, color.b/255.0, color.a/255.0])
-    # resolution_ptr = rl.ffi.new("float[]", [width, height])
-    resolution_ptr = rl.ffi.new("float[]", [2000, 1900])
+    resolution_ptr = rl.ffi.new("float[]", [width, height])
+    # resolution_ptr = rl.ffi.new("float[]", [2000, 1900])
 
     # Populate points array for shader
     points_ptr = rl.ffi.new("float[]", len(transformed_points) * 2)
@@ -230,11 +230,11 @@ class ModelRenderer:
 
     # Draw with the shader
     rl.begin_shader_mode(self.my_shader)
-    rl.draw_rectangle(0, 0, 2000, 1900, rl.RED)#int(min_x), int(min_y), int(width), int(height), color)
+    rl.draw_rectangle(int(min_x), int(min_y), int(width), int(height), color)
     rl.end_shader_mode()
 
 
-    rl.draw_rectangle(0, 0, 100, 100, rl.RED)
+    # rl.draw_rectangle(0, 0, 100, 100, rl.RED)
 
     # Draw outline for better visibility
     # vertices = [rl.Vector2(p[0], p[1]) for p in points]
