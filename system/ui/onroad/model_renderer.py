@@ -174,14 +174,14 @@ class ModelRenderer:
     if True:#self.experimental_mode:
       # Draw with acceleration coloring
       acceleration = model.acceleration.x
-      max_len = min(len(self.track_vertices) // 2, len(acceleration))
+      max_len = min(len(self._track_vertices) // 2, len(acceleration))
 
       # Find midpoint index for polygon
-      mid_point = len(self.track_vertices) // 2
+      mid_point = len(self._track_vertices) // 2
 
       # For acceleration-based coloring, process segments separately
-      left_side = self.track_vertices[:mid_point]
-      right_side = self.track_vertices[mid_point:][::-1]  # Reverse for proper winding
+      left_side = self._track_vertices[:mid_point]
+      right_side = self._track_vertices[mid_point:][::-1]  # Reverse for proper winding
 
       # Create segments for gradient coloring
       segment_colors = []
@@ -205,11 +205,11 @@ class ModelRenderer:
         path_hue = int(path_hue * 100 + 0.5) / 100
 
         saturation = min(abs(acceleration[i] * 1.5), 1)
-        lightness = self.map_val(saturation, 0.0, 1.0, 0.95, 0.62)
-        alpha = self.map_val(lin_grad_point, 0.75 / 2.0, 0.75, 0.4, 0.0)
+        lightness = self._map_val(saturation, 0.0, 1.0, 0.95, 0.62)
+        alpha = self._map_val(lin_grad_point, 0.75 / 2.0, 0.75, 0.4, 0.0)
 
         # Use HSL to RGB conversion
-        color = self.hsla_to_color(path_hue / 360.0, saturation, lightness, alpha)
+        color = self._hsla_to_color(path_hue / 360.0, saturation, lightness, alpha)
 
         # Create quad segment
         gradient_stops.append(lin_grad_point)
@@ -217,7 +217,7 @@ class ModelRenderer:
 
       if len(segment_colors) < 2:
         # Default color if not enough points
-        self.draw_complex_polygon(self.track_vertices, rl.ColorAlpha(rl.GREEN, 0.3))
+        self.draw_complex_polygon(self._track_vertices, rl.ColorAlpha(rl.GREEN, 0.3))
         return
 
       # Create gradient specification
@@ -229,7 +229,7 @@ class ModelRenderer:
       }
 
       # Draw the entire path with a single gradient fill
-      draw_polygon(self.track_vertices, gradient=gradient)
+      draw_polygon(self._track_vertices, gradient=gradient)
     else:
       # Draw with throttle/no throttle gradient
       allow_throttle = sm['longitudinalPlan'].allowThrottle or not self._longitudinal_control
@@ -260,7 +260,7 @@ class ModelRenderer:
             'stops': [0.0, 1.0]
         }
       # Draw path with gradient
-      draw_polygon(self.track_vertices, gradient=gradient)
+      draw_polygon(self._track_vertices, gradient=gradient)
 
   def _draw_lead(self, lead_data, vd, rect):
     """Draw lead vehicle indicator"""
