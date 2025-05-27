@@ -33,7 +33,7 @@ class AugmentedRoadView(CameraView):
 
     # Render the base camera view
     self._cached_matrix = self._calc_frame_matrix(rect)
-    # super().render(rect)
+    super().render(rect)
 
     # TODO: Add road visualization overlays like:
     # - Lane lines and road edges

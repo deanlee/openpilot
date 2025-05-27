@@ -66,27 +66,10 @@ void main() {
     // Get pixel coordinates in screen space
     vec2 pixel = fragTexCoord * resolution;
 
-    // Flip Y coordinate to match screen space orientation
-    //pixel.y = resolution.y - pixel.y;
-
-    // Initial debug coloring - set to fully transparent
-    finalColor = vec4(0.0, 0.0, 0.0, 0.0);
-
-    // Make a very simple test that will definitely show something
-    if (fragTexCoord.x > 0.5) {  // Left 20% of texture
-        finalColor = vec4(1.0, 0.0, 0.0, 1.0);  // Red
-        return;  // Important: return here to prevent overwriting
-    }
-
-    // Add grid lines with visible alpha
-    if (mod(fragTexCoord.x, 0.1) < 0.01 || mod(fragTexCoord.y, 0.1) < 0.01) {
-        finalColor = vec4(1.0, 1.0, 0.0, 1.0);  // Yellow grid with full alpha
-        return;  // Return to prevent overwriting
-    }
-
-    // Apply polygon test only if we haven't set a color already
     if (isPointInsidePolygon(pixel)) {
         finalColor = fillColor;
+    } else{
+    finalColor = vec4(0.0, 0.0, 0.0, 0.0); // Transparent outside polygon
     }
 }
 """
@@ -229,9 +212,28 @@ class ModelRenderer:
 
 
     # Draw with the shader
+    white_img = rl.gen_image_color(2, 2, rl.WHITE)
+    white_texture = rl.load_texture_from_image(white_img)
+    rl.set_texture_filter(white_texture, rl.TEXTURE_FILTER_BILINEAR)
     rl.begin_shader_mode(self.my_shader)
-    rl.draw_rectangle(int(min_x), int(min_y), int(width), int(height), color)
+    # rl.draw_rectangle(int(min_x), int(min_y), int(width), int(height), color)
+    rl.draw_texture_pro(
+        white_texture,
+        rl.Rectangle(0, 0, 2, 2),  # Source rectangle covering the whole texture
+        rl.Rectangle(int(min_x), int(min_y), int(width), int(height)),  # Destination rectangle
+        rl.Vector2(0, 0),  # No offset
+        0.0,               # No rotation
+        rl.WHITE           # No tint
+    )
+
     rl.end_shader_mode()
+    rl.unload_texture(white_texture)
+    rl.unload_image(white_img)
+
+    for i in range(len(points)):
+      p1 = points[i]
+      p2 = points[(i + 1) % len(points)]
+      rl.draw_line(int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1]), color)
 
 
     # rl.draw_rectangle(0, 0, 100, 100, rl.RED)
