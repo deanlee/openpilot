@@ -104,7 +104,13 @@ void main()
     gl_Position = mvp * vec4(vertexPosition, 1.0);
 }
 """
+def shader_render2(shader, rect, time):
+    rl.begin_shader_mode(shader)
 
+    # Use Raylib's built-in rectangle drawing with texture coordinates
+    rl.draw_rectangle(int(rect.x), int(rect.y), int(rect.width), int(rect.height), rl.WHITE)
+
+    rl.end_shader_mode()
 
 def shader_render(shader, rect, time):
     # Create a white texture
@@ -164,6 +170,7 @@ if __name__ == "__main__":
     )
     # shader_render(shader, rect, time)
     shader_render(shader, rl.Rectangle(0, 0, gui_app.width, gui_app.height), time)
+    # shader_render2(shader, rl.Rectangle(0, 0, gui_app.width, gui_app.height), time)
 
     # Add some text
     rl.draw_text("Custom Shader Demo", 10, 10, 20, rl.WHITE)
