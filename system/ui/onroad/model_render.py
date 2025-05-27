@@ -20,10 +20,44 @@ fragment_shader_code = """
 in vec2 fragTexCoord;
 out vec4 finalColor;
 
-uniform vec2 points[100]; // Array of polygon vertices (max 100 points)
-uniform int pointCount;   // Number of points in polygon
-uniform vec4 fillColor;   // Fill color
-uniform vec2 resolution;  // Bounding box resolution
+uniform vec2 points[100];        // Array of polygon vertices (max 100 points)
+uniform int pointCount;          // Number of points in polygon
+uniform vec4 fillColor;          // Base fill color
+uniform vec2 resolution;         // Bounding box resolution
+
+// Gradient parameters
+uniform bool useGradient;        // Flag to enable gradient
+uniform vec2 gradientStart;      // Start point of gradient (normalized 0-1)
+uniform vec2 gradientEnd;        // End point of gradient (normalized 0-1)
+uniform vec4 gradientColors[8];  // Array of gradient colors (max 8 stops)
+uniform float gradientStops[8];  // Array of gradient stops (0-1)
+uniform int gradientColorCount;  // Number of gradient colors
+
+// Get color from gradient based on position
+vec4 getGradientColor(vec2 pos) {
+    // Calculate projection of point onto gradient line
+    vec2 gradientDir = gradientEnd - gradientStart;
+    float gradientLength = length(gradientDir);
+
+    if (gradientLength < 0.001) return gradientColors[0];
+
+    vec2 normalizedDir = gradientDir / gradientLength;
+    vec2 pointVec = pos - gradientStart;
+    float projection = dot(pointVec, normalizedDir);
+    float t = clamp(projection / gradientLength, 0.0, 1.0);
+
+    // Find the right gradient stop segment
+    for (int i = 0; i < gradientColorCount - 1; i++) {
+        if (t >= gradientStops[i] && t <= gradientStops[i+1]) {
+            // Interpolate between stops
+            float segmentT = (t - gradientStops[i]) / (gradientStops[i+1] - gradientStops[i]);
+            return mix(gradientColors[i], gradientColors[i+1], segmentT);
+        }
+    }
+
+    // Fallback to last color if we're at the end
+    return gradientColors[gradientColorCount-1];
+}
 
 bool isPointInsidePolygon(vec2 p) {
     if (pointCount < 3) return false;
@@ -63,13 +97,19 @@ bool isPointInsidePolygon(vec2 p) {
 }
 
 void main() {
-    // Get pixel coordinates in screen space
+   // Get pixel coordinates in screen space
     vec2 pixel = fragTexCoord * resolution;
 
     if (isPointInsidePolygon(pixel)) {
-        finalColor = fillColor;
-    } else{
-    finalColor = vec4(0.0, 0.0, 0.0, 0.0); // Transparent outside polygon
+        if (useGradient) {
+            // Use gradient fill
+            finalColor = getGradientColor(fragTexCoord);
+        } else {
+            // Use solid fill
+            finalColor = fillColor;
+        }
+    } else {
+        finalColor = vec4(0.0, 0.0, 0.0, 0.0); // Transparent outside polygon
     }
 }
 """
@@ -121,8 +161,21 @@ class ModelRenderer:
     assert(self.my_shader.id != 0), "Failed to load shader"
     assert(self.my_shader.id >=0)
 
-  def draw_complex_polygon(self, points, color: rl.Color):
-    """Draw a complex polygon using shader-based even-odd fill rule"""
+  def draw_complex_polygon(self, points, color=None, gradient=None):
+    """
+    Draw a complex polygon using shader-based even-odd fill rule
+
+    Args:
+        points: List of (x,y) points defining the polygon
+        color: Solid fill color (rl.Color)
+        gradient: Dict with gradient parameters:
+            {
+                'start': (x1, y1),    # Start point (normalized 0-1)
+                'end': (x2, y2),      # End point (normalized 0-1)
+                'colors': [rl.Color], # List of colors at stops
+                'stops': [float]      # List of positions (0-1)
+            }
+    """
     if len(points) < 3:
         return
 
@@ -138,102 +191,110 @@ class ModelRenderer:
     # Transform points to shader space
     transformed_points = []
     for p in points:
-      # Transform to local coordinates relative to bounding box
-      tx = p[0] - min_x  # Offset X coordinate by min_x
-      ty = p[1] - min_y  # Offset Y coordinate by min_y
-      transformed_points.append((tx, ty))
+        tx = p[0] - min_x
+        ty = p[1] - min_y
+        transformed_points.append((tx, ty))
 
     # Get shader locations
     point_count_loc = rl.get_shader_location(self.my_shader, "pointCount")
     fill_color_loc = rl.get_shader_location(self.my_shader, "fillColor")
     resolution_loc = rl.get_shader_location(self.my_shader, "resolution")
     points_loc = rl.get_shader_location(self.my_shader, "points")
-    # transformed_points = transformed_points[:15]
-    assert(point_count_loc >= 0)
-    assert(fill_color_loc >= 0)
-    assert(resolution_loc >= 0)
-    assert(points_loc >= 0)
 
+    # Get gradient locations
+    use_gradient_loc = rl.get_shader_location(self.my_shader, "useGradient")
+    gradient_start_loc = rl.get_shader_location(self.my_shader, "gradientStart")
+    gradient_end_loc = rl.get_shader_location(self.my_shader, "gradientEnd")
+    gradient_colors_loc = rl.get_shader_location(self.my_shader, "gradientColors")
+    gradient_stops_loc = rl.get_shader_location(self.my_shader, "gradientStops")
+    gradient_color_count_loc = rl.get_shader_location(self.my_shader, "gradientColorCount")
 
-    # print(len(transformed_points))
-    # transformed_points = [(10.0, 800.0), (20.0, 800.0), (20.0, 900.0), (10.0, 900.0)]
-    # Check if locations are valid
-    if point_count_loc == -1 or fill_color_loc == -1 or resolution_loc == -1 or points_loc == -1:
-        print("Error: Failed to get shader uniform locations")
-        # Fall back to simple polygon drawing
-        self.draw_polygon(points, color)
-        return
+    # MVP matrix
+    mvp_loc = rl.get_shader_location(self.my_shader, "mvp")
+    mvp_ptr = rl.ffi.new("float[16]", [
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 1.0, 0.0,
+        0.0, 0.0, 0.0, 1.0
+    ])
+    rl.set_shader_value_matrix(self.my_shader, mvp_loc, rl.Matrix(*mvp_ptr))
 
-    # Create uniform data
+    # Set basic shader uniforms
     point_count_ptr = rl.ffi.new("int[]", [len(transformed_points)])
-    fill_color_ptr = rl.ffi.new("float[]", [color.r/255.0, color.g/255.0, color.b/255.0, color.a/255.0])
-    resolution_ptr = rl.ffi.new("float[]", [width, height])
-    # resolution_ptr = rl.ffi.new("float[]", [2000, 1900])
+    rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
 
-    # Populate points array for shader
+    resolution_ptr = rl.ffi.new("float[]", [width, height])
+    rl.set_shader_value(self.my_shader, resolution_loc, resolution_ptr, rl.SHADER_UNIFORM_VEC2)
+
+    # Set points
     points_ptr = rl.ffi.new("float[]", len(transformed_points) * 2)
     for i, p in enumerate(transformed_points):
         points_ptr[i*2] = float(p[0])
         points_ptr[i*2+1] = float(p[1])
-
-
-    # for i, p in enumerate(transformed_points):
-    #   # Create a float array for each vec2 point
-    #   point_ptr = rl.ffi.new("float[2]", [float(p[0]), float(p[1])])
-
-    #   # Set each array element individually using array index notation
-    #   location = rl.get_shader_location_attrib(self.my_shader, f"points[{i}]")
-    #   rl.set_shader_value_v(self.my_shader, points_loc + i, point_ptr, rl.SHADER_UNIFORM_VEC2)
-    # Set shader uniforms
-
-    # mvp_loc = rl.get_shader_location(self.my_shader, "mvp")
-    # assert(mvp_loc >= 0)
-    # # Set MVP matrix - use identity if you want coordinates to remain unchanged
-    # mvp_ptr = rl.ffi.new("float[16]", [
-    #     1.0, 0.0, 0.0, 0.0,
-    #     0.0, 1.0, 0.0, 0.0,
-    #     0.0, 0.0, 1.0, 0.0,
-    #     0.0, 0.0, 0.0, 1.0
-    # ])
-    # mvp = rl.Matrix(min_x, max_x, max_y, min_y, -1.0, 1.0)
-    # mvp_ptr = rl.ffi.new("float[16]", [
-    #     mvp.m0, mvp.m4, mvp.m8, mvp.m12,
-    #     mvp.m1, mvp.m5, mvp.m9, mvp.m13,
-    #     mvp.m2, mvp.m6, mvp.m10, mvp.m14,
-    #     mvp.m3, mvp.m7, mvp.m11, mvp.m15
-    # ])
-    # rl.set_shader_value_matrix(self.my_shader, mvp_loc, rl.Matrix(*mvp_ptr))
-
-    rl.set_shader_value(self.my_shader, point_count_loc, point_count_ptr, rl.SHADER_UNIFORM_INT)
-    rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
-    rl.set_shader_value(self.my_shader, resolution_loc, resolution_ptr, rl.SHADER_UNIFORM_VEC2)
-    # rl.set_shader_value(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2)
     rl.set_shader_value_v(self.my_shader, points_loc, points_ptr, rl.SHADER_UNIFORM_VEC2, len(transformed_points))
 
+    # Set gradient or solid color based on what was provided
+    if gradient:
+        # Enable gradient
+        use_gradient_ptr = rl.ffi.new("int[]", [1])
+        rl.set_shader_value(self.my_shader, use_gradient_loc, use_gradient_ptr, rl.SHADER_UNIFORM_INT)
 
-    # Draw with the shader
+        # Set gradient start/end
+        start_ptr = rl.ffi.new("float[]", [gradient['start'][0], gradient['start'][1]])
+        end_ptr = rl.ffi.new("float[]", [gradient['end'][0], gradient['end'][1]])
+        rl.set_shader_value(self.my_shader, gradient_start_loc, start_ptr, rl.SHADER_UNIFORM_VEC2)
+        rl.set_shader_value(self.my_shader, gradient_end_loc, end_ptr, rl.SHADER_UNIFORM_VEC2)
+
+        # Set gradient colors
+        colors = gradient['colors']
+        color_count = min(len(colors), 8)  # Max 8 colors
+        colors_ptr = rl.ffi.new("float[]", color_count * 4)
+        for i, c in enumerate(colors[:color_count]):
+            colors_ptr[i*4] = c.r / 255.0
+            colors_ptr[i*4+1] = c.g / 255.0
+            colors_ptr[i*4+2] = c.b / 255.0
+            colors_ptr[i*4+3] = c.a / 255.0
+        rl.set_shader_value_v(self.my_shader, gradient_colors_loc, colors_ptr, rl.SHADER_UNIFORM_VEC4, color_count)
+
+        # Set gradient stops
+        stops = gradient.get('stops', [i/(color_count-1) for i in range(color_count)])
+        stops_ptr = rl.ffi.new("float[]", color_count)
+        for i, s in enumerate(stops[:color_count]):
+            stops_ptr[i] = s
+        rl.set_shader_value_v(self.my_shader, gradient_stops_loc, stops_ptr, rl.SHADER_UNIFORM_FLOAT, color_count)
+
+        # Set color count
+        color_count_ptr = rl.ffi.new("int[]", [color_count])
+        rl.set_shader_value(self.my_shader, gradient_color_count_loc, color_count_ptr, rl.SHADER_UNIFORM_INT)
+    else:
+        # Disable gradient
+        use_gradient_ptr = rl.ffi.new("int[]", [0])
+        rl.set_shader_value(self.my_shader, use_gradient_loc, use_gradient_ptr, rl.SHADER_UNIFORM_INT)
+
+        # Set solid color
+        if color is None:
+            color = rl.WHITE
+        fill_color_ptr = rl.ffi.new("float[]", [color.r/255.0, color.g/255.0, color.b/255.0, color.a/255.0])
+        rl.set_shader_value(self.my_shader, fill_color_loc, fill_color_ptr, rl.SHADER_UNIFORM_VEC4)
+
+    # Draw with shader
     white_img = rl.gen_image_color(2, 2, rl.WHITE)
     white_texture = rl.load_texture_from_image(white_img)
     rl.set_texture_filter(white_texture, rl.TEXTURE_FILTER_BILINEAR)
+
     rl.begin_shader_mode(self.my_shader)
-    # rl.draw_rectangle(int(min_x), int(min_y), int(width), int(height), color)
     rl.draw_texture_pro(
         white_texture,
-        rl.Rectangle(0, 0, 2, 2),  # Source rectangle covering the whole texture
-        rl.Rectangle(int(min_x), int(min_y), int(width), int(height)),  # Destination rectangle
-        rl.Vector2(0, 0),  # No offset
-        0.0,               # No rotation
-        rl.WHITE           # No tint
+        rl.Rectangle(0, 0, 2, 2),
+        rl.Rectangle(int(min_x), int(min_y), int(width), int(height)),
+        rl.Vector2(0, 0),
+        0.0,
+        rl.WHITE
     )
-
     rl.end_shader_mode()
+
     rl.unload_texture(white_texture)
     rl.unload_image(white_img)
-
-    for i in range(len(points)):
-      p1 = points[i]
-      p2 = points[(i + 1) % len(points)]
-      rl.draw_line(int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1]), color)
 
 
     # rl.draw_rectangle(0, 0, 100, 100, rl.RED)
@@ -749,7 +810,7 @@ class ModelRenderer:
     if not self.track_vertices:
       return
 
-    if self.experimental_mode:
+    if True:#self.experimental_mode:
       # Draw with acceleration coloring
       acceleration = model.acceleration.x
       max_len = min(len(self.track_vertices) // 2, len(acceleration))
@@ -762,8 +823,8 @@ class ModelRenderer:
       right_side = self.track_vertices[mid_point:][::-1]  # Reverse for proper winding
 
       # Create segments for gradient coloring
-      segments = []
       segment_colors = []
+      gradient_stops = []
 
       for i in range(max_len - 1):
         if i >= len(left_side) - 1 or i >= len(right_side) - 1:
@@ -790,14 +851,24 @@ class ModelRenderer:
         color = self.hsla_to_color(path_hue / 360.0, saturation, lightness, alpha)
 
         # Create quad segment
-        segment = [left_side[track_idx], left_side[track_idx - 1], right_side[track_idx - 1], right_side[track_idx]]
-
-        segments.append(segment)
+        gradient_stops.append(lin_grad_point)
         segment_colors.append(color)
 
-      # Draw each segment with its color
-      for i, (segment, color) in enumerate(zip(segments, segment_colors)):
-        self.draw_polygon(segment, color)
+      if len(segment_colors) < 2:
+        # Default color if not enough points
+        self.draw_complex_polygon(self.track_vertices, rl.ColorAlpha(rl.GREEN, 0.3))
+        return
+
+      # Create gradient specification
+      gradient = {
+        'start': (0.0, 1.0),  # Bottom of path
+        'end': (0.0, 0.0),  # Top of path
+        'colors': segment_colors,
+        'stops': gradient_stops,
+      }
+
+      # Draw the entire path with a single gradient fill
+      self.draw_complex_polygon(self.track_vertices, gradient=gradient)
     else:
       # Draw with throttle/no throttle gradient
       # Get throttle state
@@ -835,8 +906,14 @@ class ModelRenderer:
         self.blend_colors(begin_colors[2], end_colors[2], self.blend_factor),
       ]
 
+      gradient = {
+            'start': (0.0, 1.0),  # Bottom of path
+            'end': (0.0, 0.0),    # Top of path
+            'colors': colors,
+            'stops': [0.0, 1.0]
+        }
       # Draw path with gradient
-      self.draw_polygon_gradient(self.track_vertices, colors)
+      self.draw_complex_polygon(self.track_vertices, gradient=gradient)
 
   def draw_lead(self, lead_data, vd, rect):
     """Draw lead vehicle indicator"""

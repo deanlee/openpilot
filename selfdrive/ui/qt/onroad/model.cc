@@ -134,6 +134,8 @@ void ModelRenderer::drawPath(QPainter &painter, const cereal::ModelDataV2::Reade
       // Skip a point, unless next is last
       i += (i + 2) < max_len ? 1 : 0;
     }
+    painter.setBrush(bg);
+    painter.drawPolygon(track_vertices);
 
   } else {
     updatePathGradient(bg);
