@@ -33,7 +33,7 @@ uniform vec4 gradientColors[8];  // Array of gradient colors (max 8 stops)
 uniform float gradientStops[8];  // Array of gradient stops (0-1)
 uniform int gradientColorCount;  // Number of gradient colors
 
-// Get color from gradient based on position
+// Get color from gradient based on position (unchanged)
 vec4 getGradientColor(vec2 pos) {
     // Calculate projection of point onto gradient line
     vec2 gradientDir = gradientEnd - gradientStart;
@@ -59,6 +59,46 @@ vec4 getGradientColor(vec2 pos) {
     return gradientColors[gradientColorCount-1];
 }
 
+// Calculate minimum distance to any edge for anti-aliasing
+float distanceToEdge(vec2 p) {
+    float minDist = 1000.0;
+
+    for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
+        vec2 edge0 = points[j];
+        vec2 edge1 = points[i];
+
+        // Skip degenerate edges
+        if (edge0 == edge1) continue;
+
+        // Vector from edge start to p
+        vec2 v1 = p - edge0;
+        // Edge vector
+        vec2 v2 = edge1 - edge0;
+        // Length of edge
+        float l2 = dot(v2, v2);
+
+        // If edge length is too small, use distance to vertex
+        if (l2 < 0.0001) {
+            float dist = length(v1);
+            minDist = min(minDist, dist);
+            continue;
+        }
+
+        // Project v1 onto v2
+        float t = max(0.0, min(1.0, dot(v1, v2) / l2));
+
+        // Get closest point on line segment
+        vec2 projection = edge0 + t * v2;
+
+        // Distance to line segment
+        float dist = length(p - projection);
+        minDist = min(minDist, dist);
+    }
+
+    return minDist;
+}
+
+// Check if point is inside polygon using even-odd rule (improved)
 bool isPointInsidePolygon(vec2 p) {
     if (pointCount < 3) return false;
 
@@ -97,17 +137,36 @@ bool isPointInsidePolygon(vec2 p) {
 }
 
 void main() {
-   // Get pixel coordinates in screen space
+    // Get pixel coordinates in screen space
     vec2 pixel = fragTexCoord * resolution;
 
-    if (isPointInsidePolygon(pixel)) {
+    // Check if point is inside polygon
+    bool inside = isPointInsidePolygon(pixel);
+
+    // Calculate distance to nearest edge for anti-aliasing
+    float dist = distanceToEdge(pixel);
+
+    // Anti-aliasing width (adjust as needed for your resolution)
+    float aaWidth = 1.0;
+
+    // Calculate alpha factor based on distance to edge
+    float alpha = inside ?
+        min(1.0, dist / aaWidth) :       // Inside: fade in at edges
+        max(0.0, 1.0 - dist / aaWidth);  // Outside: fade out based on distance
+
+    // Use alpha factor for smooth transitions
+    if (alpha > 0.0) {
+        vec4 color;
         if (useGradient) {
             // Use gradient fill
-            finalColor = getGradientColor(fragTexCoord);
+            color = getGradientColor(fragTexCoord);
         } else {
             // Use solid fill
-            finalColor = fillColor;
+            color = fillColor;
         }
+
+        // Apply alpha
+        finalColor = vec4(color.rgb, color.a * alpha);
     } else {
         finalColor = vec4(0.0, 0.0, 0.0, 0.0); // Transparent outside polygon
     }
