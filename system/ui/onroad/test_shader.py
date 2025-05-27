@@ -58,42 +58,24 @@ in vec4 fragColor;
 // Output fragment color
 out vec4 finalColor;
 
-// Uniform inputs
-uniform float time;
-
 void main()
 {
-    if (fragTexCoord.x < 0.1) {
-      finalColor = vec4(0.0, 0.0, 1.0, 1.0); // Black for out of bounds
-      return;
-    }
-    // Create color bands based on position
-    vec4 color = vec4(0.0);
+    // Display texture coordinates as colors for debugging
+    finalColor = vec4(fragTexCoord.x, fragTexCoord.y, 0.0, 1.0);
 
-    // Gradient from left to right (red to blue)
-    color.r = 1.0 - fragTexCoord.x;
-    color.b = fragTexCoord.x;
-
-    // Add green pulsating effect based on time
-    // color.g = abs(sin(time * 2.0)) * 0.5;
-
-    // Add grid pattern
-    if (mod(fragTexCoord.x * 20.0, 1.0) < 0.05 || mod(fragTexCoord.y * 20.0, 1.0) < 0.05) {
-        color = vec4(1.0, 1.0, 1.0, 1.0) * abs(sin(time));
+    // Add grid lines to visualize coordinate space
+    if (mod(fragTexCoord.x * 10.0, 1.0) < 0.05 || mod(fragTexCoord.y * 10.0, 1.0) < 0.05) {
+        finalColor = vec4(1.0, 1.0, 1.0, 1.0);  // White grid
     }
 
-    // Add a moving circle
-    float circle_x = 0.5 + 0.4 * cos(time);
-    float circle_y = 0.5 + 0.4 * sin(time);
-    float dist = distance(fragTexCoord, vec2(circle_x, circle_y));
-    if (dist < 0.1) {
-        color = vec4(1.0, 1.0, 0.0, 1.0);  // Yellow circle
+    // Original split logic
+    if (fragTexCoord.x < 0.5) {
+        // This should make the left half blue
+        finalColor = vec4(0.0, 0.0, 1.0, 1.0);
+    } else {
+        // This should make the right half red
+        finalColor = vec4(1.0, 0.0, 0.0, 1.0);
     }
-
-    // Full opacity
-    color.a = 1.0;
-
-    finalColor = color;
 }
 """
 # Default vertex shader (no modifications needed)
@@ -125,19 +107,33 @@ void main()
 
 
 def shader_render(shader, rect, time):
-  # Get the location of the uniform
-  time_loc = rl.get_shader_location(shader, "time")
-  assert(time_loc >= 0), "Shader uniform 'time' not found"
+    # Create a white texture
+    white_img = rl.gen_image_color(2, 2, rl.WHITE)
+    white_texture = rl.load_texture_from_image(white_img)
 
-  # Set the time uniform value
-  time_value = rl.ffi.new("float[]", [time])
-  rl.set_shader_value(shader, time_loc, time_value, rl.SHADER_UNIFORM_FLOAT)  # SHADER_UNIFORM_FLOAT is 0
+    # Begin shader mode
+    rl.begin_shader_mode(shader)
 
-  # Draw with shader
-  rl.begin_shader_mode(shader)
-  rl.draw_rectangle(int(rect.x), int(rect.y), int(rect.width), int(rect.height), rl.WHITE)
-  rl.end_shader_mode()
+    # Draw the texture with proper texture coordinates
+    source_rect = rl.Rectangle(0, 0, 2, 2)  # Full texture
+    dest_rect = rect
 
+    # This function correctly maps texture coords from source to dest
+    rl.draw_texture_pro(
+        white_texture,
+        source_rect,
+        dest_rect,
+        rl.Vector2(0, 0),  # No offset
+        0.0,               # No rotation
+        rl.WHITE           # No tint
+    )
+
+    # End shader mode
+    rl.end_shader_mode()
+
+    # Clean up
+    rl.unload_texture(white_texture)
+    rl.unload_image(white_img)
 
 if __name__ == "__main__":
   gui_app.init_window("Shader Test")
@@ -150,7 +146,7 @@ if __name__ == "__main__":
 
   for _ in gui_app.render():
     # Update time for animation
-    time += rl.get_frame_time()
+    time += rl.get_frame_time() * 1.0  # Double the speed
 
     # Clear background
     rl.clear_background(rl.BLACK)
@@ -172,6 +168,7 @@ if __name__ == "__main__":
     # Add some text
     rl.draw_text("Custom Shader Demo", 10, 10, 20, rl.WHITE)
     rl.draw_text("Press ESC to exit", 10, 40, 15, rl.GRAY)
+    rl.draw_text(f"Time: {time:.2f}", 10, 70, 15, rl.WHITE)
 
   # Unload shader before closing
   rl.unload_shader(shader)
