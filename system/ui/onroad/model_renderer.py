@@ -5,7 +5,7 @@ import pyray as rl
 from cereal import messaging, car
 from openpilot.common.params import Params
 from openpilot.system.ui.lib.application import DEFAULT_FPS
-from openpilot.system.ui.lib.shader_polygon import draw_polygon
+from openpilot.system.ui.lib.shader_polygon import draw_polygons  # Import draw_polygons instead of draw_polygon
 
 
 CLIP_MARGIN = 500
@@ -42,6 +42,9 @@ class ModelRenderer:
     self._lane_line_vertices = [np.empty((0, 2), dtype=np.float32) for _ in range(4)]
     self._road_edge_vertices = [np.empty((0, 2), dtype=np.float32) for _ in range(2)]
     self._lead_vertices = [None, None]
+
+    # Path gradient config
+    self._path_gradient = None
 
     # Transform matrix (3x3 for car space to screen space)
     self._car_space_transform = np.zeros((3, 3))
@@ -89,11 +92,13 @@ class ModelRenderer:
         self._update_leads(radar_state, model.position)
       self._transform_dirty = False
 
-    # Draw elements
-    self._draw_lane_lines()
-    self._draw_path(sm, model, rect.height)
+    # Prepare path gradient first
+    self._update_path_gradient(sm, model, rect.height)
 
-    # Draw lead vehicles if available
+    # Draw all polygons in a batch
+    self._draw_all_polygons()
+
+    # Draw lead vehicles if available (still drawn separately since they're triangles)
     if render_lead_indicator and radar_state:
       lead_two = radar_state.leadTwo
 
@@ -148,35 +153,14 @@ class ModelRenderer:
 
     self._track_vertices = self._map_line_to_polygon(model_position, 0.9, self._path_offset_z, max_idx, False)
 
-  def _draw_lane_lines(self):
-    """Draw lane lines and road edges"""
-    for i, vertices in enumerate(self._lane_line_vertices):
-      # Skip if no vertices
-      if vertices.size == 0:
-        continue
-
-      # Draw lane line
-      alpha = np.clip(self._lane_line_probs[i], 0.0, 0.7)
-      color = rl.Color(255, 255, 255, int(alpha * 255))
-      draw_polygon(self._rect, vertices, color)
-
-    for i, vertices in enumerate(self._road_edge_vertices):
-      # Skip if no vertices
-      if vertices.size == 0:
-        continue
-
-      # Draw road edge
-      alpha = np.clip(1.0 - self._road_edge_stds[i], 0.0, 1.0)
-      color = rl.Color(255, 0, 0, int(alpha * 255))
-      draw_polygon(self._rect, vertices, color)
-
-  def _draw_path(self, sm, model, height):
-    """Draw the path polygon with gradient based on acceleration"""
+  def _update_path_gradient(self, sm, model, height):
+    """Prepare path gradient configuration based on acceleration or throttle state"""
     if self._track_vertices.size == 0:
+      self._path_gradient = None
       return
 
     if self._experimental_mode:
-      # Draw with acceleration coloring
+      # Create gradient based on acceleration
       acceleration = model.acceleration.x
       max_len = min(len(self._track_vertices) // 2, len(acceleration))
 
@@ -188,7 +172,7 @@ class ModelRenderer:
       while i < max_len:
         track_idx = max_len - i - 1  # flip idx to start from bottom right
         track_y = self._track_vertices[track_idx][1]
-        if  track_y < 0 or track_y > height:
+        if track_y < 0 or track_y > height:
           i += 1
           continue
 
@@ -214,19 +198,18 @@ class ModelRenderer:
         i += 1 + (1 if (i + 2) < max_len else 0)
 
       if len(segment_colors) < 2:
-        draw_polygon(self._rect, self._track_vertices, rl.Color(255, 255, 255, 30))
+        self._path_gradient = None
         return
 
       # Create gradient specification
-      gradient = {
+      self._path_gradient = {
         'start': (0.0, 1.0),  # Bottom of path
-        'end': (0.0, 0.0),  # Top of path
+        'end': (0.0, 0.0),    # Top of path
         'colors': segment_colors,
         'stops': gradient_stops,
       }
-      draw_polygon(self._rect, self._track_vertices, gradient=gradient)
     else:
-      # Draw with throttle/no throttle gradient
+      # Create gradient based on throttle/no throttle
       allow_throttle = sm['longitudinalPlan'].allowThrottle or not self._longitudinal_control
 
       # Start transition if throttle state changes
@@ -243,13 +226,60 @@ class ModelRenderer:
 
       # Blend colors based on transition
       blended_colors = self._blend_colors(begin_colors, end_colors, self._blend_factor)
-      gradient = {
+      self._path_gradient = {
         'start': (0.0, 1.0),  # Bottom of path
-        'end': (0.0, 0.0),  # Top of path
+        'end': (0.0, 0.0),    # Top of path
         'colors': blended_colors,
         'stops': [0.0, 0.5, 1.0],
       }
-      draw_polygon(self._rect, self._track_vertices, gradient=gradient)
+
+  def _draw_all_polygons(self):
+    """Draw all polygons in a single batch call"""
+    polygon_configs = []
+
+    # First add lane lines
+    for i, vertices in enumerate(self._lane_line_vertices):
+      if vertices.size == 0:
+        continue
+
+      alpha = np.clip(self._lane_line_probs[i], 0.0, 0.7)
+      color = rl.Color(255, 255, 255, int(alpha * 255))
+
+      polygon_configs.append({
+        'points': vertices,
+        'color': color
+      })
+
+    # Add road edges
+    for i, vertices in enumerate(self._road_edge_vertices):
+      if vertices.size == 0:
+        continue
+
+      alpha = np.clip(1.0 - self._road_edge_stds[i], 0.0, 1.0)
+      color = rl.Color(255, 0, 0, int(alpha * 255))
+
+      polygon_configs.append({
+        'points': vertices,
+        'color': color
+      })
+
+    # Add path with gradient or solid color
+    if self._track_vertices.size > 0:
+      if self._path_gradient:
+        polygon_configs.append({
+          'points': self._track_vertices,
+          'gradient': self._path_gradient
+        })
+      else:
+        # Fallback to solid color if no gradient
+        polygon_configs.append({
+          'points': self._track_vertices,
+          'color': rl.Color(255, 255, 255, 30)
+        })
+
+    # Draw all polygons in a single call
+    if polygon_configs:
+      draw_polygons(self._rect, polygon_configs)
 
   def _draw_lead(self, lead_data, vd, rect):
     """Draw lead vehicle indicator"""
