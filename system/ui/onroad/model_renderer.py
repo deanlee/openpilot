@@ -386,26 +386,35 @@ class ModelRenderer:
 
     if self._clip_region:
       clip = self._clip_region
-      bounds_mask = (
+
+      # Create bounds mask for both left and right points
+      left_bounds_mask = (
         (left_screen[:, 0] >= clip.x) & (left_screen[:, 0] <= clip.x + clip.width) &
-        (left_screen[:, 1] >= clip.y) & (left_screen[:, 1] <= clip.y + clip.height) &
+        (left_screen[:, 1] >= clip.y) & (left_screen[:, 1] <= clip.y + clip.height)
+      )
+      right_bounds_mask = (
         (right_screen[:, 0] >= clip.x) & (right_screen[:, 0] <= clip.x + clip.width) &
         (right_screen[:, 1] >= clip.y) & (right_screen[:, 1] <= clip.y + clip.height)
       )
-      if not np.any(bounds_mask):
+
+      # Combined mask: keep point pair only if BOTH left AND right are within bounds
+      combined_bounds_mask = left_bounds_mask & right_bounds_mask
+
+      if not np.any(combined_bounds_mask):
         return np.empty((0, 2), dtype=np.float32)
-      left_screen = left_screen[bounds_mask]
-      right_screen = right_screen[bounds_mask]
+
+      # Apply mask to both sides simultaneously to maintain pairing
+      left_screen = left_screen[combined_bounds_mask]
+      right_screen = right_screen[combined_bounds_mask]
 
     if not allow_invert and left_screen.shape[0] > 1:
       keep = np.concatenate(([True], np.diff(left_screen[:, 1]) < 0))
       left_screen = left_screen[keep]
-      right_screen = right_screen[keep]
+      right_screen = right_screen[keep]  # Apply same mask to right side
       if left_screen.shape[0] == 0:
         return np.empty((0, 2), dtype=np.float32)
 
     return np.vstack((left_screen, right_screen[::-1])).astype(np.float32)
-
   @staticmethod
   def _map_val(x, x0, x1, y0, y1):
     x = max(x0, min(x, x1))

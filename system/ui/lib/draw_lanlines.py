@@ -306,6 +306,63 @@ class ShaderState:
 
     self.initialized = False
 
+def verify_symmetry(points: np.ndarray, tolerance: float = 0.1) -> tuple[bool, int]:
+  """
+  Verify if polygon points form a symmetric path pattern
+
+  Args:
+      points: numpy array of (x,y) points
+      tolerance: Y-coordinate tolerance for monotonicity check
+
+  Returns:
+      (is_symmetric, left_point_count): tuple indicating symmetry and left edge point count
+  """
+  if len(points) < 6:  # Need at least 6 points for symmetric path
+    return False, 0
+
+  # Find the point with minimum Y (furthest point)
+  min_y_idx = np.argmin(points[:, 1])
+
+  # Split into left and right chains
+  left_points = points[:min_y_idx + 1]  # From start to min_y point
+  right_points = points[min_y_idx:]     # From min_y point to end
+
+  # Check if we have reasonable balance (within 2 points difference)
+  if abs(len(left_points) - len(right_points)) > 2:
+    return False, 0
+
+  # Check Y-coordinate monotonicity for left chain (should be decreasing)
+  if len(left_points) > 1:
+    left_y_diffs = np.diff(left_points[:, 1])
+    if not np.all(left_y_diffs <= tolerance):  # Allow small increases
+      return False, 0
+
+  # Check Y-coordinate monotonicity for right chain (should be increasing)
+  if len(right_points) > 1:
+    right_y_diffs = np.diff(right_points[:, 1])
+    if not np.all(right_y_diffs >= -tolerance):  # Allow small decreases
+      return False, 0
+
+  # Additional check: verify the path forms a reasonable shape
+  # Check that left and right edges don't cross each other dramatically
+  y_min = np.min(points[:, 1])
+  y_max = np.max(points[:, 1])
+  y_range = y_max - y_min
+
+  if y_range > 0:
+    # Sample a few Y levels and check X ordering
+    test_y_levels = np.linspace(y_min + y_range * 0.1, y_max - y_range * 0.1, 5)
+
+    for test_y in test_y_levels:
+      # Find X coordinates at this Y level for both chains
+      left_x = np.interp(test_y, left_points[:, 1][::-1], left_points[:, 0][::-1])  # Reverse for interpolation
+      right_x = np.interp(test_y, right_points[:, 1], right_points[:, 0])
+
+      # Left edge should be to the left of right edge
+      if left_x >= right_x:
+        return False, 0
+
+  return True, len(left_points)
 
 def draw_polygon(rect: rl.Rectangle, points: np.ndarray, color=None, gradient=None):
   """
@@ -361,10 +418,16 @@ def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
   valid_polygons = 0
 
   # Pack all polygon data
+  # assert(verify_symmetry(state, np.array([poly['points'] for poly in polygon_batch]), len(polygon_batch), poly_index=0))
   for i, poly_data in enumerate(polygon_batch[:batch_size]):
     points = poly_data['points']
     if len(points) < 3:
       continue
+
+    a, b = verify_symmetry(points)
+    if not a:
+      print(b, points)
+      assert(0)
 
     # Transform points relative to rect
     transformed_points = points - np.array([rect.x, rect.y])
