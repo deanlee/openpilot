@@ -303,7 +303,7 @@ def _update_batch_state(state, polygon_batch, rect):
       state.gradient_color_counts_ptr[valid_polygons] = len(colors)
 
       # Store gradient colors and stops
-      for j, (color, stop) in enumerate(zip(colors, stops)):
+      for j, (color, stop) in enumerate(zip(colors, stops, strict=True)):
         color_idx = valid_polygons * 4 + j  # 4 colors per polygon
         if color_idx < MAX_GRADIENT_COLORS:
           base_idx = color_idx * 4
@@ -381,6 +381,10 @@ def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
   same_batch = state.last_batch_id == current_batch_id and state.last_rect_dims == current_rect
   if not same_batch:
     _update_batch_state(state, polygon_batch, rect)
+    state.last_batch_id = current_batch_id
+    state.last_rect_dims = current_rect
+  else:
+    print('Using cached batch state')
 
   # Render batch
   rl.begin_shader_mode(state.shader)

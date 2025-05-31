@@ -63,12 +63,6 @@ class ModelRenderer:
     self._transform_dirty = True
     self._clip_region = None
     self._rect = None
-    self._exp_gradient = {
-      'start': (0.0, 1.0),  # Bottom of path
-      'end': (0.0, 0.0),  # Top of path
-      'colors': [],
-      'stops': [],
-    }
 
     # Get longitudinal control setting from car parameters
     if car_params := Params().get("CarParams"):
@@ -118,9 +112,6 @@ class ModelRenderer:
 
 
     # Draw elements
-    self._polygons = []
-    self._draw_lane_lines(self._polygons)
-    self._draw_path(sm, self._polygons)
     draw_polygons_batch(self._rect, self._polygons)
 
     if render_lead_indicator and radar_state:
@@ -155,6 +146,7 @@ class ModelRenderer:
 
   def _update_model(self, lead, path_x_array):
     """Update model visualization data based on model message"""
+    self._polygons = []
     max_distance = np.clip(path_x_array[-1], MIN_DRAW_DISTANCE, MAX_DRAW_DISTANCE)
     max_idx = self._get_path_length_idx(self._lane_lines[0].raw_points[:, 0], max_distance)
 
@@ -163,10 +155,17 @@ class ModelRenderer:
       lane_line.projected_points = self._map_line_to_polygon(
         lane_line.raw_points, 0.025 * self._lane_line_probs[i], 0.0, max_idx
       )
+      alpha = np.clip(self._lane_line_probs[i], 0.0, 0.7)
+      color = rl.Color(255, 255, 255, int(alpha * 255))
+      self._polygons.append(
+        {"points": lane_line.projected_points, "color":color})
 
     # Update road edges using raw points
-    for road_edge in self._road_edges:
+    for i, road_edge in enumerate(self._road_edges):
       road_edge.projected_points = self._map_line_to_polygon(road_edge.raw_points, 0.025, 0.0, max_idx)
+      alpha = np.clip(1.0 - self._road_edge_stds[i], 0.0, 1.0)
+      color = rl.Color(255, 0, 0, int(alpha * 255))
+      self._polygons.append({"points": road_edge.projected_points, "color": color})
 
     # Update path using raw points
     if lead and lead.status:
@@ -219,8 +218,21 @@ class ModelRenderer:
       i += 1 + (1 if (i + 2) < max_len else 0)
 
     # Store the gradient in the path object
-    self._exp_gradient['colors'] = segment_colors
-    self._exp_gradient['stops'] = gradient_stops
+    if len(segment_colors) > 2:
+        self._polygons.append({
+          'gradient': {
+          'start': (0.0, 1.0),  # Bottom of path
+          'end': (0.0, 0.0),  # Top of path
+          'colors': segment_colors,
+          },
+          "points": self._path.projected_points,
+        })
+    else:
+      # draw_polygon(self._rect, self._path.projected_points, rl.Color(255, 255, 255, 30))
+      self._polygons.append({
+        "points": self._path.projected_points,
+        "color": rl.Color(255, 255, 255, 30),
+      })
 
   def _update_lead_vehicle(self, d_rel, v_rel, point, rect):
     speed_buff, lead_buff = 10.0, 40.0
@@ -246,46 +258,12 @@ class ModelRenderer:
 
     return LeadVehicle(glow=glow,chevron=chevron, fill_alpha=int(fill_alpha))
 
-  def _draw_lane_lines(self, polygons):
-    """Draw lane lines and road edges"""
-    for i, lane_line in enumerate(self._lane_lines):
-      if lane_line.projected_points.size == 0:
-        continue
-
-      alpha = np.clip(self._lane_line_probs[i], 0.0, 0.7)
-      color = rl.Color(255, 255, 255, int(alpha * 255))
-      # draw_polygon(self._rect, lane_line.projected_points, color)
-      polygons.append({"points": lane_line.projected_points, "color":color})
-
-    for i, road_edge in enumerate(self._road_edges):
-      if road_edge.projected_points.size == 0:
-        continue
-
-      alpha = np.clip(1.0 - self._road_edge_stds[i], 0.0, 1.0)
-      color = rl.Color(255, 0, 0, int(alpha * 255))
-      # draw_polygon(self._rect, road_edge.projected_points, color)
-      polygons.append({"points": road_edge.projected_points, "color": color})
-
   def _draw_path(self, sm, polygons):
     """Draw path with dynamic coloring based on mode and throttle state."""
     if not self._path.projected_points.size:
       return
 
-    if self._experimental_mode:
-      # Draw with acceleration coloring
-      if len(self._exp_gradient['colors']) > 2:
-        polygons.append({
-          "points": self._path.projected_points,
-          "gradient": self._exp_gradient,
-        })
-        # draw_polygon(self._rect, self._path.projected_points, gradient=self._exp_gradient)
-      else:
-        # draw_polygon(self._rect, self._path.projected_points, rl.Color(255, 255, 255, 30))
-        polygons.append({
-          "points": self._path.projected_points,
-          "color": rl.Color(255, 255, 255, 30),
-        })
-    else:
+    if not self._experimental_mode:
       # Draw with throttle/no throttle gradient
       allow_throttle = sm['longitudinalPlan'].allowThrottle or not self._longitudinal_control
 
