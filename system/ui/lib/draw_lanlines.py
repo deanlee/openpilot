@@ -3,7 +3,7 @@ import numpy as np
 from typing import Any
 
 MAX_GRADIENT_COLORS = 60  # 4 colors per gradient * 15 polygons
-MAX_BATCH_POLYGONS = 15
+MAX_BATCH_POLYGONS = 8
 MAX_BATCH_POINTS = 300
 
 FRAGMENT_SHADER = """
@@ -13,17 +13,17 @@ precision mediump float;
 in vec2 fragTexCoord;
 out vec4 finalColor;
 
-uniform vec2 allPoints[300];           // Polygon points
-uniform int polygonStarts[15];         // Start index per polygon
-uniform int polygonCounts[15];         // Point count per polygon
+uniform vec2 allPoints[500];           // Polygon points
+uniform int polygonStarts[8];         // Start index per polygon
+uniform int polygonCounts[8];         // Point count per polygon
 uniform int polygonCount;              // Number of polygons
-uniform vec4 solidColors[15];          // Solid colors
-uniform int useGradientFlags[15];      // 1 for gradient, 0 for solid
-uniform vec2 gradientStarts[15];       // Gradient start
-uniform vec2 gradientEnds[15];         // Gradient end
-uniform vec4 batchGradientColors[60];  // Up to 4 colors per gradient
+uniform vec4 solidColors[8];          // Solid colors
+uniform int useGradientFlags[8];      // 1 for gradient, 0 for solid
+uniform vec2 gradientStarts[8];       // Gradient start
+uniform vec2 gradientEnds[8];         // Gradient end
+uniform vec4 batchGradientColors[60];  // Up to 7 colors per gradient
 uniform float batchGradientStops[60];  // Gradient stops
-uniform int gradientColorCounts[15];   // Colors per gradient
+uniform int gradientColorCounts[8];   // Colors per gradient
 uniform vec2 resolution;
 
 // Check if point is inside polygon using ray-casting
@@ -140,7 +140,7 @@ void main() {
 
       // Apply color
       vec4 color = getColor(i);
-      finalResult = vec4(color.rgb, alpha);
+      finalResult = vec4(color.rgb, color.a *alpha);
       break; // Non-overlapping
     }
   }
@@ -218,6 +218,10 @@ class ShaderState:
     self.batch_gradient_stops_ptr = rl.ffi.new("float[]", MAX_GRADIENT_COLORS)
     self.gradient_color_counts_ptr = rl.ffi.new("int[]", MAX_BATCH_POLYGONS)
 
+    # Cache for batch state
+    self.last_batch_id = None
+    self.last_rect = None
+
   def initialize(self):
     if self.initialized:
       return
@@ -255,128 +259,16 @@ class ShaderState:
     self.initialized = False
 
 
-def verify_symmetry(points: np.ndarray, tolerance: float = 0.1) -> tuple[bool, int]:
-  """
-  Verify if polygon points form a symmetric path pattern
-
-  Args:
-      points: numpy array of (x,y) points
-      tolerance: Y-coordinate tolerance for monotonicity check
-
-  Returns:
-      (is_symmetric, left_point_count): tuple indicating symmetry and left edge point count
-  """
-  if len(points) < 6:  # Need at least 6 points for symmetric path
-    return False, 0
-
-  # Find the point with minimum Y (furthest point)
-  min_y_idx = np.argmin(points[:, 1])
-
-  # Split into left and right chains
-  left_points = points[: min_y_idx + 1]  # From start to min_y point
-  right_points = points[min_y_idx:]  # From min_y point to end
-
-  # Check if we have reasonable balance (within 2 points difference)
-  if abs(len(left_points) - len(right_points)) > 2:
-    return False, 0
-
-  # Check Y-coordinate monotonicity for left chain (should be decreasing)
-  if len(left_points) > 1:
-    left_y_diffs = np.diff(left_points[:, 1])
-    if not np.all(left_y_diffs <= tolerance):  # Allow small increases
-      return False, 0
-
-  # Check Y-coordinate monotonicity for right chain (should be increasing)
-  if len(right_points) > 1:
-    right_y_diffs = np.diff(right_points[:, 1])
-    if not np.all(right_y_diffs >= -tolerance):  # Allow small decreases
-      return False, 0
-
-  # Additional check: verify the path forms a reasonable shape
-  # Check that left and right edges don't cross each other dramatically
-  y_min = np.min(points[:, 1])
-  y_max = np.max(points[:, 1])
-  y_range = y_max - y_min
-
-  if y_range > 0:
-    # Sample a few Y levels and check X ordering
-    test_y_levels = np.linspace(y_min + y_range * 0.1, y_max - y_range * 0.1, 5)
-
-    for test_y in test_y_levels:
-      # Find X coordinates at this Y level for both chains
-      left_x = np.interp(test_y, left_points[:, 1][::-1], left_points[:, 0][::-1])  # Reverse for interpolation
-      right_x = np.interp(test_y, right_points[:, 1], right_points[:, 0])
-
-      # Left edge should be to the left of right edge
-      if left_x >= right_x:
-        return False, 0
-
-  return True, len(left_points)
-
-
-def draw_polygon(rect: rl.Rectangle, points: np.ndarray, color=None, gradient=None):
-  """
-  Draw a single polygon (converted to batch of 1)
-
-  Args:
-      rect: Rectangle defining the drawing area
-      points: numpy array of (x,y) points defining the polygon
-      color: Solid fill color (rl.Color)
-      gradient: Dict with gradient parameters
-  """
-  polygon_batch = [{'points': points}]
-
-  if color:
-    polygon_batch[0]['color'] = color
-  if gradient:
-    polygon_batch[0]['gradient'] = gradient
-
-  draw_polygons_batch(rect, polygon_batch)
-
-
-def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
-  """
-  Draw multiple polygons in a single draw call
-
-  Args:
-      rect: Rectangle defining the drawing area
-      polygon_batch: List of dicts with:
-          {
-              'points': np.ndarray,     # (x,y) points
-              'color': rl.Color,        # Solid color (optional)
-              'gradient': dict          # Gradient config (optional)
-                  {
-                      'start': (x1, y1),    # Start point (normalized 0-1)
-                      'end': (x2, y2),      # End point (normalized 0-1)
-                      'colors': [rl.Color], # List of colors (max 4)
-                      'stops': [float]      # List of positions (0-1)
-                  }
-          }
-  """
-  if not polygon_batch or len(polygon_batch) == 0:
-    return
-
-  state = ShaderState.get_instance()
-  if not state.initialized:
-    state.initialize()
-
-  # Limit batch size
+def _update_batch_state(state, polygon_batch, rect):
   batch_size = min(len(polygon_batch), MAX_BATCH_POLYGONS)
-
-  # Reset batch data
   point_offset = 0
   valid_polygons = 0
 
   # Pack all polygon data
-  # assert(verify_symmetry(state, np.array([poly['points'] for poly in polygon_batch]), len(polygon_batch), poly_index=0))
   for i, poly_data in enumerate(polygon_batch[:batch_size]):
     points = poly_data['points']
     if len(points) < 3:
       continue
-
-    a, b = verify_symmetry(points)
-    if not a:
-      print(b, points)
 
     # Transform points relative to rect
     transformed_points = points - np.array([rect.x, rect.y])
@@ -439,78 +331,63 @@ def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
 
   # Set shader uniforms
   state.polygon_count_ptr[0] = valid_polygons
-
   rl.set_shader_value(state.shader, state.locations['polygonCount'], state.polygon_count_ptr, UNIFORM_INT)
+
   rl.set_shader_value_v(state.shader, state.locations['allPoints'], state.all_points_ptr, UNIFORM_VEC2, point_offset)
-  rl.set_shader_value_v(
-    state.shader, state.locations['polygonStarts'], state.polygon_starts_ptr, UNIFORM_INT, valid_polygons
-  )
-  rl.set_shader_value_v(
-    state.shader, state.locations['polygonCounts'], state.polygon_counts_ptr, UNIFORM_INT, valid_polygons
-  )
-  rl.set_shader_value_v(
-    state.shader, state.locations['solidColors'], state.solid_colors_ptr, UNIFORM_VEC4, valid_polygons
-  )
-  rl.set_shader_value_v(
-    state.shader, state.locations['useGradientFlags'], state.use_gradient_flags_ptr, UNIFORM_INT, valid_polygons
-  )
-  rl.set_shader_value_v(
-    state.shader, state.locations['gradientStarts'], state.batch_gradient_starts_ptr, UNIFORM_VEC2, valid_polygons
-  )
-  rl.set_shader_value_v(
-    state.shader, state.locations['gradientEnds'], state.batch_gradient_ends_ptr, UNIFORM_VEC2, valid_polygons
-  )
-  rl.set_shader_value_v(
-    state.shader,
-    state.locations['batchGradientColors'],
-    state.batch_gradient_colors_ptr,
-    UNIFORM_VEC4,
-    valid_polygons * 4,
-  )
-  rl.set_shader_value_v(
-    state.shader,
-    state.locations['batchGradientStops'],
-    state.batch_gradient_stops_ptr,
-    UNIFORM_FLOAT,
-    valid_polygons * 4,
-  )
-  rl.set_shader_value_v(
-    state.shader, state.locations['gradientColorCounts'], state.gradient_color_counts_ptr, UNIFORM_INT, valid_polygons
-  )
+  rl.set_shader_value_v(state.shader, state.locations['polygonStarts'], state.polygon_starts_ptr, UNIFORM_INT, valid_polygons)
+  rl.set_shader_value_v(state.shader, state.locations['polygonCounts'], state.polygon_counts_ptr, UNIFORM_INT, valid_polygons )
+  rl.set_shader_value_v(state.shader, state.locations['solidColors'], state.solid_colors_ptr, UNIFORM_VEC4, valid_polygons)
+  rl.set_shader_value_v(state.shader, state.locations['useGradientFlags'], state.use_gradient_flags_ptr, UNIFORM_INT, valid_polygons)
+  rl.set_shader_value_v(state.shader, state.locations['gradientStarts'], state.batch_gradient_starts_ptr, UNIFORM_VEC2, valid_polygons)
+  rl.set_shader_value_v(state.shader, state.locations['gradientEnds'], state.batch_gradient_ends_ptr, UNIFORM_VEC2, valid_polygons)
+  rl.set_shader_value_v(state.shader, state.locations['batchGradientColors'], state.batch_gradient_colors_ptr, UNIFORM_VEC4, valid_polygons * 4)
+  rl.set_shader_value_v(state.shader, state.locations['batchGradientStops'], state.batch_gradient_stops_ptr, UNIFORM_FLOAT, valid_polygons * 4)
+  rl.set_shader_value_v(state.shader, state.locations['gradientColorCounts'], state.gradient_color_counts_ptr, UNIFORM_INT, valid_polygons)
 
   state.resolution_ptr[0:2] = [rect.width, rect.height]
   rl.set_shader_value(state.shader, state.locations['resolution'], state.resolution_ptr, UNIFORM_VEC2)
 
+def draw_polygon(rect: rl.Rectangle, points: np.ndarray, color=None, gradient=None):
+  """
+  Draw a single polygon (converted to batch of 1)
+
+  Args:
+      rect: Rectangle defining the drawing area
+      points: numpy array of (x,y) points defining the polygon
+      color: Solid fill color (rl.Color)
+      gradient: Dict with gradient parameters
+  """
+  polygon_batch = [{'points': points}]
+
+  if color:
+    polygon_batch[0]['color'] = color
+  if gradient:
+    polygon_batch[0]['gradient'] = gradient
+
+  draw_polygons_batch(rect, polygon_batch)
+
+
+def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
+  if not polygon_batch or len(polygon_batch) == 0:
+    return
+
+  state = ShaderState.get_instance()
+  if not state.initialized:
+    state.initialize()
+
+  # Check if batch and rect are unchanged
+  current_batch_id = id(polygon_batch)
+  current_rect = (rect.x, rect.y, rect.width, rect.height)
+  same_batch = state.last_batch_id == current_batch_id and state.last_rect_dims == current_rect
+  if not same_batch:
+    _update_batch_state(state, polygon_batch, rect)
+
   # Render batch
   rl.begin_shader_mode(state.shader)
-  rl.draw_texture_pro(
-    state.white_texture,
-    rl.Rectangle(0, 0, 2, 2),
-    rect,
-    rl.Vector2(0, 0),
-    0.0,
-    rl.WHITE,
-  )
+  rl.draw_texture_pro(state.white_texture, rl.Rectangle(0, 0, 2, 2), rect, rl.Vector2(0, 0), 0.0, rl.WHITE)
   rl.end_shader_mode()
 
 
 def cleanup_shader_resources():
   state = ShaderState.get_instance()
   state.cleanup()
-
-
-# Example usage functions
-def create_road_batch():
-  """Example of creating a batch for road rendering"""
-  return [
-    {
-      'points': np.array([[396, 1512], [638, 1160], [768, 966], [1088, 552], [1848, 1512]]),
-      'gradient': {
-        'start': (0.5, 0.0),
-        'end': (0.5, 1.0),
-        'colors': [rl.Color(120, 120, 120, 255), rl.Color(80, 80, 80, 255)],
-        'stops': [0.0, 1.0],
-      },
-    },
-    {'points': np.array([[100, 100], [200, 100], [150, 200]]), 'color': rl.Color(255, 0, 0, 128)},
-  ]
