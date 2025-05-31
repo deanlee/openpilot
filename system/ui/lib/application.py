@@ -236,8 +236,8 @@ class GuiApplication:
         cloudlog.error(f"raylib: Unknown level {log_level}: {text_str}")
 
     # Store callback reference
-    self._trace_log_callback = trace_log_callback
-    rl.set_trace_log_callback(self._trace_log_callback)
+    # self._trace_log_callback = trace_log_callback
+    # rl.set_trace_log_callback(self._trace_log_callback)
 
   def _monitor_fps(self):
     fps = rl.get_fps()

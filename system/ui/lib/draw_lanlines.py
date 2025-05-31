@@ -59,6 +59,32 @@ vec4 getBatchGradientColor(vec2 pos, int polyIndex) {
   return batchGradientColors[colorStart + colorCount - 1];
 }
 
+
+
+// Linear search for left chain (y decreasing)
+bool findLeftSegment(int startIdx, int endIdx, float y, out float x_left) {
+    for (int j = startIdx; j < endIdx - 1; j++) {
+        if (allPoints[j].y >= y && allPoints[j + 1].y <= y) {
+            float t = (y - allPoints[j + 1].y) / (allPoints[j].y - allPoints[j + 1].y + 0.001);
+            x_left = mix(allPoints[j + 1].x, allPoints[j].x, t);
+            return true;
+        }
+    }
+    return false;
+}
+
+// Linear search for right chain (y increasing)
+bool findRightSegment(int startIdx, int endIdx, float y, out float x_right) {
+    for (int j = startIdx; j < endIdx - 1; j++) {
+        if (allPoints[j].y <= y && allPoints[j + 1].y >= y) {
+            float t = (y - allPoints[j].y) / (allPoints[j + 1].y - allPoints[j].y + 0.001);
+            x_right = mix(allPoints[j].x, allPoints[j + 1].x, t);
+            return true;
+        }
+    }
+    return false;
+}
+
 // Batch polygon inside test
 bool isPointInsidePolygon(vec2 p, int polyIndex) {
   int startIdx = polygonStarts[polyIndex];
@@ -110,41 +136,61 @@ float distanceToPolygonEdge(vec2 p, int polyIndex) {
   return minDist;
 }
 
-void main() {
-  vec2 pixel = fragTexCoord * resolution;
-  vec4 finalResult = vec4(0.0);
-
-  float aaWidth = 0.5;
-
-  // Process multiple polygons
-  for (int polyIndex = 0; polyIndex < polygonCount; polyIndex++) {
-    bool inside = isPointInsidePolygon(pixel, polyIndex);
-    if (!inside) continue;
-
-    float dist = distanceToPolygonEdge(pixel, polyIndex);
-
-    float alpha = smoothstep(-aaWidth, aaWidth, dist);
-    if (alpha <= 0.0) continue;
-
-    // Get color for this polygon
-    vec4 color;
+// Get color for polygon
+vec4 getColor(int polyIndex) {
     if (useGradientFlags[polyIndex] == 1) {
-      color = getBatchGradientColor(fragTexCoord, polyIndex);
+        return getBatchGradientColor(fragTexCoord * resolution, polyIndex);
     } else {
-      color = solidColors[polyIndex];
+        return solidColors[polyIndex];
+    }
+}
+
+
+void main() {
+    vec2 pixel = fragTexCoord * resolution;
+    vec4 finalResult = vec4(0.0);
+    float aaWidth = 0.5; // Anti-aliasing width
+
+    // Process polygons in reverse for correct blending
+    for (int polyIndex = polygonCount - 1; polyIndex >= 0; polyIndex--) {
+        // Bounding box check
+        //if (pixel.y < minYs[polyIndex] || pixel.y > maxYs[polyIndex]) continue;
+
+        int leftStart = polygonStarts[polyIndex];
+        int leftEnd = leftStart + polygonCounts[polyIndex]/2;//leftCounts[polyIndex];
+        int rightStart = leftEnd;
+        int rightEnd = leftStart + polygonCounts[polyIndex];
+
+        // Find segments on left and right chains
+        float x_left, x_right;
+        if (!findLeftSegment(leftStart, leftEnd, pixel.y, x_left)) continue;
+        if (!findRightSegment(rightStart, rightEnd, pixel.y, x_right)) continue;
+
+        // Check if pixel is inside
+        if (x_left < pixel.x && pixel.x < x_right) {
+            // Compute signed distance for anti-aliasing
+            //float sd = min(pixel.x - x_left, x_right - pixel.x);
+            float sd = distanceToPolygonEdge(pixel, polyIndex);
+            float alpha = smoothstep(-aaWidth, aaWidth, sd);
+            if (alpha <= 0.0) continue;
+
+            // Get color and apply alpha
+            vec4 color = getColor(polyIndex);
+            // color.a *= alpha;
+
+            // Blend using src_over
+            float srcA = color.a;
+            float invSrcA = 1.0 - srcA;
+            vec3 newRGB = finalResult.rgb * invSrcA + color.rgb * srcA;
+            float newA = finalResult.a + srcA * invSrcA;
+            finalResult = vec4(newRGB, newA);
+            finalColor = vec4(color.rgb, color.a * alpha);
+            break;
+        }
     }
 
-    // Apply alpha and blend
-    color.a *= alpha;
-
-    // Alpha blending: src_over operation
-    //finalResult.rgb = finalResult.rgb * (1.0 - color.a) + color.rgb * color.a;
-    //finalResult.a = finalResult.a + color.a * (1.0 - finalResult.a);
-    finalResult = vec4(color.rgb, color.a * alpha);
-  }
-
-  finalColor = finalResult;
-}
+    finalColor = finalResult;
+    }
 """
 
 # Default vertex shader
