@@ -87,6 +87,7 @@ float signedDistanceToPolygon(vec2 p, int polyIndex) {
 
 // Qt-like linear gradient
 vec4 getBatchGradientColor(vec2 pos, int polyIndex) {
+  // return batchGradientColors[1]; // Default fallback color
   int colorStart = polyIndex * 4;
   int colorCount = gradientColorCounts[polyIndex];
 
@@ -107,7 +108,9 @@ vec4 getBatchGradientColor(vec2 pos, int polyIndex) {
       return mix(batchGradientColors[stopIdx], batchGradientColors[stopIdx + 1], segmentT);
     }
   }
-  return batchGradientColors[colorStart + colorCount - 1];
+  //return batchGradientColors[colorStart + colorCount - 1];
+  // Debug: Tint green if fallback to last color
+  return batchGradientColors[colorStart + colorCount - 1] * vec4(0.0, 1.0, 0.0, 1.0);
 }
 
 // Get color (solid or gradient)
@@ -293,13 +296,20 @@ def _update_batch_state(state, polygon_batch, rect):
       state.use_gradient_flags_ptr[valid_polygons] = 1
 
       # Gradient start/end (normalized 0-1)
-      state.batch_gradient_starts_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = gradient['start']
-      state.batch_gradient_ends_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = gradient['end']
+      # state.batch_gradient_starts_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = gradient['start']
+      # state.batch_gradient_ends_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = gradient['end']
+       # Convert start/end to pixel coordinates
+      start = np.array(gradient['start']) * np.array([rect.width, rect.height]) + np.array([rect.x, rect.y])
+      end = np.array(gradient['end']) * np.array([rect.width, rect.height]) + np.array([rect.x, rect.y])
+      state.batch_gradient_starts_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = start.astype(np.float32)
+      state.batch_gradient_ends_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = end.astype(np.float32)
 
       # Gradient colors (up to 4 per gradient)
+
       colors = gradient['colors'][:MAX_GRADIENT_COLORS//4]
       stops = gradient.get('stops', [j / max(1, len(colors) - 1) for j in range(len(colors))])
 
+      # print(colors, stops)
       state.gradient_color_counts_ptr[valid_polygons] = len(colors)
 
       # Store gradient colors and stops
