@@ -261,6 +261,40 @@ class ShaderState:
 
     self.initialized = False
 
+def clip_polygon(points: np.ndarray, clip_rect: rl.Rectangle) -> np.ndarray:
+  """Clip polygon to clip_rect using Sutherland-Hodgman."""
+  def clip_edge(p1, p2, edge):
+    def inside(pt, edge):
+      if edge == 0: return pt[0] >= clip_rect.x  # Left
+      if edge == 1: return pt[0] <= clip_rect.x + clip_rect.width  # Right
+      if edge == 2: return pt[1] >= clip_rect.y  # Top
+      if edge == 3: return pt[1] <= clip_rect.y + clip_rect.height  # Bottom
+
+    def intersect(p1, p2, edge):
+      if edge == 0:  # Left
+        t = (clip_rect.x - p1[0]) / (p2[0] - p1[0] + 1e-6)
+        return np.array([clip_rect.x, p1[1] + t * (p2[1] - p1[1])])
+      if edge == 1:  # Right
+        t = (clip_rect.x + clip_rect.width - p1[0]) / (p2[0] - p1[0] + 1e-6)
+        return np.array([clip_rect.x + clip_rect.width, p1[1] + t * (p2[1] - p1[1])])
+      if edge == 2:  # Top
+        t = (clip_rect.y - p1[1]) / (p2[1] - p1[1] + 1e-6)
+        return np.array([p1[0] + t * (p2[0] - p1[0]), clip_rect.y])
+      if edge == 3:  # Bottom
+        t = (clip_rect.y + clip_rect.height - p1[1]) / (p2[1] - p1[1] + 1e-6)
+        return np.array([p1[0] + t * (p2[0] - p1[0]), clip_rect.y + clip_rect.height])
+
+    if inside(p1, edge) and inside(p2, edge):
+      return [p2]
+    if not inside(p1, edge) and not inside(p2, edge):
+      return []
+    if inside(p1, edge):
+      return [intersect(p1, p2, edge), p2]
+    return [intersect(p2, p1, edge)]
+
+  input_points = points.tolist()
+  output_points = input_points
+
 def clip_to_screen(bounding_rect: rl.Rectangle, screen_width: float, screen_height: float) -> rl.Rectangle:
   """Clip the bounding rectangle to screen boundaries."""
   min_x = max(bounding_rect.x, 0.0)
