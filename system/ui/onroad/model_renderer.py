@@ -5,8 +5,7 @@ from cereal import messaging, car
 from dataclasses import dataclass, field
 from openpilot.common.params import Params
 from openpilot.system.ui.lib.application import DEFAULT_FPS
-# from openpilot.system.ui.lib.shader_polygon import draw_polygon
-from openpilot.system.ui.lib.draw_lanlines import draw_polygons_batch, draw_polygon
+from openpilot.system.ui.lib.shader_polygon import draw_polygons_batch, draw_polygon
 
 
 CLIP_MARGIN = 500
