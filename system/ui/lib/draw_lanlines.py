@@ -261,61 +261,106 @@ class ShaderState:
 
     self.initialized = False
 
+def clip_to_screen(bounding_rect: rl.Rectangle, screen_width: float, screen_height: float) -> rl.Rectangle:
+  """Clip the bounding rectangle to screen boundaries."""
+  min_x = max(bounding_rect.x, 0.0)
+  max_x = min(bounding_rect.x + bounding_rect.width, screen_width)
+  min_y = max(bounding_rect.y, 0.0)
+  max_y = min(bounding_rect.y + bounding_rect.height, screen_height)
 
-def _update_batch_state(state, polygon_batch, rect):
+  width = max(max_x - min_x, 1.0)
+  height = max(max_y - min_y, 1.0)
+
+  if width <= 1.0 or height <= 1.0:
+    return None  # Invisible
+
+  return rl.Rectangle(min_x, min_y, width, height)
+
+def compute_bounding_rect(polygon_batch, original_rect: rl.Rectangle) -> rl.Rectangle:
+  """Compute the AABB of all polygons, constrained to original_rect."""
+  if not polygon_batch:
+    return original_rect
+
+  min_x, min_y = np.inf, np.inf
+  max_x, max_y = -np.inf, -np.inf
+
+  for poly_data in polygon_batch:
+    points = poly_data.get('points')
+    if points is None or len(points) < 3:
+      continue
+    min_x = min(min_x, np.min(points[:, 0]))
+    max_x = max(max_x, np.max(points[:, 0]))
+    min_y = min(min_y, np.min(points[:, 1]))
+    max_y = max(max_y, np.max(points[:, 1]))
+
+  if min_x == np.inf:
+    return original_rect
+
+  # Constrain to original_rect
+  min_x = max(min_x, original_rect.x)
+  max_x = min(max_x, original_rect.x + original_rect.width)
+  min_y = max(min_y, original_rect.y)
+  max_y = min(max_y, original_rect.y + original_rect.height)
+
+  width = max(max_x - min_x, 1.0)
+  height = max(max_y - min_y, 1.0)
+
+  return rl.Rectangle(min_x, min_y, width, height)
+
+def _update_batch_state(state, polygon_batch, clipped_rect: rl.Rectangle, original_rect: rl.Rectangle):
   batch_size = min(len(polygon_batch), MAX_BATCH_POLYGONS)
   point_offset = 0
   valid_polygons = 0
 
-  # Pack all polygon data
   for i, poly_data in enumerate(polygon_batch[:batch_size]):
-    points = poly_data['points']
-    if len(points) < 3:
+    points = poly_data.get('points')
+    if points is None or len(points) < 3:
       continue
 
-    # Transform points relative to rect
-    transformed_points = points - np.array([rect.x, rect.y])
+    # Transform points to clipped_rect's origin
+    transformed_points = points - np.array([clipped_rect.x, clipped_rect.y])
 
-    # Check if we have room for more points
+    # Cull points outside clipped_rect (optional, for simplicity skip full clipping)
     if point_offset + len(transformed_points) > MAX_BATCH_POINTS:
       break
 
-    # Store polygon info
     state.polygon_starts_ptr[valid_polygons] = point_offset
     state.polygon_counts_ptr[valid_polygons] = len(transformed_points)
 
-    # Pack points
     flat_points = transformed_points.flatten().astype(np.float32)
     end_offset = point_offset * 2 + len(flat_points)
     state.all_points_ptr[point_offset * 2 : end_offset] = flat_points
     point_offset += len(transformed_points)
 
-    # Handle color/gradient
     gradient = poly_data.get('gradient')
     if gradient:
       state.use_gradient_flags_ptr[valid_polygons] = 1
 
-      # Gradient start/end (normalized 0-1)
-      # state.batch_gradient_starts_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = gradient['start']
-      # state.batch_gradient_ends_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = gradient['end']
-       # Convert start/end to pixel coordinates
-      start = np.array(gradient['start']) * np.array([rect.width, rect.height]) + np.array([rect.x, rect.y])
-      end = np.array(gradient['end']) * np.array([rect.width, rect.height]) + np.array([rect.x, rect.y])
+      # Transform gradient to clipped_rect coordinates
+      start = np.array(gradient['start']) * np.array([original_rect.width, original_rect.height]) + np.array([original_rect.x, original_rect.y])
+      end = np.array(gradient['end']) * np.array([original_rect.width, original_rect.height]) + np.array([original_rect.x, original_rect.y])
+      start = start - np.array([clipped_rect.x, clipped_rect.y])
+      end = end - np.array([clipped_rect.x, clipped_rect.y])
+
       state.batch_gradient_starts_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = start.astype(np.float32)
       state.batch_gradient_ends_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = end.astype(np.float32)
 
-      # Gradient colors (up to 4 per gradient)
-
-      colors = gradient['colors'][:MAX_GRADIENT_COLORS//4]
+      colors = gradient['colors'][:4]
       stops = gradient.get('stops', [j / max(1, len(colors) - 1) for j in range(len(colors))])
 
-      # print(colors, stops)
+      stops = np.array(stops, dtype=np.float32)
+      if len(stops) > 1:
+        stops = np.clip(stops, 0.0, 1.0)
+        stops = np.sort(stops)
+        if np.all(stops == stops[0]):
+          stops = np.linspace(0.0, 1.0, len(stops))
+
+      print(f"Polygon {i}: colors={len(colors)}, stops={stops.tolist()}, start={start}, end={end}")
+
       state.gradient_color_counts_ptr[valid_polygons] = len(colors)
 
-      # Store gradient colors and stops
-
-      for j, (color, stop) in enumerate(zip(colors, stops, strict=True)):
-        color_idx = valid_polygons * 4 + j  # 4 colors per polygon
+      for j, (color, stop) in enumerate(zip(colors, stops)):
+        color_idx = valid_polygons * 4 + j
         if color_idx < MAX_GRADIENT_COLORS:
           base_idx = color_idx * 4
           state.batch_gradient_colors_ptr[base_idx : base_idx + 4] = [
@@ -324,7 +369,7 @@ def _update_batch_state(state, polygon_batch, rect):
             color.b / 255.0,
             color.a / 255.0,
           ]
-          state.batch_gradient_stops_ptr[color_idx] = stop
+          state.batch_gradient_stops_ptr[color_idx] = float(stop)
     else:
       state.use_gradient_flags_ptr[valid_polygons] = 0
       color = poly_data.get('color', rl.WHITE)
@@ -340,13 +385,12 @@ def _update_batch_state(state, polygon_batch, rect):
   if valid_polygons == 0:
     return
 
-  # Set shader uniforms
   state.polygon_count_ptr[0] = valid_polygons
   rl.set_shader_value(state.shader, state.locations['polygonCount'], state.polygon_count_ptr, UNIFORM_INT)
 
   rl.set_shader_value_v(state.shader, state.locations['allPoints'], state.all_points_ptr, UNIFORM_VEC2, point_offset)
   rl.set_shader_value_v(state.shader, state.locations['polygonStarts'], state.polygon_starts_ptr, UNIFORM_INT, valid_polygons)
-  rl.set_shader_value_v(state.shader, state.locations['polygonCounts'], state.polygon_counts_ptr, UNIFORM_INT, valid_polygons )
+  rl.set_shader_value_v(state.shader, state.locations['polygonCounts'], state.polygon_counts_ptr, UNIFORM_INT, valid_polygons)
   rl.set_shader_value_v(state.shader, state.locations['solidColors'], state.solid_colors_ptr, UNIFORM_VEC4, valid_polygons)
   rl.set_shader_value_v(state.shader, state.locations['useGradientFlags'], state.use_gradient_flags_ptr, UNIFORM_INT, valid_polygons)
   rl.set_shader_value_v(state.shader, state.locations['gradientStarts'], state.batch_gradient_starts_ptr, UNIFORM_VEC2, valid_polygons)
@@ -355,31 +399,18 @@ def _update_batch_state(state, polygon_batch, rect):
   rl.set_shader_value_v(state.shader, state.locations['batchGradientStops'], state.batch_gradient_stops_ptr, UNIFORM_FLOAT, valid_polygons * 4)
   rl.set_shader_value_v(state.shader, state.locations['gradientColorCounts'], state.gradient_color_counts_ptr, UNIFORM_INT, valid_polygons)
 
-  state.resolution_ptr[0:2] = [rect.width, rect.height]
+  state.resolution_ptr[0:2] = [clipped_rect.width, clipped_rect.height]
   rl.set_shader_value(state.shader, state.locations['resolution'], state.resolution_ptr, UNIFORM_VEC2)
 
 def draw_polygon(rect: rl.Rectangle, points: np.ndarray, color=None, gradient=None):
-  """
-  Draw a single polygon (converted to batch of 1)
-
-  Args:
-      rect: Rectangle defining the drawing area
-      points: numpy array of (x,y) points defining the polygon
-      color: Solid fill color (rl.Color)
-      gradient: Dict with gradient parameters
-  """
   polygon_batch = [{'points': points}]
-
   if color:
     polygon_batch[0]['color'] = color
   if gradient:
     polygon_batch[0]['gradient'] = gradient
-
-  print('here')
   draw_polygons_batch(rect, polygon_batch)
 
-
-def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
+def draw_polygons_batch(original_rect: rl.Rectangle, polygon_batch):
   if not polygon_batch or len(polygon_batch) == 0:
     return
 
@@ -387,22 +418,31 @@ def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
   if not state.initialized:
     state.initialize()
 
-  # Check if batch and rect are unchanged
+  # Compute bounding rectangle
+  bounding_rect = compute_bounding_rect(polygon_batch, original_rect)
+
+  # Clip to screen
+  screen_width = original_rect.width  # Assume original_rect is screen
+  screen_height = original_rect.height
+  clipped_rect = clip_to_screen(bounding_rect, screen_width, screen_height)
+
+  if clipped_rect is None:
+    print("Polygon batch entirely off-screen")
+    return
+
   current_batch_id = id(polygon_batch)
-  current_rect = (rect.x, rect.y, rect.width, rect.height)
+  current_rect = (clipped_rect.x, clipped_rect.y, clipped_rect.width, clipped_rect.height)
   same_batch = state.last_batch_id == current_batch_id and state.last_rect_dims == current_rect
   if not same_batch:
-    _update_batch_state(state, polygon_batch, rect)
+    _update_batch_state(state, polygon_batch, clipped_rect, original_rect)
     state.last_batch_id = current_batch_id
     state.last_rect_dims = current_rect
   else:
-    print('Using cached batch state')
+    print('Using cached state')
 
-  # Render batch
   rl.begin_shader_mode(state.shader)
-  rl.draw_texture_pro(state.white_texture, rl.Rectangle(0, 0, 2, 2), rect, rl.Vector2(0, 0), 0.0, rl.WHITE)
+  rl.draw_texture_pro(state.white_texture, rl.Rectangle(0, 0, 2, 2), clipped_rect, rl.Vector2(0, 0), 0.0, rl.WHITE)
   rl.end_shader_mode()
-
 
 def cleanup_shader_resources():
   state = ShaderState.get_instance()
