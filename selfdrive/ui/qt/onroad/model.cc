@@ -112,6 +112,9 @@ void ModelRenderer::drawPath(QPainter &painter, const cereal::ModelDataV2::Reade
       QColor(0, 255, 0, 255),  // green
       QColor(0, 0, 255, 255),  // blue
   };
+  bg.setColorAt(0.0f, QColor(255, 0, 0, 255));
+  bg.setColorAt(0.5f, QColor(0, 255, 0, 255));
+  bg.setColorAt(1.0f, QColor(0, 0, 255, 255));
   painter.setBrush(bg);
   painter.drawPolygon(track_vertices);
   return;
