@@ -181,8 +181,8 @@ class ModelRenderer:
 
   def _update_experimental_gradient(self, height):
     """Pre-calculate experimental mode gradient colors"""
-    if not self._experimental_mode:
-      return
+    # if not self._experimental_mode:
+      # return
 
     max_len = min(len(self._path.projected_points) // 2, len(self._acceleration_x))
 

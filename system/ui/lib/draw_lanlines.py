@@ -13,91 +13,75 @@ precision mediump float;
 in vec2 fragTexCoord;
 out vec4 finalColor;
 
-uniform vec2 allPoints[500];           // Polygon points (left1, left2, ..., left15, right15, ..., right1)
+uniform vec2 allPoints[500];           //  // [left0, left1, ..., leftN-1, rightN-1, ..., right0]
 uniform int polygonStarts[8];          // Start index per polygon
 uniform int polygonCounts[8];         // Point count per polygon
 uniform int polygonCount;              // Number of polygons
 uniform vec4 solidColors[8];          // Solid colors
 uniform vec2 resolution;
 
-// Signed distance to line segment
 float distToSegment(vec2 p, vec2 a, vec2 b) {
-  vec2 pa = p - a;
-  vec2 ba = b - a;
+  vec2 pa = p - a, ba = b - a;
   float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
   return length(pa - ba * h);
 }
 
 void main() {
   vec2 pixel = fragTexCoord * resolution;
-  vec4 color = vec4(0.0); // Transparent if no polygon hit
-  float aaWidth = 1.0; // Fixed AA width
+  vec4 color = vec4(0.0);
 
-  // Process polygons
+  float aaWidth = 1.0;
+
+  // Loop over polygons (lane lines)
   for (int i = 0; i < polygonCount; i++) {
     int startIdx = polygonStarts[i];
     int pointCount = polygonCounts[i];
-    int halfCount = pointCount / 2; // ~15
+    int halfCount = pointCount / 2;
 
-    // AABB: sample first/last left/right points
-    vec2 leftFirst = allPoints[startIdx];
-    vec2 leftLast = allPoints[startIdx + halfCount - 1];
-    vec2 rightLast = allPoints[startIdx + halfCount];
-    vec2 rightFirst = allPoints[startIdx + pointCount - 1];
-    vec2 minXY = min(min(leftFirst, leftLast), min(rightFirst, rightLast));
-    vec2 maxXY = max(max(leftFirst, leftLast), max(rightFirst, rightLast));
-    vec4 aabb = vec4(minXY.x - 3.0, minXY.y - 3.0, maxXY.x + 3.0, maxXY.y + 3.0);
+    // Compute bounding box for early pixel rejection
+    vec2 minXY = allPoints[startIdx];
+    vec2 maxXY = allPoints[startIdx];
+    for (int k = 1; k < pointCount; ++k) {
+      vec2 pt = allPoints[startIdx + k];
+      minXY = min(minXY, pt);
+      maxXY = max(maxXY, pt);
+    }
+    vec4 aabb = vec4(minXY - 2.0, maxXY + 2.0); // Slightly expanded for AA region
 
-    // AABB test
-    if (pixel.x >= aabb.x && pixel.x <= aabb.z && pixel.y >= aabb.y && pixel.y <= aabb.w) {
-      // Signed distance and winding number
-      float minDist = 1e10;
-      int winding = 0;
+    if (pixel.x < aabb.x || pixel.x > aabb.z || pixel.y < aabb.y || pixel.y > aabb.w)
+      continue;
 
-      // Left edge (14 segments for 15 points)
-      for (int j = 0; j < halfCount - 1; j++) {
-        vec2 a = allPoints[startIdx + j];
-        vec2 b = allPoints[startIdx + j + 1];
-        minDist = min(minDist, distToSegment(pixel, a, b));
-        if ((a.y <= pixel.y && pixel.y < b.y || b.y <= pixel.y && pixel.y < a.y) &&
-            pixel.x < (b.x - a.x) * (pixel.y - a.y) / (b.y - a.y + 0.0001) + a.x) {
-          winding += (b.y > a.y) ? 1 : -1;
-        }
+    // Winding number and edge distance
+    int winding = 0;
+    float minDist = 1e10;
+
+    // Polygon: left0...leftN-1, rightN-1...right0
+    int lastIdx = startIdx + pointCount - 1;
+    for (int j = 0; j < pointCount; ++j) {
+      int currIdx = startIdx + j;
+      int nextIdx = startIdx + ((j+1)%pointCount);
+      vec2 a = allPoints[currIdx];
+      vec2 b = allPoints[nextIdx];
+
+      // Distance to edge
+      minDist = min(minDist, distToSegment(pixel, a, b));
+
+      // Winding number (ray crossing)
+      if (((a.y > pixel.y) != (b.y > pixel.y)) &&
+          (pixel.x < (b.x - a.x) * (pixel.y - a.y) / (b.y - a.y + 0.0001) + a.x)) {
+        winding += (b.y > a.y) ? 1 : -1;
       }
+    }
 
-      // Right edge (14 segments)
-      for (int j = 0; j < halfCount - 1; j++) {
-        vec2 a = allPoints[startIdx + halfCount + j];
-        vec2 b = allPoints[startIdx + halfCount + j + 1];
-        minDist = min(minDist, distToSegment(pixel, a, b));
-        if ((a.y <= pixel.y && pixel.y < b.y || b.y <= pixel.y && pixel.y < a.y) &&
-            pixel.x < (b.x - a.x) * (pixel.y - a.y) / (b.y - a.y + 0.0001) + a.x) {
-          winding += (b.y > a.y) ? 1 : -1;
-        }
-      }
-
-      // Connect last left to last right
-      float dist = distToSegment(pixel, leftLast, rightLast);
-      minDist = min(minDist, dist);
-      if ((leftLast.y <= pixel.y && pixel.y < rightLast.y || rightLast.y <= pixel.y && pixel.y < leftLast.y) &&
-          pixel.x < (rightLast.x - leftLast.x) * (pixel.y - leftLast.y) / (rightLast.y - leftLast.y + 0.0001) + leftLast.x) {
-        winding += (rightLast.y > leftLast.y) ? 1 : -1;
-      }
-
-      // Connect first right to first left
-      dist = distToSegment(pixel, rightFirst, leftFirst);
-      minDist = min(minDist, dist);
-      if ((rightFirst.y <= pixel.y && pixel.y < leftFirst.y || leftFirst.y <= pixel.y && pixel.y < rightFirst.y) &&
-          pixel.x < (leftFirst.x - rightFirst.x) * (pixel.y - rightFirst.y) / (leftFirst.y - rightFirst.y + 0.0001) + rightFirst.x) {
-        winding += (leftFirst.y > rightFirst.y) ? 1 : -1;
-      }
-
-      // Inside or edge
-      if (winding != 0 || minDist <= aaWidth) {
-        color = solidColors[i];
-        color.a = (minDist <= aaWidth) ? smoothstep(-aaWidth, aaWidth, minDist) : 1.0;
-        break;
-      }
+    // Fill pixel if winding is nonzero (inside), or within AA region
+    bool inside = (winding != 0);
+    if (inside || minDist <= aaWidth) {
+      color = solidColors[i];
+      float alpha = 1.0;
+      if (!inside)
+        alpha = smoothstep(-aaWidth, aaWidth, aaWidth - minDist); // AA only at edge
+      color.a *= alpha;
+      break; // Non-overlapping polygons: stop after first hit
     }
   }
 
