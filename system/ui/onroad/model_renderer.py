@@ -289,6 +289,7 @@ class ModelRenderer:
         'colors': [rl.Color(255 ,0, 0, 255), rl.Color(0 ,255, 0, 255), rl.Color(0 ,0, 255, 255)],
         'stops': [0.0, 0.5, 1.0],
       }
+
       # polygons.append({
       #   "points": self._path.projected_points,
       #   "gradient": gradient,

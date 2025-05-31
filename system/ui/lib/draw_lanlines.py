@@ -459,7 +459,7 @@ def draw_polygons_batch(original_rect: rl.Rectangle, polygon_batch):
   screen_width = original_rect.width  # Assume original_rect is screen
   screen_height = original_rect.height
   clipped_rect = clip_to_screen(bounding_rect, screen_width, screen_height)
-
+  print(clipped_rect.x, clipped_rect.y, clipped_rect.width, clipped_rect.height)
   if clipped_rect is None:
     print("Polygon batch entirely off-screen")
     return
