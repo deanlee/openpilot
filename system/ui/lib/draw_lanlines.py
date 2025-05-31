@@ -13,11 +13,17 @@ precision mediump float;
 in vec2 fragTexCoord;
 out vec4 finalColor;
 
-uniform vec2 allPoints[500];           //  // [left0, left1, ..., leftN-1, rightN-1, ..., right0]
+uniform vec2 allPoints[500];           // Polygon points
 uniform int polygonStarts[8];          // Start index per polygon
-uniform int polygonCounts[8];         // Point count per polygon
+uniform int polygonCounts[8];          // Point count per polygon
 uniform int polygonCount;              // Number of polygons
-uniform vec4 solidColors[8];          // Solid colors
+uniform vec4 solidColors[8];           // Solid colors
+uniform int useGradientFlags[8];       // 1 for gradient, 0 for solid
+uniform vec2 gradientStarts[8];        // Gradient start (screen-space)
+uniform vec2 gradientEnds[8];          // Gradient end (screen-space)
+uniform vec4 batchGradientColors[60];  // Up to 15 colors per gradient
+uniform float batchGradientStops[60];  // Stops for gradient colors
+uniform int gradientColorCounts[8];    // Colors per gradient
 uniform vec2 resolution;
 
 float distToSegment(vec2 p, vec2 a, vec2 b) {
@@ -26,19 +32,42 @@ float distToSegment(vec2 p, vec2 a, vec2 b) {
   return length(pa - ba * h);
 }
 
+// Get gradient color for lane polygon
+vec4 getGradientColor(vec2 pixel, int polyIndex) {
+  int colorStart = polyIndex * 4;
+  int colorCount = gradientColorCounts[polyIndex];
+
+  vec2 gradStart = gradientStarts[polyIndex];
+  vec2 gradEnd = gradientEnds[polyIndex];
+  vec2 gradDir = gradEnd - gradStart;
+  float gradLen = length(gradDir);
+  if (gradLen < 0.0001) return batchGradientColors[colorStart];
+
+  float t = clamp(dot(pixel - gradStart, gradDir) / (gradLen * gradLen), 0.0, 1.0);
+
+  // Find segment
+  for (int i = 0; i < colorCount - 1; i++) {
+    int stopIdx = colorStart + i;
+    if (t >= batchGradientStops[stopIdx] && t <= batchGradientStops[stopIdx + 1]) {
+      float segT = (t - batchGradientStops[stopIdx]) /
+                   (batchGradientStops[stopIdx + 1] - batchGradientStops[stopIdx] + 0.00001);
+      return mix(batchGradientColors[stopIdx], batchGradientColors[stopIdx + 1], segT);
+    }
+  }
+  // Fallback
+  return batchGradientColors[colorStart + colorCount - 1];
+}
+
 void main() {
   vec2 pixel = fragTexCoord * resolution;
   vec4 color = vec4(0.0);
-
   float aaWidth = 1.0;
 
-  // Loop over polygons (lane lines)
   for (int i = 0; i < polygonCount; i++) {
     int startIdx = polygonStarts[i];
     int pointCount = polygonCounts[i];
-    int halfCount = pointCount / 2;
 
-    // Compute bounding box for early pixel rejection
+    // Compute AABB for early out
     vec2 minXY = allPoints[startIdx];
     vec2 maxXY = allPoints[startIdx];
     for (int k = 1; k < pointCount; ++k) {
@@ -46,42 +75,42 @@ void main() {
       minXY = min(minXY, pt);
       maxXY = max(maxXY, pt);
     }
-    vec4 aabb = vec4(minXY - 2.0, maxXY + 2.0); // Slightly expanded for AA region
+    vec4 aabb = vec4(minXY - 2.0, maxXY + 2.0);
 
     if (pixel.x < aabb.x || pixel.x > aabb.z || pixel.y < aabb.y || pixel.y > aabb.w)
       continue;
 
-    // Winding number and edge distance
+    // Winding + minimum edge distance
     int winding = 0;
     float minDist = 1e10;
 
-    // Polygon: left0...leftN-1, rightN-1...right0
-    int lastIdx = startIdx + pointCount - 1;
     for (int j = 0; j < pointCount; ++j) {
       int currIdx = startIdx + j;
       int nextIdx = startIdx + ((j+1)%pointCount);
       vec2 a = allPoints[currIdx];
       vec2 b = allPoints[nextIdx];
 
-      // Distance to edge
       minDist = min(minDist, distToSegment(pixel, a, b));
 
-      // Winding number (ray crossing)
+      // Ray-casting for winding
       if (((a.y > pixel.y) != (b.y > pixel.y)) &&
           (pixel.x < (b.x - a.x) * (pixel.y - a.y) / (b.y - a.y + 0.0001) + a.x)) {
         winding += (b.y > a.y) ? 1 : -1;
       }
     }
 
-    // Fill pixel if winding is nonzero (inside), or within AA region
     bool inside = (winding != 0);
     if (inside || minDist <= aaWidth) {
-      color = solidColors[i];
+      if (useGradientFlags[i] == 1) {
+        color = getGradientColor(pixel, i);
+      } else {
+        color = solidColors[i];
+      }
       float alpha = 1.0;
       if (!inside)
-        alpha = smoothstep(-aaWidth, aaWidth, aaWidth - minDist); // AA only at edge
+        alpha = smoothstep(-aaWidth, aaWidth, aaWidth - minDist);
       color.a *= alpha;
-      break; // Non-overlapping polygons: stop after first hit
+      break;
     }
   }
 
