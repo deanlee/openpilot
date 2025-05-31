@@ -27,135 +27,177 @@ uniform int gradientColorCounts[15];   // Colors per gradient
 uniform vec2 resolution;
 
 // Find segment on a chain (left: y decreasing, right: y increasing)
-bool findSegment(int startIdx, int endIdx, float y, bool isLeft, out float x) {
-    for (int j = startIdx; j < endIdx - 1; j++) {
-        bool inRange = isLeft ?
-            (allPoints[j].y >= y && allPoints[j + 1].y <= y) :
-            (allPoints[j].y <= y && allPoints[j + 1].y >= y);
-        if (inRange) {
-            float t = (y - allPoints[j + (isLeft ? 1 : 0)].y) /
-                      (allPoints[j + (isLeft ? 0 : 1)].y - allPoints[j + (isLeft ? 1 : 0)].y + 0.001);
-            x = mix(allPoints[j + (isLeft ? 1 : 0)].x, allPoints[j + (isLeft ? 0 : 1)].x, t);
-            return true;
-        }
+bool findSegment1(int startIdx, int endIdx, float y, bool isLeft, out float x) {
+  for (int j = startIdx; j < endIdx - 1; j++) {
+    bool inRange = isLeft ?
+      (allPoints[j].y >= y && allPoints[j + 1].y <= y) :
+      (allPoints[j].y <= y && allPoints[j + 1].y >= y);
+    if (inRange) {
+      float t = (y - allPoints[j + (isLeft ? 1 : 0)].y) /
+                (allPoints[j + (isLeft ? 0 : 1)].y - allPoints[j + (isLeft ? 1 : 0)].y + 0.001);
+      x = mix(allPoints[j + (isLeft ? 1 : 0)].x, allPoints[j + (isLeft ? 0 : 1)].x, t);
+      return true;
     }
-    return false;
+  }
+  return false;
+}
+
+// Binary search for segment on a chain (left: y decreasing, right: y increasing)
+bool findSegment(int startIdx, int endIdx, float y, bool isLeft, out float x) {
+  int count = endIdx - startIdx;
+  if (count < 2) return false; // Need at least 2 points for a segment
+
+  int low = startIdx;
+  int high = endIdx - 2; // Last segment starts at endIdx - 2
+
+  while (low <= high) {
+    int mid = low + (high - low) / 2;
+    float y0 = allPoints[mid].y;
+    float y1 = allPoints[mid + 1].y;
+
+    if (isLeft) {
+      // Left chain: y0 >= y >= y1 (decreasing)
+      if (y0 >= y && y1 <= y) {
+        // Found segment, interpolate x
+        float t = (y - y1) / (y0 - y1 + 0.001);
+        x = mix(allPoints[mid + 1].x, allPoints[mid].x, t);
+        return true;
+      } else if (y0 < y) {
+        high = mid - 1; // y too high, search lower indices
+      } else {
+        low = mid + 1;  // y too low, search higher indices
+      }
+    } else {
+      // Right chain: y0 <= y <= y1 (increasing)
+      if (y0 <= y && y1 >= y) {
+        // Found segment, interpolate x
+        float t = (y - y0) / (y1 - y0 + 0.001);
+        x = mix(allPoints[mid].x, allPoints[mid + 1].x, t);
+        return true;
+      } else if (y0 > y) {
+        high = mid - 1; // y too low, search lower indices
+      } else {
+        low = mid + 1;  // y too high, search higher indices
+      }
+    }
+  }
+  return false; // No segment found
 }
 
 // Distance to a line segment
 float distanceToSegment(vec2 p, vec2 v, vec2 w) {
-    vec2 vw = w - v;
-    float l2 = dot(vw, vw);
-    if (l2 < 0.0001) return length(p - v);
-    float t = clamp(dot(p - v, vw) / l2, 0.0, 1.0);
-    vec2 projection = v + t * vw;
-    return length(p - projection);
+  vec2 vw = w - v;
+  float l2 = dot(vw, vw);
+  if (l2 < 0.0001) return length(p - v);
+  float t = clamp(dot(p - v, vw) / l2, 0.0, 1.0);
+  vec2 projection = v + t * vw;
+  return length(p - projection);
 }
 
 // Signed distance to polygon
 float distanceToPolygonEdge(vec2 p, int polyIndex) {
-    int startIdx = polygonStarts[polyIndex];
-    int pointCount = polygonCounts[polyIndex];
-    float minDist = 1e10;
+  int startIdx = polygonStarts[polyIndex];
+  int pointCount = polygonCounts[polyIndex];
+  float minDist = 1e10;
 
-    // Check all edges
-    for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-        vec2 edge0 = allPoints[startIdx + j];
-        vec2 edge1 = allPoints[startIdx + i];
-        minDist = min(minDist, distanceToSegment(p, edge0, edge1));
-    }
+  // Check all edges
+  for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
+    vec2 edge0 = allPoints[startIdx + j];
+    vec2 edge1 = allPoints[startIdx + i];
+    minDist = min(minDist, distanceToSegment(p, edge0, edge1));
+  }
 
-    // Point-in-polygon test
-    float x_left, x_right;
-    int leftStart = startIdx;
-    int leftEnd = startIdx + pointCount / 2;
-    int rightStart = leftEnd;
-    int rightEnd = startIdx + pointCount;
-    if (findSegment(leftStart, leftEnd, p.y, true, x_left) &&
-        findSegment(rightStart, rightEnd, p.y, false, x_right)) {
-        if (x_left < p.x && p.x < x_right) {
-            return minDist; // Inside
-        }
+  // Point-in-polygon test
+  float x_left, x_right;
+  int leftStart = startIdx;
+  int leftEnd = startIdx + pointCount / 2;
+  int rightStart = leftEnd;
+  int rightEnd = startIdx + pointCount;
+  if (findSegment(leftStart, leftEnd, p.y, true, x_left) &&
+      findSegment(rightStart, rightEnd, p.y, false, x_right)) {
+    if (x_left < p.x && p.x < x_right) {
+      return minDist; // Inside
     }
-    return -minDist; // Outside
+  }
+  return -minDist; // Outside
 }
 
 // Qt-like linear gradient
 vec4 getBatchGradientColor(vec2 pos, int polyIndex) {
-    int colorStart = polyIndex * 4;
-    int colorCount = gradientColorCounts[polyIndex];
+  int colorStart = polyIndex * 4;
+  int colorCount = gradientColorCounts[polyIndex];
 
-    vec2 gradientDir = gradientEnds[polyIndex] - gradientStarts[polyIndex];
-    float gradientLength = length(gradientDir);
-    if (gradientLength < 0.001) return batchGradientColors[colorStart];
+  vec2 gradientDir = gradientEnds[polyIndex] - gradientStarts[polyIndex];
+  float gradientLength = length(gradientDir);
+  if (gradientLength < 0.001) return batchGradientColors[colorStart];
 
-    vec2 normalizedDir = gradientDir / gradientLength;
-    vec2 pointVec = pos - gradientStarts[polyIndex];
-    float projection = dot(pointVec, normalizedDir);
-    float t = clamp(projection / gradientLength, 0.0, 1.0);
+  vec2 normalizedDir = gradientDir / gradientLength;
+  vec2 pointVec = pos - gradientStarts[polyIndex];
+  float projection = dot(pointVec, normalizedDir);
+  float t = clamp(projection / gradientLength, 0.0, 1.0);
 
-    for (int i = 0; i < colorCount - 1; i++) {
-        int stopIdx = colorStart + i;
-        if (t >= batchGradientStops[stopIdx] && t <= batchGradientStops[stopIdx + 1]) {
-            float segmentT = (t - batchGradientStops[stopIdx]) /
-                             (batchGradientStops[stopIdx + 1] - batchGradientStops[stopIdx] + 0.001);
-            return mix(batchGradientColors[stopIdx], batchGradientColors[stopIdx + 1], segmentT);
-        }
+  for (int i = 0; i < colorCount - 1; i++) {
+    int stopIdx = colorStart + i;
+    if (t >= batchGradientStops[stopIdx] && t <= batchGradientStops[stopIdx + 1]) {
+      float segmentT = (t - batchGradientStops[stopIdx]) /
+                       (batchGradientStops[stopIdx + 1] - batchGradientStops[stopIdx] + 0.001);
+      return mix(batchGradientColors[stopIdx], batchGradientColors[stopIdx + 1], segmentT);
     }
-    return batchGradientColors[colorStart + colorCount - 1];
+  }
+  return batchGradientColors[colorStart + colorCount - 1];
 }
 
 // Get color (solid or gradient)
 vec4 getColor(int polyIndex) {
-    if (useGradientFlags[polyIndex] == 1) {
-        return getBatchGradientColor(fragTexCoord * resolution, polyIndex);
-    }
-    return solidColors[polyIndex];
+  if (useGradientFlags[polyIndex] == 1) {
+    return getBatchGradientColor(fragTexCoord * resolution, polyIndex);
+  }
+  return solidColors[polyIndex];
 }
 
 void main() {
-    vec2 pixel = fragTexCoord * resolution;
-    vec4 finalResult = vec4(0.0);
+  vec2 pixel = fragTexCoord * resolution;
+  vec4 finalResult = vec4(0.0);
 
-    // Resolution-adaptive aaWidth
-    vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
-    float pixelSize = length(pixelGrad);
-    float aaWidth = max(0.5, pixelSize * 1.0); // ~2-pixel transition
+  // Resolution-adaptive aaWidth
+  vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
+  float pixelSize = length(pixelGrad);
+  float aaWidth = max(0.5, pixelSize * 1.0); // ~2-pixel transition
 
-    // Process polygons (non-overlapping)
-    for (int i = polygonCount - 1; i >= 0; i--) {
-        int startIdx = polygonStarts[i];
-        int pointCount = polygonCounts[i];
-        int leftStart = startIdx;
-        int leftEnd = startIdx + pointCount / 2;
-        int rightStart = leftEnd;
-        int rightEnd = startIdx + pointCount;
+  // Process polygons (non-overlapping)
+  for (int i = polygonCount - 1; i >= 0; i--) {
+    int startIdx = polygonStarts[i];
+    int pointCount = polygonCounts[i];
+    int leftStart = startIdx;
+    int leftEnd = startIdx + pointCount / 2;
+    int rightStart = leftEnd;
+    int rightEnd = startIdx + pointCount;
 
-        // Find chain segments
-        float x_left, x_right;
-        if (!findSegment(leftStart, leftEnd, pixel.y, true, x_left)) continue;
-        if (!findSegment(rightStart, rightEnd, pixel.y, false, x_right)) continue;
+    // Find chain segments
+    float x_left, x_right;
+    if (!findSegment(leftStart, leftEnd, pixel.y, true, x_left)) continue;
+    if (!findSegment(rightStart, rightEnd, pixel.y, false, x_right)) continue;
 
-        // Check if pixel is inside
-        if (x_left < pixel.x && pixel.x < x_right) {
-            // Fast but less accurate for curved lanes
-            // sd = min(pixel.x - x_left, x_right - pixel.x)
-            // Accurate signed distance
-            float sd = distanceToPolygonEdge(pixel, i);
-            // Optional: float sd = min(pixel.x - x_left, x_right - pixel.x); // Test for straight lines
+    // Check if pixel is inside
+    if (x_left < pixel.x && pixel.x < x_right) {
+      // Fast but less accurate for curved lanes
+      // sd = min(pixel.x - x_left, x_right - pixel.x)
+      // Accurate signed distance
+      float sd = distanceToPolygonEdge(pixel, i);
+      // Optional: float sd = min(pixel.x - x_left, x_right - pixel.x); // Test for straight lines
 
-            // Anti-aliasing
-            float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
-            if (alpha <= 0.0) continue;
+      // Anti-aliasing
+      float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
+      if (alpha <= 0.0) continue;
 
-            // Apply color
-            vec4 color = getColor(i);
-            finalResult = vec4(color.rgb, alpha);
-            break; // Non-overlapping
-        }
+      // Apply color
+      vec4 color = getColor(i);
+      finalResult = vec4(color.rgb, alpha);
+      break; // Non-overlapping
     }
+  }
 
-    finalColor = finalResult;
+  finalColor = finalResult;
 }
 """
 
