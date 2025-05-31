@@ -107,12 +107,6 @@ void ModelRenderer::drawLaneLines(QPainter &painter) {
 
 void ModelRenderer::drawPath(QPainter &painter, const cereal::ModelDataV2::Reader &model, int height) {
   QLinearGradient bg(0, height, 0, 0);
-  bg.setColorAt(0.0f, QColor(255, 0, 0, 255));
-  bg.setColorAt(0.5f, QColor(0, 255, 0, 255));
-  bg.setColorAt(1.0f, QColor(0, 0, 255, 255));
-  painter.setBrush(bg);
-  painter.drawPolygon(track_vertices);
-  return;
   if (experimental_mode) {
     // The first half of track_vertices are the points for the right side of the path
     const auto &acceleration = model.getAcceleration().getX();

@@ -104,7 +104,7 @@ class ModelRenderer:
       if path_x_array.size == 0:
         return
 
-      self._update_model(lead_one, path_x_array)
+      self._update_model(sm, lead_one, path_x_array)
       if render_lead_indicator:
         self._update_leads(radar_state, path_x_array)
       self._transform_dirty = False
@@ -143,7 +143,7 @@ class ModelRenderer:
         if point:
           self._lead_vehicles[i] = self._update_lead_vehicle(d_rel, v_rel, point, self._rect)
 
-  def _update_model(self, lead, path_x_array):
+  def _update_model(self, sm, lead, path_x_array):
     """Update model visualization data based on model message"""
     self._polygons = []
     max_distance = np.clip(path_x_array[-1], MIN_DRAW_DISTANCE, MAX_DRAW_DISTANCE)
@@ -177,6 +177,7 @@ class ModelRenderer:
     )
 
     self._update_experimental_gradient(self._rect.height)
+    self._update_path_polygon(sm)
 
   def _update_experimental_gradient(self, height):
     """Pre-calculate experimental mode gradient colors"""
@@ -259,11 +260,7 @@ class ModelRenderer:
 
     return LeadVehicle(glow=glow,chevron=chevron, fill_alpha=int(fill_alpha))
 
-  def _draw_path(self, sm, polygons):
-    """Draw path with dynamic coloring based on mode and throttle state."""
-    if not self._path.projected_points.size:
-      return
-
+  def _update_path_polygon(self, sm):
     if True:#not self._experimental_mode:
       # Draw with throttle/no throttle gradient
       allow_throttle = sm['longitudinalPlan'].allowThrottle or not self._longitudinal_control
@@ -280,20 +277,13 @@ class ModelRenderer:
       begin_colors = NO_THROTTLE_COLORS if allow_throttle else THROTTLE_COLORS
       end_colors = THROTTLE_COLORS if allow_throttle else NO_THROTTLE_COLORS
 
-      # Blend colors based on transition
-      blended_colors = self._blend_colors(begin_colors, end_colors, self._blend_factor)
       gradient = {
         'start': (0.0, 1.0),  # Bottom of path
         'end': (0.0, 0.0),  # Top of path
-        'colors': [rl.Color(255 ,0, 0, 255), rl.Color(0 ,255, 0, 255), rl.Color(0 ,0, 255, 255)],
+        'colors': self._blend_colors(begin_colors, end_colors, self._blend_factor),
         'stops': [0.0, 0.5, 1.0],
       }
-
-      # polygons.append({
-      #   "points": self._path.projected_points,
-      #   "gradient": gradient,
-      # })
-      draw_polygon(self._rect, self._path.projected_points, gradient=gradient)
+      self._polygons.append({'points': self._path.projected_points, 'gradient': gradient})
 
   def _draw_lead_indicator(self):
     # Draw lead vehicles if available
@@ -366,35 +356,26 @@ class ModelRenderer:
 
     if self._clip_region:
       clip = self._clip_region
-
-      # Create bounds mask for both left and right points
-      left_bounds_mask = (
+      bounds_mask = (
         (left_screen[:, 0] >= clip.x) & (left_screen[:, 0] <= clip.x + clip.width) &
-        (left_screen[:, 1] >= clip.y) & (left_screen[:, 1] <= clip.y + clip.height)
-      )
-      right_bounds_mask = (
+        (left_screen[:, 1] >= clip.y) & (left_screen[:, 1] <= clip.y + clip.height) &
         (right_screen[:, 0] >= clip.x) & (right_screen[:, 0] <= clip.x + clip.width) &
         (right_screen[:, 1] >= clip.y) & (right_screen[:, 1] <= clip.y + clip.height)
       )
-
-      # Combined mask: keep point pair only if BOTH left AND right are within bounds
-      combined_bounds_mask = left_bounds_mask & right_bounds_mask
-
-      if not np.any(combined_bounds_mask):
+      if not np.any(bounds_mask):
         return np.empty((0, 2), dtype=np.float32)
-
-      # Apply mask to both sides simultaneously to maintain pairing
-      left_screen = left_screen[combined_bounds_mask]
-      right_screen = right_screen[combined_bounds_mask]
+      left_screen = left_screen[bounds_mask]
+      right_screen = right_screen[bounds_mask]
 
     if not allow_invert and left_screen.shape[0] > 1:
       keep = np.concatenate(([True], np.diff(left_screen[:, 1]) < 0))
       left_screen = left_screen[keep]
-      right_screen = right_screen[keep]  # Apply same mask to right side
+      right_screen = right_screen[keep]
       if left_screen.shape[0] == 0:
         return np.empty((0, 2), dtype=np.float32)
 
     return np.vstack((left_screen, right_screen[::-1])).astype(np.float32)
+
   @staticmethod
   def _map_val(x, x0, x1, y0, y1):
     x = max(x0, min(x, x1))
