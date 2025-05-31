@@ -107,8 +107,55 @@ bool isPointInsidePolygon(vec2 p, int polyIndex) {
   return (crossings & 1) == 1;
 }
 
-// Batch polygon distance
+// Signed distance to a line segment
+float distanceToSegment(vec2 p, vec2 v, vec2 w) {
+    vec2 vw = w - v;
+    float l2 = dot(vw, vw);
+    if (l2 < 0.0001) return length(p - v);
+    float t = clamp(dot(p - v, vw) / l2, 0.0, 1.0);
+    vec2 projection = v + t * vw;
+    return length(p - projection);
+}
+
+// Accurate signed distance with emphasis on top edge
 float distanceToPolygonEdge(vec2 p, int polyIndex) {
+    int startIdx = polygonStarts[polyIndex];
+    int pointCount = polygonCounts[polyIndex];
+    float minDist = 1e10;
+
+    // Check all edges
+    for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
+        vec2 edge0 = allPoints[startIdx + j];
+        vec2 edge1 = allPoints[startIdx + i];
+        minDist = min(minDist, distanceToSegment(p, edge0, edge1));
+    }
+
+    // Emphasize top edge for narrow tip
+    int leftEnd = startIdx + polygonCounts[polyIndex]/2 - 1;
+    int rightStart = startIdx + polygonCounts[polyIndex]/2;
+    vec2 topLeft = allPoints[leftEnd];
+    vec2 topRight = allPoints[rightStart];
+    float topDist = distanceToSegment(p, topLeft, topRight);
+
+    // Use minimum of all edges and top edge
+    minDist = min(minDist, topDist);
+
+    // Determine if inside
+    float x_left, x_right;
+    int leftStart = startIdx;
+    int leftEndIdx = startIdx + polygonCounts[polyIndex]/2;
+    int rightStartIdx = leftEndIdx;
+    int rightEnd = startIdx + pointCount;
+    if (findLeftSegment(leftStart, leftEndIdx, p.y, x_left) &&
+        findRightSegment(rightStartIdx, rightEnd, p.y, x_right)) {
+        if (x_left < p.x && p.x < x_right) {
+            return minDist; // Inside
+        }
+    }
+    return -minDist; // Outside
+}
+// Batch polygon distance
+float distanceToPolygonEdge2(vec2 p, int polyIndex) {
   int startIdx = polygonStarts[polyIndex];
   int pointCount = polygonCounts[polyIndex];
   float minDist = 1000.0;
@@ -149,7 +196,12 @@ vec4 getColor(int polyIndex) {
 void main() {
     vec2 pixel = fragTexCoord * resolution;
     vec4 finalResult = vec4(0.0);
-    float aaWidth = 0.5; // Anti-aliasing width
+    //float aaWidth = 0.5; // Anti-aliasing width
+    //float aaWidth = 2.0 * length(resolution) / 1920.0; // Scale for resolution
+    vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
+  float pixelSize = length(pixelGrad);
+  float aaWidth = max(0.5, pixelSize * 0.5); // Sharper anti-aliasing
+
 
     // Process polygons in reverse for correct blending
     for (int polyIndex = polygonCount - 1; polyIndex >= 0; polyIndex--) {
@@ -169,10 +221,11 @@ void main() {
         // Check if pixel is inside
         if (x_left < pixel.x && pixel.x < x_right) {
             // Compute signed distance for anti-aliasing
-            //float sd = min(pixel.x - x_left, x_right - pixel.x);
-            float sd = distanceToPolygonEdge(pixel, polyIndex);
-            float alpha = smoothstep(-aaWidth, aaWidth, sd);
-            //float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
+         //   float sd = min(pixel.x - x_left, x_right - pixel.x);
+           float sd = distanceToPolygonEdge(pixel, polyIndex);
+            //float alpha = smoothstep(-aaWidth, aaWidth, sd);
+            // Qt-like anti-aliasing: Opaque interior, smooth edges
+            float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
             if (alpha <= 0.0) continue;
 
             // Get color and apply alpha
@@ -184,7 +237,7 @@ void main() {
             //float newA = finalResult.a + srcA * invSrcA;
             //finalResult = vec4(newRGB, newA);
             finalResult = vec4(color.rgb, color.a);
-            //break;
+            break;
         }
     }
 
@@ -404,7 +457,6 @@ def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
     else:
       state.use_gradient_flags_ptr[valid_polygons] = 0
       color = poly_data.get('color', rl.WHITE)
-      print(color.a / 255.0)
       state.solid_colors_ptr[valid_polygons * 4 : (valid_polygons + 1) * 4] = [
         color.r / 255.0,
         color.g / 255.0,
