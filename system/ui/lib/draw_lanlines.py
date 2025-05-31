@@ -205,6 +205,7 @@ void main() {
   vec2 pixel = fragTexCoord * resolution;
   vec4 finalResult = vec4(0.0);
 
+  float aaWidth = 0.5;
   if (polygonCount > 0) {
     // Batch mode: Process multiple polygons
     for (int polyIndex = 0; polyIndex < polygonCount; polyIndex++) {
@@ -212,11 +213,6 @@ void main() {
       if (!inside) continue;
 
       float dist = distanceToPolygonEdge(pixel, polyIndex);
-
-      // Anti-aliasing
-      vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
-      float pixelSize = length(pixelGrad);
-      float aaWidth = max(0.5, pixelSize * 0.5);
 
       float alpha = smoothstep(-aaWidth, aaWidth, dist);
       if (alpha <= 0.0) continue;

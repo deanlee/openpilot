@@ -50,6 +50,7 @@ class ModelRenderer:
     self._road_edge_stds = np.zeros(2, dtype=np.float32)
     self._lead_vehicles = [LeadVehicle(), LeadVehicle()]
     self._path_offset_z = 1.22
+    self._polygons = []
 
     # Initialize ModelPoints objects
     self._path = ModelPoints()
@@ -117,11 +118,10 @@ class ModelRenderer:
 
 
     # Draw elements
-    polygons = []
-    self._draw_lane_lines(polygons)
-    draw_polygons_batch(self._rect, polygons)
-
-    self._draw_path(sm, polygons)
+    self._polygons = []
+    self._draw_lane_lines(self._polygons)
+    self._draw_path(sm, self._polygons)
+    draw_polygons_batch(self._rect, self._polygons)
 
     if render_lead_indicator and radar_state:
       self._draw_lead_indicator()
@@ -274,9 +274,17 @@ class ModelRenderer:
     if self._experimental_mode:
       # Draw with acceleration coloring
       if len(self._exp_gradient['colors']) > 2:
-        draw_polygon(self._rect, self._path.projected_points, gradient=self._exp_gradient)
+        polygons.append({
+          "points": self._path.projected_points,
+          "gradient": self._exp_gradient,
+        })
+        # draw_polygon(self._rect, self._path.projected_points, gradient=self._exp_gradient)
       else:
-        draw_polygon(self._rect, self._path.projected_points, rl.Color(255, 255, 255, 30))
+        # draw_polygon(self._rect, self._path.projected_points, rl.Color(255, 255, 255, 30))
+        polygons.append({
+          "points": self._path.projected_points,
+          "color": rl.Color(255, 255, 255, 30),
+        })
     else:
       # Draw with throttle/no throttle gradient
       allow_throttle = sm['longitudinalPlan'].allowThrottle or not self._longitudinal_control
@@ -301,7 +309,11 @@ class ModelRenderer:
         'colors': blended_colors,
         'stops': [0.0, 0.5, 1.0],
       }
-      draw_polygon(self._rect, self._path.projected_points, gradient=gradient)
+      polygons.append({
+        "points": self._path.projected_points,
+        "gradient": gradient,
+      })
+      # draw_polygon(self._rect, self._path.projected_points, gradient=gradient)
 
   def _draw_lead_indicator(self):
     # Draw lead vehicles if available
