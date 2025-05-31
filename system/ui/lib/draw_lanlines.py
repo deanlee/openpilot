@@ -21,7 +21,7 @@ uniform vec4 solidColors[8];          // Solid colors
 uniform int useGradientFlags[8];      // 1 for gradient, 0 for solid
 uniform vec2 gradientStarts[8];       // Gradient start
 uniform vec2 gradientEnds[8];         // Gradient end
-uniform vec4 batchGradientColors[60];  // Up to 7 colors per gradient
+uniform vec4 batchGradientColors[60];  // Up to 15 colors
 uniform float batchGradientStops[60];  // Gradient stops
 uniform int gradientColorCounts[8];   // Colors per gradient
 uniform vec2 resolution;
@@ -297,12 +297,13 @@ def _update_batch_state(state, polygon_batch, rect):
       state.batch_gradient_ends_ptr[valid_polygons * 2 : (valid_polygons + 1) * 2] = gradient['end']
 
       # Gradient colors (up to 4 per gradient)
-      colors = gradient['colors'][:4]  # Limit to 4 colors
+      colors = gradient['colors'][:MAX_GRADIENT_COLORS//4]
       stops = gradient.get('stops', [j / max(1, len(colors) - 1) for j in range(len(colors))])
 
       state.gradient_color_counts_ptr[valid_polygons] = len(colors)
 
       # Store gradient colors and stops
+
       for j, (color, stop) in enumerate(zip(colors, stops, strict=True)):
         color_idx = valid_polygons * 4 + j  # 4 colors per polygon
         if color_idx < MAX_GRADIENT_COLORS:
@@ -364,6 +365,7 @@ def draw_polygon(rect: rl.Rectangle, points: np.ndarray, color=None, gradient=No
   if gradient:
     polygon_batch[0]['gradient'] = gradient
 
+  print('here')
   draw_polygons_batch(rect, polygon_batch)
 
 

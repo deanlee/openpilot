@@ -112,8 +112,8 @@ class ModelRenderer:
 
 
     # Draw elements
-    draw_polygons_batch(self._rect, self._polygons)
-
+    #draw_polygons_batch(self._rect, self._polygons)
+    self._draw_path(sm, self._polygons)
     if render_lead_indicator and radar_state:
       self._draw_lead_indicator()
 
@@ -218,12 +218,14 @@ class ModelRenderer:
       i += 1 + (1 if (i + 2) < max_len else 0)
 
     # Store the gradient in the path object
+    # print('-----len--', len(segment_colors), len(gradient_stops))
     if len(segment_colors) > 2:
         self._polygons.append({
           'gradient': {
           'start': (0.0, 1.0),  # Bottom of path
           'end': (0.0, 0.0),  # Top of path
           'colors': segment_colors,
+          'stops': gradient_stops,
           },
           "points": self._path.projected_points,
         })
@@ -263,7 +265,7 @@ class ModelRenderer:
     if not self._path.projected_points.size:
       return
 
-    if not self._experimental_mode:
+    if True:#not self._experimental_mode:
       # Draw with throttle/no throttle gradient
       allow_throttle = sm['longitudinalPlan'].allowThrottle or not self._longitudinal_control
 
@@ -284,13 +286,13 @@ class ModelRenderer:
       gradient = {
         'start': (0.0, 1.0),  # Bottom of path
         'end': (0.0, 0.0),  # Top of path
-        'colors': blended_colors,
+        'colors': [rl.Color(255 ,0, 0, 255), rl.Color(0 ,255, 0, 255), rl.Color(0 ,0, 255, 255)],
         'stops': [0.0, 0.5, 1.0],
       }
-      polygons.append({
-        "points": self._path.projected_points,
-        "gradient": gradient,
-      })
+      # polygons.append({
+      #   "points": self._path.projected_points,
+      #   "gradient": gradient,
+      # })
       draw_polygon(self._rect, self._path.projected_points, gradient=gradient)
 
   def _draw_lead_indicator(self):
