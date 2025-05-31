@@ -26,100 +26,63 @@ uniform float batchGradientStops[60];  // Gradient stops
 uniform int gradientColorCounts[15];   // Colors per gradient
 uniform vec2 resolution;
 
-// Find segment on a chain (left: y decreasing, right: y increasing)
-bool findSegment1(int startIdx, int endIdx, float y, bool isLeft, out float x) {
-  for (int j = startIdx; j < endIdx - 1; j++) {
-    bool inRange = isLeft ?
-      (allPoints[j].y >= y && allPoints[j + 1].y <= y) :
-      (allPoints[j].y <= y && allPoints[j + 1].y >= y);
-    if (inRange) {
-      float t = (y - allPoints[j + (isLeft ? 1 : 0)].y) /
-                (allPoints[j + (isLeft ? 0 : 1)].y - allPoints[j + (isLeft ? 1 : 0)].y + 0.001);
-      x = mix(allPoints[j + (isLeft ? 1 : 0)].x, allPoints[j + (isLeft ? 0 : 1)].x, t);
-      return true;
+// Check if point is inside polygon using ray-casting
+bool isPointInsidePolygon(vec2 p, int startIdx, int pointCount) {
+  if (pointCount < 3) return false;
+
+  int crossings = 0;
+  for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
+    vec2 pi = allPoints[startIdx + i];
+    vec2 pj = allPoints[startIdx + j];
+
+    // Skip degenerate edges
+    if (distance(pi, pj) < 0.001) continue;
+
+    // Ray-casting
+    if (((pi.y > p.y) != (pj.y > p.y)) &&
+        (p.x < (pj.x - pi.x) * (p.y - pi.y) / (pj.y - pi.y + 0.001) + pi.x)) {
+      crossings++;
     }
   }
-  return false;
+  return (crossings & 1) == 1;
 }
 
-// Binary search for segment on a chain (left: y decreasing, right: y increasing)
-bool findSegment(int startIdx, int endIdx, float y, bool isLeft, out float x) {
-  int count = endIdx - startIdx;
-  if (count < 2) return false; // Need at least 2 points for a segment
-
-  int low = startIdx;
-  int high = endIdx - 2; // Last segment starts at endIdx - 2
-
-  while (low <= high) {
-    int mid = low + (high - low) / 2;
-    float y0 = allPoints[mid].y;
-    float y1 = allPoints[mid + 1].y;
-
-    if (isLeft) {
-      // Left chain: y0 >= y >= y1 (decreasing)
-      if (y0 >= y && y1 <= y) {
-        // Found segment, interpolate x
-        float t = (y - y1) / (y0 - y1 + 0.001);
-        x = mix(allPoints[mid + 1].x, allPoints[mid].x, t);
-        return true;
-      } else if (y0 < y) {
-        high = mid - 1; // y too high, search lower indices
-      } else {
-        low = mid + 1;  // y too low, search higher indices
-      }
-    } else {
-      // Right chain: y0 <= y <= y1 (increasing)
-      if (y0 <= y && y1 >= y) {
-        // Found segment, interpolate x
-        float t = (y - y0) / (y1 - y0 + 0.001);
-        x = mix(allPoints[mid].x, allPoints[mid + 1].x, t);
-        return true;
-      } else if (y0 > y) {
-        high = mid - 1; // y too low, search lower indices
-      } else {
-        low = mid + 1;  // y too high, search higher indices
-      }
-    }
-  }
-  return false; // No segment found
-}
-
-// Distance to a line segment
-float distanceToSegment(vec2 p, vec2 v, vec2 w) {
-  vec2 vw = w - v;
-  float l2 = dot(vw, vw);
-  if (l2 < 0.0001) return length(p - v);
-  float t = clamp(dot(p - v, vw) / l2, 0.0, 1.0);
-  vec2 projection = v + t * vw;
-  return length(p - projection);
-}
-
-// Signed distance to polygon
-float distanceToPolygonEdge(vec2 p, int polyIndex) {
-  int startIdx = polygonStarts[polyIndex];
-  int pointCount = polygonCounts[polyIndex];
+// Distance to nearest polygon edge
+float distanceToEdge(vec2 p, int startIdx, int pointCount) {
   float minDist = 1e10;
 
-  // Check all edges
   for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
     vec2 edge0 = allPoints[startIdx + j];
     vec2 edge1 = allPoints[startIdx + i];
-    minDist = min(minDist, distanceToSegment(p, edge0, edge1));
+
+    if (distance(edge0, edge1) < 0.0001) continue;
+
+    vec2 v1 = p - edge0;
+    vec2 v2 = edge1 - edge0;
+    float l2 = dot(v2, v2);
+
+    if (l2 < 0.0001) {
+      float dist = length(v1);
+      minDist = min(minDist, dist);
+      continue;
+    }
+
+    float t = clamp(dot(v1, v2) / l2, 0.0, 1.0);
+    vec2 projection = edge0 + t * v2;
+    float dist = length(p - projection);
+    minDist = min(minDist, dist);
   }
 
-  // Point-in-polygon test
-  float x_left, x_right;
-  int leftStart = startIdx;
-  int leftEnd = startIdx + pointCount / 2;
-  int rightStart = leftEnd;
-  int rightEnd = startIdx + pointCount;
-  if (findSegment(leftStart, leftEnd, p.y, true, x_left) &&
-      findSegment(rightStart, rightEnd, p.y, false, x_right)) {
-    if (x_left < p.x && p.x < x_right) {
-      return minDist; // Inside
-    }
-  }
-  return -minDist; // Outside
+  return minDist;
+}
+
+// Signed distance to polygon
+float signedDistanceToPolygon(vec2 p, int polyIndex) {
+  int startIdx = polygonStarts[polyIndex];
+  int pointCount = polygonCounts[polyIndex];
+  float dist = distanceToEdge(p, startIdx, pointCount);
+  bool inside = isPointInsidePolygon(p, startIdx, pointCount);
+  return inside ? dist : -dist;
 }
 
 // Qt-like linear gradient
@@ -166,26 +129,11 @@ void main() {
 
   // Process polygons (non-overlapping)
   for (int i = polygonCount - 1; i >= 0; i--) {
-    int startIdx = polygonStarts[i];
-    int pointCount = polygonCounts[i];
-    int leftStart = startIdx;
-    int leftEnd = startIdx + pointCount / 2;
-    int rightStart = leftEnd;
-    int rightEnd = startIdx + pointCount;
+    // Compute signed distance
+    float sd = signedDistanceToPolygon(pixel, i);
 
-    // Find chain segments
-    float x_left, x_right;
-    if (!findSegment(leftStart, leftEnd, pixel.y, true, x_left)) continue;
-    if (!findSegment(rightStart, rightEnd, pixel.y, false, x_right)) continue;
-
-    // Check if pixel is inside
-    if (x_left < pixel.x && pixel.x < x_right) {
-      // Fast but less accurate for curved lanes
-      // sd = min(pixel.x - x_left, x_right - pixel.x)
-      // Accurate signed distance
-      float sd = distanceToPolygonEdge(pixel, i);
-      // Optional: float sd = min(pixel.x - x_left, x_right - pixel.x); // Test for straight lines
-
+    // Check if pixel is inside or near edge
+    if (sd >= -aaWidth) { // Inside or within anti-aliasing range
       // Anti-aliasing
       float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
       if (alpha <= 0.0) continue;
@@ -427,7 +375,6 @@ def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
     a, b = verify_symmetry(points)
     if not a:
       print(b, points)
-      assert(0)
 
     # Transform points relative to rect
     transformed_points = points - np.array([rect.x, rect.y])
