@@ -5,8 +5,8 @@ from cereal import messaging, car
 from dataclasses import dataclass, field
 from openpilot.common.params import Params
 from openpilot.system.ui.lib.application import DEFAULT_FPS
-from openpilot.system.ui.lib.shader_polygon import draw_polygon
-from openpilot.system.ui.lib.draw_lanlines import draw_polygons_batch
+# from openpilot.system.ui.lib.shader_polygon import draw_polygon
+from openpilot.system.ui.lib.draw_lanlines import draw_polygons_batch, draw_polygon
 
 
 CLIP_MARGIN = 500
@@ -291,7 +291,7 @@ class ModelRenderer:
         "points": self._path.projected_points,
         "gradient": gradient,
       })
-      # draw_polygon(self._rect, self._path.projected_points, gradient=gradient)
+      draw_polygon(self._rect, self._path.projected_points, gradient=gradient)
 
   def _draw_lead_indicator(self):
     # Draw lead vehicles if available
