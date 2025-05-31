@@ -59,191 +59,75 @@ vec4 getBatchGradientColor(vec2 pos, int polyIndex) {
   return batchGradientColors[colorStart + colorCount - 1];
 }
 
-
-
 // Linear search for left chain (y decreasing)
 bool findLeftSegment(int startIdx, int endIdx, float y, out float x_left) {
-    for (int j = startIdx; j < endIdx - 1; j++) {
-        if (allPoints[j].y >= y && allPoints[j + 1].y <= y) {
-            float t = (y - allPoints[j + 1].y) / (allPoints[j].y - allPoints[j + 1].y + 0.001);
-            x_left = mix(allPoints[j + 1].x, allPoints[j].x, t);
-            return true;
-        }
+  for (int j = startIdx; j < endIdx - 1; j++) {
+    if (allPoints[j].y >= y && allPoints[j + 1].y <= y) {
+      float t = (y - allPoints[j + 1].y) / (allPoints[j].y - allPoints[j + 1].y + 0.001);
+      x_left = mix(allPoints[j + 1].x, allPoints[j].x, t);
+      return true;
     }
-    return false;
+  }
+  return false;
 }
 
 // Linear search for right chain (y increasing)
 bool findRightSegment(int startIdx, int endIdx, float y, out float x_right) {
-    for (int j = startIdx; j < endIdx - 1; j++) {
-        if (allPoints[j].y <= y && allPoints[j + 1].y >= y) {
-            float t = (y - allPoints[j].y) / (allPoints[j + 1].y - allPoints[j].y + 0.001);
-            x_right = mix(allPoints[j].x, allPoints[j + 1].x, t);
-            return true;
-        }
-    }
-    return false;
-}
-
-// Batch polygon inside test
-bool isPointInsidePolygon(vec2 p, int polyIndex) {
-  int startIdx = polygonStarts[polyIndex];
-  int pointCount = polygonCounts[polyIndex];
-
-  if (pointCount < 3) return false;
-
-  int crossings = 0;
-  for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-    vec2 pi = allPoints[startIdx + i];
-    vec2 pj = allPoints[startIdx + j];
-
-    if (distance(pi, pj) < 0.001) continue;
-
-    if (((pi.y > p.y) != (pj.y > p.y)) &&
-        (p.x < (pj.x - pi.x) * (p.y - pi.y) / (pj.y - pi.y + 0.001) + pi.x)) {
-      crossings++;
+  for (int j = startIdx; j < endIdx - 1; j++) {
+    if (allPoints[j].y <= y && allPoints[j + 1].y >= y) {
+      float t = (y - allPoints[j].y) / (allPoints[j + 1].y - allPoints[j].y + 0.001);
+      x_right = mix(allPoints[j].x, allPoints[j + 1].x, t);
+      return true;
     }
   }
-  return (crossings & 1) == 1;
-}
-
-// Signed distance to a line segment
-float distanceToSegment(vec2 p, vec2 v, vec2 w) {
-    vec2 vw = w - v;
-    float l2 = dot(vw, vw);
-    if (l2 < 0.0001) return length(p - v);
-    float t = clamp(dot(p - v, vw) / l2, 0.0, 1.0);
-    vec2 projection = v + t * vw;
-    return length(p - projection);
-}
-
-// Accurate signed distance with emphasis on top edge
-float distanceToPolygonEdge(vec2 p, int polyIndex) {
-    int startIdx = polygonStarts[polyIndex];
-    int pointCount = polygonCounts[polyIndex];
-    float minDist = 1e10;
-
-    // Check all edges
-    for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-        vec2 edge0 = allPoints[startIdx + j];
-        vec2 edge1 = allPoints[startIdx + i];
-        minDist = min(minDist, distanceToSegment(p, edge0, edge1));
-    }
-
-    // Emphasize top edge for narrow tip
-    int leftEnd = startIdx + polygonCounts[polyIndex]/2 - 1;
-    int rightStart = startIdx + polygonCounts[polyIndex]/2;
-    vec2 topLeft = allPoints[leftEnd];
-    vec2 topRight = allPoints[rightStart];
-    float topDist = distanceToSegment(p, topLeft, topRight);
-
-    // Use minimum of all edges and top edge
-    minDist = min(minDist, topDist);
-
-    // Determine if inside
-    float x_left, x_right;
-    int leftStart = startIdx;
-    int leftEndIdx = startIdx + polygonCounts[polyIndex]/2;
-    int rightStartIdx = leftEndIdx;
-    int rightEnd = startIdx + pointCount;
-    if (findLeftSegment(leftStart, leftEndIdx, p.y, x_left) &&
-        findRightSegment(rightStartIdx, rightEnd, p.y, x_right)) {
-        if (x_left < p.x && p.x < x_right) {
-            return minDist; // Inside
-        }
-    }
-    return -minDist; // Outside
-}
-// Batch polygon distance
-float distanceToPolygonEdge2(vec2 p, int polyIndex) {
-  int startIdx = polygonStarts[polyIndex];
-  int pointCount = polygonCounts[polyIndex];
-  float minDist = 1000.0;
-
-  for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-    vec2 edge0 = allPoints[startIdx + j];
-    vec2 edge1 = allPoints[startIdx + i];
-
-    if (distance(edge0, edge1) < 0.0001) continue;
-
-    vec2 v1 = p - edge0;
-    vec2 v2 = edge1 - edge0;
-    float l2 = dot(v2, v2);
-
-    if (l2 < 0.0001) {
-      minDist = min(minDist, length(v1));
-      continue;
-    }
-
-    float t = clamp(dot(v1, v2) / l2, 0.0, 1.0);
-    vec2 projection = edge0 + t * v2;
-    minDist = min(minDist, length(p - projection));
-  }
-
-  return minDist;
+  return false;
 }
 
 // Get color for polygon
 vec4 getColor(int polyIndex) {
-    if (useGradientFlags[polyIndex] == 1) {
-        return getBatchGradientColor(fragTexCoord * resolution, polyIndex);
-    } else {
-        return solidColors[polyIndex];
-    }
+  if (useGradientFlags[polyIndex] == 1) {
+    return getBatchGradientColor(fragTexCoord * resolution, polyIndex);
+  } else {
+    return solidColors[polyIndex];
+  }
 }
 
-
 void main() {
-    vec2 pixel = fragTexCoord * resolution;
-    vec4 finalResult = vec4(0.0);
-    // Calculate aaWidth using dFdx/dFdy
-    vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
-    float pixelSize = length(pixelGrad);
-    float aaWidth = max(0.5, pixelSize * 1.0); // 1-2 pixel transition for Qt-like smoothness
-    // Alternative: float aaWidth = max(0.5, pixelSize * 0.5); // Sharper, ~1 pixel
-    // Alternative: float aaWidth = max(0.5, pixelSize * 1.5); // Smoother, ~3 pixels
+  vec2 pixel = fragTexCoord * resolution;
+  vec4 finalResult = vec4(0.0);
+  // Calculate aaWidth using dFdx/dFdy
+  vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
+  float pixelSize = length(pixelGrad);
+  float aaWidth = max(0.5, pixelSize * 1.0);
 
+  // Process polygons in reverse for correct blending
+  for (int polyIndex = polygonCount - 1; polyIndex >= 0; polyIndex--) {
+    int leftStart = polygonStarts[polyIndex];
+    int leftEnd = leftStart + polygonCounts[polyIndex]/2;
+    int rightStart = leftEnd;
+    int rightEnd = leftStart + polygonCounts[polyIndex];
 
-    // Process polygons in reverse for correct blending
-    for (int polyIndex = polygonCount - 1; polyIndex >= 0; polyIndex--) {
-        // Bounding box check
-        //if (pixel.y < minYs[polyIndex] || pixel.y > maxYs[polyIndex]) continue;
+    // Find segments on left and right chains
+    float x_left, x_right;
+    if (!findLeftSegment(leftStart, leftEnd, pixel.y, x_left)) continue;
+    if (!findRightSegment(rightStart, rightEnd, pixel.y, x_right)) continue;
 
-        int leftStart = polygonStarts[polyIndex];
-        int leftEnd = leftStart + polygonCounts[polyIndex]/2;//leftCounts[polyIndex];
-        int rightStart = leftEnd;
-        int rightEnd = leftStart + polygonCounts[polyIndex];
+    // Check if pixel is inside
+    if (x_left < pixel.x && pixel.x < x_right) {
+      // Compute signed distance for anti-aliasing
+      float sd = min(pixel.x - x_left, x_right - pixel.x);
+      float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
+      if (alpha <= 0.0) continue;
 
-        // Find segments on left and right chains
-        float x_left, x_right;
-        if (!findLeftSegment(leftStart, leftEnd, pixel.y, x_left)) continue;
-        if (!findRightSegment(rightStart, rightEnd, pixel.y, x_right)) continue;
-
-        // Check if pixel is inside
-        if (x_left < pixel.x && pixel.x < x_right) {
-            // Compute signed distance for anti-aliasing
-         //   float sd = min(pixel.x - x_left, x_right - pixel.x);
-           float sd = distanceToPolygonEdge(pixel, polyIndex);
-            //float alpha = smoothstep(-aaWidth, aaWidth, sd);
-            // Qt-like anti-aliasing: Opaque interior, smooth edges
-            float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
-            if (alpha <= 0.0) continue;
-
-            // Get color and apply alpha
-            vec4 color = getColor(polyIndex);
-            // Blend using src_over
-            //float srcA = color.a;
-            //float invSrcA = 1.0 - srcA;
-            //vec3 newRGB = finalResult.rgb * invSrcA + color.rgb * srcA;
-            //float newA = finalResult.a + srcA * invSrcA;
-            //finalResult = vec4(newRGB, newA);
-            finalResult = vec4(color.rgb, color.a);
-            break;
-        }
+      // Get color and apply alpha
+      vec4 color = getColor(polyIndex);
+      finalResult = vec4(color.rgb, color.a);
+      break;
     }
+  }
 
-    finalColor = finalResult;
-    }
+  finalColor = finalResult;
+}
 """
 
 # Default vertex shader
