@@ -196,11 +196,12 @@ vec4 getColor(int polyIndex) {
 void main() {
     vec2 pixel = fragTexCoord * resolution;
     vec4 finalResult = vec4(0.0);
-    //float aaWidth = 0.5; // Anti-aliasing width
-    //float aaWidth = 2.0 * length(resolution) / 1920.0; // Scale for resolution
+    // Calculate aaWidth using dFdx/dFdy
     vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
-  float pixelSize = length(pixelGrad);
-  float aaWidth = max(0.5, pixelSize * 0.5); // Sharper anti-aliasing
+    float pixelSize = length(pixelGrad);
+    float aaWidth = max(0.5, pixelSize * 1.0); // 1-2 pixel transition for Qt-like smoothness
+    // Alternative: float aaWidth = max(0.5, pixelSize * 0.5); // Sharper, ~1 pixel
+    // Alternative: float aaWidth = max(0.5, pixelSize * 1.5); // Smoother, ~3 pixels
 
 
     // Process polygons in reverse for correct blending
