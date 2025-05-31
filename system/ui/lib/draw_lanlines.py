@@ -13,142 +13,95 @@ precision mediump float;
 in vec2 fragTexCoord;
 out vec4 finalColor;
 
-uniform vec2 allPoints[500];           // Polygon points
-uniform int polygonStarts[8];         // Start index per polygon
+uniform vec2 allPoints[500];           // Polygon points (left1, left2, ..., left15, right15, ..., right1)
+uniform int polygonStarts[8];          // Start index per polygon
 uniform int polygonCounts[8];         // Point count per polygon
 uniform int polygonCount;              // Number of polygons
 uniform vec4 solidColors[8];          // Solid colors
-uniform int useGradientFlags[8];      // 1 for gradient, 0 for solid
-uniform vec2 gradientStarts[8];       // Gradient start
-uniform vec2 gradientEnds[8];         // Gradient end
-uniform vec4 batchGradientColors[60];  // Up to 15 colors
-uniform float batchGradientStops[60];  // Gradient stops
-uniform int gradientColorCounts[8];   // Colors per gradient
 uniform vec2 resolution;
 
-// Check if point is inside polygon using ray-casting
-bool isPointInsidePolygon(vec2 p, int startIdx, int pointCount) {
-  if (pointCount < 3) return false;
-
-  int crossings = 0;
-  for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-    vec2 pi = allPoints[startIdx + i];
-    vec2 pj = allPoints[startIdx + j];
-
-    // Skip degenerate edges
-    if (distance(pi, pj) < 0.001) continue;
-
-    // Ray-casting
-    if (((pi.y > p.y) != (pj.y > p.y)) &&
-        (p.x < (pj.x - pi.x) * (p.y - pi.y) / (pj.y - pi.y + 0.001) + pi.x)) {
-      crossings++;
-    }
-  }
-  return (crossings & 1) == 1;
-}
-
-// Distance to nearest polygon edge
-float distanceToEdge(vec2 p, int startIdx, int pointCount) {
-  float minDist = 1e10;
-
-  for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-    vec2 edge0 = allPoints[startIdx + j];
-    vec2 edge1 = allPoints[startIdx + i];
-
-    if (distance(edge0, edge1) < 0.0001) continue;
-
-    vec2 v1 = p - edge0;
-    vec2 v2 = edge1 - edge0;
-    float l2 = dot(v2, v2);
-
-    if (l2 < 0.0001) {
-      float dist = length(v1);
-      minDist = min(minDist, dist);
-      continue;
-    }
-
-    float t = clamp(dot(v1, v2) / l2, 0.0, 1.0);
-    vec2 projection = edge0 + t * v2;
-    float dist = length(p - projection);
-    minDist = min(minDist, dist);
-  }
-
-  return minDist;
-}
-
-// Signed distance to polygon
-float signedDistanceToPolygon(vec2 p, int polyIndex) {
-  int startIdx = polygonStarts[polyIndex];
-  int pointCount = polygonCounts[polyIndex];
-  float dist = distanceToEdge(p, startIdx, pointCount);
-  bool inside = isPointInsidePolygon(p, startIdx, pointCount);
-  return inside ? dist : -dist;
-}
-
-// Qt-like linear gradient
-vec4 getBatchGradientColor(vec2 pos, int polyIndex) {
-  // return batchGradientColors[1]; // Default fallback color
-  int colorStart = polyIndex * 4;
-  int colorCount = gradientColorCounts[polyIndex];
-
-  vec2 gradientDir = gradientEnds[polyIndex] - gradientStarts[polyIndex];
-  float gradientLength = length(gradientDir);
-  if (gradientLength < 0.001) return batchGradientColors[colorStart];
-
-  vec2 normalizedDir = gradientDir / gradientLength;
-  vec2 pointVec = pos - gradientStarts[polyIndex];
-  float projection = dot(pointVec, normalizedDir);
-  float t = clamp(projection / gradientLength, 0.0, 1.0);
-
-  for (int i = 0; i < colorCount - 1; i++) {
-    int stopIdx = colorStart + i;
-    if (t >= batchGradientStops[stopIdx] && t <= batchGradientStops[stopIdx + 1]) {
-      float segmentT = (t - batchGradientStops[stopIdx]) /
-                       (batchGradientStops[stopIdx + 1] - batchGradientStops[stopIdx] + 0.001);
-      return mix(batchGradientColors[stopIdx], batchGradientColors[stopIdx + 1], segmentT);
-    }
-  }
-  //return batchGradientColors[colorStart + colorCount - 1];
-  // Debug: Tint green if fallback to last color
-  return batchGradientColors[colorStart + colorCount - 1] * vec4(0.0, 1.0, 0.0, 1.0);
-}
-
-// Get color (solid or gradient)
-vec4 getColor(int polyIndex) {
-  if (useGradientFlags[polyIndex] == 1) {
-    return getBatchGradientColor(fragTexCoord * resolution, polyIndex);
-  }
-  return solidColors[polyIndex];
+// Signed distance to line segment
+float distToSegment(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
+  return length(pa - ba * h);
 }
 
 void main() {
   vec2 pixel = fragTexCoord * resolution;
-  vec4 finalResult = vec4(0.0);
+  vec4 color = vec4(0.0); // Transparent if no polygon hit
+  float aaWidth = 1.0; // Fixed AA width
 
-  // Resolution-adaptive aaWidth
-  vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
-  float pixelSize = length(pixelGrad);
-  float aaWidth = max(0.5, pixelSize * 1.0); // ~2-pixel transition
+  // Process polygons
+  for (int i = 0; i < polygonCount; i++) {
+    int startIdx = polygonStarts[i];
+    int pointCount = polygonCounts[i];
+    int halfCount = pointCount / 2; // ~15
 
-  // Process polygons (non-overlapping)
-  for (int i = polygonCount - 1; i >= 0; i--) {
-    // Compute signed distance
-    float sd = signedDistanceToPolygon(pixel, i);
+    // AABB: sample first/last left/right points
+    vec2 leftFirst = allPoints[startIdx];
+    vec2 leftLast = allPoints[startIdx + halfCount - 1];
+    vec2 rightLast = allPoints[startIdx + halfCount];
+    vec2 rightFirst = allPoints[startIdx + pointCount - 1];
+    vec2 minXY = min(min(leftFirst, leftLast), min(rightFirst, rightLast));
+    vec2 maxXY = max(max(leftFirst, leftLast), max(rightFirst, rightLast));
+    vec4 aabb = vec4(minXY.x - 3.0, minXY.y - 3.0, maxXY.x + 3.0, maxXY.y + 3.0);
 
-    // Check if pixel is inside or near edge
-    if (sd >= -aaWidth) { // Inside or within anti-aliasing range
-      // Anti-aliasing
-      float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
-      if (alpha <= 0.0) continue;
+    // AABB test
+    if (pixel.x >= aabb.x && pixel.x <= aabb.z && pixel.y >= aabb.y && pixel.y <= aabb.w) {
+      // Signed distance and winding number
+      float minDist = 1e10;
+      int winding = 0;
 
-      // Apply color
-      vec4 color = getColor(i);
-      finalResult = vec4(color.rgb, color.a *alpha);
-      break; // Non-overlapping
+      // Left edge (14 segments for 15 points)
+      for (int j = 0; j < halfCount - 1; j++) {
+        vec2 a = allPoints[startIdx + j];
+        vec2 b = allPoints[startIdx + j + 1];
+        minDist = min(minDist, distToSegment(pixel, a, b));
+        if ((a.y <= pixel.y && pixel.y < b.y || b.y <= pixel.y && pixel.y < a.y) &&
+            pixel.x < (b.x - a.x) * (pixel.y - a.y) / (b.y - a.y + 0.0001) + a.x) {
+          winding += (b.y > a.y) ? 1 : -1;
+        }
+      }
+
+      // Right edge (14 segments)
+      for (int j = 0; j < halfCount - 1; j++) {
+        vec2 a = allPoints[startIdx + halfCount + j];
+        vec2 b = allPoints[startIdx + halfCount + j + 1];
+        minDist = min(minDist, distToSegment(pixel, a, b));
+        if ((a.y <= pixel.y && pixel.y < b.y || b.y <= pixel.y && pixel.y < a.y) &&
+            pixel.x < (b.x - a.x) * (pixel.y - a.y) / (b.y - a.y + 0.0001) + a.x) {
+          winding += (b.y > a.y) ? 1 : -1;
+        }
+      }
+
+      // Connect last left to last right
+      float dist = distToSegment(pixel, leftLast, rightLast);
+      minDist = min(minDist, dist);
+      if ((leftLast.y <= pixel.y && pixel.y < rightLast.y || rightLast.y <= pixel.y && pixel.y < leftLast.y) &&
+          pixel.x < (rightLast.x - leftLast.x) * (pixel.y - leftLast.y) / (rightLast.y - leftLast.y + 0.0001) + leftLast.x) {
+        winding += (rightLast.y > leftLast.y) ? 1 : -1;
+      }
+
+      // Connect first right to first left
+      dist = distToSegment(pixel, rightFirst, leftFirst);
+      minDist = min(minDist, dist);
+      if ((rightFirst.y <= pixel.y && pixel.y < leftFirst.y || leftFirst.y <= pixel.y && pixel.y < rightFirst.y) &&
+          pixel.x < (leftFirst.x - rightFirst.x) * (pixel.y - rightFirst.y) / (leftFirst.y - rightFirst.y + 0.0001) + rightFirst.x) {
+        winding += (leftFirst.y > rightFirst.y) ? 1 : -1;
+      }
+
+      // Inside or edge
+      if (winding != 0 || minDist <= aaWidth) {
+        color = solidColors[i];
+        color.a = (minDist <= aaWidth) ? smoothstep(-aaWidth, aaWidth, minDist) : 1.0;
+        break;
+      }
     }
   }
 
-  finalColor = finalResult;
+  finalColor = color;
 }
 """
 
@@ -351,6 +304,8 @@ def _update_batch_state(state, polygon_batch, clipped_rect: rl.Rectangle, origin
     if points is None or len(points) < 3:
       continue
 
+    print(len(points))
+
     # Transform points to clipped_rect's origin
     transformed_points = points - np.array([clipped_rect.x, clipped_rect.y])
 
@@ -459,7 +414,7 @@ def draw_polygons_batch(original_rect: rl.Rectangle, polygon_batch):
   screen_width = original_rect.width  # Assume original_rect is screen
   screen_height = original_rect.height
   clipped_rect = clip_to_screen(bounding_rect, screen_width, screen_height)
-  print(clipped_rect.x, clipped_rect.y, clipped_rect.width, clipped_rect.height)
+  # print(clipped_rect.x, clipped_rect.y, clipped_rect.width, clipped_rect.height)
   if clipped_rect is None:
     print("Polygon batch entirely off-screen")
     return
