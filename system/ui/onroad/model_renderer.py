@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from openpilot.common.params import Params
 from openpilot.system.ui.lib.application import DEFAULT_FPS
 from openpilot.system.ui.lib.shader_polygon import draw_polygon
+from openpilot.system.ui.lib.draw_lanlines import draw_polygons_batch
 
 
 CLIP_MARGIN = 500
@@ -116,8 +117,11 @@ class ModelRenderer:
 
 
     # Draw elements
-    self._draw_lane_lines()
-    self._draw_path(sm)
+    polygons = []
+    self._draw_lane_lines(polygons)
+    draw_polygons_batch(self._rect, polygons)
+
+    self._draw_path(sm, polygons)
 
     if render_lead_indicator and radar_state:
       self._draw_lead_indicator()
@@ -242,7 +246,7 @@ class ModelRenderer:
 
     return LeadVehicle(glow=glow,chevron=chevron, fill_alpha=int(fill_alpha))
 
-  def _draw_lane_lines(self):
+  def _draw_lane_lines(self, polygons):
     """Draw lane lines and road edges"""
     for i, lane_line in enumerate(self._lane_lines):
       if lane_line.projected_points.size == 0:
@@ -250,7 +254,8 @@ class ModelRenderer:
 
       alpha = np.clip(self._lane_line_probs[i], 0.0, 0.7)
       color = rl.Color(255, 255, 255, int(alpha * 255))
-      draw_polygon(self._rect, lane_line.projected_points, color)
+      # draw_polygon(self._rect, lane_line.projected_points, color)
+      polygons.append({"points": lane_line.projected_points, "color":color})
 
     for i, road_edge in enumerate(self._road_edges):
       if road_edge.projected_points.size == 0:
@@ -258,9 +263,10 @@ class ModelRenderer:
 
       alpha = np.clip(1.0 - self._road_edge_stds[i], 0.0, 1.0)
       color = rl.Color(255, 0, 0, int(alpha * 255))
-      draw_polygon(self._rect, road_edge.projected_points, color)
+      # draw_polygon(self._rect, road_edge.projected_points, color)
+      polygons.append({"points": road_edge.projected_points, "color": color})
 
-  def _draw_path(self, sm):
+  def _draw_path(self, sm, polygons):
     """Draw path with dynamic coloring based on mode and throttle state."""
     if not self._path.projected_points.size:
       return
