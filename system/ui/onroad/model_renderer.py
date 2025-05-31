@@ -112,8 +112,8 @@ class ModelRenderer:
 
 
     # Draw elements
-    #draw_polygons_batch(self._rect, self._polygons)
-    self._draw_path(sm, self._polygons)
+    draw_polygons_batch(self._rect, self._polygons)
+    # self._draw_path(sm, self._polygons)
     if render_lead_indicator and radar_state:
       self._draw_lead_indicator()
 
