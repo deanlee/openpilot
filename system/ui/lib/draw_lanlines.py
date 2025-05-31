@@ -254,6 +254,7 @@ class ShaderState:
 
     self.initialized = False
 
+
 def verify_symmetry(points: np.ndarray, tolerance: float = 0.1) -> tuple[bool, int]:
   """
   Verify if polygon points form a symmetric path pattern
@@ -272,8 +273,8 @@ def verify_symmetry(points: np.ndarray, tolerance: float = 0.1) -> tuple[bool, i
   min_y_idx = np.argmin(points[:, 1])
 
   # Split into left and right chains
-  left_points = points[:min_y_idx + 1]  # From start to min_y point
-  right_points = points[min_y_idx:]     # From min_y point to end
+  left_points = points[: min_y_idx + 1]  # From start to min_y point
+  right_points = points[min_y_idx:]  # From min_y point to end
 
   # Check if we have reasonable balance (within 2 points difference)
   if abs(len(left_points) - len(right_points)) > 2:
@@ -311,6 +312,7 @@ def verify_symmetry(points: np.ndarray, tolerance: float = 0.1) -> tuple[bool, i
         return False, 0
 
   return True, len(left_points)
+
 
 def draw_polygon(rect: rl.Rectangle, points: np.ndarray, color=None, gradient=None):
   """
