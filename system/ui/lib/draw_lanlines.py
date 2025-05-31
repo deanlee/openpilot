@@ -172,20 +172,19 @@ void main() {
             //float sd = min(pixel.x - x_left, x_right - pixel.x);
             float sd = distanceToPolygonEdge(pixel, polyIndex);
             float alpha = smoothstep(-aaWidth, aaWidth, sd);
+            //float alpha = sd > aaWidth ? 1.0 : smoothstep(-aaWidth, aaWidth, sd);
             if (alpha <= 0.0) continue;
 
             // Get color and apply alpha
             vec4 color = getColor(polyIndex);
-            // color.a *= alpha;
-
             // Blend using src_over
-            float srcA = color.a;
-            float invSrcA = 1.0 - srcA;
-            vec3 newRGB = finalResult.rgb * invSrcA + color.rgb * srcA;
-            float newA = finalResult.a + srcA * invSrcA;
-            finalResult = vec4(newRGB, newA);
-            finalColor = vec4(color.rgb, color.a * alpha);
-            break;
+            //float srcA = color.a;
+            //float invSrcA = 1.0 - srcA;
+            //vec3 newRGB = finalResult.rgb * invSrcA + color.rgb * srcA;
+            //float newA = finalResult.a + srcA * invSrcA;
+            //finalResult = vec4(newRGB, newA);
+            finalResult = vec4(color.rgb, color.a);
+            //break;
         }
     }
 
@@ -405,6 +404,7 @@ def draw_polygons_batch(rect: rl.Rectangle, polygon_batch):
     else:
       state.use_gradient_flags_ptr[valid_polygons] = 0
       color = poly_data.get('color', rl.WHITE)
+      print(color.a / 255.0)
       state.solid_colors_ptr[valid_polygons * 4 : (valid_polygons + 1) * 4] = [
         color.r / 255.0,
         color.g / 255.0,
