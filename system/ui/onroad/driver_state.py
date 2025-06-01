@@ -54,6 +54,12 @@ class DriverStateRenderer:
     self.position_y: float = 0.0
     self.h_arc_data = None
     self.v_arc_data = None
+    # white_img = rl.gen_image_color(BTN_SIZE, BTN_SIZE, rl.WHITE)
+    # self._texture = rl.load_texture_from_image(white_img)
+    # rl.set_texture_filter(self._texture, rl.TEXTURE_FILTER_BILINEAR)
+    # rl.unload_image(white_img)
+    self._texture = rl.load_render_texture(BTN_SIZE, BTN_SIZE)
+
 
     # Pre-allocate drawing arrays
     self.face_lines = [rl.Vector2(0, 0) for _ in range(len(DEFAULT_FACE_KPTS_3D))]
@@ -70,13 +76,31 @@ class DriverStateRenderer:
     self.disengaged_color = rl.Color(139, 139, 139, 255)
 
   def draw(self, rect, sm):
-    if not self._is_visible(sm):
-      return
+    # if not self._is_visible(sm):
+      # return
 
     self._update_state(sm, rect)
-    if not self.state_updated:
-      return
+    # if not self.state_updated:
 
+    #   return
+
+    # rl.draw_rectangle(0, 0, BTN_SIZE, BTN_SIZE, rl.Color(255, 0, 0, 255))  # Clear texture
+    # return
+    # rl.rl_set_texture(self._texture.id)
+    assert(self._texture.id != 0), "Texture not initialized"
+    rl.begin_texture_mode(self._texture)
+    rl.draw_rectangle(0, 0, BTN_SIZE, BTN_SIZE, rl.Color(255, 0, 0, 255))  # Clear texture
+    rl.end_texture_mode()
+    rl.begin_texture_mode(gui_app._render_texture)
+    # assert(gui_app._render_texture.id != 0), "Render texture not initialized"
+
+    # rl.rl_set_texture(gui_app._render_texture.id)
+    # rl.begin_texture_mode(gui_app._render_texture)
+    rl.draw_texture_v(self._texture.texture, rl.Vector2(0, 0), rl.WHITE)
+    # rl.end_texture_mode()
+    print("dd")
+
+    return
     # Set opacity based on active state
     opacity = 0.65 if self.is_active else 0.2
 
@@ -101,6 +125,8 @@ class DriverStateRenderer:
       rl.draw_spline_linear(self.h_arc_lines, len(self.h_arc_lines), self.h_arc_data.thickness, self.arc_color)
     if self.v_arc_data:
       rl.draw_spline_linear(self.v_arc_lines, len(self.v_arc_lines), self.v_arc_data.thickness, self.arc_color)
+
+
 
   def _is_visible(self, sm):
     """Check if the visualization should be rendered."""
