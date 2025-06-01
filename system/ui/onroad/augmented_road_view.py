@@ -94,6 +94,20 @@ class AugmentedRoadView(CameraView):
 
     rl.draw_rectangle_lines_ex(rect, UI_BORDER_SIZE, status.value)
 
+  def _switch_stream_if_needed(self, new_stream_type: VisionStreamType):
+    # Wide or narrow cam dependent on speed
+    if self.sm.valid['wideRoadCameraState']:
+      v_ego = self.sm["carState"].getCarState().getVEgo()
+      if v_ego < 10 :
+        request_wide_cam = True
+      elif v_ego > 15:
+        request_wide_cam = False
+
+      request_wide_cam &= sm["selfdriveState"].experimentalMode
+      self.switch_stream(
+        VisionStreamType.VISION_STREAM_WIDE_ROAD if request_wide_cam else VisionStreamType.VISION_STREAM_ROAD
+      )
+
   def _update_calibration(self):
     # Update device camera if not already set
     if not self.device_camera and sm.seen['roadCameraState'] and sm.seen['deviceState']:
