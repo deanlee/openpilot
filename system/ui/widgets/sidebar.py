@@ -187,24 +187,13 @@ class Sidebar:
     opacity = 0.65 if self.settings_pressed else 1.0
 
     tint = rl.Color(255, 255, 255, int(255 * opacity))
-    rl.draw_texture_rec(
-      self.settings_img,
-      rl.Rectangle(rect.x, rect.y, BUTTON_SIZE, float(self.settings_img.height)),
-      rl.Vector2(rect.x + SETTINGS_BTN_RECT.x, rect.y + SETTINGS_BTN_RECT.y),
-      tint,
-    )
-
+    rl.draw_texture(self.settings_img, int(SETTINGS_BTN_RECT.x), int(SETTINGS_BTN_RECT.y), tint)
     # Home/Flag button
     opacity = 0.65 if self.onroad and self.flag_pressed else 1.0
     button_img = self.flag_img if self.onroad else self.home_img
 
     tint = rl.Color(255, 255, 255, int(255 * opacity))
-    rl.draw_texture_rec(
-      button_img,
-      rl.Rectangle(0, 0, float(button_img.width), float(button_img.height)),
-      rl.Vector2(rect.x + HOME_BTN_RECT.x, rect.y + HOME_BTN_RECT.y),
-      tint,
-    )
+    rl.draw_texture(button_img, int(HOME_BTN_RECT.x), int(HOME_BTN_RECT.y), tint)
 
   def _draw_network_indicator(self, rect: rl.Rectangle):
     # Signal strength dots
