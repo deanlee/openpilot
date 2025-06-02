@@ -57,21 +57,21 @@ class Settings:
     self._max_scroll = 0.0
 
     # Initialize panels
-    self._panels = {
-      PanelType.DEVICE: DeviceSettings(self),
-      # PanelType.NETWORK: NetworkPanel(self),
-      PanelType.TOGGLES: ToggleSettings(self),
-      PanelType.SOFTWARE: SoftwareSettings(self),
-      PanelType.DEVELOPER: DeveloperSettings(self),
-    }
+    # self._panels = {
+    #   PanelType.DEVICE: DeviceSettings(self),
+    #   # PanelType.NETWORK: NetworkPanel(self),
+    #   PanelType.TOGGLES: ToggleSettings(self),
+    #   PanelType.SOFTWARE: SoftwareSettings(self),
+    #   PanelType.DEVELOPER: DeveloperSettings(self),
+    # }
 
     # Panel configuration
     self._panel_list = [
-      PanelInfo("Device", PanelType.DEVICE, self._panels[PanelType.DEVICE]),
-      PanelInfo("Network", PanelType.NETWORK, self._panels[PanelType.NETWORK]),
-      PanelInfo("Toggles", PanelType.TOGGLES, self._panels[PanelType.TOGGLES]),
-      PanelInfo("Software", PanelType.SOFTWARE, self._panels[PanelType.SOFTWARE]),
-      PanelInfo("Developer", PanelType.DEVELOPER, self._panels[PanelType.DEVELOPER]),
+      PanelInfo("Device", PanelType.DEVICE, DeviceSettings()),
+      # PanelInfo("Network", PanelType.NETWORK, ),
+      PanelInfo("Toggles", PanelType.TOGGLES, ToggleSettings()),
+      PanelInfo("Software", PanelType.SOFTWARE, SoftwareSettings()),
+      PanelInfo("Developer", PanelType.DEVELOPER, DeveloperSettings()),
     ]
 
     # UI Resources
@@ -88,22 +88,22 @@ class Settings:
     self._transition_progress = 0.0
     self._transitioning = False
 
-  def set_callbacks(
-    self,
-    close_callback: Optional[Callable] = None,
-    show_driver_view_callback: Optional[Callable] = None,
-    review_training_callback: Optional[Callable] = None,
-  ):
-    """Set callback functions for various actions."""
-    self._close_callback = close_callback
-    self._show_driver_view_callback = show_driver_view_callback
-    self._review_training_callback = review_training_callback
+  # def set_callbacks(
+  #   self,
+  #   close_callback: Optional[Callable] = None,
+  #   show_driver_view_callback: Optional[Callable] = None,
+  #   review_training_callback: Optional[Callable] = None,
+  # ):
+  #   """Set callback functions for various actions."""
+  #   self._close_callback = close_callback
+  #   self._show_driver_view_callback = show_driver_view_callback
+  #   self._review_training_callback = review_training_callback
 
-    # Pass callbacks to panels that need them
-    if hasattr(self._panels[PanelType.DEVICE], 'set_callbacks'):
-      self._panels[PanelType.DEVICE].set_callbacks(show_driver_view_callback, review_training_callback)
+  #   # Pass callbacks to panels that need them
+  #   if hasattr(self._panels[PanelType.DEVICE], 'set_callbacks'):
+  #     self._panels[PanelType.DEVICE].set_callbacks(show_driver_view_callback, review_training_callback)
 
-  def render(self, rect: rl.Rectangle, sm: messaging.SubMaster):
+  def render(self, rect: rl.Rectangle):
     """Main render function."""
     # Background
     rl.draw_rectangle_rec(rect, BACKGROUND_COLOR)
@@ -113,11 +113,11 @@ class Settings:
     panel_rect = rl.Rectangle(rect.x + SIDEBAR_WIDTH, rect.y, rect.width - SIDEBAR_WIDTH, rect.height)
 
     # Draw components
-    self._draw_sidebar(sidebar_rect, sm)
-    self._draw_current_panel(panel_rect, sm)
+    self._draw_sidebar(sidebar_rect)
+    self._draw_current_panel(panel_rect)
 
 
-  def _draw_sidebar(self, rect: rl.Rectangle, sm: messaging.SubMaster):
+  def _draw_sidebar(self, rect: rl.Rectangle):
     """Draw the settings sidebar."""
     # Sidebar background with rounded corners
     rl.draw_rectangle_rec(rect, SIDEBAR_COLOR)
@@ -170,7 +170,7 @@ class Settings:
       # Store button rect for click detection
       panel_info.button_rect = button_rect
 
-  def _draw_current_panel(self, rect: rl.Rectangle, sm: messaging.SubMaster):
+  def _draw_current_panel(self, rect: rl.Rectangle):
     """Draw the currently selected panel with rounded corners."""
     # Panel background
     rl.draw_rectangle_rounded(rect, 0.03, 30, PANEL_COLOR)
@@ -180,19 +180,19 @@ class Settings:
     content_rect = rl.Rectangle(rect.x + margin, rect.y + 25, rect.width - (margin * 2), rect.height - 50)
 
     # Render current panel with scroll support
-    current_panel = self._panels.get(self._current_panel)
-    if current_panel:
-      # Set up scissor for scrolling
-      rl.begin_scissor_mode(int(content_rect.x), int(content_rect.y), int(content_rect.width), int(content_rect.height))
+    # current_panel = self._panels.get(self._current_panel)
+    # if current_panel:
+    #   # Set up scissor for scrolling
+    #   rl.begin_scissor_mode(int(content_rect.x), int(content_rect.y), int(content_rect.width), int(content_rect.height))
 
-      # Apply scroll offset
-      scrolled_rect = rl.Rectangle(
-        content_rect.x, content_rect.y - self._scroll_offset, content_rect.width, content_rect.height
-      )
+    #   # Apply scroll offset
+    #   scrolled_rect = rl.Rectangle(
+    #     content_rect.x, content_rect.y - self._scroll_offset, content_rect.width, content_rect.height
+    #   )
 
-      current_panel.render(scrolled_rect, sm)
+    # current_panel.render(scrolled_rect, sm)
 
-      rl.end_scissor_mode()
+      # rl.end_scissor_mode()
 
   def handle_mouse_press(self, mouse_pos: rl.Vector2) -> bool:
     """Handle mouse press events."""
@@ -212,9 +212,9 @@ class Settings:
         return True
 
     # Forward to current panel
-    current_panel = self._panels.get(self._current_panel)
-    if current_panel and hasattr(current_panel, 'handle_mouse_press'):
-      return current_panel.handle_mouse_press(mouse_pos)
+    # current_panel = self._panels.get(self._current_panel)
+    # if current_panel and hasattr(current_panel, 'handle_mouse_press'):
+    #   return current_panel.handle_mouse_press(mouse_pos)
 
     return False
 
@@ -292,53 +292,10 @@ class Settings:
     if self._close_callback:
       self._close_callback()
 
-# # Example usage integration
-# def main():
-#     """Test the settings layout."""
-#     gui_app.init_window("Settings Test", 1920, 1080)
-
-#     settings = SettingsLayout()
-#     sm = messaging.SubMaster(['deviceState', 'pandaStates', 'carParams'])
-
-#     # Set up callbacks
-#     def close_callback():
-#         print("Settings closed")
-#         gui_app.close()
-
-#     def show_driver_view():
-#         print("Show driver view")
-
-#     def review_training():
-#         print("Review training guide")
-
-#     settings.set_callbacks(close_callback, show_driver_view, review_training)
-
-#     try:
-#         for _ in gui_app.render():
-#             sm.update(0)
-
-#             # Handle input
-#             if rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
-#                 mouse_pos = rl.Vector2(rl.get_mouse_x(), rl.get_mouse_y())
-#                 settings.handle_mouse_press(mouse_pos)
-
-#             if rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT):
-#                 mouse_pos = rl.Vector2(rl.get_mouse_x(), rl.get_mouse_y())
-#                 settings.handle_mouse_release(mouse_pos)
-
-#             # Handle scroll
-#             wheel_move = rl.get_mouse_wheel_move()
-#             if wheel_move != 0:
-#                 mouse_pos = rl.Vector2(rl.get_mouse_x(), rl.get_mouse_y())
-#                 settings.handle_scroll(wheel_move, mouse_pos)
-
-#             # Draw
-#             settings_rect = rl.Rectangle(0, 0, gui_app.width, gui_app.height)
-#             settings.render(settings_rect, sm)
-
-#     finally:
-#         gui_app.close()
 
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+  gui_app.init_window("OnRoad Camera View")
+  settings = Settings()
+  for _ in gui_app.render():
+    settings.render(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
