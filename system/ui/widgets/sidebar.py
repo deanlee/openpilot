@@ -2,7 +2,6 @@ import pyray as rl
 import time
 from cereal import log
 from dataclasses import dataclass
-from typing import Optional, Tuple
 from enum import IntEnum
 from cereal import messaging
 from openpilot.system.ui.lib.application import gui_app, FontWeight
@@ -21,10 +20,6 @@ ThermalStatus = log.DeviceState.ThermalStatus
 
 # Colors
 SIDEBAR_BG = rl.Color(57, 57, 57, 255)
-GOOD_COLOR = rl.Color(0, 200, 136, 255)
-WARNING_COLOR = rl.Color(201, 142, 58, 255)
-DANGER_COLOR = rl.Color(201, 34, 49, 255)
-WHITE = rl.Color(255, 255, 255, 255)
 WHITE_DIM = rl.Color(255, 255, 255, 85)
 GRAY = rl.Color(84, 84, 84, 255)
 METRIC_BORDER = rl.Color(255, 255, 255, 85)
@@ -41,6 +36,13 @@ class ItemStatus(IntEnum):
   GOOD = 0
   WARNING = 1
   DANGER = 2
+
+
+STATUS_COLORS = {
+  ItemStatus.GOOD: rl.Color(0, 200, 136, 255),
+  ItemStatus.WARNING: rl.Color(201, 142, 58, 255),
+  ItemStatus.DANGER: rl.Color(201, 34, 49, 255),
+}
 
 
 @dataclass
@@ -212,13 +214,15 @@ class Sidebar:
     dot_spacing = 37
 
     for i in range(5):
-      color = WHITE if i < self.net_strength else GRAY
+      color = rl.WHITE if i < self.net_strength else GRAY
       rl.draw_circle(int(x_start + i * dot_spacing + dot_size // 2), int(y_pos + dot_size // 2), dot_size // 2, color)
 
     # Network type text
     text_y = rect.y + 247
     text_rect = rl.Rectangle(rect.x + 58, text_y, rect.width - 100, 50)
-    self._draw_text_in_rect(self.net_type, self.font_regular, 35, text_rect, WHITE, rl.GuiTextAlignment.TEXT_ALIGN_LEFT)
+    self._draw_text_in_rect(
+      self.net_type, self.font_regular, 35, text_rect, rl.WHITE, rl.GuiTextAlignment.TEXT_ALIGN_LEFT
+    )
 
   def _draw_metrics(self, rect: rl.Rectangle):
     """Draw status metrics."""
@@ -229,14 +233,7 @@ class Sidebar:
 
   def _draw_metric(self, rect: rl.Rectangle, metric: MetricData, y: float):
     metric_rect = rl.Rectangle(rect.x + METRIC_MARGIN, y, METRIC_WIDTH, METRIC_HEIGHT)
-
-    # Get status color
-    status_colors = {
-      ItemStatus.GOOD: GOOD_COLOR,
-      ItemStatus.WARNING: WARNING_COLOR,
-      ItemStatus.DANGER: DANGER_COLOR,
-    }
-    status_color = status_colors.get(metric.status, GRAY)
+    status_color = STATUS_COLORS.get(metric.status, GRAY)
 
     # Draw colored left edge (clipped rounded rectangle)
     edge_rect = rl.Rectangle(metric_rect.x + 4, metric_rect.y + 4, 100, 118)
@@ -250,7 +247,7 @@ class Sidebar:
     # Draw text
     text = f"{metric.label}\n{metric.value}"
     text_rect = rl.Rectangle(metric_rect.x + 22, metric_rect.y, metric_rect.width - 22, metric_rect.height)
-    self._draw_text_in_rect(text, self.font_bold, 35, text_rect, WHITE, rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+    self._draw_text_in_rect(text, self.font_bold, 35, text_rect, rl.WHITE, rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
 
   def _draw_text_in_rect(
     self, text: str, font: rl.Font, size: int, rect: rl.Rectangle, color: rl.Color, alignment: int
@@ -268,30 +265,3 @@ class Sidebar:
     y = rect.y + (rect.height - text_size.y) / 2
 
     rl.draw_text_ex(font, text, rl.Vector2(x, y), size, 0, color)
-
-
-if __name__ == "__main__":
-  gui_app.init_window("OnRoad Camera View")
-  sm = messaging.SubMaster(
-    [
-      "modelV2",
-      "controlsState",
-      "liveCalibration",
-      "radarState",
-      "deviceState",
-      "pandaStates",
-      "carParams",
-      "driverMonitoringState",
-      "carState",
-      "driverStateV2",
-      "roadCameraState",
-      "wideRoadCameraState",
-      "managerState",
-      "selfdriveState",
-      "longitudinalPlan",
-    ]
-  )
-  sidbar = Sidebar()
-  for _ in gui_app.render():
-    sm.update(0)
-    sidbar.draw(sm, rl.Rectangle(0, 0, 500, gui_app.height))
