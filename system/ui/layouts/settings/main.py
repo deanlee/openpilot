@@ -1,7 +1,7 @@
 import pyray as rl
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional, Dict, Callable, List, Tuple
+from typing import Optional, Callable
 from cereal import messaging
 from openpilot.common.params import Params
 from openpilot.system.ui.lib.application import gui_app, FontWeight
@@ -21,9 +21,8 @@ PANEL_MARGIN = 50
 SCROLL_SPEED = 30
 
 # Colors
-BACKGROUND_COLOR = rl.Color(0, 0, 0, 255)
-SIDEBAR_COLOR = rl.BLACK  # rl.Color(41, 41, 41, 255)
-PANEL_COLOR = rl.Color(41, 41, 41, 255)  # #292929
+SIDEBAR_COLOR = rl.BLACK
+PANEL_COLOR = rl.Color(41, 41, 41, 255)
 CLOSE_BTN_COLOR = rl.Color(41, 41, 41, 255)
 CLOSE_BTN_PRESSED = rl.Color(59, 59, 59, 255)
 TEXT_NORMAL = rl.Color(128, 128, 128, 255)
@@ -65,8 +64,6 @@ class Settings:
       PanelInfo("Developer", PanelType.DEVELOPER, DeveloperSettings()),
     ]
 
-    # UI Resources
-    self._font_normal = gui_app.font(FontWeight.NORMAL)
     self._font_medium = gui_app.font(FontWeight.MEDIUM)
     self._font_bold = gui_app.font(FontWeight.SEMI_BOLD)
 
@@ -74,10 +71,6 @@ class Settings:
     self._close_callback: Optional[Callable] = None
     self._show_driver_view_callback: Optional[Callable] = None
     self._review_training_callback: Optional[Callable] = None
-
-    # Animation state
-    self._transition_progress = 0.0
-    self._transitioning = False
 
   # def set_callbacks(
   #   self,
@@ -95,10 +88,6 @@ class Settings:
   #     self._panels[PanelType.DEVICE].set_callbacks(show_driver_view_callback, review_training_callback)
 
   def render(self, rect: rl.Rectangle):
-    """Main render function."""
-    # Background
-    rl.draw_rectangle_rec(rect, BACKGROUND_COLOR)
-
     # Calculate layout
     sidebar_rect = rl.Rectangle(rect.x, rect.y, SIDEBAR_WIDTH, rect.height)
     panel_rect = rl.Rectangle(rect.x + SIDEBAR_WIDTH, rect.y, rect.width - SIDEBAR_WIDTH, rect.height)
@@ -108,11 +97,9 @@ class Settings:
     self._draw_current_panel(panel_rect)
 
     if rl.is_mouse_button_released(rl.MOUSE_BUTTON_LEFT):
-      self.handle_mouse_press(rl.get_mouse_position())
+      self.handle_mouse_release(rl.get_mouse_position())
 
   def _draw_sidebar(self, rect: rl.Rectangle):
-    """Draw the settings sidebar."""
-    # Sidebar background with rounded corners
     rl.draw_rectangle_rec(rect, SIDEBAR_COLOR)
 
     # Close button
@@ -159,7 +146,6 @@ class Settings:
       panel_info.button_rect = button_rect
 
   def _draw_current_panel(self, rect: rl.Rectangle):
-    """Draw the currently selected panel with rounded corners."""
     content_rect = rl.Rectangle(rect.x + PANEL_MARGIN, rect.y + 25, rect.width - (PANEL_MARGIN * 2), rect.height - 50)
     rl.draw_rectangle_rounded(content_rect, 0.03, 30, PANEL_COLOR)
 
@@ -178,11 +164,12 @@ class Settings:
 
     # rl.end_scissor_mode()
 
-  def handle_mouse_press(self, mouse_pos: rl.Vector2) -> bool:
-    """Handle mouse press events."""
+  def handle_mouse_release(self, mouse_pos: rl.Vector2) -> bool:
     # Check close button
     if rl.check_collision_point_rec(mouse_pos, self._close_btn_rect):
       self._close_btn_pressed = True
+      if self._close_callback:
+        self._close_callback()
       return True
 
     # Check navigation buttons
@@ -191,28 +178,8 @@ class Settings:
         self._switch_to_panel(panel_info.panel_type)
         return True
 
-    # Forward to current panel
-    # current_panel = self._panels.get(self._current_panel)
-    # if current_panel and hasattr(current_panel, 'handle_mouse_press'):
-    #   return current_panel.handle_mouse_press(mouse_pos)
-
     return False
 
-  def handle_mouse_release(self, mouse_pos: rl.Vector2) -> bool:
-    """Handle mouse release events."""
-    if self._close_btn_pressed:
-      self._close_btn_pressed = False
-      if rl.check_collision_point_rec(mouse_pos, self._close_btn_rect):
-        if self._close_callback:
-          self._close_callback()
-        return True
-
-    # Forward to current panel
-    current_panel = self._panels.get(self._current_panel)
-    if current_panel and hasattr(current_panel, 'handle_mouse_release'):
-      return current_panel.handle_mouse_release(mouse_pos)
-
-    return False
 
   def handle_scroll(self, wheel_move: float, mouse_pos: rl.Vector2) -> bool:
     """Handle scroll wheel events."""
@@ -236,32 +203,8 @@ class Settings:
       self._transitioning = True
 
   def set_current_panel(self, index: int, param: str = ""):
-    """Set current panel by index or parameter name."""
-    if param:
-      # Handle parameter-based navigation (for deep links)
-      if param.endswith("Panel"):
-        panel_name = param[:-5]  # Remove "Panel" suffix
-        for panel_info in self._panel_list:
-          if panel_info.name.lower() == panel_name.lower():
-            self._switch_to_panel(panel_info.panel_type)
-            return
-      else:
-        # Expand specific toggle description
-        if self._current_panel == PanelType.TOGGLES:
-          toggles_panel = self._panels[PanelType.TOGGLES]
-          if hasattr(toggles_panel, 'expand_toggle_description'):
-            toggles_panel.expand_toggle_description(param)
-    else:
-      # Direct index-based navigation
-      if 0 <= index < len(self._panel_list):
-        self._switch_to_panel(self._panel_list[index].panel_type)
-
-  def get_current_panel_name(self) -> str:
-    """Get the name of the current panel."""
-    for panel_info in self._panel_list:
-      if panel_info.panel_type == self._current_panel:
-        return panel_info.name
-    return "Unknown"
+    if 0 <= index < len(self._panel_list):
+      self._switch_to_panel(self._panel_list[index].panel_type)
 
   def update_panel_content_height(self, height: float):
     """Update the content height for scroll calculations."""
@@ -269,7 +212,6 @@ class Settings:
     self._max_scroll = max(0, height - panel_rect_height)
 
   def close_settings(self):
-    """Close the settings window."""
     if self._close_callback:
       self._close_callback()
 
