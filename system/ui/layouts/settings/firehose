@@ -1,0 +1,4 @@
+
+class FirehostSettings:
+  def __init__(self):
+    pass
