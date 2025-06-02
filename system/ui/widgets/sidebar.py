@@ -14,6 +14,11 @@ METRIC_WIDTH = 240
 METRIC_MARGIN = 30
 BUTTON_SIZE = 192
 
+SETTINGS_BTN_RECT = rl.Rectangle(50, 35, 200, 117)
+HOME_BTN_RECT = rl.Rectangle(60, 860, 180, 180)
+
+ThermalStatus = log.DeviceState.ThermalStatus
+
 # Colors
 SIDEBAR_BG = rl.Color(57, 57, 57, 255)
 GOOD_COLOR = rl.Color(0, 200, 136, 255)
@@ -60,13 +65,9 @@ class Sidebar:
     self.panda_status = MetricData("VEHICLE", "ONLINE", ItemStatus.GOOD)
     self.connect_status = MetricData("CONNECT", "OFFLINE", ItemStatus.WARNING)
 
-    # Button areas
-    self.home_btn = rl.Rectangle(50, 50, BUTTON_SIZE, BUTTON_SIZE)
-    self.settings_btn = rl.Rectangle(50, SIDEBAR_WIDTH - BUTTON_SIZE - 50, BUTTON_SIZE, BUTTON_SIZE)
-
-    self.home_img = gui_app.texture("images/button_home.png", BUTTON_SIZE, BUTTON_SIZE)
-    self.flag_img = gui_app.texture("images/button_flag.png", BUTTON_SIZE, BUTTON_SIZE)
-    self.settings_img = gui_app.texture("images/button_settings.png", BUTTON_SIZE, BUTTON_SIZE)
+    self.home_img = gui_app.texture("images/button_home.png", HOME_BTN_RECT.width, HOME_BTN_RECT.height)
+    self.flag_img = gui_app.texture("images/button_flag.png", HOME_BTN_RECT.width, HOME_BTN_RECT.height)
+    self.settings_img = gui_app.texture("images/button_settings.png", SETTINGS_BTN_RECT.width, SETTINGS_BTN_RECT.height)
     self.font_regular = gui_app.font(FontWeight.NORMAL)
     self.font_bold = gui_app.font(FontWeight.SEMI_BOLD)
 
@@ -76,7 +77,7 @@ class Sidebar:
   def draw(self, sm, rect: rl.Rectangle):
     self.sm = sm
     self.update_state(sm)
-    """Draw the sidebar."""
+
     # Background
     rl.draw_rectangle_rec(rect, SIDEBAR_BG)
 
@@ -108,7 +109,6 @@ class Sidebar:
     self._update_panda_status(sm)
 
   def _update_network_status(self, device_state):
-    """Update network type and strength."""
     network_type = device_state.networkType
     self.net_type = NETWORK_TYPES.get(network_type, "Unknown")
 
@@ -116,18 +116,16 @@ class Sidebar:
     self.net_strength = max(0, min(5, strength.raw + 1)) if strength > 0 else 0
 
   def _update_temperature_status(self, device_state):
-    """Update temperature status."""
     thermal_status = device_state.thermalStatus
 
-    if thermal_status == log.thermalStatus.green:
+    if thermal_status == ThermalStatus.green:
       self.temp_status = MetricData("TEMP", "GOOD", ItemStatus.GOOD)
-    elif thermal_status == log.thermalStatus.yellow:
+    elif thermal_status == ThermalStatus.yellow:
       self.temp_status = MetricData("TEMP", "OK", ItemStatus.WARNING)
     else:
       self.temp_status = MetricData("TEMP", "HIGH", ItemStatus.DANGER)
 
   def _update_connection_status(self, device_state):
-    """Update connection status."""
     last_ping = device_state.lastAthenaPingTime
     current_time_ns = time.time_ns()
 
@@ -139,7 +137,6 @@ class Sidebar:
       self.connect_status = MetricData("CONNECT", "ERROR", ItemStatus.DANGER)
 
   def _update_panda_status(self, sm):
-    """Update panda connection status."""
     if sm.valid['pandaStates'] and len(sm['pandaStates']) > 0:
       panda_state = sm['pandaStates'][0]
       if hasattr(panda_state, 'pandaType') and panda_state.pandaType != 0:  # UNKNOWN
@@ -149,88 +146,65 @@ class Sidebar:
     else:
       self.panda_status = MetricData("NO", "PANDA", ItemStatus.DANGER)
 
-  def handle_mouse_press(self, mouse_pos: Tuple[float, float]) -> Optional[str]:
-    """Handle mouse press events. Returns action if any."""
-    x, y = mouse_pos
+  def handle_mouse_press(self, mouse_pos: rl.Vector2):
+    x, y = mouse_pos.x, mouse_pos.y
 
-    if rl.check_collision_point_rec(rl.Vector2(x, y), self.home_btn):
+    if rl.check_collision_point_rec(rl.Vector2(x, y), HOME_BTN_RECT):
       if self.onroad:
         self.flag_pressed = True
         return "flag"
       else:
         return "home"
-    elif rl.check_collision_point_rec(rl.Vector2(x, y), self.settings_btn):
+    elif rl.check_collision_point_rec(rl.Vector2(x, y), SETTINGS_BTN_RECT):
       self.settings_pressed = True
       return "settings"
 
     return None
 
-  def handle_mouse_release(self, mouse_pos: Tuple[float, float]) -> Optional[str]:
-    """Handle mouse release events. Returns action if any."""
-    x, y = mouse_pos
+  def handle_mouse_release(self, mouse_pos: rl.Vector2):
+    x, y = mouse_pos.x, mouse_pos.y
     action = None
 
     if self.flag_pressed:
       self.flag_pressed = False
-      if rl.check_collision_point_rec(rl.Vector2(x, y), self.home_btn):
+      if rl.check_collision_point_rec(rl.Vector2(x, y), HOME_BTN_RECT):
         action = "send_flag"
 
     if self.settings_pressed:
       self.settings_pressed = False
-      if rl.check_collision_point_rec(rl.Vector2(x, y), self.settings_btn):
+      if rl.check_collision_point_rec(rl.Vector2(x, y), SETTINGS_BTN_RECT):
         action = "open_settings"
 
     return action
 
   def set_onroad(self, onroad: bool):
-    """Set onroad status."""
     self.onroad = onroad
 
   def _draw_buttons(self, rect: rl.Rectangle):
-    """Draw navigation buttons."""
     # Settings button
     opacity = 0.65 if self.settings_pressed else 1.0
 
-    if self.settings_img:
-      tint = rl.Color(255, 255, 255, int(255 * opacity))
-      rl.draw_texture_rec(
-        self.settings_img,
-        rl.Rectangle(0, 0, float(self.settings_img.width), float(self.settings_img.height)),
-        rl.Vector2(rect.x + self.settings_btn.x, rect.y + self.settings_btn.y),
-        tint,
-      )
-    else:
-      # Fallback: draw colored rectangle
-      color = rl.Color(100, 100, 100, int(255 * opacity))
-      rl.draw_rectangle_rec(
-        rl.Rectangle(
-          rect.x + self.settings_btn.x, rect.y + self.settings_btn.y, self.settings_btn.width, self.settings_btn.height
-        ),
-        color,
-      )
+    tint = rl.Color(255, 255, 255, int(255 * opacity))
+    rl.draw_texture_rec(
+      self.settings_img,
+      rl.Rectangle(rect.x, rect.y, BUTTON_SIZE, float(self.settings_img.height)),
+      rl.Vector2(rect.x + SETTINGS_BTN_RECT.x, rect.y + SETTINGS_BTN_RECT.y),
+      tint,
+    )
 
     # Home/Flag button
     opacity = 0.65 if self.onroad and self.flag_pressed else 1.0
     button_img = self.flag_img if self.onroad else self.home_img
 
-    if button_img:
-      tint = rl.Color(255, 255, 255, int(255 * opacity))
-      rl.draw_texture_rec(
-        button_img,
-        rl.Rectangle(0, 0, float(button_img.width), float(button_img.height)),
-        rl.Vector2(rect.x + self.home_btn.x, rect.y + self.home_btn.y),
-        tint,
-      )
-    else:
-      # Fallback: draw colored rectangle
-      color = rl.Color(150, 100, 50, int(255 * opacity)) if self.onroad else rl.Color(100, 150, 100, int(255 * opacity))
-      rl.draw_rectangle_rec(
-        rl.Rectangle(rect.x + self.home_btn.x, rect.y + self.home_btn.y, self.home_btn.width, self.home_btn.height),
-        color,
-      )
+    tint = rl.Color(255, 255, 255, int(255 * opacity))
+    rl.draw_texture_rec(
+      button_img,
+      rl.Rectangle(0, 0, float(button_img.width), float(button_img.height)),
+      rl.Vector2(rect.x + HOME_BTN_RECT.x, rect.y + HOME_BTN_RECT.y),
+      tint,
+    )
 
   def _draw_network_indicator(self, rect: rl.Rectangle):
-    """Draw network strength indicator and type."""
     # Signal strength dots
     x_start = rect.x + 58
     y_pos = rect.y + 196
@@ -254,7 +228,6 @@ class Sidebar:
       self._draw_metric(rect, metric, rect.y + y_offset)
 
   def _draw_metric(self, rect: rl.Rectangle, metric: MetricData, y: float):
-    """Draw a single metric box."""
     metric_rect = rl.Rectangle(rect.x + METRIC_MARGIN, y, METRIC_WIDTH, METRIC_HEIGHT)
 
     # Get status color
@@ -282,7 +255,6 @@ class Sidebar:
   def _draw_text_in_rect(
     self, text: str, font: rl.Font, size: int, rect: rl.Rectangle, color: rl.Color, alignment: int
   ):
-    """Draw text within a rectangle with specified alignment."""
     text_size = rl.measure_text_ex(font, text, size, 0)
 
     # Calculate position based on alignment
@@ -300,9 +272,25 @@ class Sidebar:
 
 if __name__ == "__main__":
   gui_app.init_window("OnRoad Camera View")
-  sm = messaging.SubMaster(["modelV2", "controlsState", "liveCalibration", "radarState", "deviceState",
-    "pandaStates", "carParams", "driverMonitoringState", "carState", "driverStateV2",
-    "roadCameraState", "wideRoadCameraState", "managerState", "selfdriveState", "longitudinalPlan"])
+  sm = messaging.SubMaster(
+    [
+      "modelV2",
+      "controlsState",
+      "liveCalibration",
+      "radarState",
+      "deviceState",
+      "pandaStates",
+      "carParams",
+      "driverMonitoringState",
+      "carState",
+      "driverStateV2",
+      "roadCameraState",
+      "wideRoadCameraState",
+      "managerState",
+      "selfdriveState",
+      "longitudinalPlan",
+    ]
+  )
   sidbar = Sidebar()
   for _ in gui_app.render():
     sm.update(0)
