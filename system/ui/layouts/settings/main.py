@@ -12,6 +12,7 @@ from openpilot.system.ui.layouts.settings.developer import DeveloperSettings
 
 # Import individual panels
 
+SETTINGS_CLOSE_TEXT = "×"
 # Constants
 SIDEBAR_WIDTH = 500
 CLOSE_BTN_SIZE = 200
@@ -21,8 +22,8 @@ SCROLL_SPEED = 30
 
 # Colors
 BACKGROUND_COLOR = rl.Color(0, 0, 0, 255)
-SIDEBAR_COLOR = rl.Color(41, 41, 41, 255)
-PANEL_COLOR = rl.Color(41, 41, 41, 255)
+SIDEBAR_COLOR = rl.BLACK  # rl.Color(41, 41, 41, 255)
+PANEL_COLOR = rl.Color(41, 41, 41, 255)  # #292929
 CLOSE_BTN_COLOR = rl.Color(41, 41, 41, 255)
 CLOSE_BTN_PRESSED = rl.Color(59, 59, 59, 255)
 TEXT_NORMAL = rl.Color(128, 128, 128, 255)
@@ -45,7 +46,6 @@ class PanelInfo:
   panel_type: PanelType
   instance: object
   button_rect: rl.Rectangle = None
-  enabled: bool = True
 
 
 class Settings:
@@ -55,15 +55,6 @@ class Settings:
     self._close_btn_pressed = False
     self._scroll_offset = 0.0
     self._max_scroll = 0.0
-
-    # Initialize panels
-    # self._panels = {
-    #   PanelType.DEVICE: DeviceSettings(self),
-    #   # PanelType.NETWORK: NetworkPanel(self),
-    #   PanelType.TOGGLES: ToggleSettings(self),
-    #   PanelType.SOFTWARE: SoftwareSettings(self),
-    #   PanelType.DEVELOPER: DeveloperSettings(self),
-    # }
 
     # Panel configuration
     self._panel_list = [
@@ -116,6 +107,8 @@ class Settings:
     self._draw_sidebar(sidebar_rect)
     self._draw_current_panel(panel_rect)
 
+    if rl.is_mouse_button_released(rl.MOUSE_BUTTON_LEFT):
+      self.handle_mouse_press(rl.get_mouse_position())
 
   def _draw_sidebar(self, rect: rl.Rectangle):
     """Draw the settings sidebar."""
@@ -129,9 +122,7 @@ class Settings:
 
     close_color = CLOSE_BTN_PRESSED if self._close_btn_pressed else CLOSE_BTN_COLOR
     rl.draw_rectangle_rounded(close_btn_rect, 0.5, 20, close_color)
-
-    # Close button text (×)
-    close_text_size = rl.measure_text_ex(self._font_bold, "×", 140, 0)
+    close_text_size = rl.measure_text_ex(self._font_bold, SETTINGS_CLOSE_TEXT, 140, 0)
     close_text_pos = rl.Vector2(
       close_btn_rect.x + (close_btn_rect.width - close_text_size.x) / 2,
       close_btn_rect.y + (close_btn_rect.height - close_text_size.y) / 2 - 20,
@@ -146,9 +137,6 @@ class Settings:
     button_spacing = 20
 
     for i, panel_info in enumerate(self._panel_list):
-      if not panel_info.enabled:
-        continue
-
       button_rect = rl.Rectangle(
         rect.x + 50,
         nav_start_y + i * (NAV_BTN_HEIGHT + button_spacing),
@@ -172,12 +160,8 @@ class Settings:
 
   def _draw_current_panel(self, rect: rl.Rectangle):
     """Draw the currently selected panel with rounded corners."""
-    # Panel background
-    rl.draw_rectangle_rounded(rect, 0.03, 30, PANEL_COLOR)
-
-    # Panel content area (with margins)
-    margin = PANEL_MARGIN if self._current_panel != PanelType.NETWORK else 0
-    content_rect = rl.Rectangle(rect.x + margin, rect.y + 25, rect.width - (margin * 2), rect.height - 50)
+    content_rect = rl.Rectangle(rect.x + PANEL_MARGIN, rect.y + 25, rect.width - (PANEL_MARGIN * 2), rect.height - 50)
+    rl.draw_rectangle_rounded(content_rect, 0.03, 30, PANEL_COLOR)
 
     # Render current panel with scroll support
     # current_panel = self._panels.get(self._current_panel)
@@ -192,7 +176,7 @@ class Settings:
 
     # current_panel.render(scrolled_rect, sm)
 
-      # rl.end_scissor_mode()
+    # rl.end_scissor_mode()
 
   def handle_mouse_press(self, mouse_pos: rl.Vector2) -> bool:
     """Handle mouse press events."""
@@ -203,11 +187,7 @@ class Settings:
 
     # Check navigation buttons
     for panel_info in self._panel_list:
-      if (
-        panel_info.enabled
-        and panel_info.button_rect
-        and rl.check_collision_point_rec(mouse_pos, panel_info.button_rect)
-      ):
+      if rl.check_collision_point_rec(mouse_pos, panel_info.button_rect):
         self._switch_to_panel(panel_info.panel_type)
         return True
 
@@ -249,6 +229,7 @@ class Settings:
   def _switch_to_panel(self, panel_type: PanelType):
     """Switch to a different panel with animation."""
     if panel_type != self._current_panel:
+      print("switch to panel: %s", panel_type.name)
       self._current_panel = panel_type
       self._scroll_offset = 0.0  # Reset scroll when switching panels
       self._transition_progress = 0.0
@@ -291,7 +272,6 @@ class Settings:
     """Close the settings window."""
     if self._close_callback:
       self._close_callback()
-
 
 
 if __name__ == "__main__":
