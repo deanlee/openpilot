@@ -44,13 +44,6 @@ class AugmentedRoadView(CameraView):
     self.driver_state_renderer = DriverStateRenderer()
 
   def render(self, rect):
-    # Only render when system is started to avoid invalid data access
-    if not ui_state.started:
-      return
-
-    # Update calibration before rendering
-    self._update_calibration()
-
     # Create inner content area with border padding
     self._content_rect = rl.Rectangle(
       rect.x + UI_BORDER_SIZE,
@@ -61,6 +54,12 @@ class AugmentedRoadView(CameraView):
 
     # Draw colored border based on driving state
     self._draw_border(rect)
+    if not ui_state.started or not self.frame:
+      rl.draw_rectangle_rec(rect, BORDER_COLORS[UIStatus.DISENGAGED])
+      return
+
+    # Update calibration before rendering
+    self._update_calibration()
 
     # Enable scissor mode to clip all rendering within content rectangle boundaries
     # This creates a rendering viewport that prevents graphics from drawing outside the border
