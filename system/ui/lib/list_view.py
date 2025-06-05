@@ -3,6 +3,7 @@ import pyray as rl
 from dataclasses import dataclass
 from collections.abc import Callable
 from abc import ABC, abstractmethod
+from typing import Union
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.text_measure import measure_text_cached
@@ -33,9 +34,23 @@ BUTTON_FONT_WEIGHT = FontWeight.MEDIUM
 
 # Abstract base class for right-side items
 class RightItem(ABC):
-  def __init__(self, width: int = 100):
+  def __init__(self, width: int = 100, enabled: Union[bool, Callable[[], bool]] = True):
     self.width = width
-    self.enabled = True
+    self._enabled = enabled
+
+  @property
+  def enabled(self) -> bool:
+    """Get current enabled state (evaluates callback if needed)"""
+    if callable(self._enabled):
+      try:
+        return self._enabled()
+      except Exception:
+        return False  # Safe fallback on error
+    return self._enabled
+
+  def set_enabled(self, enabled: Union[bool, Callable[[], bool]]):
+    """Set enabled state or callback"""
+    self._enabled = enabled
 
   @abstractmethod
   def draw(self, rect: rl.Rectangle) -> bool:
@@ -47,13 +62,14 @@ class RightItem(ABC):
 
 
 class ToggleRightItem(RightItem):
-  def __init__(self, initial_state: bool = False, width: int = TOGGLE_WIDTH):
-    super().__init__(width)
+  def __init__(self, initial_state: bool = False, width: int = TOGGLE_WIDTH,
+               enabled: Union[bool, Callable[[], bool]] = True):
+    super().__init__(width, enabled)
     self.toggle = Toggle(initial_state=initial_state)
     self.state = initial_state
-    self.enabled = True
 
   def draw(self, rect: rl.Rectangle) -> bool:
+    # self._toggle.set_enabled(self.enabled)
     if self.toggle.render(rl.Rectangle(rect.x, rect.y + (rect.height - TOGGLE_HEIGHT) / 2, self.width, TOGGLE_HEIGHT)):
       self.state = not self.state
       return True
@@ -69,17 +85,15 @@ class ToggleRightItem(RightItem):
   def get_state(self) -> bool:
     return self.state
 
-  def set_enabled(self, enabled: bool):
-    self.enabled = enabled
-
 
 class ButtonRightItem(RightItem):
-  def __init__(self, text: str, width: int = BUTTON_WIDTH):
-    super().__init__(width)
+  def __init__(self, text: str, width: int = BUTTON_WIDTH,
+               enabled: Union[bool, Callable[[], bool]] = True):
+    super().__init__(width, enabled)
     self.text = text
-    self.enabled = True
 
   def draw(self, rect: rl.Rectangle) -> bool:
+    enabled = self.enabled
     return (
       gui_button(
         rl.Rectangle(rect.x, rect.y + (rect.height - BUTTON_HEIGHT) / 2, BUTTON_WIDTH, BUTTON_HEIGHT),
@@ -87,7 +101,7 @@ class ButtonRightItem(RightItem):
         border_radius=BUTTON_BORDER_RADIUS,
         font_weight=BUTTON_FONT_WEIGHT,
         font_size=BUTTON_FONT_SIZE,
-        is_enabled=self.enabled,
+        is_enabled=enabled
       )
       == 1
     )
@@ -95,19 +109,18 @@ class ButtonRightItem(RightItem):
   def get_width(self) -> int:
     return self.width
 
-  def set_enabled(self, enabled: bool):
-    self.enabled = enabled
-
 
 class TextRightItem(RightItem):
-  def __init__(self, text: str, color: rl.Color = ITEM_TEXT_COLOR, font_size: int = ITEM_TEXT_FONT_SIZE):
+  def __init__(self, text: str, color: rl.Color = ITEM_TEXT_COLOR,
+               font_size: int = ITEM_TEXT_FONT_SIZE,
+               enabled: Union[bool, Callable[[], bool]] = True):
     self.text = text
     self.color = color
     self.font_size = font_size
 
     font = gui_app.font(FontWeight.NORMAL)
     text_width = measure_text_cached(font, text, font_size).x
-    super().__init__(int(text_width + 20))
+    super().__init__(int(text_width + 20), enabled)
 
   def draw(self, rect: rl.Rectangle) -> bool:
     font = gui_app.font(FontWeight.NORMAL)
@@ -139,10 +152,21 @@ class ListItem:
   rect: "rl.Rectangle | None" = None
   callback: Callable | None = None
   right_item: RightItem | None = None
+  enabled: Union[bool, Callable[[], bool]] = True
 
   # Cached properties for performance
   _wrapped_description: str | None = None
   _description_height: float = 0
+
+  @property
+  def is_enabled(self) -> bool:
+    """Get current enabled state for the entire item"""
+    if callable(self.enabled):
+      try:
+        return self.enabled()
+      except Exception:
+        return False
+    return self.enabled
 
   def get_right_item(self) -> RightItem | None:
     return self.right_item
@@ -229,6 +253,7 @@ class ListView:
   def _render_item(self, item: ListItem, rect: rl.Rectangle, index: int):
     content_x = rect.x + ITEM_PADDING
     text_x = content_x
+
 
     # Calculate available width for main content
     content_width = item.get_content_width(int(rect.width - ITEM_PADDING * 2))
@@ -354,7 +379,7 @@ class ListView:
         self._last_dim = (0, 0)
 
       # Call item callback
-      if item.callback:
+      if item.is_enabled and item.callback:
         item.callback()
 
 
@@ -364,17 +389,34 @@ def simple_item(title: str, callback: Callable | None = None) -> ListItem:
 
 
 def toggle_item(
-  title: str, description: str = None, initial_state: bool = False, callback: Callable | None = None, icon: str = ""
+  title: str,
+  description: str = None,
+  initial_state: bool = False,
+  callback: Callable | None = None,
+  icon: str = "",
+  enabled: Union[bool, Callable[[], bool]] = True,
 ) -> ListItem:
-  toggle = ToggleRightItem(initial_state=initial_state)
-  return ListItem(title=title, description=description, right_item=toggle, icon=icon, callback=callback)
+  toggle = ToggleRightItem(initial_state=initial_state, enabled=enabled)
+  return ListItem(title=title, description=description, right_item=toggle, icon=icon, callback=callback, enabled=enabled)
 
 
-def button_item(title: str, button_text: str, description: str = None, callback: Callable | None = None) -> ListItem:
-  button = ButtonRightItem(text=button_text)
-  return ListItem(title=title, description=description, right_item=button, callback=callback)
+def button_item(
+  title: str,
+  button_text: str,
+  description: str = None,
+  callback: Callable | None = None,
+  enabled: Union[bool, Callable[[], bool]] = True,
+) -> ListItem:
+  button = ButtonRightItem(text=button_text, enabled=enabled)
+  return ListItem(title=title, description=description, right_item=button, callback=callback, enabled=enabled)
 
 
-def text_item(title: str, value: str, description: str = None, callback: Callable | None = None) -> ListItem:
-  text_item = TextRightItem(text=value, color=rl.Color(170, 170, 170, 255))
-  return ListItem(title=title, description=description, right_item=text_item, callback=callback)
+def text_item(
+  title: str,
+  value: str,
+  description: str = None,
+  callback: Callable | None = None,
+  enabled: Union[bool, Callable[[], bool]] = True,
+) -> ListItem:
+  text_right_item = TextRightItem(text=value, color=rl.Color(170, 170, 170, 255), enabled=enabled)
+  return ListItem(title=title, description=description, right_item=text_right_item, callback=callback, enabled=enabled)

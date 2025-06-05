@@ -1,4 +1,5 @@
 from typing import Callable
+from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.list_view import ListView, text_item, button_item
 from openpilot.common.params import Params
 from openpilot.system.hardware import TICI
@@ -26,9 +27,17 @@ class DeviceLayout:
       text_item("Dongle ID", dongle_id),
       text_item("Serial", serial),
       button_item("Pair Device", "PAIR", DESCRIPTIONS['pair_device'], callback=self._on_pair_device),
-      button_item("Driver Camera", "PREVIEW", DESCRIPTIONS['driver_camera'], callback=self._on_driver_camera),
+      button_item(
+        "Driver Camera",
+        "PREVIEW",
+        DESCRIPTIONS['driver_camera'],
+        callback=self._on_driver_camera,
+        enabled=lambda: not ui_state.started
+      ),
       button_item("Reset Calibration", "RESET", DESCRIPTIONS['reset_calibration'], callback=self._on_reset_calibration),
-      button_item("Review Training Guide", "REVIEW", DESCRIPTIONS['review_guide'], callback=self._on_review_training_guide),
+      button_item(
+        "Review Training Guide", "REVIEW", DESCRIPTIONS['review_guide'], callback=self._on_review_training_guide
+      ),
     ]
 
     if TICI:
