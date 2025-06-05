@@ -1,6 +1,8 @@
+from typing import Callable
 from openpilot.system.ui.lib.list_view import ListView, text_item, button_item
 from openpilot.common.params import Params
 from openpilot.system.hardware import TICI
+
 
 # Description constants
 DESCRIPTIONS = {
@@ -23,10 +25,10 @@ class DeviceLayout:
     items = [
       text_item("Dongle ID", dongle_id),
       text_item("Serial", serial),
-      button_item("Pair Device", "PAIR", DESCRIPTIONS['pair_device'], self._on_pair_device),
-      button_item("Driver Camera", "PREVIEW", DESCRIPTIONS['driver_camera'], self._on_driver_camera),
-      button_item("Reset Calibration", "RESET", DESCRIPTIONS['reset_calibration'], self._on_reset_calibration),
-      button_item("Review Training Guide", "REVIEW", DESCRIPTIONS['review_guide'], self._on_review_training_guide),
+      button_item("Pair Device", "PAIR", DESCRIPTIONS['pair_device'], callback=self._on_pair_device),
+      button_item("Driver Camera", "PREVIEW", DESCRIPTIONS['driver_camera'], callback=self._on_driver_camera),
+      button_item("Reset Calibration", "RESET", DESCRIPTIONS['reset_calibration'], callback=self._on_reset_calibration),
+      button_item("Review Training Guide", "REVIEW", DESCRIPTIONS['review_guide'], callback=self._on_review_training_guide),
     ]
 
     if TICI:
@@ -35,13 +37,18 @@ class DeviceLayout:
     items.append(button_item("Change Language", "CHANGE", callback=self._on_change_language))
 
     self._list_widget = ListView(items)
+    self.on_preview_driver_camera: Callable | None = None
 
   def render(self, rect):
     self._list_widget.render(rect)
 
+  def _on_driver_camera(self):
+    if self.on_preview_driver_camera:
+      self.on_preview_driver_camera()
+
   def _on_pair_device(self): pass
-  def _on_driver_camera(self): pass
   def _on_reset_calibration(self): pass
   def _on_review_training_guide(self): pass
   def _on_regulatory(self): pass
   def _on_change_language(self): pass
+

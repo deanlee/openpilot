@@ -7,6 +7,8 @@ from openpilot.selfdrive.ui.layouts.settings.developer import DeveloperLayout
 from openpilot.selfdrive.ui.layouts.settings.device import DeviceLayout
 from openpilot.selfdrive.ui.layouts.settings.software import SoftwareLayout
 from openpilot.selfdrive.ui.layouts.settings.toggles import TogglesLayout
+from openpilot.selfdrive.ui.onroad.driver_camera_view import DriverCameraView
+from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.label import gui_text_box
 
@@ -53,16 +55,20 @@ class SettingsLayout:
     self._close_btn_pressed = False
     self._scroll_offset = 0.0
     self._max_scroll = 0.0
+    self._driver_camera_view: DriverCameraView | None = None
 
     # Panel configuration
+    device = DeviceLayout()
     self._panels = {
-      PanelType.DEVICE: PanelInfo("Device", DeviceLayout(), rl.Rectangle(0, 0, 0, 0)),
+      PanelType.DEVICE: PanelInfo("Device", device, rl.Rectangle(0, 0, 0, 0)),
       PanelType.TOGGLES: PanelInfo("Toggles", TogglesLayout(), rl.Rectangle(0, 0, 0, 0)),
       PanelType.SOFTWARE: PanelInfo("Software", SoftwareLayout(), rl.Rectangle(0, 0, 0, 0)),
       PanelType.FIREHOSE: PanelInfo("Firehose", None, rl.Rectangle(0, 0, 0, 0)),
       PanelType.NETWORK: PanelInfo("Network", None, rl.Rectangle(0, 0, 0, 0)),
       PanelType.DEVELOPER: PanelInfo("Developer", DeveloperLayout(), rl.Rectangle(0, 0, 0, 0)),
     }
+
+    device.on_preview_driver_camera = self._on_preview_driver_camera
 
     self._font_medium = gui_app.font(FontWeight.MEDIUM)
     self._font_bold = gui_app.font(FontWeight.SEMI_BOLD)
@@ -74,6 +80,10 @@ class SettingsLayout:
     self._close_callback = on_close
 
   def render(self, rect: rl.Rectangle):
+    if self._driver_camera_view:
+      self._show_driver_camera(rect)
+      return
+
     # Calculate layout
     sidebar_rect = rl.Rectangle(rect.x, rect.y, SIDEBAR_WIDTH, rect.height)
     panel_rect = rl.Rectangle(rect.x + SIDEBAR_WIDTH, rect.y, rect.width - SIDEBAR_WIDTH, rect.height)
@@ -183,3 +193,12 @@ class SettingsLayout:
   def close_settings(self):
     if self._close_callback:
       self._close_callback()
+
+  def _on_preview_driver_camera(self):
+    if not self._driver_camera_view:
+      self._driver_camera_view = DriverCameraView()
+
+  def _show_driver_camera(self, rect: rl.Rectangle):
+    self._driver_camera_view.render(rect, ui_state.sm)
+    if rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT):
+      self._driver_camera_view = None

@@ -9,8 +9,8 @@ from openpilot.system.ui.lib.label import gui_label
 
 
 class DriverCameraView(CameraView):
-  def __init__(self, stream_type: VisionStreamType):
-    super().__init__("camerad", stream_type)
+  def __init__(self):
+    super().__init__("camerad", VisionStreamType.VISION_STREAM_DRIVER)
     self.driver_state_renderer = DriverStateRenderer()
 
   def render(self, rect, sm):
@@ -85,7 +85,7 @@ if __name__ == "__main__":
   gui_app.init_window("Driver Camera View")
   sm = messaging.SubMaster(["selfdriveState", "driverStateV2", "driverMonitoringState"])
 
-  driver_camera_view = DriverCameraView(VisionStreamType.VISION_STREAM_DRIVER)
+  driver_camera_view = DriverCameraView()
   try:
     for _ in gui_app.render():
       sm.update()
