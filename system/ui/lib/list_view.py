@@ -38,6 +38,7 @@ def _resolve_value(value, default=""):
 # Abstract base class for right-side items
 class ItemAction(Widget, ABC):
   def __init__(self, width: int = 100, enabled: bool | Callable[[], bool] = True):
+    super().__init__()
     self.width = width
     self._enabled = enabled
 
