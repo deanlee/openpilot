@@ -240,7 +240,7 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
 
   mainLayout->addWidget(content);
 
-  mainLayout->setCurrentIndex(1);
+  mainLayout->setCurrentIndex(0);
 
   setStyleSheet(R"(
     #primeWidget {
