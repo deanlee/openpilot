@@ -341,7 +341,7 @@ class ListView(Widget):
             break
 
     # Handle click on main item (not right item)
-    if mouse.is_clicked(rect) and self._hovered_item >= 0:
+    if mouse.released_in_rect(rect) and self._hovered_item >= 0:
       item = self._items[self._hovered_item]
 
       # Check if click was on right item area

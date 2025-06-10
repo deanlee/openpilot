@@ -105,7 +105,7 @@ class GuiScrollPanel:
 
         self._last_mouse_y = mouse_pos.y
 
-      elif mouse.is_clicked(bounds):
+      elif mouse.released_in_rect(bounds):
         # Calculate flick velocity
         if self._velocity_history:
           total_weight = 0
