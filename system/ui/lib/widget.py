@@ -2,6 +2,7 @@ import abc
 import pyray as rl
 from enum import IntEnum
 from openpilot.system.ui.lib.application import mouse
+from openpilot.system.ui.lib.mouse_state import MouseState
 
 
 class DialogResult(IntEnum):
@@ -19,13 +20,13 @@ class Widget(abc.ABC):
 
     # Keep track of whether mouse down started within the widget's rectangle
     if mouse.check_clicked(rect):
-        self._onclick()
+        self._onclick(mouse)
     return ret
 
   @abc.abstractmethod
   def _render(self, rect: rl.Rectangle) -> bool | int | None:
     """Render the widget within the given rectangle."""
 
-  def _on_click(self) -> int:
+  def _on_click(self, mouse: MouseState) -> int:
     """Handle mouse release events, if applicable."""
     return -1

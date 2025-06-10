@@ -6,6 +6,7 @@ from cereal import log
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.text_measure import measure_text_cached
+from openpilot.system.ui.lib.mouse_state import MouseState
 from openpilot.system.ui.lib.widget import Widget
 
 
@@ -138,13 +139,16 @@ class Sidebar(Widget):
     else:
       self._panda_status.update("VEHICLE", "ONLINE", Colors.GOOD)
 
-  def _handle_mouse_release(self, mouse_pos: rl.Vector2):
-    if rl.check_collision_point_rec(mouse_pos, SETTINGS_BTN):
+  def _on_click(self, mouse: MouseState):
+    if mouse.check_clicked(SETTINGS_BTN):
       if self._on_settings_click:
         self._on_settings_click()
-    elif rl.check_collision_point_rec(mouse_pos, HOME_BTN) and ui_state.started:
+      return True
+    elif mouse.check_clicked(HOME_BTN) and ui_state.started:
       if self._on_flag_click:
         self._on_flag_click()
+      return True
+    return False
 
   def _draw_buttons(self, rect: rl.Rectangle):
     mouse_pos = rl.get_mouse_position()

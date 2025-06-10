@@ -12,6 +12,8 @@ from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.selfdrive.ui.layouts.network import NetworkLayout
 from openpilot.system.ui.lib.widget import Widget
+from openpilot.system.ui.lib.mouse_state import MouseState
+
 
 # Import individual panels
 
@@ -144,16 +146,16 @@ class SettingsLayout(Widget):
     if panel.instance:
       panel.instance.render(content_rect)
 
-  def _handle_mouse_release(self, mouse_pos: rl.Vector2) -> bool:
+  def _on_click(self, mouse: MouseState) -> bool:
     # Check close button
-    if rl.check_collision_point_rec(mouse_pos, self._close_btn_rect):
+    if mouse.check_clicked(self._close_btn_rect):
       if self._close_callback:
         self._close_callback()
       return True
 
     # Check navigation buttons
     for panel_type, panel_info in self._panels.items():
-      if rl.check_collision_point_rec(mouse_pos, panel_info.button_rect):
+      if mouse.check_clicked(panel_info.button_rect):
         self._switch_to_panel(panel_type)
         return True
 
