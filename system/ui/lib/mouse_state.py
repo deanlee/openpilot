@@ -52,10 +52,9 @@ class MouseState:
 
   def is_clicked(self, rect: rl.Rectangle) -> bool:
     if self.released and self._pressed_pos is not None:
-      print('hhhh')
       if rl.check_collision_point_rec(self._position, rect) and rl.check_collision_point_rec(self._pressed_pos, rect):
         self._consumed = True
-      return True
+        return True
     return False
 
   def is_in_rect(self, rect: rl.Rectangle) -> bool:

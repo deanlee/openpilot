@@ -8,7 +8,7 @@ from openpilot.selfdrive.ui.layouts.settings.device import DeviceLayout
 from openpilot.selfdrive.ui.layouts.settings.firehose import FirehoseLayout
 from openpilot.selfdrive.ui.layouts.settings.software import SoftwareLayout
 from openpilot.selfdrive.ui.layouts.settings.toggles import TogglesLayout
-from openpilot.system.ui.lib.application import gui_app, FontWeight, Widget
+from openpilot.system.ui.lib.application import gui_app, mouse, FontWeight, Widget
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.selfdrive.ui.layouts.network import NetworkLayout
 
@@ -91,9 +91,7 @@ class SettingsLayout(Widget):
       rect.x + (rect.width - CLOSE_BTN_SIZE) / 2, rect.y + 45, CLOSE_BTN_SIZE, CLOSE_BTN_SIZE
     )
 
-    pressed = (rl.is_mouse_button_down(rl.MouseButton.MOUSE_BUTTON_LEFT) and
-               rl.check_collision_point_rec(rl.get_mouse_position(), close_btn_rect))
-    close_color = CLOSE_BTN_PRESSED if pressed else CLOSE_BTN_COLOR
+    close_color = CLOSE_BTN_PRESSED if mouse.is_down_in_rect(close_btn_rect) else CLOSE_BTN_COLOR
     rl.draw_rectangle_rounded(close_btn_rect, 1.0, 20, close_color)
 
     close_text_size = measure_text_cached(self._font_bold, SETTINGS_CLOSE_TEXT, 140)
@@ -145,14 +143,14 @@ class SettingsLayout(Widget):
 
   def _handle_mouse_release(self, mouse_pos: rl.Vector2) -> bool:
     # Check close button
-    if rl.check_collision_point_rec(mouse_pos, self._close_btn_rect):
+    if mouse.is_clicked(self._close_btn_rect):
       if self._close_callback:
         self._close_callback()
       return True
 
     # Check navigation buttons
     for panel_type, panel_info in self._panels.items():
-      if rl.check_collision_point_rec(mouse_pos, panel_info.button_rect):
+      if mouse.is_clicked(panel_info.button_rect):
         self._switch_to_panel(panel_type)
         return True
 
