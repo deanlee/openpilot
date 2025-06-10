@@ -18,7 +18,10 @@ class Widget(abc.ABC):
   def render(self, rect: rl.Rectangle) -> bool | int | None:
     ret = self._render(rect)
 
-    # Keep track of whether mouse down started within the widget's rectangle
+    if mouse.pressed_in_rect(rect):
+      if self._on_mouse_pressed(mouse):
+        mouse._consumed = True
+
     if mouse.check_clicked(rect):
       if self._on_click(mouse):
         mouse._consumed = True
@@ -30,4 +33,8 @@ class Widget(abc.ABC):
 
   def _on_click(self, mouse: MouseState) -> int:
     """Handle mouse release events, if applicable."""
+    return -1
+
+  def _on_mouse_pressed(self, mouse: MouseState) -> int:
+    """Handle mouse pressed events, if applicable."""
     return -1

@@ -10,6 +10,7 @@ from openpilot.selfdrive.ui.onroad.hud_renderer import HudRenderer
 from openpilot.selfdrive.ui.onroad.model_renderer import ModelRenderer
 from openpilot.selfdrive.ui.onroad.cameraview import CameraView
 from openpilot.system.ui.lib.application import gui_app
+from openpilot.system.ui.lib.mouse_state import MouseState
 from openpilot.common.transformations.camera import DEVICE_CAMERAS, DeviceCameraConfig, view_frame_from_device_frame
 from openpilot.common.transformations.orientation import rot_from_euler
 
@@ -105,6 +106,11 @@ class AugmentedRoadView(CameraView):
       if self._click_callback and rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
         if rl.check_collision_point_rec(rl.get_mouse_position(), self._content_rect):
           self._click_callback()
+
+  def _on_mouse_pressed(self, mouse: MouseState):
+    if self._click_callback:
+      self._click_callback()
+    return True
 
   def _draw_border(self, rect: rl.Rectangle):
     border_color = BORDER_COLORS.get(ui_state.status, BORDER_COLORS[UIStatus.DISENGAGED])
