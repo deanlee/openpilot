@@ -8,6 +8,8 @@ from enum import IntEnum
 from importlib.resources import as_file, files
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.hardware import HARDWARE
+from openpilot.system.ui.lib.mouse_state import MouseState
+
 
 DEFAULT_FPS = 60
 FPS_LOG_INTERVAL = 5  # Seconds between logging FPS drops
@@ -42,6 +44,9 @@ class FontWeight(IntEnum):
 class ModalOverlay:
   overlay: object = None
   callback: Callable | None = None
+
+
+mouse = MouseState()
 
 
 class GuiApplication:
@@ -153,6 +158,10 @@ class GuiApplication:
   def render(self):
     try:
       while not (self._window_close_requested or rl.window_should_close()):
+
+        # Reset mouse state at the beginning of each frame
+        mouse.reset()
+
         if self._render_texture:
           rl.begin_texture_mode(self._render_texture)
           rl.clear_background(rl.BLACK)
