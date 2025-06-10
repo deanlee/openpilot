@@ -66,7 +66,7 @@ class MouseState:
     return self._is_down and not self._consumed
 
 
-  def is_down_in_rect(self, rect: rl.Rectangle) -> bool:
+  def check_down(self, rect: rl.Rectangle) -> bool:
     if self._consumed:
       return False
 

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from collections.abc import Callable
 from cereal import log
 from openpilot.selfdrive.ui.ui_state import ui_state
-from openpilot.system.ui.lib.application import gui_app, FontWeight
+from openpilot.system.ui.lib.application import gui_app, mouse, FontWeight
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.mouse_state import MouseState
 from openpilot.system.ui.lib.widget import Widget
@@ -151,16 +151,12 @@ class Sidebar(Widget):
     return False
 
   def _draw_buttons(self, rect: rl.Rectangle):
-    mouse_pos = rl.get_mouse_position()
-    mouse_down = self._is_pressed and rl.is_mouse_button_down(rl.MouseButton.MOUSE_BUTTON_LEFT)
-
     # Settings button
-    settings_down = mouse_down and rl.check_collision_point_rec(mouse_pos, SETTINGS_BTN)
-    tint = Colors.BUTTON_PRESSED if settings_down else Colors.BUTTON_NORMAL
+    tint = Colors.BUTTON_PRESSED if mouse.check_down(SETTINGS_BTN) else Colors.BUTTON_NORMAL
     rl.draw_texture(self._settings_img, int(SETTINGS_BTN.x), int(SETTINGS_BTN.y), tint)
 
     # Home/Flag button
-    flag_pressed = mouse_down and rl.check_collision_point_rec(mouse_pos, HOME_BTN)
+    flag_pressed = mouse.check_down(HOME_BTN)
     button_img = self._flag_img if ui_state.started else self._home_img
 
     tint = Colors.BUTTON_PRESSED if (ui_state.started and flag_pressed) else Colors.BUTTON_NORMAL

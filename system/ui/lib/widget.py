@@ -20,7 +20,8 @@ class Widget(abc.ABC):
 
     # Keep track of whether mouse down started within the widget's rectangle
     if mouse.check_clicked(rect):
-        self._onclick(mouse)
+      if self._on_click(mouse):
+        mouse._consumed = True
     return ret
 
   @abc.abstractmethod
