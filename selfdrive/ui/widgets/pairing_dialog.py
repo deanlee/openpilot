@@ -6,12 +6,14 @@ import time
 from openpilot.common.api import Api
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.params import Params
-from openpilot.system.ui.lib.application import FontWeight, gui_app
+from openpilot.system.ui.lib.application import gui_app, mouse, FontWeight
 from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.text_measure import measure_text_cached
+from openpilot.system.ui.lib.mouse_state import MouseState
+from openpilot.system.ui.lib.widget import Widget
 
 
-class PairingDialog:
+class PairingDialog(Widget):
   """Dialog for device pairing with QR code."""
 
   QR_REFRESH_INTERVAL = 300  # 5 minutes in seconds
@@ -59,7 +61,7 @@ class PairingDialog:
     if current_time - self.last_qr_generation >= self.QR_REFRESH_INTERVAL:
       self._generate_qr_code()
 
-  def render(self, rect: rl.Rectangle) -> int:
+  def _render(self, rect: rl.Rectangle) -> int:
     rl.clear_background(rl.Color(224, 224, 224, 255))
 
     self._check_qr_refresh()
@@ -73,15 +75,10 @@ class PairingDialog:
     close_icon = gui_app.texture("icons/close.png", close_size, close_size)
     close_rect = rl.Rectangle(content_rect.x, y, close_size, close_size)
 
-    mouse_pos = rl.get_mouse_position()
-    is_hover = rl.check_collision_point_rec(mouse_pos, close_rect)
-    is_pressed = rl.is_mouse_button_down(rl.MouseButton.MOUSE_BUTTON_LEFT)
-    is_released = rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT)
-
-    color = rl.Color(180, 180, 180, 150) if (is_hover and is_pressed) else rl.WHITE
+    color = rl.Color(180, 180, 180, 150) if mouse.check_down(close_rect) else rl.WHITE
     rl.draw_texture(close_icon, int(content_rect.x), int(y), color)
 
-    if (is_hover and is_released) or rl.is_key_pressed(rl.KeyboardKey.KEY_ESCAPE):
+    if mouse.is_clicked(close_rect):
       return 1
 
     y += close_size + 40
