@@ -1,5 +1,6 @@
 import pyray as rl
 from enum import IntEnum
+from openpilot.system.ui.lib.application import mouse
 
 # Scroll constants for smooth scrolling behavior
 MOUSE_WHEEL_SCROLL_SPEED = 30
@@ -50,11 +51,11 @@ class GuiScrollPanel:
     # Prevent large jumps
     delta_time = min(delta_time, 0.05)
 
-    mouse_pos = rl.get_mouse_position()
+    mouse_pos = mouse.position
     max_scroll_y = max(content.height - bounds.height, 0)
 
     # Start dragging on mouse press
-    if rl.check_collision_point_rec(mouse_pos, bounds) and rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
+    if mouse.pressed_in_rect(bounds):
       if self._scroll_state == ScrollState.IDLE or self._scroll_state == ScrollState.BOUNCING:
         self._scroll_state = ScrollState.DRAGGING_CONTENT
         if self._show_vertical_scroll_bar:
@@ -73,7 +74,7 @@ class GuiScrollPanel:
 
     # Handle active dragging
     if self._scroll_state == ScrollState.DRAGGING_CONTENT or self._scroll_state == ScrollState.DRAGGING_SCROLLBAR:
-      if rl.is_mouse_button_down(rl.MouseButton.MOUSE_BUTTON_LEFT):
+      if mouse.is_down():
         delta_y = mouse_pos.y - self._last_mouse_y
 
         # Track velocity for inertia
@@ -104,7 +105,7 @@ class GuiScrollPanel:
 
         self._last_mouse_y = mouse_pos.y
 
-      elif rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT):
+      elif mouse.clicked(bounds):
         # Calculate flick velocity
         if self._velocity_history:
           total_weight = 0

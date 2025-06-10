@@ -9,7 +9,7 @@ from enum import IntEnum
 from importlib.resources import as_file, files
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.hardware import HARDWARE
-from openpilot.system.ui.lib.mouse_state import mouse_state
+from openpilot.system.ui.lib.mouse_state import MouseState
 
 
 DEFAULT_FPS = 60
@@ -28,6 +28,8 @@ DEFAULT_TEXT_COLOR = rl.WHITE
 ASSETS_DIR = files("openpilot.selfdrive").joinpath("assets")
 FONT_DIR = ASSETS_DIR.joinpath("fonts")
 
+
+mouse = MouseState()
 
 class DialogResult(IntEnum):
   CANCEL = 0
@@ -191,7 +193,9 @@ class GuiApplication:
   def render(self):
     try:
       while not (self._window_close_requested or rl.window_should_close()):
-        mouse_state.reset()
+
+        # Reset mouse state at the beginning of each frame
+        mouse.reset()
 
         if self._render_texture:
           rl.begin_texture_mode(self._render_texture)

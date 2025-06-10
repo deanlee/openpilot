@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from collections.abc import Callable
 from abc import ABC
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
-from openpilot.system.ui.lib.application import gui_app, FontWeight, Widget
+from openpilot.system.ui.lib.application import gui_app, mouse, FontWeight, Widget
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.button import gui_button, ButtonStyle
@@ -341,7 +341,7 @@ class ListView(Widget):
             break
 
     # Handle click on main item (not right item)
-    if rl.is_mouse_button_released(rl.MouseButton.MOUSE_BUTTON_LEFT) and self._hovered_item >= 0:
+    if mouse.is_clicked(rect) and self._hovered_item >= 0:
       item = self._items[self._hovered_item]
 
       # Check if click was on right item area

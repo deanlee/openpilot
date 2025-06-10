@@ -4,9 +4,8 @@ from msgq.visionipc import VisionStreamType
 from openpilot.selfdrive.ui.onroad.cameraview import CameraView
 from openpilot.selfdrive.ui.onroad.driver_state import DriverStateRenderer
 from openpilot.selfdrive.ui.ui_state import ui_state
-from openpilot.system.ui.lib.application import gui_app, FontWeight
+from openpilot.system.ui.lib.application import gui_app, FontWeight, mouse
 from openpilot.system.ui.lib.label import gui_label
-
 
 class DriverCameraDialog(CameraView):
   def __init__(self):
@@ -16,7 +15,7 @@ class DriverCameraDialog(CameraView):
   def _render(self, rect):
     super()._render(rect)
 
-    if rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
+    if mouse.is_clicked(rect):
       return 1
 
     if not self.frame:
