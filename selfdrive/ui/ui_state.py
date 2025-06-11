@@ -1,11 +1,17 @@
 import pyray as rl
 from enum import Enum
+import time
 from cereal import messaging, log
 from openpilot.common.params import Params, UnknownKeyName
 from openpilot.selfdrive.ui.lib.prime_state import PrimeState
+from openpilot.common.filter_simple import FirstOrderFilter
+
 
 UI_BORDER_SIZE = 30
 
+_BACKLIGHT_DT = 0.05
+_BACKLIGHT_TS = 10.0
+_BACKLIGHT_OFFROAD = 50.0
 
 class UIStatus(Enum):
   DISENGAGED = "disengaged"
@@ -46,11 +52,22 @@ class UIState:
 
     self.prime_state = PrimeState()
 
+    self._last_brightness: int = -1
+    self._offroad_brightness: float = _BACKLIGHT_OFFROAD
+    self._brightness_filter = FirstOrderFilter(
+      _BACKLIGHT_OFFROAD,
+      _BACKLIGHT_TS,
+      _BACKLIGHT_DT
+    )
+
     # UI Status tracking
     self.status: UIStatus = UIStatus.DISENGAGED
     self.started_frame: int = 0
     self._engaged_prev: bool = False
     self._started_prev: bool = False
+    self._brightness_update_time: float = 0.0
+    self._brightness_update_interval: float = 0.1  # Update every 100ms
+
 
     # Core state variables
     self.is_metric: bool = self.params.get_bool("IsMetric")
@@ -131,6 +148,43 @@ class UIState:
       self.is_metric = self.params.get_bool("IsMetric")
     except UnknownKeyName:
       self.is_metric = False
+
+  def _update_brightness(self) -> None:
+    """Update screen brightness based on light sensor and driving state"""
+    current_time = time.time()
+
+    # Throttle brightness updates to avoid excessive system calls
+    if current_time - self._brightness_update_time < self._brightness_update_interval:
+      return
+
+    clipped_brightness = self._offroad_brightness
+
+    # Use light sensor for automatic brightness when driving
+    if self.started and self.light_sensor >= 0:
+      clipped_brightness = self.light_sensor
+
+      # Apply CIE 1931 lightness curve
+      # https://www.photonstophotos.net/GeneralTopics/Exposure/Psychometric_Lightness_and_Gamma.htm
+      if clipped_brightness <= 8:
+        clipped_brightness = clipped_brightness / 903.3
+      else:
+        clipped_brightness = ((clipped_brightness + 16.0) / 116.0) ** 3.0
+
+      # Scale back to 10% to 100% range
+      clipped_brightness = max(10.0, min(100.0, 100.0 * clipped_brightness))
+
+    # Apply low-pass filter for smooth transitions
+    brightness = self._brightness_filter.update(clipped_brightness)
+
+    # Set brightness to 0 if display should be off
+    if not self._is_display_awake():
+      brightness = 0
+
+    # Only update if brightness changed significantly
+    if abs(brightness - self._last_brightness) >= 1:
+      self._set_hardware_brightness(brightness)
+      self._last_brightness = brightness
+      self._brightness_update_time = current_time
 
 
 # Global instance
