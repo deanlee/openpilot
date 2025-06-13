@@ -1,8 +1,10 @@
+import pyray as rl
 from openpilot.common.params import Params
-from openpilot.system.ui.lib.application import gui_app
+from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.list_view import ListView, ButtonItem, TextItem
 from openpilot.system.ui.lib.widget import Widget, DialogResult
 from openpilot.system.ui.widgets.confirm_dialog import confirm_dialog
+from openpilot.selfdrive.ui.ui_state import ui_state
 
 
 class SoftwareLayout(Widget):
@@ -10,12 +12,14 @@ class SoftwareLayout(Widget):
     super().__init__()
 
     self._params = Params()
-    items = self._init_items()
+    items = self._initialize_items()
     self._list_widget = ListView(items)
 
-  def _init_items(self):
+  def _initialize_items(self):
+    current_version = self._params.get("UpdaterCurrentDescription", encoding='utf-8') or ""
+    current_version_desc = self._params.get("UpdaterCurrentReleaseNotes", encoding='utf-8') or ""
     items = [
-      TextItem("Current Version", ""),
+      TextItem("Current Version", current_version, description=current_version_desc),
       ButtonItem("Download", "CHECK", callback=self._on_download_update),
       ButtonItem("Install Update", "INSTALL", callback=self._on_install_update),
       ButtonItem("Target Branch", "SELECT", callback=self._on_select_branch),
@@ -24,6 +28,10 @@ class SoftwareLayout(Widget):
     return items
 
   def _render(self, rect):
+    if ui_state.is_onroad():
+      rl.draw_text_ex(gui_app.font(FontWeight.NORMAL), "Updates are only downloaded while the car is off.",
+                      (rect.x + 20, rect.y + 30), 50, 0, rl.WHITE)
+      rect.y += 80
     self._list_widget.render(rect)
 
   def _on_download_update(self): pass
