@@ -11,7 +11,7 @@ from cereal import log
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.button import gui_button, ButtonStyle
-from openpilot.system.ui.lib.label import gui_label, gui_text_box
+from openpilot.system.ui.lib.label import gui_label, gui_text_box, Align
 from openpilot.system.ui.lib.widget import Widget
 from openpilot.system.ui.widgets.network import WifiManagerUI, WifiManagerWrapper
 from openpilot.system.ui.widgets.keyboard import Keyboard
@@ -229,7 +229,7 @@ class Setup(Widget):
 
   def render_downloading(self, rect: rl.Rectangle):
     title_rect = rl.Rectangle(rect.x, rect.y + rect.height / 2 - TITLE_FONT_SIZE / 2, rect.width, TITLE_FONT_SIZE)
-    gui_label(title_rect, "Downloading...", TITLE_FONT_SIZE, font_weight=FontWeight.MEDIUM, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+    gui_label(title_rect, "Downloading...", TITLE_FONT_SIZE, font_weight=FontWeight.MEDIUM, align=Align.CENTER)
 
   def render_download_failed(self, rect: rl.Rectangle):
     title_rect = rl.Rectangle(rect.x + 117, rect.y + 185, rect.width - 117, TITLE_FONT_SIZE)

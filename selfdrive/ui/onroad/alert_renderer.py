@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from cereal import messaging, log
 from openpilot.system.hardware import TICI
 from openpilot.system.ui.lib.application import gui_app, FontWeight, DEFAULT_FPS
-from openpilot.system.ui.lib.label import gui_text_box
+from openpilot.system.ui.lib.label import gui_text_box, Align, VAlign
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.widget import Widget
 from openpilot.selfdrive.ui.ui_state import ui_state
@@ -147,13 +147,11 @@ class AlertRenderer(Widget):
     else:
       is_long = len(alert.text1) > 15
       font_size1 = 132 if is_long else 177
-      align_ment = rl.GuiTextAlignment.TEXT_ALIGN_CENTER
-      vertical_align = rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE
       text_rect = rl.Rectangle(rect.x, rect.y, rect.width, rect.height // 2)
 
-      gui_text_box(text_rect, alert.text1, font_size1, alignment=align_ment, alignment_vertical=vertical_align, font_weight=FontWeight.BOLD)
+      gui_text_box(text_rect, alert.text1, font_size1, align=Align.CENTER, valign=VAlign.MIDDLE, font_weight=FontWeight.BOLD)
       text_rect.y = rect.y + rect.height // 2
-      gui_text_box(text_rect, alert.text2, ALERT_FONT_BIG, alignment=align_ment)
+      gui_text_box(text_rect, alert.text2, ALERT_FONT_BIG, align=Align.CENTER)
 
   def _draw_centered(self, text, rect, font, font_size, center_y=True, color=rl.WHITE) -> None:
     text_size = measure_text_cached(font, text, font_size)

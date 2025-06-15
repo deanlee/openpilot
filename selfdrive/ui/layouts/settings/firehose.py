@@ -7,7 +7,7 @@ from openpilot.common.api import Api, api_get
 from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
 from openpilot.system.ui.lib.application import gui_app, FontWeight
-from openpilot.system.ui.lib.wrap_text import wrap_text
+from openpilot.system.ui.lib.label import draw_wrapped_text
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.widget import Widget
 from openpilot.selfdrive.ui.ui_state import ui_state
@@ -22,8 +22,8 @@ DESCRIPTION = (
 INSTRUCTIONS = (
   "For maximum effectiveness, bring your device inside and connect to a good USB-C adapter and Wi-Fi weekly.\n\n"
   + "Firehose Mode can also work while you're driving if connected to a hotspot or unlimited SIM card.\n\n"
-  + "Frequently Asked Questions\n\n"
-  + "Does it matter how or where I drive? Nope, just drive as you normally would.\n\n"
+)
+FQA = ("Does it matter how or where I drive? Nope, just drive as you normally would.\n\n"
   + "Do all of my segments get pulled in Firehose Mode? No, we selectively pull a subset of your segments.\n\n"
   + "What's a good USB-C adapter? Any fast phone or laptop charger should be fine.\n\n"
   + "Does it matter which software I run? Yes, only upstream openpilot (and particular forks) are able to be used for training."
@@ -47,12 +47,12 @@ class FirehoseLayout(Widget):
     self.running = True
     self.update_thread = threading.Thread(target=self._update_loop, daemon=True)
     self.update_thread.start()
-    self.last_update_time = 0
+    self._content_height: int = 0
 
   def _get_segment_count(self) -> int:
-    stats = self.params.get(self.PARAM_KEY, encoding='utf8')
     try:
-      return int(json.loads(stats).get("firehose", 0))
+      stats = self.params.get(self.PARAM_KEY, encoding='utf8')
+      return int(json.loads(stats).get("firehose", 0)) if stats is not None else 0
     except Exception:
       cloudlog.exception(f"Failed to decode firehose stats: {stats}")
       return 0
@@ -64,49 +64,17 @@ class FirehoseLayout(Widget):
 
   def _render(self, rect: rl.Rectangle):
     # Calculate content dimensions
-    content_width = rect.width - 80
-    content_height = self._calculate_content_height(int(content_width))
+    content_height = 1500 if self._content_height == 0 else self._content_height
     content_rect = rl.Rectangle(rect.x, rect.y, rect.width, content_height)
 
     # Handle scrolling and render with clipping
     scroll_offset = self.scroll_panel.handle_scroll(rect, content_rect)
     rl.begin_scissor_mode(int(rect.x), int(rect.y), int(rect.width), int(rect.height))
-    self._render_content(rect, scroll_offset)
+    self._content_height = self._render_content(rect, scroll_offset)
     rl.end_scissor_mode()
 
-  def _calculate_content_height(self, content_width: int) -> int:
-    height = 80  # Top margin
-
-    # Title
-    height += 100 + 40
-
-    # Description
-    desc_font = gui_app.font(FontWeight.NORMAL)
-    desc_lines = wrap_text(desc_font, DESCRIPTION, 45, content_width)
-    height += len(desc_lines) * 45 + 40
-
-    # Status section
-    height += 32  # Separator
-    status_text, _ = self._get_status()
-    status_lines = wrap_text(gui_app.font(FontWeight.BOLD), status_text, 60, content_width)
-    height += len(status_lines) * 60 + 20
-
-    # Contribution count (if available)
-    if self.segment_count > 0:
-      contrib_text = f"{self.segment_count} segment(s) of your driving is in the training dataset so far."
-      contrib_lines = wrap_text(gui_app.font(FontWeight.BOLD), contrib_text, 52, content_width)
-      height += len(contrib_lines) * 52 + 20
-
-    # Instructions section
-    height += 32  # Separator
-    inst_lines = wrap_text(gui_app.font(FontWeight.NORMAL), INSTRUCTIONS, 40, content_width)
-    height += len(inst_lines) * 40 + 40  # Bottom margin
-
-    return height
-
-  def _render_content(self, rect: rl.Rectangle, scroll_offset: rl.Vector2):
-    x = int(rect.x + 40)
-    y = int(rect.y + 40 + scroll_offset.y)
+  def _render_content(self, rect: rl.Rectangle, scroll_offset: rl.Vector2) -> int:
+    x, y = int(rect.x + 40), int(rect.y + 40 + scroll_offset.y)
     w = int(rect.width - 80)
 
     # Title
@@ -115,8 +83,7 @@ class FirehoseLayout(Widget):
     y += 140
 
     # Description
-    y = self._draw_wrapped_text(x, y, w, DESCRIPTION, gui_app.font(FontWeight.NORMAL), 45, rl.WHITE)
-    y += 40
+    y += draw_wrapped_text(FontWeight.NORMAL, DESCRIPTION, x, y, w, 45) + 40
 
     # Separator
     rl.draw_rectangle(x, y, w, 2, self.GRAY)
@@ -124,28 +91,25 @@ class FirehoseLayout(Widget):
 
     # Status
     status_text, status_color = self._get_status()
-    y = self._draw_wrapped_text(x, y, w, status_text, gui_app.font(FontWeight.BOLD), 60, status_color)
-    y += 20
+    y += draw_wrapped_text(FontWeight.BOLD, status_text, x, y, w, 60, status_color) + 20
 
     # Contribution count (if available)
     if self.segment_count > 0:
       contrib_text = f"{self.segment_count} segment(s) of your driving is in the training dataset so far."
-      y = self._draw_wrapped_text(x, y, w, contrib_text, gui_app.font(FontWeight.BOLD), 52, rl.WHITE)
-      y += 20
+      y += draw_wrapped_text(FontWeight.BOLD, contrib_text, x, y, w, 52, rl.WHITE) + 20
 
     # Separator
     rl.draw_rectangle(x, y, w, 2, self.GRAY)
     y += 30
 
     # Instructions
-    self._draw_wrapped_text(x, y, w, INSTRUCTIONS, gui_app.font(FontWeight.NORMAL), 40, self.LIGHT_GRAY)
+    y += draw_wrapped_text(FontWeight.NORMAL, INSTRUCTIONS, x, y, w, 40, self.LIGHT_GRAY)
 
-  def _draw_wrapped_text(self, x, y, width, text, font, size, color):
-    wrapped = wrap_text(font, text, size, width)
-    for line in wrapped:
-      rl.draw_text_ex(font, line, rl.Vector2(x, y), size, 0, color)
-      y += size
-    return y
+    # FQA Section
+    rl.draw_text_ex(gui_app.font(FontWeight.BOLD), "Frequently Asked Questions", rl.Vector2(x, y), 60, 0, rl.WHITE)
+    y += 60 + 30
+    y += draw_wrapped_text(FontWeight.NORMAL, FQA, x, y, w, 40, self.LIGHT_GRAY) + 40
+    return int(y - rect.y - scroll_offset.y)
 
   def _get_status(self) -> tuple[str, rl.Color]:
     network_type = ui_state.sm["deviceState"].networkType

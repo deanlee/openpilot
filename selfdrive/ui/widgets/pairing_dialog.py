@@ -7,6 +7,7 @@ from openpilot.common.api import Api
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.params import Params
 from openpilot.system.ui.lib.application import FontWeight, gui_app
+from openpilot.system.ui.lib.label import draw_wrapped_text
 from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 
@@ -89,12 +90,9 @@ class PairingDialog:
 
     # Title
     title = "Pair your device to your comma account"
-    title_font = gui_app.font(FontWeight.NORMAL)
     left_width = int(content_rect.width * 0.5 - 15)
-
-    title_wrapped = wrap_text(title_font, title, 75, left_width)
-    rl.draw_text_ex(title_font, "\n".join(title_wrapped), rl.Vector2(content_rect.x, y), 75, 0.0, rl.BLACK)
-    y += len(title_wrapped) * 75 + 60
+    y += draw_wrapped_text(FontWeight.NORMAL, title, content_rect.x, y, left_width, 75, rl.BLACK)
+    y += 60
 
     # Two columns: instructions and QR code
     remaining_height = content_rect.height - (y - content_rect.y)

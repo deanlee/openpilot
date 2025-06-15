@@ -5,9 +5,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from openpilot.common.params import Params
 from openpilot.system.hardware import HARDWARE
-from openpilot.system.ui.lib.label import draw_text_center
+from openpilot.system.ui.lib.label import draw_text_center, draw_wrapped_text, get_wrapped_text_height
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
-from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.widget import Widget
@@ -31,7 +30,6 @@ class AlertConstants:
   SPACING = 30
   FONT_SIZE = 48
   BORDER_RADIUS = 30
-  ALERT_HEIGHT = 120
   ALERT_SPACING = 20
 
 
@@ -56,7 +54,6 @@ class AbstractAlert(Widget, ABC):
 
     self.snooze_visible = False
     self.content_rect = rl.Rectangle(0, 0, 0, 0)
-    self.scroll_panel_rect = rl.Rectangle(0, 0, 0, 0)
     self.scroll_panel = GuiScrollPanel()
 
   def set_dismiss_callback(self, callback: Callable):
@@ -71,7 +68,6 @@ class AbstractAlert(Widget, ABC):
     pass
 
   def handle_input(self, mouse_pos: rl.Vector2, mouse_clicked: bool) -> bool:
-    # TODO: fix scroll_panel.is_click_valid()
     if not mouse_clicked:
       return False
 
@@ -93,43 +89,26 @@ class AbstractAlert(Widget, ABC):
     return False
 
   def _render(self, rect: rl.Rectangle):
-    rl.draw_rectangle_rounded(rect, AlertConstants.BORDER_RADIUS / rect.width, 10, AlertColors.BACKGROUND)
+    rl.draw_rectangle_rounded(rect, AlertConstants.BORDER_RADIUS / rect.height, 10, AlertColors.BACKGROUND)
 
     footer_height = AlertConstants.BUTTON_SIZE[1] + AlertConstants.SPACING
-    content_height = rect.height - 2 * AlertConstants.MARGIN - footer_height
-
     self.content_rect = rl.Rectangle(
       rect.x + AlertConstants.MARGIN,
       rect.y + AlertConstants.MARGIN,
       rect.width - 2 * AlertConstants.MARGIN,
-      content_height,
-    )
-    self.scroll_panel_rect = rl.Rectangle(
-      self.content_rect.x, self.content_rect.y, self.content_rect.width, self.content_rect.height
+      rect.height - 2 * AlertConstants.MARGIN - footer_height
     )
 
-    self._render_scrollable_content()
+    self._render_scrollable_content(self.content_rect)
     self._render_footer(rect)
 
-  def _render_scrollable_content(self):
-    content_total_height = self.get_content_height()
-    content_bounds = rl.Rectangle(0, 0, self.scroll_panel_rect.width, content_total_height)
-    scroll_offset = self.scroll_panel.handle_scroll(self.scroll_panel_rect, content_bounds)
+  def _render_scrollable_content(self, content_rect: rl.Rectangle):
+    content_height = self.get_content_height()
+    content_bounds = rl.Rectangle(0, 0, content_rect.width, content_height)
+    scroll_offset = self.scroll_panel.handle_scroll(content_rect, content_bounds)
 
-    rl.begin_scissor_mode(
-      int(self.scroll_panel_rect.x),
-      int(self.scroll_panel_rect.y),
-      int(self.scroll_panel_rect.width),
-      int(self.scroll_panel_rect.height),
-    )
-
-    content_rect_with_scroll = rl.Rectangle(
-      self.scroll_panel_rect.x,
-      self.scroll_panel_rect.y + scroll_offset.y,
-      self.scroll_panel_rect.width,
-      content_total_height,
-    )
-
+    rl.begin_scissor_mode(int(content_rect.x), int(content_rect.y), int(content_rect.width), int(content_rect.height))
+    content_rect_with_scroll = rl.Rectangle(content_rect.x, content_rect.y + scroll_offset.y, content_rect.width, content_height)
     self._render_content(content_rect_with_scroll)
     rl.end_scissor_mode()
 
@@ -168,53 +147,30 @@ class OffroadAlert(AbstractAlert):
       self._build_alerts()
 
     active_count = 0
-    connectivity_needed = False
+    self.snooze_visible = False
 
-    for alert_data in self.sorted_alerts:
-      text = ""
-      bytes_data = self.params.get(alert_data.key)
+    for alert in self.sorted_alerts:
+      try:
+        alert_json = json.loads(self.params.get(alert.key) or b'{}')
+        alert.text = alert_json.get("text", "").replace("{}", alert_json.get("extra", ""))
+      except json.JSONDecodeError:
+        alert.text = ""
 
-      if bytes_data:
-        try:
-          alert_json = json.loads(bytes_data)
-          text = alert_json.get("text", "").replace("{}", alert_json.get("extra", ""))
-        except json.JSONDecodeError:
-          text = ""
-
-      alert_data.text = text
-      alert_data.visible = bool(text)
-
-      if alert_data.visible:
+      alert.visible = bool(alert.text)
+      if alert.visible:
         active_count += 1
+        if alert.key == "Offroad_ConnectivityNeeded":
+          self.snooze_visible = True
 
-      if alert_data.key == "Offroad_ConnectivityNeeded" and alert_data.visible:
-        connectivity_needed = True
-
-    self.snooze_visible = connectivity_needed
     return active_count
 
   def get_content_height(self) -> float:
-    if not self.sorted_alerts:
+    text_width = int(self.content_rect.width - 90)
+    alert_heights = [get_wrapped_text_height(FontWeight.NORMAL, alert.text, AlertConstants.FONT_SIZE, text_width) + 40
+                     for alert in self.sorted_alerts if alert.visible]
+    if not alert_heights:
       return 0
-
-    total_height = 20
-    font = gui_app.font(FontWeight.NORMAL)
-
-    for alert_data in self.sorted_alerts:
-      if not alert_data.visible:
-        continue
-
-      text_width = int(self.content_rect.width - 90)
-      wrapped_lines = wrap_text(font, alert_data.text, AlertConstants.FONT_SIZE, text_width)
-      line_count = len(wrapped_lines)
-      text_height = line_count * (AlertConstants.FONT_SIZE + 5)
-      alert_item_height = max(text_height + 40, AlertConstants.ALERT_HEIGHT)
-      total_height += alert_item_height + AlertConstants.ALERT_SPACING
-
-    if total_height > 20:
-      total_height = total_height - AlertConstants.ALERT_SPACING + 20
-
-    return total_height
+    return sum(alert_heights) + 40 + (len(alert_heights) - 1) * AlertConstants.ALERT_SPACING
 
   def _build_alerts(self):
     self.sorted_alerts = []
@@ -230,7 +186,6 @@ class OffroadAlert(AbstractAlert):
 
   def _render_content(self, content_rect: rl.Rectangle):
     y_offset = 20
-    font = gui_app.font(FontWeight.NORMAL)
 
     for alert_data in self.sorted_alerts:
       if not alert_data.visible:
@@ -238,33 +193,13 @@ class OffroadAlert(AbstractAlert):
 
       bg_color = AlertColors.HIGH_SEVERITY if alert_data.severity > 0 else AlertColors.LOW_SEVERITY
       text_width = int(content_rect.width - 90)
-      wrapped_lines = wrap_text(font, alert_data.text, AlertConstants.FONT_SIZE, text_width)
-      line_count = len(wrapped_lines)
-      text_height = line_count * (AlertConstants.FONT_SIZE + 5)
-      alert_item_height = max(text_height + 40, AlertConstants.ALERT_HEIGHT)
-
-      alert_rect = rl.Rectangle(
-        content_rect.x + 10,
-        content_rect.y + y_offset,
-        content_rect.width - 30,
-        alert_item_height,
-      )
-
+      alert_item_height = get_wrapped_text_height(FontWeight.NORMAL, alert_data.text, AlertConstants.FONT_SIZE, text_width) + 40
+      alert_rect = rl.Rectangle(content_rect.x + 10, content_rect.y + y_offset, content_rect.width - 30, alert_item_height)
       rl.draw_rectangle_rounded(alert_rect, 0.2, 10, bg_color)
 
       text_x = alert_rect.x + 30
       text_y = alert_rect.y + 20
-
-      for i, line in enumerate(wrapped_lines):
-        rl.draw_text_ex(
-          font,
-          line,
-          rl.Vector2(text_x, text_y + i * (AlertConstants.FONT_SIZE + 5)),
-          AlertConstants.FONT_SIZE,
-          0,
-          AlertColors.TEXT,
-        )
-
+      draw_wrapped_text(FontWeight.NORMAL, alert_data.text, text_x, text_y, text_width, AlertConstants.FONT_SIZE, AlertColors.TEXT)
       y_offset += alert_item_height + AlertConstants.ALERT_SPACING
 
 
@@ -272,33 +207,22 @@ class UpdateAlert(AbstractAlert):
   def __init__(self):
     super().__init__(has_reboot_btn=True)
     self.release_notes = ""
-    self._wrapped_release_notes = ""
-    self._cached_content_height: float = 0.0
 
   def refresh(self) -> bool:
     update_available: bool = self.params.get_bool("UpdateAvailable")
     if update_available:
       self.release_notes = self.params.get("UpdaterNewReleaseNotes", encoding='utf-8')
-      self._cached_content_height = 0
-
     return update_available
 
   def get_content_height(self) -> float:
-    if not self.release_notes:
-      return 100
-
-    if self._cached_content_height == 0:
-      self._wrapped_release_notes = self.release_notes
-      size = measure_text_cached(gui_app.font(FontWeight.NORMAL), self._wrapped_release_notes, AlertConstants.FONT_SIZE)
-      self._cached_content_height = max(size.y + 60, 100)
-
-    return self._cached_content_height
+    size = measure_text_cached(gui_app.font(FontWeight.NORMAL), self.release_notes, AlertConstants.FONT_SIZE)
+    return max(size.y + 60, 100)
 
   def _render_content(self, content_rect: rl.Rectangle):
     if self.release_notes:
       rl.draw_text_ex(
         gui_app.font(FontWeight.NORMAL),
-        self._wrapped_release_notes,
+        self.release_notes,
         rl.Vector2(content_rect.x + 30, content_rect.y + 30),
         AlertConstants.FONT_SIZE,
         0.0,

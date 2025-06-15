@@ -6,7 +6,7 @@ from abc import ABC
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.text_measure import measure_text_cached
-from openpilot.system.ui.lib.wrap_text import wrap_text
+from openpilot.system.ui.lib.label import draw_wrapped_text, get_wrapped_text_height
 from openpilot.system.ui.lib.button import gui_button, ButtonStyle
 from openpilot.system.ui.lib.toggle import Toggle, WIDTH as TOGGLE_WIDTH, HEIGHT as TOGGLE_HEIGHT
 from openpilot.system.ui.lib.widget import Widget
@@ -213,12 +213,6 @@ class ListItem:
   action_item: ItemAction | None = None
   visible: bool | Callable[[], bool] = True
 
-  # Cached properties for performance
-  _prev_max_width: int = 0
-  _wrapped_description: str | None = None
-  _prev_description: str | None = None
-  _description_height: float = 0
-
   @property
   def is_visible(self) -> bool:
     return bool(_resolve_value(self.visible, True))
@@ -232,24 +226,9 @@ class ListItem:
 
     current_description = self.get_description()
     if self.description_visible and current_description:
-      if (
-        not self._wrapped_description
-        or current_description != self._prev_description
-        or max_width != self._prev_max_width
-      ):
-        self._prev_max_width = max_width
-        self._prev_description = current_description
-
-        wrapped_lines = wrap_text(font, current_description, ITEM_DESC_FONT_SIZE, max_width)
-        self._wrapped_description = "\n".join(wrapped_lines)
-        self._description_height = len(wrapped_lines) * ITEM_DESC_FONT_SIZE + 10
-      return ITEM_BASE_HEIGHT + self._description_height - (ITEM_BASE_HEIGHT - ITEM_DESC_V_OFFSET) + ITEM_PADDING
+      height = get_wrapped_text_height(FontWeight.NORMAL, current_description, ITEM_DESC_FONT_SIZE, max_width)
+      return ITEM_BASE_HEIGHT + height - (ITEM_BASE_HEIGHT - ITEM_DESC_V_OFFSET) + ITEM_PADDING
     return ITEM_BASE_HEIGHT
-
-  def get_content_width(self, total_width: int) -> int:
-    if self.action_item and self.action_item.get_width() > 0:
-      return total_width - self.action_item.get_width() - RIGHT_ITEM_PADDING
-    return total_width
 
   def get_right_item_rect(self, item_rect: rl.Rectangle) -> rl.Rectangle:
     if not self.action_item:
@@ -325,7 +304,7 @@ class ListView(Widget):
         item.rect = rl.Rectangle(self._rect.x, self._rect.y + current_y, self._rect.width, 0)
         continue
 
-      content_width = item.get_content_width(int(self._rect.width - ITEM_PADDING * 2))
+      content_width = int(self._rect.width - ITEM_PADDING * 2)
       item_height = item.get_item_height(self._font, content_width)
       item.rect = rl.Rectangle(self._rect.x, self._rect.y + current_y, self._rect.width, item_height)
       current_y += item_height
@@ -350,15 +329,9 @@ class ListView(Widget):
 
     # Draw description if visible
     current_description = item.get_description()
-    if item.description_visible and current_description and item._wrapped_description:
-      rl.draw_text_ex(
-        self._font,
-        item._wrapped_description,
-        rl.Vector2(text_x, y + ITEM_DESC_V_OFFSET),
-        ITEM_DESC_FONT_SIZE,
-        0,
-        ITEM_DESC_TEXT_COLOR,
-      )
+    if item.description_visible and current_description:
+      draw_wrapped_text(FontWeight.NORMAL, current_description, text_x,
+                        y + ITEM_DESC_V_OFFSET, int(item.rect.width - ITEM_PADDING * 2), ITEM_DESC_FONT_SIZE, ITEM_DESC_TEXT_COLOR)
 
     # Draw right item if present
     if item.action_item:

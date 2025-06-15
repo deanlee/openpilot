@@ -5,7 +5,7 @@ from typing import Literal
 import pyray as rl
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.button import ButtonStyle, gui_button
-from openpilot.system.ui.lib.label import gui_label
+from openpilot.system.ui.lib.label import gui_label, Align
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.wifi_manager import NetworkInfo, WifiManagerCallbacks, WifiManagerWrapper, SecurityType
 from openpilot.system.ui.widgets.keyboard import Keyboard
@@ -85,7 +85,7 @@ class WifiManagerUI(Widget):
   def _render(self, rect: rl.Rectangle):
     with self._lock:
       if not self._networks:
-        gui_label(rect, "Scanning Wi-Fi networks...", 72, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+        gui_label(rect, "Scanning Wi-Fi networks...", 72, align=Align.CENTER)
         return
 
       match self.state:
@@ -152,7 +152,7 @@ class WifiManagerUI(Widget):
 
     if status_text:
       status_text_rect = rl.Rectangle(security_icon_rect.x - 410, rect.y, 410, ITEM_HEIGHT)
-      gui_label(status_text_rect, status_text, font_size=48, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER)
+      gui_label(status_text_rect, status_text, font_size=48, align=Align.CENTER)
     else:
       # If the network is saved, show the "Forget" button
       if network.is_saved:

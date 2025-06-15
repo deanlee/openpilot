@@ -1,7 +1,7 @@
 import pyray as rl
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.button import gui_button, ButtonStyle
-from openpilot.system.ui.lib.label import gui_text_box
+from openpilot.system.ui.lib.label import gui_text_box, Align, VAlign
 from openpilot.system.ui.lib.widget import DialogResult
 
 DIALOG_WIDTH = 1520
@@ -31,14 +31,7 @@ def confirm_dialog(message: str, confirm_text: str, cancel_text: str = "Cancel")
 
   # Draw the message in the dialog, centered
   text_rect = rl.Rectangle(dialog_rect.x + MARGIN, dialog_rect.y, dialog_rect.width - 2 * MARGIN, dialog_rect.height - TEXT_AREA_HEIGHT_REDUCTION)
-  gui_text_box(
-    text_rect,
-    message,
-    font_size=70,
-    alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER,
-    alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE,
-    font_weight=FontWeight.BOLD,
-  )
+  gui_text_box(text_rect, message, font_size=70, align=Align.CENTER, valign=VAlign.MIDDLE,font_weight=FontWeight.BOLD)
 
   # Initialize result; -1 means no action taken yet
   result = DialogResult.NO_ACTION

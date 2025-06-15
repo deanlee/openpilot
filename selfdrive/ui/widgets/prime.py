@@ -2,9 +2,7 @@ import pyray as rl
 
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.application import gui_app, FontWeight
-from openpilot.system.ui.lib.label import gui_label
-from openpilot.system.ui.lib.wrap_text import wrap_text
-from openpilot.system.ui.lib.text_measure import measure_text_cached
+from openpilot.system.ui.lib.label import gui_label, draw_wrapped_text
 from openpilot.system.ui.lib.widget import Widget
 
 
@@ -33,13 +31,10 @@ class PrimeWidget(Widget):
 
     # Description with wrapping
     desc_y = y + 140
-    font = gui_app.font(FontWeight.LIGHT)
-    wrapped_text = "\n".join(wrap_text(font, "Become a comma prime member at connect.comma.ai", 56, int(w)))
-    text_size = measure_text_cached(font, wrapped_text, 56)
-    rl.draw_text_ex(font, wrapped_text, rl.Vector2(x, desc_y), 56, 0, rl.Color(255, 255, 255, 255))
+    height = draw_wrapped_text(FontWeight.LIGHT, "Become a comma prime member at connect.comma.ai", x, desc_y, w, 56)
 
     # Features section
-    features_y = desc_y + text_size.y + 50
+    features_y = desc_y + height + 50
     gui_label(rl.Rectangle(x, features_y, w, 50), "PRIME FEATURES:", 41, font_weight=FontWeight.BOLD)
 
     # Feature list
