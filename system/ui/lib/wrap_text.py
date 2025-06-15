@@ -2,6 +2,9 @@ import pyray as rl
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 
 
+_cache: dict[int, list[str]] = {}
+
+
 def _break_long_word(font: rl.Font, word: str, font_size: int, max_width: int) -> list[str]:
   if not word:
     return []
@@ -39,6 +42,10 @@ def _break_long_word(font: rl.Font, word: str, font_size: int, max_width: int) -
 def wrap_text(font: rl.Font, text: str, font_size: int, max_width: int) -> list[str]:
   if not text or max_width <= 0:
     return []
+
+  key = hash((font.texture.id, text, font_size, max_width))
+  if key in _cache:
+    return _cache[key]
 
   # Split text by newlines first to preserve explicit line breaks
   paragraphs = text.split('\n')
@@ -100,4 +107,5 @@ def wrap_text(font: rl.Font, text: str, font_size: int, max_width: int) -> list[
     # Add all lines from this paragraph
     all_lines.extend(lines)
 
+  _cache[key] = all_lines
   return all_lines
