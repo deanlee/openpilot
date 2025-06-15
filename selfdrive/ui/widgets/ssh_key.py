@@ -16,7 +16,6 @@ from openpilot.system.ui.lib.list_view import (
   BUTTON_FONT_SIZE,
   BUTTON_WIDTH,
 )
-from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.widget import DialogResult
 from openpilot.system.ui.widgets.confirm_dialog import alert_dialog
 from openpilot.system.ui.widgets.keyboard import Keyboard

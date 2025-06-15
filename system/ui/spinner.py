@@ -6,7 +6,7 @@ import sys
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.widget import Widget
-from openpilot.system.ui.text import wrap_text
+from openpilot.system.ui.lib.wrap_text import wrap_text
 
 # Constants
 PROGRESS_BAR_WIDTH = 1000
@@ -38,7 +38,7 @@ class Spinner(Widget):
       self._wrapped_lines = []
     else:
       self._progress = None
-      self._wrapped_lines = wrap_text(text, FONT_SIZE, gui_app.width - MARGIN_H)
+      self._wrapped_lines = wrap_text(gui_app.font(), text, FONT_SIZE, gui_app.width - MARGIN_H)
 
   def _render(self, rect: rl.Rectangle):
     if self._wrapped_lines:

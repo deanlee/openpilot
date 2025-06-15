@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-import re
 import sys
 import pyray as rl
 from openpilot.system.hardware import HARDWARE, PC
-from openpilot.system.ui.lib.text_measure import measure_text_cached
+from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.button import gui_button, ButtonStyle
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.application import gui_app
@@ -18,40 +17,11 @@ BUTTON_SIZE = rl.Vector2(310, 160)
 DEMO_TEXT = """This is a sample text that will be wrapped and scrolled if necessary.
             The text is long enough to demonstrate scrolling and word wrapping.""" * 30
 
-
-def wrap_text(text, font_size, max_width):
-  lines = []
-  font = gui_app.font()
-
-  for paragraph in text.split("\n"):
-    if not paragraph.strip():
-      # Don't add empty lines first, ensuring wrap_text("") returns []
-      if lines:
-        lines.append("")
-      continue
-    indent = re.match(r"^\s*", paragraph).group()
-    current_line = indent
-    words = re.split(r"(\s+)", paragraph[len(indent):])
-    while len(words):
-      word = words.pop(0)
-      test_line = current_line + word + (words.pop(0) if words else "")
-      if measure_text_cached(font, test_line, font_size).x <= max_width:
-        current_line = test_line
-      else:
-        lines.append(current_line)
-        current_line = word + " "
-    current_line = current_line.rstrip()
-    if current_line:
-      lines.append(current_line)
-
-  return lines
-
-
 class TextWindow(Widget):
   def __init__(self, text: str):
     super().__init__()
     self._textarea_rect = rl.Rectangle(MARGIN, MARGIN, gui_app.width - MARGIN * 2, gui_app.height - MARGIN * 2)
-    self._wrapped_lines = wrap_text(text, FONT_SIZE, self._textarea_rect.width - 20)
+    self._wrapped_lines = wrap_text(gui_app.font(), text, FONT_SIZE, int(self._textarea_rect.width) - 20)
     self._content_rect = rl.Rectangle(0, 0, self._textarea_rect.width - 20, len(self._wrapped_lines) * LINE_HEIGHT)
     self._scroll_panel = GuiScrollPanel(show_vertical_scroll_bar=True)
     self._scroll_panel._offset.y = -max(self._content_rect.height - self._textarea_rect.height, 0)
