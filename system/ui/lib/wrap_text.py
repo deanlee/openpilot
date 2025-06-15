@@ -2,110 +2,86 @@ import pyray as rl
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 
 
-_cache: dict[int, list[str]] = {}
-
-
 def _break_long_word(font: rl.Font, word: str, font_size: int, max_width: int) -> list[str]:
-  if not word:
-    return []
-
+  """Break a word that's too long to fit on a single line."""
   parts = []
   remaining = word
 
   while remaining:
-    if measure_text_cached(font, remaining, font_size).x <= max_width:
-      parts.append(remaining)
-      break
+    # Binary search to find largest substring that fits
+    left, right = 0, len(remaining)
 
-    # Binary search for the longest substring that fits
-    left, right = 1, len(remaining)
-    best_fit = 1
-
-    while left <= right:
-      mid = (left + right) // 2
-      substring = remaining[:mid]
-      width = measure_text_cached(font, substring, font_size).x
-
-      if width <= max_width:
-        best_fit = mid
-        left = mid + 1
+    while left < right:
+      mid = (left + right + 1) // 2
+      if rl.measure_text_ex(font, remaining[:mid], font_size, 0).x <= max_width: # noqa: TID251
+        left = mid
       else:
         right = mid - 1
 
-    # Add the part that fits
-    parts.append(remaining[:best_fit])
-    remaining = remaining[best_fit:]
+    # Add part that fits and continue with remainder
+    parts.append(remaining[:left])
+    remaining = remaining[left:]
+
+    # Handle case where not even a single character fits
+    if left == 0 and remaining:
+      parts.append(remaining[0])
+      remaining = remaining[1:]
 
   return parts
 
 
 def wrap_text(font: rl.Font, text: str, font_size: int, max_width: int) -> list[str]:
+  """Wrap text to fit within the specified width."""
   if not text or max_width <= 0:
     return []
 
-  key = hash((font.texture.id, text, font_size, max_width))
-  if key in _cache:
-    return _cache[key]
-
-  # Split text by newlines first to preserve explicit line breaks
+  # Split by newlines to preserve explicit line breaks
   paragraphs = text.split('\n')
-  all_lines: list[str] = []
+  result = []
+  space_width = measure_text_cached(font, " ", font_size).x
 
   for paragraph in paragraphs:
-    # Handle empty paragraphs (preserve empty lines)
-    if not paragraph.strip():
-      all_lines.append("")
+    # Handle empty paragraphs
+    if not paragraph:
+      result.append("")
       continue
 
-    # Process each paragraph separately
     words = paragraph.split()
     if not words:
-      all_lines.append("")
+      result.append("")
       continue
 
-    lines: list[str] = []
-    current_line: list[str] = []
+    current_line = []
     current_width = 0
-    space_width = int(measure_text_cached(font, " ", font_size).x)
 
     for word in words:
-      word_width = int(measure_text_cached(font, word, font_size).x)
+      word_width = measure_text_cached(font, word, font_size).x
 
-      # Check if word alone exceeds max width (need to break the word)
+      # If word is too long for a line, break it and start new line
       if word_width > max_width:
-        # Finish current line if it has content
         if current_line:
-          lines.append(" ".join(current_line))
+          result.append(" ".join(current_line))
           current_line = []
-          current_width = 0
-
-        # Break the long word into parts
-        lines.extend(_break_long_word(font, word, font_size, max_width))
+        result.extend(_break_long_word(font, word, font_size, max_width))
+        current_width = 0
         continue
 
-      # Calculate width if we add this word
-      needed_width = current_width
-      if current_line:  # Need space before word
-        needed_width += space_width
-      needed_width += word_width
+      # Calculate width with this word
+      line_width = current_width + word_width
+      if current_line:  # Add space width if not first word
+        line_width += space_width
 
-      # Check if word fits on current line
-      if needed_width <= max_width:
+      # Add to current line or start new line
+      if line_width <= max_width or not current_line:
         current_line.append(word)
-        current_width = needed_width
+        current_width = line_width
       else:
-        # Start new line with this word
-        if current_line:
-          lines.append(" ".join(current_line))
+        result.append(" ".join(current_line))
         current_line = [word]
         current_width = word_width
 
-    # Add remaining words
+    # Add any remaining content
     if current_line:
-      lines.append(" ".join(current_line))
+      result.append(" ".join(current_line))
 
-    # Add all lines from this paragraph
-    all_lines.extend(lines)
-
-  _cache[key] = all_lines
-  return all_lines
+  return result
