@@ -6,6 +6,7 @@ from enum import Enum
 
 from openpilot.common.params import Params
 from openpilot.system.ui.lib.application import gui_app, FontWeight
+from openpilot.system.ui.lib.label import draw_text_right
 from openpilot.system.ui.lib.button import gui_button, ButtonStyle
 from openpilot.system.ui.lib.list_view import (
   ItemAction,
@@ -55,15 +56,8 @@ class SshKeyAction(ItemAction):
 
     # Draw username if exists
     if self._username:
-      text_size = measure_text_cached(self._text_font, self._username, BUTTON_FONT_SIZE)
-      rl.draw_text_ex(
-        self._text_font,
-        self._username,
-        (rect.x + rect.width - BUTTON_WIDTH - text_size.x - 30, rect.y + (rect.height - text_size.y) / 2),
-        BUTTON_FONT_SIZE,
-        1.0,
-        rl.WHITE,
-      )
+      name_rect = rl.Rectangle(rect.x, rect.y, rect.width - BUTTON_WIDTH - 30, rect.height)
+      draw_text_right(FontWeight.MEDIUM, self._username, name_rect, BUTTON_FONT_SIZE, rl.WHITE)
 
     # Draw button
     if gui_button(

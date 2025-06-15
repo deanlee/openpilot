@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from openpilot.common.params import Params
 from openpilot.system.hardware import HARDWARE
+from openpilot.system.ui.lib.label import draw_text_center
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.text_measure import measure_text_cached
@@ -138,43 +139,23 @@ class AbstractAlert(Widget, ABC):
 
   def _render_footer(self, rect: rl.Rectangle):
     footer_y = rect.y + rect.height - AlertConstants.MARGIN - AlertConstants.BUTTON_SIZE[1]
-    font = gui_app.font(FontWeight.MEDIUM)
 
     self.dismiss_btn_rect.x = rect.x + AlertConstants.MARGIN
     self.dismiss_btn_rect.y = footer_y
     rl.draw_rectangle_rounded(self.dismiss_btn_rect, 0.3, 10, AlertColors.BUTTON)
-
-    text = "Close"
-    text_width = measure_text_cached(font, text, AlertConstants.FONT_SIZE).x
-    text_x = self.dismiss_btn_rect.x + (AlertConstants.BUTTON_SIZE[0] - text_width) // 2
-    text_y = self.dismiss_btn_rect.y + (AlertConstants.BUTTON_SIZE[1] - AlertConstants.FONT_SIZE) // 2
-    rl.draw_text_ex(
-      font, text, rl.Vector2(int(text_x), int(text_y)), AlertConstants.FONT_SIZE, 0, AlertColors.BUTTON_TEXT
-    )
+    draw_text_center(FontWeight.MEDIUM, "Close", self.dismiss_btn_rect, AlertConstants.FONT_SIZE, AlertColors.BUTTON_TEXT)
 
     if self.snooze_visible:
       self.snooze_btn_rect.x = rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.SNOOZE_BUTTON_SIZE[0]
       self.snooze_btn_rect.y = footer_y
       rl.draw_rectangle_rounded(self.snooze_btn_rect, 0.3, 10, AlertColors.SNOOZE_BG)
-
-      text = "Snooze Update"
-      text_width = measure_text_cached(font, text, AlertConstants.FONT_SIZE).x
-      text_x = self.snooze_btn_rect.x + (AlertConstants.SNOOZE_BUTTON_SIZE[0] - text_width) // 2
-      text_y = self.snooze_btn_rect.y + (AlertConstants.SNOOZE_BUTTON_SIZE[1] - AlertConstants.FONT_SIZE) // 2
-      rl.draw_text_ex(font, text, rl.Vector2(int(text_x), int(text_y)), AlertConstants.FONT_SIZE, 0, AlertColors.TEXT)
+      draw_text_center(FontWeight.MEDIUM, "Snooze Update", self.snooze_btn_rect, AlertConstants.FONT_SIZE, AlertColors.TEXT)
 
     elif self.has_reboot_btn:
       self.reboot_btn_rect.x = rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.REBOOT_BUTTON_SIZE[0]
       self.reboot_btn_rect.y = footer_y
       rl.draw_rectangle_rounded(self.reboot_btn_rect, 0.3, 10, AlertColors.BUTTON)
-
-      text = "Reboot and Update"
-      text_width = measure_text_cached(font, text, AlertConstants.FONT_SIZE).x
-      text_x = self.reboot_btn_rect.x + (AlertConstants.REBOOT_BUTTON_SIZE[0] - text_width) // 2
-      text_y = self.reboot_btn_rect.y + (AlertConstants.REBOOT_BUTTON_SIZE[1] - AlertConstants.FONT_SIZE) // 2
-      rl.draw_text_ex(
-        font, text, rl.Vector2(int(text_x), int(text_y)), AlertConstants.FONT_SIZE, 0, AlertColors.BUTTON_TEXT
-      )
+      draw_text_center(FontWeight.MEDIUM, "Reboot and Update", self.reboot_btn_rect, AlertConstants.FONT_SIZE, AlertColors.BUTTON_TEXT)
 
 
 class OffroadAlert(AbstractAlert):
@@ -323,9 +304,3 @@ class UpdateAlert(AbstractAlert):
         0.0,
         AlertColors.TEXT,
       )
-    else:
-      no_notes_text = "No release notes available."
-      text_width = rl.measure_text(no_notes_text, AlertConstants.FONT_SIZE)
-      text_x = content_rect.x + (content_rect.width - text_width) // 2
-      text_y = content_rect.y + 50
-      rl.draw_text(no_notes_text, int(text_x), int(text_y), AlertConstants.FONT_SIZE, AlertColors.TEXT)

@@ -5,7 +5,7 @@ from collections.abc import Callable
 from cereal import log
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.application import gui_app, FontWeight
-from openpilot.system.ui.lib.text_measure import measure_text_cached
+from openpilot.system.ui.lib.label import draw_text_center
 from openpilot.system.ui.lib.widget import Widget
 
 SIDEBAR_WIDTH = 300
@@ -75,7 +75,6 @@ class Sidebar(Widget):
     self._flag_img = gui_app.texture("images/button_flag.png", HOME_BTN.width, HOME_BTN.height)
     self._settings_img = gui_app.texture("images/button_settings.png", SETTINGS_BTN.width, SETTINGS_BTN.height)
     self._font_regular = gui_app.font(FontWeight.NORMAL)
-    self._font_bold = gui_app.font(FontWeight.SEMI_BOLD)
 
     # Callbacks
     self._on_settings_click: Callable | None = None
@@ -174,7 +173,7 @@ class Sidebar(Widget):
 
     # Network type text
     text_y = rect.y + 247
-    text_pos = rl.Vector2(rect.x + 58, text_y)
+    text_pos = rl.Vector2(x_start, text_y)
     rl.draw_text_ex(self._font_regular, self._net_type, text_pos, 35, 0, Colors.WHITE)
 
   def _draw_metrics(self, rect: rl.Rectangle):
@@ -196,9 +195,5 @@ class Sidebar(Widget):
 
     # Draw text
     text = f"{metric.label}\n{metric.value}"
-    text_size = measure_text_cached(self._font_bold, text, 35)
-    text_pos = rl.Vector2(
-      metric_rect.x + 22 + (metric_rect.width - 22 - text_size.x) / 2,
-      metric_rect.y + (metric_rect.height - text_size.y) / 2
-    )
-    rl.draw_text_ex(self._font_bold, text, text_pos, 35, 0, Colors.WHITE)
+    metric_rect.x += 11  # Adjust x position for text
+    draw_text_center(FontWeight.SEMI_BOLD, text, metric_rect, 35, Colors.WHITE)
