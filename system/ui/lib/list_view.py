@@ -185,7 +185,7 @@ class MultipleButtonAction(ItemAction):
       rl.draw_rectangle_rounded(button_rect, 1.0, 20, bg_color)
 
       # Draw text
-      text_size = measure_text_cached(self._font, text, 40)
+      text_size =   (self._font, text, 40)
       text_x = button_x + (self.button_width - text_size.x) / 2
       text_y = button_y + (100 - text_size.y) / 2
       rl.draw_text_ex(self._font, text, rl.Vector2(text_x, text_y), 40, 0, rl.Color(228, 228, 228, 255))
@@ -213,12 +213,6 @@ class ListItem:
   action_item: ItemAction | None = None
   visible: bool | Callable[[], bool] = True
 
-  # Cached properties for performance
-  _prev_max_width: int = 0
-  _wrapped_description: str | None = None
-  _prev_description: str | None = None
-  _description_height: float = 0
-
   @property
   def is_visible(self) -> bool:
     return bool(_resolve_value(self.visible, True))
@@ -232,18 +226,9 @@ class ListItem:
 
     current_description = self.get_description()
     if self.description_visible and current_description:
-      if (
-        not self._wrapped_description
-        or current_description != self._prev_description
-        or max_width != self._prev_max_width
-      ):
-        self._prev_max_width = max_width
-        self._prev_description = current_description
-
-        wrapped_lines = wrap_text(font, current_description, ITEM_DESC_FONT_SIZE, max_width)
-        self._wrapped_description = "\n".join(wrapped_lines)
-        self._description_height = len(wrapped_lines) * ITEM_DESC_FONT_SIZE + 10
-      return ITEM_BASE_HEIGHT + self._description_height - (ITEM_BASE_HEIGHT - ITEM_DESC_V_OFFSET) + ITEM_PADDING
+      lines = wrap_text(font, current_description, ITEM_DESC_FONT_SIZE, max_width)
+      height = len(lines) * ITEM_DESC_FONT_SIZE + 10
+      return ITEM_BASE_HEIGHT + height - (ITEM_BASE_HEIGHT - ITEM_DESC_V_OFFSET) + ITEM_PADDING
     return ITEM_BASE_HEIGHT
 
   def get_content_width(self, total_width: int) -> int:
@@ -350,10 +335,11 @@ class ListView(Widget):
 
     # Draw description if visible
     current_description = item.get_description()
-    if item.description_visible and current_description and item._wrapped_description:
+    if item.description_visible and current_description:
+      lines = wrap_text(self._font, current_description, ITEM_DESC_FONT_SIZE, item.rect.width - ITEM_PADDING * 2)
       rl.draw_text_ex(
         self._font,
-        item._wrapped_description,
+        "\n".join(lines),
         rl.Vector2(text_x, y + ITEM_DESC_V_OFFSET),
         ITEM_DESC_FONT_SIZE,
         0,
