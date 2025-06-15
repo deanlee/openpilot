@@ -34,22 +34,35 @@ def gui_label(
     text_size = measure_text_cached(font, display_text, font_size)
 
   # Calculate horizontal position based on alignment
-  text_x = rect.x + {
-    rl.GuiTextAlignment.TEXT_ALIGN_LEFT: 0,
-    rl.GuiTextAlignment.TEXT_ALIGN_CENTER: (rect.width - text_size.x) / 2,
-    rl.GuiTextAlignment.TEXT_ALIGN_RIGHT: rect.width - text_size.x,
-  }.get(alignment, 0)
+  if alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
+    text_x = rect.x
+  elif alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
+    text_x = rect.x + (rect.width - text_size.x) / 2
+  elif alignment == rl.GuiTextAlignment.TEXT_ALIGN_RIGHT:
+    text_x = rect.x + rect.width - text_size.x
 
-  # Calculate vertical position based on alignment
-  text_y = rect.y + {
-    rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP: 0,
-    rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE: (rect.height - text_size.y) / 2,
-    rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM: rect.height - text_size.y,
-  }.get(alignment_vertical, 0)
+  if alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP:
+    text_y = rect.y
+  elif alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
+    text_y = rect.y + (rect.height - text_size.y) / 2
+  elif alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM:
+    text_y = rect.y + rect.height - text_size.y
 
   # Draw the text in the specified rectangle
   rl.draw_text_ex(font, display_text, rl.Vector2(text_x, text_y), font_size, 0, color)
 
+
+def draw_text_left(font_weight: FontWeight, text: str, rect: rl.Rectangle, font_size: int, color: rl.Color):
+  gui_label(rect, text,font_size, color, font_weight=font_weight)
+
+def draw_text_center(font_weight: FontWeight, text: str, rect: rl.Rectangle, font_size: int, color: rl.Color):
+  gui_label(rect, text,font_size, color, font_weight=font_weight, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER,
+             alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
+
+
+def draw_text_right(font_weight: FontWeight, text: str, rect: rl.Rectangle, font_size: int, color: rl.Color):
+  gui_label(rect, text, font_size, color, font_weight=font_weight, alignment=rl.GuiTextAlignment.TEXT_ALIGN_RIGHT,
+            alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
 
 def gui_text_box(
   rect: rl.Rectangle,

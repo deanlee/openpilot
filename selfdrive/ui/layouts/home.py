@@ -7,8 +7,8 @@ from openpilot.selfdrive.ui.widgets.offroad_alerts import UpdateAlert, OffroadAl
 from openpilot.selfdrive.ui.widgets.exp_mode_button import ExperimentalModeButton
 from openpilot.selfdrive.ui.widgets.prime import PrimeWidget
 from openpilot.selfdrive.ui.widgets.setup import SetupWidget
-from openpilot.system.ui.lib.text_measure import measure_text_cached
-from openpilot.system.ui.lib.application import gui_app, FontWeight, DEFAULT_TEXT_COLOR
+from openpilot.system.ui.lib.label import draw_text_center, draw_text_right
+from openpilot.system.ui.lib.application import FontWeight, DEFAULT_TEXT_COLOR
 from openpilot.system.ui.lib.widget import Widget
 
 HEADER_HEIGHT = 80
@@ -131,19 +131,12 @@ class HomeLayout(Widget):
       self.offroad_alert.handle_input(mouse_pos, True)
 
   def _render_header(self):
-    font = gui_app.font(FontWeight.MEDIUM)
-
     # Update notification button
     if self.update_available:
       # Highlight if currently viewing updates
       highlight_color = rl.Color(255, 140, 40, 255) if self.current_state == HomeLayoutState.UPDATE else rl.Color(255, 102, 0, 255)
       rl.draw_rectangle_rounded(self.update_notif_rect, 0.3, 10, highlight_color)
-
-      text = "UPDATE"
-      text_width = measure_text_cached(font, text, HEAD_BUTTON_FONT_SIZE).x
-      text_x = self.update_notif_rect.x + (self.update_notif_rect.width - text_width) // 2
-      text_y = self.update_notif_rect.y + (self.update_notif_rect.height - HEAD_BUTTON_FONT_SIZE) // 2
-      rl.draw_text_ex(font, text, rl.Vector2(int(text_x), int(text_y)), HEAD_BUTTON_FONT_SIZE, 0, rl.WHITE)
+      draw_text_center(FontWeight.MEDIUM, "UPDATE", self.update_notif_rect, HEAD_BUTTON_FONT_SIZE, rl.WHITE)
 
     # Alert notification button
     if self.alert_count > 0:
@@ -152,17 +145,10 @@ class HomeLayout(Widget):
       rl.draw_rectangle_rounded(self.alert_notif_rect, 0.3, 10, highlight_color)
 
       alert_text = f"{self.alert_count} ALERT{'S' if self.alert_count > 1 else ''}"
-      text_width = measure_text_cached(font, alert_text, HEAD_BUTTON_FONT_SIZE).x
-      text_x = self.alert_notif_rect.x + (self.alert_notif_rect.width - text_width) // 2
-      text_y = self.alert_notif_rect.y + (self.alert_notif_rect.height - HEAD_BUTTON_FONT_SIZE) // 2
-      rl.draw_text_ex(font, alert_text, rl.Vector2(int(text_x), int(text_y)), HEAD_BUTTON_FONT_SIZE, 0, rl.WHITE)
+      draw_text_center(FontWeight.MEDIUM, alert_text, self.alert_notif_rect, HEAD_BUTTON_FONT_SIZE, rl.WHITE)
 
     # Version text (right aligned)
-    version_text = self._get_version_text()
-    text_width = measure_text_cached(gui_app.font(FontWeight.NORMAL), version_text, 48).x
-    version_x = self.header_rect.x + self.header_rect.width - text_width
-    version_y = self.header_rect.y + (self.header_rect.height - 48) // 2
-    rl.draw_text_ex(gui_app.font(FontWeight.NORMAL), version_text, rl.Vector2(int(version_x), int(version_y)), 48, 0, DEFAULT_TEXT_COLOR)
+    draw_text_right(FontWeight.NORMAL, self._get_version_text(), self.header_rect, 48, DEFAULT_TEXT_COLOR)
 
   def _render_home_content(self):
     self._render_left_column()
