@@ -7,7 +7,7 @@ MAX_GRADIENT_COLORS = 15
 
 VERSION = """
 #version 300 es
-precision mediump float;
+precision highp float;
 """
 if platform.system() == "Darwin":
   VERSION = """
@@ -52,40 +52,42 @@ vec4 getGradientColor(vec2 pos) {
 bool isPointInsidePolygon(vec2 p) {
   if (pointCount < 3) return false;
   int crossings = 0;
+
   for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
     vec2 pi = points[i];
     vec2 pj = points[j];
-    if (distance(pi, pj) < 0.001) continue;
-    if (((pi.y > p.y) != (pj.y > p.y)) &&
-        (p.x < (pj.x - pi.x) * (p.y - pi.y) / (pj.y - pi.y + 0.001) + pi.x)) {
-      crossings++;
+
+    // Fix: Skip degenerate edges more carefully
+    if (abs(pi.y - pj.y) < 0.0001) continue;
+
+    // Fix: Use a slightly offset test point to avoid edge precision issues
+    vec2 testPoint = p + vec2(0.00001, 0.00001);
+
+    // Fix: More robust ray casting
+    if (((pi.y > testPoint.y) != (pj.y > testPoint.y))) {
+      float intersectX = pi.x + (pj.x - pi.x) * (testPoint.y - pi.y) / (pj.y - pi.y);
+      if (testPoint.x < intersectX) {
+        crossings++;
+      }
     }
   }
   return (crossings & 1) == 1;
 }
 
 float distanceToEdge(vec2 p) {
-  float minDist = 1000.0;
+  float minDist = 10000.0;
 
   for (int i = 0, j = pointCount - 1; i < pointCount; j = i++) {
-    vec2 edge0 = points[j];
-    vec2 edge1 = points[i];
+    vec2 a = points[j];
+    vec2 b = points[i];
 
-    if (distance(edge0, edge1) < 0.0001) continue;
+    // Fix: More robust distance calculation
+    vec2 pa = p - a;
+    vec2 ba = b - a;
 
-    vec2 v1 = p - edge0;
-    vec2 v2 = edge1 - edge0;
-    float l2 = dot(v2, v2);
-
-    if (l2 < 0.0001) {
-      float dist = length(v1);
-      minDist = min(minDist, dist);
-      continue;
-    }
-
-    float t = clamp(dot(v1, v2) / l2, 0.0, 1.0);
-    vec2 projection = edge0 + t * v2;
-    float dist = length(p - projection);
+    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+    vec2 closest = a + h * ba;
+    float dist = length(p - closest);
     minDist = min(minDist, dist);
   }
 
@@ -95,28 +97,38 @@ float distanceToEdge(vec2 p) {
 void main() {
   vec2 pixel = fragTexCoord * resolution;
 
-  // Compute pixel size for anti-aliasing
-  vec2 pixelGrad = vec2(dFdx(pixel.x), dFdy(pixel.y));
-  float pixelSize = length(pixelGrad);
-  float aaWidth = max(0.5, pixelSize * 1.5);
+  // Fix: Clamp to prevent edge artifacts
+  pixel = clamp(pixel, vec2(0.5), resolution - vec2(0.5));
+
+  // Fix: More conservative anti-aliasing
+  float pixelSize = length(vec2(dFdx(pixel.x), dFdy(pixel.y)));
+  float aaWidth = clamp(pixelSize * 0.5, 0.2, 0.8);
 
   bool inside = isPointInsidePolygon(pixel);
+
   if (inside) {
-    finalColor = useGradient == 1 ? getGradientColor(pixel) : fillColor;
+    vec4 color = useGradient == 1 ? getGradientColor(pixel) : fillColor;
+    finalColor = color;
     return;
   }
 
   float sd = -distanceToEdge(pixel);
-  float alpha = smoothstep(-aaWidth, aaWidth, sd);
-  if (alpha > 0.0){
+
+  // Fix: Much more conservative alpha blending
+  if (sd > aaWidth) {
+    discard;
+  }
+
+  float alpha = smoothstep(-aaWidth, 0.0, sd);
+
+  if (alpha > 0.01) {
     vec4 color = useGradient == 1 ? getGradientColor(pixel) : fillColor;
     finalColor = vec4(color.rgb, color.a * alpha);
   } else {
-    finalColor = vec4(0.0);
+    discard;
   }
 }
 """
-
 # Default vertex shader
 VERTEX_SHADER = VERSION + """
 in vec3 vertexPosition;
