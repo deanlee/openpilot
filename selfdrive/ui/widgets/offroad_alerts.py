@@ -153,20 +153,17 @@ class OffroadAlert(AbstractAlert):
 
   def _render_content(self, content_rect: rl.Rectangle):
     y_offset = 20
-
+    text_width = int(content_rect.width - 90)
     for alert_data in self.sorted_alerts:
       if not alert_data.visible:
         continue
 
       bg_color = AlertColors.HIGH_SEVERITY if alert_data.severity > 0 else AlertColors.LOW_SEVERITY
-      text_width = int(content_rect.width - 90)
       alert_item_height = get_wrapped_text_height(FontWeight.NORMAL, alert_data.text, AlertConstants.FONT_SIZE, text_width) + 40
       alert_rect = rl.Rectangle(content_rect.x + 10, content_rect.y + y_offset, content_rect.width - 30, alert_item_height)
       rl.draw_rectangle_rounded(alert_rect, 0.2, 10, bg_color)
-
-      text_x = alert_rect.x + 30
-      text_y = alert_rect.y + 20
-      draw_wrapped_text(FontWeight.NORMAL, alert_data.text, text_x, text_y, text_width, AlertConstants.FONT_SIZE, rl.WHITE)
+      draw_wrapped_text(FontWeight.NORMAL, alert_data.text, alert_rect.x + 30, alert_rect.y + 20,
+                        text_width, AlertConstants.FONT_SIZE, rl.WHITE)
       y_offset += alert_item_height + AlertConstants.ALERT_SPACING
 
 
