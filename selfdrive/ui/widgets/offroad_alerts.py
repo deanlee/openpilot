@@ -17,16 +17,10 @@ class AlertColors:
   HIGH_SEVERITY = rl.Color(226, 44, 44, 255)
   LOW_SEVERITY = rl.Color(41, 41, 41, 255)
   BACKGROUND = rl.Color(57, 57, 57, 255)
-  BUTTON = rl.WHITE
-  BUTTON_TEXT = rl.BLACK
-  SNOOZE_BG = rl.Color(79, 79, 79, 255)
-  TEXT = rl.WHITE
 
 
 class AlertConstants:
-  BUTTON_SIZE = (400, 125)
-  SNOOZE_BUTTON_SIZE = (550, 125)
-  REBOOT_BUTTON_SIZE = (600, 125)
+  BUTTON_HEIGHT = 125
   MARGIN = 50
   SPACING = 30
   FONT_SIZE = 48
@@ -72,7 +66,7 @@ class AbstractAlert(Widget, ABC):
       rect.x + AlertConstants.MARGIN,
       rect.y + AlertConstants.MARGIN,
       rect.width - 2 * AlertConstants.MARGIN,
-      rect.height - 2 * AlertConstants.MARGIN - footer_height
+      rect.height - 2 * AlertConstants.MARGIN - footer_height,
     )
 
     self._render_scrollable_content(self.content_rect)
@@ -84,7 +78,9 @@ class AbstractAlert(Widget, ABC):
     scroll_offset = self.scroll_panel.handle_scroll(content_rect, content_bounds)
 
     rl.begin_scissor_mode(int(content_rect.x), int(content_rect.y), int(content_rect.width), int(content_rect.height))
-    content_rect_with_scroll = rl.Rectangle(content_rect.x, content_rect.y + scroll_offset.y, content_rect.width, content_height)
+    content_rect_with_scroll = rl.Rectangle(
+      content_rect.x, content_rect.y + scroll_offset.y, content_rect.width, content_height
+    )
     self._render_content(content_rect_with_scroll)
     rl.end_scissor_mode()
 
@@ -93,24 +89,21 @@ class AbstractAlert(Widget, ABC):
     pass
 
   def _render_footer(self, rect: rl.Rectangle):
-    footer_y = rect.y + rect.height - AlertConstants.MARGIN - AlertConstants.BUTTON_SIZE[1]
+    footer_y = rect.y + rect.height - AlertConstants.MARGIN - AlertConstants.BUTTON_HEIGHT
 
-    btn_rect = rl.Rectangle(rect.x + AlertConstants.MARGIN, footer_y, *AlertConstants.BUTTON_SIZE)
+    btn_rect = rl.Rectangle(rect.x + AlertConstants.MARGIN, footer_y, 400, AlertConstants.BUTTON_HEIGHT)
     if gui_button(btn_rect, "Close", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.WHITE):
       if self.dismiss_callback:
         self.dismiss_callback()
 
     if self.snooze_visible:
-      btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.SNOOZE_BUTTON_SIZE[0],
-                              footer_y, AlertConstants.SNOOZE_BUTTON_SIZE[0], AlertConstants.SNOOZE_BUTTON_SIZE[1])
+      btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - 550, footer_y, 550, AlertConstants.BUTTON_HEIGHT)
       if gui_button(btn_rect, "Snooze Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.LIST_ACTION):
         self.params.put_bool("SnoozeUpdate", True)
         if self.dismiss_callback:
           self.dismiss_callback()
-
     elif self.has_reboot_btn:
-      btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.REBOOT_BUTTON_SIZE[0],
-                              footer_y, AlertConstants.REBOOT_BUTTON_SIZE[0], AlertConstants.REBOOT_BUTTON_SIZE[1])
+      btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - 600, footer_y, 600, AlertConstants.BUTTON_HEIGHT)
       if gui_button(btn_rect, "Reboot and Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.WHITE):
         HARDWARE.reboot()
 
@@ -144,8 +137,11 @@ class OffroadAlert(AbstractAlert):
 
   def get_content_height(self) -> float:
     text_width = int(self.content_rect.width - 90)
-    alert_heights = [get_wrapped_text_height(FontWeight.NORMAL, alert.text, AlertConstants.FONT_SIZE, text_width) + 40
-                     for alert in self.sorted_alerts if alert.visible]
+    alert_heights = [
+      get_wrapped_text_height(FontWeight.NORMAL, alert.text, AlertConstants.FONT_SIZE, text_width) + 40
+      for alert in self.sorted_alerts
+      if alert.visible
+    ]
     if not alert_heights:
       return 0
     return sum(alert_heights) + 40 + (len(alert_heights) - 1) * AlertConstants.ALERT_SPACING
@@ -171,13 +167,19 @@ class OffroadAlert(AbstractAlert):
 
       bg_color = AlertColors.HIGH_SEVERITY if alert_data.severity > 0 else AlertColors.LOW_SEVERITY
       text_width = int(content_rect.width - 90)
-      alert_item_height = get_wrapped_text_height(FontWeight.NORMAL, alert_data.text, AlertConstants.FONT_SIZE, text_width) + 40
-      alert_rect = rl.Rectangle(content_rect.x + 10, content_rect.y + y_offset, content_rect.width - 30, alert_item_height)
+      alert_item_height = (
+        get_wrapped_text_height(FontWeight.NORMAL, alert_data.text, AlertConstants.FONT_SIZE, text_width) + 40
+      )
+      alert_rect = rl.Rectangle(
+        content_rect.x + 10, content_rect.y + y_offset, content_rect.width - 30, alert_item_height
+      )
       rl.draw_rectangle_rounded(alert_rect, 0.2, 10, bg_color)
 
       text_x = alert_rect.x + 30
       text_y = alert_rect.y + 20
-      draw_wrapped_text(FontWeight.NORMAL, alert_data.text, text_x, text_y, text_width, AlertConstants.FONT_SIZE, AlertColors.TEXT)
+      draw_wrapped_text(
+        FontWeight.NORMAL, alert_data.text, text_x, text_y, text_width, AlertConstants.FONT_SIZE, rl.WHITE
+      )
       y_offset += alert_item_height + AlertConstants.ALERT_SPACING
 
 
@@ -204,5 +206,5 @@ class UpdateAlert(AbstractAlert):
         rl.Vector2(content_rect.x + 30, content_rect.y + 30),
         AlertConstants.FONT_SIZE,
         0.0,
-        AlertColors.TEXT,
+        rl.WHITE,
       )
