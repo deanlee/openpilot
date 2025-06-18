@@ -68,7 +68,6 @@ class HomeLayout(Widget):
       self._refresh()
       self.last_refresh = current_time
 
-    self._handle_input()
     self._render_header()
 
     # Render content based on current state
@@ -85,17 +84,6 @@ class HomeLayout(Widget):
       self._rect.x + MARGIN, self._rect.y + MARGIN + HEADER_HEIGHT + SPACING,
       self._rect.width - 2 * MARGIN, self._rect.height - HEADER_HEIGHT - SPACING - 2 * MARGIN
     )
-
-  def _handle_input(self):
-    if not rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
-      return
-
-    mouse_pos = rl.get_mouse_position()
-    # Content area input handling
-    if self.state == State.UPDATE:
-      self.update_alert.handle_input(mouse_pos, True)
-    elif self.state == State.ALERTS:
-      self.offroad_alert.handle_input(mouse_pos, True)
 
   def _render_header(self):
     # Update notification button

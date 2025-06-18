@@ -5,6 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from openpilot.common.params import Params
 from openpilot.system.hardware import HARDWARE
+from openpilot.system.ui.lib.button import gui_button, ButtonStyle
 from openpilot.system.ui.lib.label import draw_text_center, draw_wrapped_text, get_wrapped_text_height
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.text_measure import measure_text_cached
@@ -48,10 +49,6 @@ class AbstractAlert(Widget, ABC):
     self.has_reboot_btn = has_reboot_btn
     self.dismiss_callback: Callable | None = None
 
-    self.dismiss_btn_rect = rl.Rectangle(0, 0, *AlertConstants.BUTTON_SIZE)
-    self.snooze_btn_rect = rl.Rectangle(0, 0, *AlertConstants.SNOOZE_BUTTON_SIZE)
-    self.reboot_btn_rect = rl.Rectangle(0, 0, *AlertConstants.REBOOT_BUTTON_SIZE)
-
     self.snooze_visible = False
     self.content_rect = rl.Rectangle(0, 0, 0, 0)
     self.scroll_panel = GuiScrollPanel()
@@ -66,27 +63,6 @@ class AbstractAlert(Widget, ABC):
   @abstractmethod
   def get_content_height(self) -> float:
     pass
-
-  def handle_input(self, mouse_pos: rl.Vector2, mouse_clicked: bool) -> bool:
-    if not mouse_clicked:
-      return False
-
-    if rl.check_collision_point_rec(mouse_pos, self.dismiss_btn_rect):
-      if self.dismiss_callback:
-        self.dismiss_callback()
-      return True
-
-    if self.snooze_visible and rl.check_collision_point_rec(mouse_pos, self.snooze_btn_rect):
-      self.params.put_bool("SnoozeUpdate", True)
-      if self.dismiss_callback:
-        self.dismiss_callback()
-      return True
-
-    if self.has_reboot_btn and rl.check_collision_point_rec(mouse_pos, self.reboot_btn_rect):
-      HARDWARE.reboot()
-      return True
-
-    return False
 
   def _render(self, rect: rl.Rectangle):
     rl.draw_rectangle_rounded(rect, AlertConstants.BORDER_RADIUS / rect.height, 10, AlertColors.BACKGROUND)
@@ -119,22 +95,24 @@ class AbstractAlert(Widget, ABC):
   def _render_footer(self, rect: rl.Rectangle):
     footer_y = rect.y + rect.height - AlertConstants.MARGIN - AlertConstants.BUTTON_SIZE[1]
 
-    self.dismiss_btn_rect.x = rect.x + AlertConstants.MARGIN
-    self.dismiss_btn_rect.y = footer_y
-    rl.draw_rectangle_rounded(self.dismiss_btn_rect, 0.3, 10, AlertColors.BUTTON)
-    draw_text_center(FontWeight.MEDIUM, "Close", self.dismiss_btn_rect, AlertConstants.FONT_SIZE, AlertColors.BUTTON_TEXT)
+    btn_rect = rl.Rectangle(rect.x + AlertConstants.MARGIN, footer_y, *AlertConstants.BUTTON_SIZE)
+    if gui_button(btn_rect, "Close", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.WHITE):
+      if self.dismiss_callback:
+        self.dismiss_callback()
 
     if self.snooze_visible:
-      self.snooze_btn_rect.x = rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.SNOOZE_BUTTON_SIZE[0]
-      self.snooze_btn_rect.y = footer_y
-      rl.draw_rectangle_rounded(self.snooze_btn_rect, 0.3, 10, AlertColors.SNOOZE_BG)
-      draw_text_center(FontWeight.MEDIUM, "Snooze Update", self.snooze_btn_rect, AlertConstants.FONT_SIZE, AlertColors.TEXT)
+      btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.SNOOZE_BUTTON_SIZE[0],
+                              footer_y, AlertConstants.SNOOZE_BUTTON_SIZE[0], AlertConstants.SNOOZE_BUTTON_SIZE[1])
+      if gui_button(btn_rect, "Snooze Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.NORMAL):
+        self.params.put_bool("SnoozeUpdate", True)
+        if self.dismiss_callback:
+          self.dismiss_callback()
 
     elif self.has_reboot_btn:
-      self.reboot_btn_rect.x = rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.REBOOT_BUTTON_SIZE[0]
-      self.reboot_btn_rect.y = footer_y
-      rl.draw_rectangle_rounded(self.reboot_btn_rect, 0.3, 10, AlertColors.BUTTON)
-      draw_text_center(FontWeight.MEDIUM, "Reboot and Update", self.reboot_btn_rect, AlertConstants.FONT_SIZE, AlertColors.BUTTON_TEXT)
+      btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.REBOOT_BUTTON_SIZE[0],
+                              footer_y, AlertConstants.REBOOT_BUTTON_SIZE[0], AlertConstants.REBOOT_BUTTON_SIZE[1])
+      if gui_button(btn_rect, "Reboot and Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.WHITE):
+        HARDWARE.reboot()
 
 
 class OffroadAlert(AbstractAlert):
