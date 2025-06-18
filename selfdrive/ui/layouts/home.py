@@ -7,7 +7,8 @@ from openpilot.selfdrive.ui.widgets.offroad_alerts import UpdateAlert, OffroadAl
 from openpilot.selfdrive.ui.widgets.exp_mode_button import ExperimentalModeButton
 from openpilot.selfdrive.ui.widgets.prime import PrimeWidget
 from openpilot.selfdrive.ui.widgets.setup import SetupWidget
-from openpilot.system.ui.lib.label import draw_text_center, draw_text_right
+from openpilot.system.ui.lib.button import gui_button, ButtonStyle
+from openpilot.system.ui.lib.label import draw_text_right
 from openpilot.system.ui.lib.application import FontWeight, DEFAULT_TEXT_COLOR
 from openpilot.system.ui.lib.widget import Widget
 
@@ -49,9 +50,6 @@ class HomeLayout(Widget):
     self.header_rect = rl.Rectangle(0, 0, 0, 0)
     self.content_rect = rl.Rectangle(0, 0, 0, 0)
 
-    self.update_notif_rect = rl.Rectangle(0, 0, 200, HEADER_HEIGHT)
-    self.alert_notif_rect = rl.Rectangle(0, 0, 220, HEADER_HEIGHT)
-
     self._setup_callbacks()
 
   def _setup_callbacks(self):
@@ -88,27 +86,11 @@ class HomeLayout(Widget):
       self._rect.width - 2 * MARGIN, self._rect.height - HEADER_HEIGHT - SPACING - 2 * MARGIN
     )
 
-    self.update_notif_rect.x = self.header_rect.x
-    self.update_notif_rect.y = self.header_rect.y
-
-    notif_x = self.header_rect.x + (240 if self.update_available else 0)
-    self.alert_notif_rect.x = notif_x
-    self.alert_notif_rect.y = self.header_rect.y
-
   def _handle_input(self):
     if not rl.is_mouse_button_pressed(rl.MouseButton.MOUSE_BUTTON_LEFT):
       return
 
     mouse_pos = rl.get_mouse_position()
-
-    if self.update_available and rl.check_collision_point_rec(mouse_pos, self.update_notif_rect):
-      self._set_state(State.UPDATE)
-      return
-
-    if self.alert_count > 0 and rl.check_collision_point_rec(mouse_pos, self.alert_notif_rect):
-      self._set_state(State.ALERTS)
-      return
-
     # Content area input handling
     if self.state == State.UPDATE:
       self.update_alert.handle_input(mouse_pos, True)
@@ -117,18 +99,19 @@ class HomeLayout(Widget):
 
   def _render_header(self):
     # Update notification button
+    x = self.header_rect.x
     if self.update_available:
-      highlight_color = rl.Color(255, 140, 40, 255) if self.state == State.UPDATE else rl.Color(255, 102, 0, 255)
-      rl.draw_rectangle_rounded(self.update_notif_rect, 0.3, 10, highlight_color)
-      draw_text_center(FontWeight.MEDIUM, "UPDATE", self.update_notif_rect, HEAD_BUTTON_FONT_SIZE, rl.WHITE)
+      btn_rect = rl.Rectangle(x,  self.header_rect.y, HEAD_BUTTON_WIDTH, HEADER_HEIGHT)
+      x += HEAD_BUTTON_WIDTH + SPACING
+      if gui_button(btn_rect, "UPDATE", font_weight=FontWeight.MEDIUM, font_size=40, button_style=ButtonStyle.PRIMARY):
+        self._set_state(State.UPDATE)
 
     # Alert notification button
     if self.alert_count > 0:
-      highlight_color = rl.Color(255, 70, 70, 255) if self.state == State.ALERTS else rl.Color(226, 44, 44, 255)
-      rl.draw_rectangle_rounded(self.alert_notif_rect, 0.3, 10, highlight_color)
-
       alert_text = f"{self.alert_count} ALERT{'S' if self.alert_count > 1 else ''}"
-      draw_text_center(FontWeight.MEDIUM, alert_text, self.alert_notif_rect, HEAD_BUTTON_FONT_SIZE, rl.WHITE)
+      btn_rect = rl.Rectangle(x,  self.header_rect.y, HEAD_BUTTON_WIDTH + 30, HEADER_HEIGHT)
+      if gui_button(btn_rect, alert_text, font_weight=FontWeight.MEDIUM, font_size=40, button_style=ButtonStyle.DANGER):
+        self._set_state(State.ALERTS)
 
     # Version text (right aligned)
     draw_text_right(FontWeight.NORMAL, self._get_version_text(), self.header_rect, 48, DEFAULT_TEXT_COLOR)
