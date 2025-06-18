@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from openpilot.common.params import Params
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.ui.lib.button import gui_button, ButtonStyle
-from openpilot.system.ui.lib.label import draw_text_center, draw_wrapped_text, get_wrapped_text_height
+from openpilot.system.ui.lib.label import draw_wrapped_text, get_wrapped_text_height
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.application import gui_app, FontWeight
@@ -62,13 +62,8 @@ class AbstractAlert(Widget, ABC):
     rl.draw_rectangle_rounded(rect, AlertConstants.BORDER_RADIUS / rect.height, 10, AlertColors.BACKGROUND)
 
     footer_height = AlertConstants.BUTTON_HEIGHT + AlertConstants.SPACING
-    self.content_rect = rl.Rectangle(
-      rect.x + AlertConstants.MARGIN,
-      rect.y + AlertConstants.MARGIN,
-      rect.width - 2 * AlertConstants.MARGIN,
-      rect.height - 2 * AlertConstants.MARGIN - footer_height,
-    )
-
+    self.content_rect = rl.Rectangle(rect.x + AlertConstants.MARGIN, rect.y + AlertConstants.MARGIN,
+                                     rect.width - 2 * AlertConstants.MARGIN, rect.height - 2 * AlertConstants.MARGIN - footer_height)
     self._render_scrollable_content(self.content_rect)
     self._render_footer(rect)
 
@@ -167,19 +162,13 @@ class OffroadAlert(AbstractAlert):
 
       bg_color = AlertColors.HIGH_SEVERITY if alert_data.severity > 0 else AlertColors.LOW_SEVERITY
       text_width = int(content_rect.width - 90)
-      alert_item_height = (
-        get_wrapped_text_height(FontWeight.NORMAL, alert_data.text, AlertConstants.FONT_SIZE, text_width) + 40
-      )
-      alert_rect = rl.Rectangle(
-        content_rect.x + 10, content_rect.y + y_offset, content_rect.width - 30, alert_item_height
-      )
+      alert_item_height = get_wrapped_text_height(FontWeight.NORMAL, alert_data.text, AlertConstants.FONT_SIZE, text_width) + 40
+      alert_rect = rl.Rectangle(content_rect.x + 10, content_rect.y + y_offset, content_rect.width - 30, alert_item_height)
       rl.draw_rectangle_rounded(alert_rect, 0.2, 10, bg_color)
 
       text_x = alert_rect.x + 30
       text_y = alert_rect.y + 20
-      draw_wrapped_text(
-        FontWeight.NORMAL, alert_data.text, text_x, text_y, text_width, AlertConstants.FONT_SIZE, rl.WHITE
-      )
+      draw_wrapped_text(FontWeight.NORMAL, alert_data.text, text_x, text_y, text_width, AlertConstants.FONT_SIZE, rl.WHITE)
       y_offset += alert_item_height + AlertConstants.ALERT_SPACING
 
 
