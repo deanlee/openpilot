@@ -86,20 +86,20 @@ class AbstractAlert(Widget, ABC):
   def _render_footer(self, rect: rl.Rectangle):
     footer_y = rect.y + rect.height - AlertConstants.MARGIN - AlertConstants.BUTTON_HEIGHT
 
-    btn_rect = rl.Rectangle(rect.x + AlertConstants.MARGIN, footer_y, 400, AlertConstants.BUTTON_HEIGHT)
-    if gui_button(btn_rect, "Close", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.WHITE):
+    close_btn = rl.Rectangle(rect.x + AlertConstants.MARGIN, footer_y, 400, AlertConstants.BUTTON_HEIGHT)
+    if gui_button(close_btn, "Close", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.WHITE):
       if self.dismiss_callback:
         self.dismiss_callback()
 
     if self.snooze_visible:
-      btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - 550, footer_y, 550, AlertConstants.BUTTON_HEIGHT)
-      if gui_button(btn_rect, "Snooze Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.LIST_ACTION):
+      snooze_btn = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - 550, footer_y, 550, AlertConstants.BUTTON_HEIGHT)
+      if gui_button(snooze_btn, "Snooze Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.LIST_ACTION):
         self.params.put_bool("SnoozeUpdate", True)
         if self.dismiss_callback:
           self.dismiss_callback()
     elif self.has_reboot_btn:
-      btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - 600, footer_y, 600, AlertConstants.BUTTON_HEIGHT)
-      if gui_button(btn_rect, "Reboot and Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.WHITE):
+      reboot_btn = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - 600, footer_y, 600, AlertConstants.BUTTON_HEIGHT)
+      if gui_button(reboot_btn, "Reboot and Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.WHITE):
         HARDWARE.reboot()
 
 
@@ -132,14 +132,12 @@ class OffroadAlert(AbstractAlert):
 
   def get_content_height(self) -> float:
     text_width = int(self.content_rect.width - 90)
-    alert_heights = [
+    heights = [
       get_wrapped_text_height(FontWeight.NORMAL, alert.text, AlertConstants.FONT_SIZE, text_width) + 40
       for alert in self.sorted_alerts
       if alert.visible
     ]
-    if not alert_heights:
-      return 0
-    return sum(alert_heights) + 40 + (len(alert_heights) - 1) * AlertConstants.ALERT_SPACING
+    return sum(heights) + 40 + (len(heights) - 1) * AlertConstants.ALERT_SPACING if heights else 0
 
   def _build_alerts(self):
     self.sorted_alerts = []
