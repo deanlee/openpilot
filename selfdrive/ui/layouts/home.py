@@ -125,11 +125,12 @@ class HomeLayout(Widget):
     self.update_available = self.update_alert.refresh()
     self.alert_count = self.offroad_alert.refresh()
 
-    if self.state == State.HOME:
-      if self.update_available:
-        self.state = State.UPDATE
-      elif self.alert_count > 0:
-        self.state = State.ALERTS
+    if self.update_available:
+      self.state = State.UPDATE
+    elif self.alert_count > 0:
+      self.state = State.ALERTS
+    else:
+      self.state = State.HOME
 
   def _get_version_text(self) -> str:
     brand = "openpilot"

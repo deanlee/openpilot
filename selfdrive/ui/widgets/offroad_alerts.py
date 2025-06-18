@@ -103,7 +103,7 @@ class AbstractAlert(Widget, ABC):
     if self.snooze_visible:
       btn_rect = rl.Rectangle(rect.x + rect.width - AlertConstants.MARGIN - AlertConstants.SNOOZE_BUTTON_SIZE[0],
                               footer_y, AlertConstants.SNOOZE_BUTTON_SIZE[0], AlertConstants.SNOOZE_BUTTON_SIZE[1])
-      if gui_button(btn_rect, "Snooze Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.NORMAL):
+      if gui_button(btn_rect, "Snooze Update", AlertConstants.FONT_SIZE, FontWeight.MEDIUM, ButtonStyle.LIST_ACTION):
         self.params.put_bool("SnoozeUpdate", True)
         if self.dismiss_callback:
           self.dismiss_callback()
