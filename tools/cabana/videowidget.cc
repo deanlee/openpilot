@@ -331,7 +331,6 @@ void StreamCameraView::parseQLog(std::shared_ptr<LogReader> qlog) {
       if (QPixmap thumb; thumb.loadFromData(image_data.begin(), image_data.size(), "jpeg")) {
         QPixmap generated_thumb = generateThumbnail(thumb, can->toSeconds(thumb_data.getTimestampEof()));
         std::lock_guard lock(mutex_);
-        printf("StreamCameraView::parseQLog: timestamp=%lu, size=%zu\n", thumb_data.getTimestampEof(), image_data.size());
         thumbnails[thumb_data.getTimestampEof()] = generated_thumb;
         big_thumbnails[thumb_data.getTimestampEof()] = thumb;
       }
