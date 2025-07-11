@@ -331,6 +331,7 @@ void StreamCameraView::parseQLog(std::shared_ptr<LogReader> qlog) {
       if (QPixmap thumb; thumb.loadFromData(image_data.begin(), image_data.size(), "jpeg")) {
         QPixmap generated_thumb = generateThumbnail(thumb, can->toSeconds(thumb_data.getTimestampEof()));
         std::lock_guard lock(mutex_);
+        printf("StreamCameraView::parseQLog: timestamp=%lu, size=%zu\n", thumb_data.getTimestampEof(), image_data.size());
         thumbnails[thumb_data.getTimestampEof()] = generated_thumb;
         big_thumbnails[thumb_data.getTimestampEof()] = thumb;
       }
@@ -395,17 +396,14 @@ void StreamCameraView::paintGL() {
     VisionBuf *frame = frames.back().second;
     auto frame_id = frame->get_frame_id();
     if (frame_id % 20 == 0) {
-      auto timestamp = can->beginMonoTime() + frame_id * 50000;  // Assuming 20ms per frame
+      auto timestamp = can->beginMonoTime() + frame_id * 50 * 1000000;
       if (!thumbnails.contains(timestamp)) {
-        printf("StreamCameraView::paintGL: frame_id=%lu, timestamp=%lu\n", frame_id, timestamp);
         QImage img = convertNV12ToQImage(frame->y, frame->width, frame->height, frame->stride);
         QPixmap thumb = QPixmap::fromImage(img.scaledToHeight(MIN_VIDEO_HEIGHT - THUMBNAIL_MARGIN * 2, Qt::SmoothTransformation));
         QPixmap generated_thumb = generateThumbnail(thumb, can->toSeconds(timestamp));
         std::lock_guard lock(mutex_);
         thumbnails[timestamp] = generated_thumb;
         big_thumbnails[timestamp] = thumb;
-      } else {
-        print("already exists\n");
       }
     }
   }
