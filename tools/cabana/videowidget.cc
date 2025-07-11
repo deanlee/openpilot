@@ -323,21 +323,53 @@ StreamCameraView::StreamCameraView(std::string stream_name, VisionStreamType str
 }
 
 void StreamCameraView::parseQLog(std::shared_ptr<LogReader> qlog) {
-  std::mutex mutex;
-  QtConcurrent::blockingMap(qlog->events.cbegin(), qlog->events.cend(), [this, &mutex](const Event &e) {
+  QtConcurrent::blockingMap(qlog->events.cbegin(), qlog->events.cend(), [this](const Event &e) {
     if (e.which == cereal::Event::Which::THUMBNAIL) {
       capnp::FlatArrayMessageReader reader(e.data);
       auto thumb_data = reader.getRoot<cereal::Event>().getThumbnail();
       auto image_data = thumb_data.getThumbnail();
       if (QPixmap thumb; thumb.loadFromData(image_data.begin(), image_data.size(), "jpeg")) {
         QPixmap generated_thumb = generateThumbnail(thumb, can->toSeconds(thumb_data.getTimestampEof()));
-        std::lock_guard lock(mutex);
+        std::lock_guard lock(mutex_);
         thumbnails[thumb_data.getTimestampEof()] = generated_thumb;
         big_thumbnails[thumb_data.getTimestampEof()] = thumb;
       }
     }
   });
   update();
+}
+
+QImage convertNV12ToQImage(const uint8_t *nv12_data, int width, int height, int stride) {
+  QImage rgb_image(width, height, QImage::Format_RGB888);
+
+  const uint8_t *y_plane = nv12_data;
+  const uint8_t *uv_plane = nv12_data + (stride * height);
+
+  for (int row = 0; row < height; ++row) {
+    uint8_t *rgb_row = rgb_image.scanLine(row);
+
+    for (int col = 0; col < width; ++col) {
+      int y_index = row * stride + col;
+      int uv_row = row / 2;
+      int uv_col = col & ~1;  // Align to even column
+      int uv_index = uv_row * stride + uv_col;
+
+      uint8_t y = y_plane[y_index];
+      uint8_t u = uv_plane[uv_index];
+      uint8_t v = uv_plane[uv_index + 1];
+
+      // YUV to RGB conversion
+      int r = y + 1.402 * (v - 128);
+      int g = y - 0.344 * (u - 128) - 0.714 * (v - 128);
+      int b = y + 1.772 * (u - 128);
+
+      rgb_row[col * 3] = std::clamp(r, 0, 255);
+      rgb_row[col * 3 + 1] = std::clamp(g, 0, 255);
+      rgb_row[col * 3 + 2] = std::clamp(b, 0, 255);
+    }
+  }
+
+  return rgb_image;
 }
 
 void StreamCameraView::paintGL() {
@@ -357,6 +389,25 @@ void StreamCameraView::paintGL() {
     p.setPen(QColor(200, 200, 200, static_cast<int>(255 * fade_animation->currentValue().toFloat())));
     p.setFont(QFont(font().family(), 16, QFont::Bold));
     p.drawText(rect(), Qt::AlignCenter, tr("PAUSED"));
+  }
+
+  if (!frames.empty()) {
+    VisionBuf *frame = frames.back().second;
+    auto frame_id = frame->get_frame_id();
+    if (frame_id % 20 == 0) {
+      auto timestamp = can->beginMonoTime() + frame_id * 50000;  // Assuming 20ms per frame
+      if (!thumbnails.contains(timestamp)) {
+        printf("StreamCameraView::paintGL: frame_id=%lu, timestamp=%lu\n", frame_id, timestamp);
+        QImage img = convertNV12ToQImage(frame->y, frame->width, frame->height, frame->stride);
+        QPixmap thumb = QPixmap::fromImage(img.scaledToHeight(MIN_VIDEO_HEIGHT - THUMBNAIL_MARGIN * 2, Qt::SmoothTransformation));
+        QPixmap generated_thumb = generateThumbnail(thumb, can->toSeconds(timestamp));
+        std::lock_guard lock(mutex_);
+        thumbnails[timestamp] = generated_thumb;
+        big_thumbnails[timestamp] = thumb;
+      } else {
+        print("already exists\n");
+      }
+    }
   }
 }
 

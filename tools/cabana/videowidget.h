@@ -49,6 +49,7 @@ private:
   QPropertyAnimation *fade_animation;
   QMap<uint64_t, QPixmap> big_thumbnails;
   QMap<uint64_t, QPixmap> thumbnails;
+  std::mutex mutex_;
   double thumbnail_dispaly_time = -1;
   friend class VideoWidget;
 };
