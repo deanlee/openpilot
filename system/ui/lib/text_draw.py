@@ -15,6 +15,11 @@ class Alignment(IntFlag):
   CENTER = H_CENTER | V_CENTER
 
 
+def draw_text_at(position: rl.Vector2, text: str, font_weight: FontWeight, font_size: int):
+  """Draw text at a specific position."""
+  font = gui_app.font(font_weight)
+  rl.draw_text_ex(font, text, position, font_size, 0, rl.WHITE)
+
 def draw_text(rect: rl.Rectangle, text: str, font_weight: FontWeight, font_size: int,
               color: rl.Color = rl.WHITE, flags: int = Alignment.LEFT | Alignment.TOP):
   """Render text with specified alignment within the given rectangle."""
