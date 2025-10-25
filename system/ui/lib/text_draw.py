@@ -1,10 +1,10 @@
 import pyray as rl
-from enum import Enum
+from enum import IntFlag
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.application import gui_app, FontWeight, FONT_SCALE
 
-class Alignment(Enum):
+class Alignment(IntFlag):
   LEFT = 0x1
   H_CENTER = 0x2
   RIGHT = 0x4
