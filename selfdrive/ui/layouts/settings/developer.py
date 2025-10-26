@@ -47,7 +47,7 @@ class DeveloperLayout(Widget):
       initial_state=self._params.get_bool("SshEnabled"),
       callback=self._on_enable_ssh,
     )
-    self._ssh_keys = ssh_key_item(lambda: tr("SSH Keys"), description=lambda: tr(DESCRIPTIONS["ssh_key"]))
+    self._ssh_keys = ssh_key_item("", "")
 
     self._joystick_toggle = toggle_item("",
       description="",
