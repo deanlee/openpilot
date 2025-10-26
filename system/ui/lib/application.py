@@ -159,8 +159,18 @@ class GuiApplication:
     self._mouse = MouseState(self._scale)
     self._mouse_events: list[MouseEvent] = []
 
+    self._widgets: list[object] = []
     # Debug variables
     self._mouse_history: deque[MousePos] = deque(maxlen=MOUSE_THREAD_RATE)
+
+  def register_widget(self, widget: object) -> None:
+    self._widgets.append(widget)
+
+  def language_changed(self):
+    # Notify all widgets of language change
+    for widget in self._widgets:
+      if hasattr(widget, "update_translation") and callable(widget.update_translation):
+        widget.update_translation()
 
   @property
   def target_fps(self):

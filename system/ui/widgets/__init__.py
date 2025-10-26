@@ -24,6 +24,8 @@ class Widget(abc.ABC):
     self._click_callback: Callable[[], None] | None = None
     self._multi_touch = False
 
+    gui_app.register_widget(self)
+
   @property
   def rect(self) -> rl.Rectangle:
     return self._rect
@@ -74,6 +76,9 @@ class Widget(abc.ABC):
     self._rect.x, self._rect.y = x, y
     if changed:
       self._update_layout_rects()
+
+  def update_translation(self) -> None:
+    """Optionally update any text or translation on language change."""
 
   @property
   def _hit_rect(self) -> rl.Rectangle:
