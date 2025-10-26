@@ -77,7 +77,7 @@ class Widget(abc.ABC):
     if changed:
       self._update_layout_rects()
 
-  def update_translation(self) -> None:
+  def retranslate_ui(self) -> None:
     """Optionally update any text or translation on language change."""
 
   @property
