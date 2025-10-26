@@ -169,8 +169,7 @@ class GuiApplication:
   def language_changed(self):
     # Notify all widgets of language change
     for widget in self._widgets:
-      if hasattr(widget, "update_translation") and callable(widget.update_translation):
-        widget.update_translation()
+      widget.update_translation()
 
   @property
   def target_fps(self):
