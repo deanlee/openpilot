@@ -7,6 +7,7 @@ from openpilot.system.hardware import TICI
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.multilang import tr
 from openpilot.system.ui.lib.text_measure import measure_text_cached
+from openpilot.system.ui.lib.text_draw import draw_text, Alignment
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.widgets.label import Label
 
@@ -149,12 +150,12 @@ class AlertRenderer(Widget):
 
   def _draw_text(self, rect: rl.Rectangle, alert: Alert) -> None:
     if alert.size == AlertSize.small:
-      self._draw_centered(alert.text1, rect, self.font_bold, ALERT_FONT_MEDIUM)
+      draw_text(rect, alert.text1, FontWeight.BOLD, ALERT_FONT_MEDIUM, rl.WHITE, Alignment.CENTER)
 
     elif alert.size == AlertSize.mid:
-      self._draw_centered(alert.text1, rect, self.font_bold, ALERT_FONT_BIG, center_y=False)
+      draw_text(rect, alert.text1, FontWeight.BOLD, ALERT_FONT_BIG, rl.WHITE, Alignment.H_CENTER | Alignment.TOP)
       rect.y += ALERT_FONT_BIG + ALERT_LINE_SPACING
-      self._draw_centered(alert.text2, rect, self.font_regular, ALERT_FONT_SMALL, center_y=False)
+      draw_text(rect, alert.text2, FontWeight.NORMAL, ALERT_FONT_SMALL, rl.WHITE, Alignment.H_CENTER | Alignment.TOP)
 
     else:
       is_long = len(alert.text1) > 15
@@ -170,9 +171,3 @@ class AlertRenderer(Widget):
       subtitle_rect = rl.Rectangle(rect.x, rect.y + rect.height - bottom_offset, rect.width, 300)
       self._full_text2_label.set_text(alert.text2)
       self._full_text2_label.render(subtitle_rect)
-
-  def _draw_centered(self, text, rect, font, font_size, center_y=True, color=rl.WHITE) -> None:
-    text_size = measure_text_cached(font, text, font_size)
-    x = rect.x + (rect.width - text_size.x) / 2
-    y = rect.y + ((rect.height - text_size.y) / 2 if center_y else 0)
-    rl.draw_text_ex(font, text, rl.Vector2(x, y), font_size, 0, color)
