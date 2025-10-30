@@ -24,34 +24,22 @@ def draw_text(rect: rl.Rectangle, text: str, font_weight: FontWeight, font_size:
               color: rl.Color = rl.WHITE, flags: int = Alignment.LEFT | Alignment.TOP):
   """Render text with specified alignment within the given rectangle."""
   font = gui_app.font(font_weight)
-  if flags & Alignment.WORD_WRAP:
-    lines = wrap_text(font, text, font_size, int(rect.width))
-  else:
-    lines = [text]
-
+  lines = wrap_text(font, text, font_size, int(rect.width)) if flags & Alignment.WORD_WRAP else [text]
   line_height = font_size * FONT_SCALE
   total_height = len(lines) * line_height
 
-  # Vertical alignment of text block
+  y = rect.y
   if flags & Alignment.V_CENTER:
-    start_y = rect.y + (rect.height - total_height) / 2
+    y += (rect.height - total_height) / 2
   elif flags & Alignment.BOTTOM:
-    start_y = rect.y + rect.height - total_height
-  else:  # TOP
-    start_y = rect.y
+    y += rect.height - total_height
 
-  # Draw each line
-  y = start_y
   for line in lines:
     text_size = measure_text_cached(font, line, font_size)
-
-    # Horizontal alignment per line
+    x = rect.x
     if flags & Alignment.H_CENTER:
-      x = rect.x + (rect.width - text_size.x) / 2
+      x += (rect.width - text_size.x) / 2
     elif flags & Alignment.RIGHT:
-      x = rect.x + rect.width - text_size.x
-    else:  # LEFT
-      x = rect.x
-
+      x += rect.width - text_size.x
     rl.draw_text_ex(font, line, rl.Vector2(x, y), font_size, 0, color)
     y += line_height
