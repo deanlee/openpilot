@@ -401,7 +401,8 @@ class GuiApplication:
           for mouse_event in self._mouse_events:
             if mouse_event.left_pressed:
               self._mouse_history.clear()
-            self._mouse_history.append(mouse_event.pos)
+            scaled_pos = MousePos(mouse_event.pos.x * self._scale, mouse_event.pos.y * self._scale)
+            self._mouse_history.append(scaled_pos)
 
           if self._mouse_history:
             mouse_pos = self._mouse_history[-1]
