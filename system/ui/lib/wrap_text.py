@@ -3,6 +3,52 @@ from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.application import font_fallback
 
 
+def is_cjk_char(char: str) -> bool:
+  """Check if character is CJK (Chinese, Japanese, Korean)."""
+  if not char:
+    return False
+  code = ord(char)
+  return (
+    (0x4E00 <= code <= 0x9FFF) or    # CJK Unified Ideographs
+    (0x3400 <= code <= 0x4DBF) or    # CJK Unified Ideographs Extension A
+    (0x20000 <= code <= 0x2A6DF) or  # CJK Unified Ideographs Extension B
+    (0xF900 <= code <= 0xFAFF) or    # CJK Compatibility Ideographs
+    (0x2F800 <= code <= 0x2FA1F) or  # CJK Compatibility Ideographs Supplement
+    (0x3040 <= code <= 0x309F) or    # Hiragana
+    (0x30A0 <= code <= 0x30FF) or    # Katakana
+    (0xAC00 <= code <= 0xD7AF)       # Hangul Syllables
+  )
+
+
+def tokenize_mixed_text(text: str) -> list[str]:
+  """Tokenize text handling CJK and Latin characters."""
+  if not text:
+    return []
+
+  tokens: list[str] = []
+  current: list[str] = []
+  in_latin = False
+
+  for char in text:
+    if char.isspace() or is_cjk_char(char):
+      if current:
+        tokens.append(''.join(current))
+        current = []
+        in_latin = False
+      tokens.append(char)
+    else:
+      if not in_latin and current:
+        tokens.append(''.join(current))
+        current = []
+      current.append(char)
+      in_latin = True
+
+  if current:
+    tokens.append(''.join(current))
+
+  return tokens
+
+
 def _break_long_word(font: rl.Font, word: str, font_size: int, max_width: int) -> list[str]:
   if not word:
     return []
@@ -41,6 +87,7 @@ _cache: dict[int, list[str]] = {}
 
 
 def wrap_text(font: rl.Font, text: str, font_size: int, max_width: int) -> list[str]:
+  """Wrap text to fit within max_width, handling mixed CJK and Latin text."""
   font = font_fallback(font)
   key = hash((font.texture.id, text, font_size, max_width))
   if key in _cache:
@@ -49,64 +96,52 @@ def wrap_text(font: rl.Font, text: str, font_size: int, max_width: int) -> list[
   if not text or max_width <= 0:
     return []
 
-  # Split text by newlines first to preserve explicit line breaks
-  paragraphs = text.split('\n')
-  all_lines: list[str] = []
+  all_lines = []
 
-  for paragraph in paragraphs:
-    # Handle empty paragraphs (preserve empty lines)
+  for paragraph in text.split('\n'):
     if not paragraph.strip():
       all_lines.append("")
       continue
 
-    # Process each paragraph separately
-    words = paragraph.split()
-    if not words:
+    tokens = tokenize_mixed_text(paragraph)
+    if not tokens:
       all_lines.append("")
       continue
 
     lines: list[str] = []
-    current_line: list[str] = []
-    current_width = 0
-    space_width = int(measure_text_cached(font, " ", font_size).x)
+    current: list[str] = []
 
-    for word in words:
-      word_width = int(measure_text_cached(font, word, font_size).x)
-
-      # Check if word alone exceeds max width (need to break the word)
-      if word_width > max_width:
-        # Finish current line if it has content
-        if current_line:
-          lines.append(" ".join(current_line))
-          current_line = []
-          current_width = 0
-
-        # Break the long word into parts
-        lines.extend(_break_long_word(font, word, font_size, max_width))
+    for token in tokens:
+      if not current and token.isspace():
         continue
 
-      # Calculate width if we add this word
-      needed_width = current_width
-      if current_line:  # Need space before word
-        needed_width += space_width
-      needed_width += word_width
+      token_width = measure_text_cached(font, token, font_size).x
 
-      # Check if word fits on current line
-      if needed_width <= max_width:
-        current_line.append(word)
-        current_width = needed_width
+      # Token too long: break it
+      if token_width > max_width and not token.isspace():
+        if current:
+          lines.append(''.join(current).rstrip())
+          current = []
+
+        parts = _break_long_word(font, token, font_size, max_width)
+        lines.extend(parts[:-1])
+        current = [parts[-1]] if parts else []
+        continue
+
+      # Test if token fits on current line
+      test_line = ''.join(current + [token])
+      test_width = measure_text_cached(font, test_line, font_size).x
+
+      if test_width <= max_width:
+        current.append(token)
       else:
-        # Start new line with this word
-        if current_line:
-          lines.append(" ".join(current_line))
-        current_line = [word]
-        current_width = word_width
+        if current:
+          lines.append(''.join(current).rstrip())
+        current = [token] if not token.isspace() else []
 
-    # Add remaining words
-    if current_line:
-      lines.append(" ".join(current_line))
+    if current:
+      lines.append(''.join(current).rstrip())
 
-    # Add all lines from this paragraph
     all_lines.extend(lines)
 
   _cache[key] = all_lines
