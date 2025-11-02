@@ -46,11 +46,9 @@ class ConfirmDialog(Widget):
     self._dialog_result = DialogResult.CONFIRM
 
   def _render(self, rect: rl.Rectangle):
-    dialog_x = OUTER_MARGIN if not self._rich else RICH_OUTER_MARGIN
-    dialog_y = OUTER_MARGIN if not self._rich else RICH_OUTER_MARGIN
-    dialog_width = gui_app.width - 2 * dialog_x
-    dialog_height = gui_app.height - 2 * dialog_y
-    dialog_rect = rl.Rectangle(dialog_x, dialog_y, dialog_width, dialog_height)
+    margin = RICH_OUTER_MARGIN if self._rich else OUTER_MARGIN
+    dialog_rect = rl.Rectangle(margin, margin, gui_app.width - 2 * margin, gui_app.height - 2 * margin)
+    rl.draw_rectangle_rec(dialog_rect, BACKGROUND_COLOR)
 
     bottom = dialog_rect.y + dialog_rect.height
     button_width = (dialog_rect.width - 3 * MARGIN) // 2
@@ -59,8 +57,6 @@ class ConfirmDialog(Widget):
     button_y = bottom - BUTTON_HEIGHT - MARGIN
     cancel_button = rl.Rectangle(cancel_button_x, button_y, button_width, BUTTON_HEIGHT)
     confirm_button = rl.Rectangle(confirm_button_x, button_y, button_width, BUTTON_HEIGHT)
-
-    rl.draw_rectangle_rec(dialog_rect, BACKGROUND_COLOR)
 
     text_rect = rl.Rectangle(dialog_rect.x + MARGIN, dialog_rect.y + TEXT_PADDING,
                              dialog_rect.width - 2 * MARGIN, dialog_rect.height - BUTTON_HEIGHT - MARGIN - TEXT_PADDING * 2)
