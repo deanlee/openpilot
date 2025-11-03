@@ -225,41 +225,32 @@ class Label(Widget):
     return LayoutCache(text, rect_key, elements)
 
   def _parse_line_elements(self, line_text: str, y: float) -> tuple[list[RenderElement], float]:
-    elements = []
-    total_width = 0.0
-    emojis = find_emoji(line_text)
+    elements, x, emojis = [], 0.0, find_emoji(line_text)
 
     if not emojis:
-      width = measure_text_cached(self._font, line_text, self._font_size).x
-      elements.append(RenderElement(total_width, y, None, line_text, width))
-      total_width += width
-    else:
-      # Parse text and emojis
-      prev_idx = 0
+      w = measure_text_cached(self._font, line_text, self._font_size).x
+      return [RenderElement(x, y, None, line_text, w)], w
 
-      for start, end, emoji in emojis:
-        # Text before emoji
-        if start > prev_idx:
-          text_segment = line_text[prev_idx:start]
-          width = measure_text_cached(self._font, text_segment, self._font_size).x
-          elements.append(RenderElement(total_width, y, None, text_segment, width))
-          total_width += width
+    prev = 0
+    for start, end, emoji in emojis:
+      if start > prev:
+        seg = line_text[prev:start]
+        w = measure_text_cached(self._font, seg, self._font_size).x
+        elements.append(RenderElement(x, y, None, seg, w))
+        x += w
 
-        # Emoji
-        tex = emoji_tex(emoji)
-        emoji_width = self._font_size * FONT_SCALE
-        elements.append(RenderElement(total_width, y, tex, emoji, emoji_width))
-        total_width += emoji_width
-        prev_idx = end
+      emoji_w = self._font_size * FONT_SCALE
+      elements.append(RenderElement(x, y, emoji_tex(emoji), emoji, emoji_w))
+      x += emoji_w
+      prev = end
 
-      # Remaining text
-      if prev_idx < len(line_text):
-        remaining = line_text[prev_idx:]
-        width = measure_text_cached(self._font, remaining, self._font_size).x
-        elements.append(RenderElement(total_width, y, None, remaining, width))
-        total_width += width
+    if prev < len(line_text):
+      rem = line_text[prev:]
+      w = measure_text_cached(self._font, rem, self._font_size).x
+      elements.append(RenderElement(x, y, None, rem, w))
+      x += w
 
-    return elements, total_width
+    return elements, x
 
   def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
     if self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
