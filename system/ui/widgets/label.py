@@ -139,14 +139,14 @@ class Label(Widget):
 
   def set_text(self, text):
     self._text = text
-    self._layout_cache = None
 
   def set_text_color(self, color):
     self._text_color = color
 
   def set_font_size(self, size):
-    self._font_size = size
-    self._layout_cache = None
+    if self._font_size != size:
+      self._font_size = size
+      self._layout_cache = None
 
   def _calculate_layout(self, text: str) -> LayoutCache:
     elements: list[RenderElement] = []
