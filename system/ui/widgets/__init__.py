@@ -98,10 +98,10 @@ class Widget(abc.ABC):
       hit_rect = self._hit_rect
       touch_valid = self._touch_valid()
       for mouse_event in gui_app.mouse_events:
-        if not self._multi_touch and mouse_event.slot != 0:
+        slot = mouse_event.slot
+        if not self._multi_touch and slot != 0:
           continue
 
-        slot = mouse_event.slot
         in_rect = rl.check_collision_point_rec(mouse_event.pos, hit_rect)
 
         # Ignores touches/presses that start outside our rect
@@ -113,7 +113,7 @@ class Widget(abc.ABC):
             self.__tracking_is_pressed[slot] = True
 
         # Callback such as scroll panel signifies user is scrolling
-        elif not self._touch_valid():
+        elif not touch_valid:
           self.__is_pressed[slot] = False
           self.__tracking_is_pressed[slot] = False
 
