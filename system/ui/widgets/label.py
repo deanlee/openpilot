@@ -253,11 +253,11 @@ class Label(Widget):
 
   def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
     if self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-      x_base = self._text_padding
+      x_base = float(self._text_padding)
     elif self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-      x_base = (self._rect.width - line_width) / 2
+      x_base = (self._rect.width - line_width) // 2
     else:  # RIGHT
-      x_base = self._rect.width - line_width - self._text_padding
+      x_base = int(self._rect.width) - line_width - self._text_padding
 
     for element in elements:
       element.x += x_base
