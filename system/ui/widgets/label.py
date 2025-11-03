@@ -21,18 +21,15 @@ def _resolve_value(value, default=""):
 
 @dataclass
 class RenderElement:
-  """Pre-positioned element (text or texture) ready for rendering."""
   x: float
   y: float
   texture: Union[rl.Texture, None]  # noqa: UP007
-  # texture: Optional[rl.Texture]  # None = text, not None = emoji/icon
   text: str
   width: float
 
 
 @dataclass
 class LayoutCache:
-  """Cached layout for fast rendering."""
   text: str
   rect_key: tuple[float, float, float, float]  # x, y, width, height
   elements: list[RenderElement]
@@ -152,7 +149,6 @@ class Label(Widget):
     self._layout_cache = None
 
   def _calculate_layout(self, text: str) -> LayoutCache:
-    """Pre-calculate all element positions (icon, text segments, emojis)."""
     elements: list[RenderElement] = []
     rect_key = (self._rect.x, self._rect.y, self._rect.width, self._rect.height)
 
@@ -161,7 +157,6 @@ class Label(Widget):
 
     content_width = self._rect.width - self._text_padding * 2
 
-    # Wrap or elide text
     if self._elide_right:
       text_size = measure_text_cached(self._font, text, self._font_size)
 
@@ -205,13 +200,7 @@ class Label(Widget):
       # Add icon as first element
       if self._icon:
         icon_y = current_y + (first_line_height - self._icon.height) / 2
-        line_elements.append(RenderElement(
-          x=0.0,  # Relative, will be adjusted
-          y=icon_y,
-          texture=self._icon,
-          text="",
-          width=self._icon.width
-        ))
+        line_elements.append(RenderElement(0.0, icon_y, self._icon, "", self._icon.width))
         line_width += self._icon.width + ICON_PADDING
 
       # Parse first line (text + emojis)
@@ -236,21 +225,13 @@ class Label(Widget):
     return LayoutCache(text, rect_key, elements)
 
   def _parse_line_elements(self, line_text: str, y: float) -> tuple[list[RenderElement], float]:
-    """Parse line into text and emoji elements with relative X positions."""
     elements = []
     total_width = 0.0
     emojis = find_emoji(line_text)
 
     if not emojis:
-      # Fast path: no emojis
       width = measure_text_cached(self._font, line_text, self._font_size).x
-      elements.append(RenderElement(
-        x=total_width,
-        y=y,
-        texture=None,
-        text=line_text,
-        width=width
-      ))
+      elements.append(RenderElement(total_width, y, None, line_text, width))
       total_width += width
     else:
       # Parse text and emojis
@@ -261,25 +242,13 @@ class Label(Widget):
         if start > prev_idx:
           text_segment = line_text[prev_idx:start]
           width = measure_text_cached(self._font, text_segment, self._font_size).x
-          elements.append(RenderElement(
-            x=total_width,
-            y=y,
-            texture=None,
-            text=text_segment,
-            width=width
-          ))
+          elements.append(RenderElement(total_width, y, None, text_segment, width))
           total_width += width
 
         # Emoji
         tex = emoji_tex(emoji)
         emoji_width = self._font_size * FONT_SCALE
-        elements.append(RenderElement(
-          x=total_width,
-          y=y,
-          texture=tex,
-          text=emoji,
-          width=emoji_width
-        ))
+        elements.append(RenderElement(total_width, y, tex, emoji, emoji_width))
         total_width += emoji_width
         prev_idx = end
 
@@ -287,19 +256,12 @@ class Label(Widget):
       if prev_idx < len(line_text):
         remaining = line_text[prev_idx:]
         width = measure_text_cached(self._font, remaining, self._font_size).x
-        elements.append(RenderElement(
-          x=total_width,
-          y=y,
-          texture=None,
-          text=remaining,
-          width=width
-        ))
+        elements.append(RenderElement(total_width, y, None, remaining, width))
         total_width += width
 
     return elements, total_width
 
   def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
-    """Convert relative X positions to absolute based on alignment."""
     if self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
       x_base = self._rect.x + self._text_padding
     elif self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
@@ -311,40 +273,19 @@ class Label(Widget):
       element.x += x_base
 
   def _render(self, _) -> None:
-    """Ultra-fast render: single loop over pre-calculated elements."""
     text = _resolve_value(self._text)
 
     # Update layout cache if needed
     rect_key = (self._rect.x, self._rect.y, self._rect.width, self._rect.height)
-    if (self._layout_cache is None or
-        self._layout_cache.text != text or
-        self._layout_cache.rect_key != rect_key):
+    if (self._layout_cache is None or self._layout_cache.text != text or self._layout_cache.rect_key != rect_key):
       self._layout_cache = self._calculate_layout(text)
 
-    # Fast render loop
     for element in self._layout_cache.elements:
       if element.texture:
-        # Draw texture (emoji or icon)
         if element.texture == self._icon:
-          # Icon: draw as-is
           rl.draw_texture_v(element.texture, rl.Vector2(element.x, element.y), rl.WHITE)
         else:
-          # Emoji: scale to font size
           scale = self._font_size / element.texture.height * FONT_SCALE
-          rl.draw_texture_ex(
-            element.texture,
-            rl.Vector2(element.x, element.y),
-            0.0,
-            scale,
-            self._text_color
-          )
+          rl.draw_texture_ex(element.texture, rl.Vector2(element.x, element.y), 0.0, scale, self._text_color)
       elif element.text:
-        # Draw text
-        rl.draw_text_ex(
-          self._font,
-          element.text,
-          rl.Vector2(element.x, element.y),
-          self._font_size,
-          0,
-          self._text_color
-        )
+        rl.draw_text_ex(self._font, element.text, rl.Vector2(element.x, element.y), self._font_size, 0, self._text_color)
