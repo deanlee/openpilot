@@ -266,17 +266,16 @@ class Label(Widget):
   def _render(self, _) -> None:
     text = _resolve_value(self._text)
 
-    # Update layout cache if needed
     rect_key = (self._rect.x, self._rect.y, self._rect.width, self._rect.height)
     if (self._layout_cache is None or self._layout_cache.text != text or self._layout_cache.rect_key != rect_key):
       self._layout_cache = self._calculate_layout(text)
 
     for element in self._layout_cache.elements:
-      if element.texture:
-        if element.texture == self._icon:
-          rl.draw_texture_v(element.texture, rl.Vector2(element.x, element.y), rl.WHITE)
-        else:
-          scale = self._font_size / element.texture.height * FONT_SCALE
-          rl.draw_texture_ex(element.texture, rl.Vector2(element.x, element.y), 0.0, scale, self._text_color)
-      elif element.text:
-        rl.draw_text_ex(self._font, element.text, rl.Vector2(element.x, element.y), self._font_size, 0, self._text_color)
+      tex = element.texture
+      pos = rl.Vector2(element.x, element.y)
+      if tex is None:
+        rl.draw_text_ex(self._font, element.text, pos, self._font_size, 0, self._text_color)
+      elif tex is self._icon:
+        rl.draw_texture_v(tex, pos, rl.WHITE)
+      else:
+        rl.draw_texture_ex(tex, pos, 0.0, self._font_size / tex.height * FONT_SCALE, self._text_color)
