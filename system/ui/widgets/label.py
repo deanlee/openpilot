@@ -31,7 +31,7 @@ class RenderElement:
 @dataclass
 class LayoutCache:
   text: str
-  rect_key: tuple[float, float, float, float]  # x, y, width, height
+  width: float
   elements: list[RenderElement]
 
 
@@ -150,10 +150,9 @@ class Label(Widget):
 
   def _calculate_layout(self, text: str) -> LayoutCache:
     elements: list[RenderElement] = []
-    rect_key = (self._rect.x, self._rect.y, self._rect.width, self._rect.height)
 
     if not text and not self._icon:
-      return LayoutCache(text, rect_key, elements)
+      return LayoutCache(text, self._rect.width, elements)
 
     content_width = self._rect.width - self._text_padding * 2
 
@@ -179,18 +178,18 @@ class Label(Widget):
     else:
       wrapped_lines = wrap_text(self._font, text, self._font_size, int(content_width)) if text else []
 
-    # Calculate starting Y position
+    # Calculate starting Y position (relative to rect origin)
     if wrapped_lines:
       first_line_height = measure_text_cached(self._font, wrapped_lines[0], self._font_size).y
     elif self._icon:
       first_line_height = self._icon.height
     else:
-      return LayoutCache(text, rect_key, elements)
+      return LayoutCache(text, self._rect.width, elements)
 
     if self._text_alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
-      current_y = self._rect.y + (self._rect.height - first_line_height) / 2
+      current_y = (self._rect.height - first_line_height) / 2
     else:
-      current_y = self._rect.y
+      current_y = 0
 
     # Process first line with optional icon
     if wrapped_lines or self._icon:
@@ -222,7 +221,7 @@ class Label(Widget):
       elements.extend(line_elems)
       current_y += self._font_size * FONT_SCALE
 
-    return LayoutCache(text, rect_key, elements)
+    return LayoutCache(text, self._rect.width, elements)
 
   def _parse_line_elements(self, line_text: str, y: float) -> tuple[list[RenderElement], float]:
     elements, x, emojis = [], 0.0, find_emoji(line_text)
@@ -254,11 +253,11 @@ class Label(Widget):
 
   def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
     if self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-      x_base = self._rect.x + self._text_padding
+      x_base = self._text_padding
     elif self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-      x_base = self._rect.x + (self._rect.width - line_width) / 2
+      x_base = (self._rect.width - line_width) / 2
     else:  # RIGHT
-      x_base = self._rect.x + self._rect.width - line_width - self._text_padding
+      x_base = self._rect.width - line_width - self._text_padding
 
     for element in elements:
       element.x += x_base
@@ -266,13 +265,13 @@ class Label(Widget):
   def _render(self, _) -> None:
     text = _resolve_value(self._text)
 
-    rect_key = (self._rect.x, self._rect.y, self._rect.width, self._rect.height)
-    if (self._layout_cache is None or self._layout_cache.text != text or self._layout_cache.rect_key != rect_key):
+    if (self._layout_cache is None or self._layout_cache.text != text or self._layout_cache.width != self._rect.width):
       self._layout_cache = self._calculate_layout(text)
 
+    # Apply absolute position from self._rect when rendering
     for element in self._layout_cache.elements:
       tex = element.texture
-      pos = rl.Vector2(element.x, element.y)
+      pos = rl.Vector2(self._rect.x + element.x, self._rect.y + element.y)
       if tex is None:
         rl.draw_text_ex(self._font, element.text, pos, self._font_size, 0, self._text_color)
       elif tex is self._icon:
