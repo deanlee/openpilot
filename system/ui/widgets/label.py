@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from itertools import zip_longest
+from dataclasses import dataclass
 from typing import Union
 import pyray as rl
 
@@ -18,6 +18,24 @@ def _resolve_value(value, default=""):
   if callable(value):
     return value()
   return value if value is not None else default
+
+@dataclass
+class RenderElement:
+  """Pre-positioned element (text or texture) ready for rendering."""
+  x: float
+  y: float
+  texture: Union[rl.Texture, None]  # noqa: UP007
+  # texture: Optional[rl.Texture]  # None = text, not None = emoji/icon
+  text: str
+  width: float
+
+
+@dataclass
+class LayoutCache:
+  """Cached layout for fast rendering."""
+  text: str
+  rect_key: tuple[float, float, float, float]  # x, y, width, height
+  elements: list[RenderElement]
 
 
 # TODO: This should be a Widget class
@@ -110,6 +128,7 @@ class Label(Widget):
                ):
 
     super().__init__()
+    self._text = text
     self._font_weight = font_weight
     self._font = gui_app.font(self._font_weight)
     self._font_size = font_size
@@ -119,99 +138,213 @@ class Label(Widget):
     self._text_color = text_color
     self._icon = icon
     self._elide_right = elide_right
-
-    self._text = text
-    self.set_text(text)
+    self._layout_cache: LayoutCache | None = None
 
   def set_text(self, text):
     self._text = text
-    self._update_text(self._text)
+    self._layout_cache = None
 
   def set_text_color(self, color):
     self._text_color = color
 
   def set_font_size(self, size):
     self._font_size = size
-    self._update_text(self._text)
+    self._layout_cache = None
 
-  def _update_text(self, text):
-    self._emojis = []
-    self._text_size = []
-    text = _resolve_value(text)
+  def _calculate_layout(self, text: str) -> LayoutCache:
+    """Pre-calculate all element positions (icon, text segments, emojis)."""
+    elements: list[RenderElement] = []
+    rect_key = (self._rect.x, self._rect.y, self._rect.width, self._rect.height)
 
+    if not text and not self._icon:
+      return LayoutCache(text, rect_key, elements)
+
+    content_width = self._rect.width - self._text_padding * 2
+
+    # Wrap or elide text
     if self._elide_right:
-      display_text = text
-
-      # Elide text to fit within the rectangle
       text_size = measure_text_cached(self._font, text, self._font_size)
-      content_width = self._rect.width - self._text_padding * 2
+
       if text_size.x > content_width:
-        _ellipsis = "..."
+        ellipsis = "..."
         left, right = 0, len(text)
         while left < right:
           mid = (left + right) // 2
-          candidate = text[:mid] + _ellipsis
+          candidate = text[:mid] + ellipsis
           candidate_size = measure_text_cached(self._font, candidate, self._font_size)
           if candidate_size.x <= content_width:
             left = mid + 1
           else:
             right = mid
-        display_text = text[: left - 1] + _ellipsis if left > 0 else _ellipsis
-
-      self._text_wrapped = [display_text]
-    else:
-      self._text_wrapped = wrap_text(self._font, text, self._font_size, round(self._rect.width - (self._text_padding * 2)))
-
-    for t in self._text_wrapped:
-      self._emojis.append(find_emoji(t))
-      self._text_size.append(measure_text_cached(self._font, t, self._font_size))
-
-  def _render(self, _):
-    # Text can be a callable
-    # TODO: cache until text changed
-    self._update_text(self._text)
-
-    text_size = self._text_size[0] if self._text_size else rl.Vector2(0.0, 0.0)
-    if self._text_alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
-      text_pos = rl.Vector2(self._rect.x, (self._rect.y + (self._rect.height - text_size.y) // 2))
-    else:
-      text_pos = rl.Vector2(self._rect.x, self._rect.y)
-
-    if self._icon:
-      icon_y = self._rect.y + (self._rect.height - self._icon.height) / 2
-      if len(self._text_wrapped) > 0:
-        if self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-          icon_x = self._rect.x + self._text_padding
-          text_pos.x = self._icon.width + ICON_PADDING
-        elif self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-          total_width = self._icon.width + ICON_PADDING + text_size.x
-          icon_x = self._rect.x + (self._rect.width - total_width) / 2
-          text_pos.x = self._icon.width + ICON_PADDING
-        else:
-          icon_x = (self._rect.x + self._rect.width - text_size.x - self._text_padding) - ICON_PADDING - self._icon.width
+        display_text = text[:left - 1] + ellipsis if left > 0 else ellipsis
       else:
-        icon_x = self._rect.x + (self._rect.width - self._icon.width) / 2
-      rl.draw_texture_v(self._icon, rl.Vector2(icon_x, icon_y), rl.WHITE)
+        display_text = text
 
-    for text, text_size, emojis in zip_longest(self._text_wrapped, self._text_size, self._emojis, fillvalue=[]):
-      line_pos = rl.Vector2(text_pos.x, text_pos.y)
-      if self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-        line_pos.x += self._text_padding
-      elif self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-        line_pos.x += (self._rect.width - text_size.x) // 2
-      elif self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_RIGHT:
-        line_pos.x += self._rect.width - text_size.x - self._text_padding
+      wrapped_lines = [display_text] if display_text else []
+    else:
+      wrapped_lines = wrap_text(self._font, text, self._font_size, int(content_width)) if text else []
 
-      prev_index = 0
+    # Calculate starting Y position
+    if wrapped_lines:
+      first_line_height = measure_text_cached(self._font, wrapped_lines[0], self._font_size).y
+    elif self._icon:
+      first_line_height = self._icon.height
+    else:
+      return LayoutCache(text, rect_key, elements)
+
+    if self._text_alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
+      current_y = self._rect.y + (self._rect.height - first_line_height) / 2
+    else:
+      current_y = self._rect.y
+
+    # Process first line with optional icon
+    if wrapped_lines or self._icon:
+      line_elements = []
+      line_width = 0.0
+
+      # Add icon as first element
+      if self._icon:
+        icon_y = current_y + (first_line_height - self._icon.height) / 2
+        line_elements.append(RenderElement(
+          x=0.0,  # Relative, will be adjusted
+          y=icon_y,
+          texture=self._icon,
+          text="",
+          width=self._icon.width
+        ))
+        line_width += self._icon.width + ICON_PADDING
+
+      # Parse first line (text + emojis)
+      if wrapped_lines:
+        line_text = wrapped_lines[0]
+        line_elems, text_width = self._parse_line_elements(line_text, current_y)
+        line_elements.extend(line_elems)
+        line_width += text_width
+
+      # Apply horizontal alignment
+      self._apply_alignment(line_elements, line_width)
+      elements.extend(line_elements)
+      current_y += first_line_height
+
+    # Process remaining lines (no icon)
+    for line_text in wrapped_lines[1:]:
+      line_elems, line_width = self._parse_line_elements(line_text, current_y)
+      self._apply_alignment(line_elems, line_width)
+      elements.extend(line_elems)
+      current_y += self._font_size * FONT_SCALE
+
+    return LayoutCache(text, rect_key, elements)
+
+  def _parse_line_elements(self, line_text: str, y: float) -> tuple[list[RenderElement], float]:
+    """Parse line into text and emoji elements with relative X positions."""
+    elements = []
+    total_width = 0.0
+    emojis = find_emoji(line_text)
+
+    if not emojis:
+      # Fast path: no emojis
+      width = measure_text_cached(self._font, line_text, self._font_size).x
+      elements.append(RenderElement(
+        x=total_width,
+        y=y,
+        texture=None,
+        text=line_text,
+        width=width
+      ))
+      total_width += width
+    else:
+      # Parse text and emojis
+      prev_idx = 0
+
       for start, end, emoji in emojis:
-        text_before = text[prev_index:start]
-        width_before = measure_text_cached(self._font, text_before, self._font_size)
-        rl.draw_text_ex(self._font, text_before, line_pos, self._font_size, 0, self._text_color)
-        line_pos.x += width_before.x
+        # Text before emoji
+        if start > prev_idx:
+          text_segment = line_text[prev_idx:start]
+          width = measure_text_cached(self._font, text_segment, self._font_size).x
+          elements.append(RenderElement(
+            x=total_width,
+            y=y,
+            texture=None,
+            text=text_segment,
+            width=width
+          ))
+          total_width += width
 
+        # Emoji
         tex = emoji_tex(emoji)
-        rl.draw_texture_ex(tex, line_pos, 0.0, self._font_size / tex.height * FONT_SCALE, self._text_color)
-        line_pos.x += self._font_size * FONT_SCALE
-        prev_index = end
-      rl.draw_text_ex(self._font, text[prev_index:], line_pos, self._font_size, 0, self._text_color)
-      text_pos.y += text_size.y or self._font_size * FONT_SCALE
+        emoji_width = self._font_size * FONT_SCALE
+        elements.append(RenderElement(
+          x=total_width,
+          y=y,
+          texture=tex,
+          text=emoji,
+          width=emoji_width
+        ))
+        total_width += emoji_width
+        prev_idx = end
+
+      # Remaining text
+      if prev_idx < len(line_text):
+        remaining = line_text[prev_idx:]
+        width = measure_text_cached(self._font, remaining, self._font_size).x
+        elements.append(RenderElement(
+          x=total_width,
+          y=y,
+          texture=None,
+          text=remaining,
+          width=width
+        ))
+        total_width += width
+
+    return elements, total_width
+
+  def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
+    """Convert relative X positions to absolute based on alignment."""
+    if self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
+      x_base = self._rect.x + self._text_padding
+    elif self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
+      x_base = self._rect.x + (self._rect.width - line_width) / 2
+    else:  # RIGHT
+      x_base = self._rect.x + self._rect.width - line_width - self._text_padding
+
+    for element in elements:
+      element.x += x_base
+
+  def _render(self, _) -> None:
+    """Ultra-fast render: single loop over pre-calculated elements."""
+    text = _resolve_value(self._text)
+
+    # Update layout cache if needed
+    rect_key = (self._rect.x, self._rect.y, self._rect.width, self._rect.height)
+    if (self._layout_cache is None or
+        self._layout_cache.text != text or
+        self._layout_cache.rect_key != rect_key):
+      self._layout_cache = self._calculate_layout(text)
+
+    # Fast render loop
+    for element in self._layout_cache.elements:
+      if element.texture:
+        # Draw texture (emoji or icon)
+        if element.texture == self._icon:
+          # Icon: draw as-is
+          rl.draw_texture_v(element.texture, rl.Vector2(element.x, element.y), rl.WHITE)
+        else:
+          # Emoji: scale to font size
+          scale = self._font_size / element.texture.height * FONT_SCALE
+          rl.draw_texture_ex(
+            element.texture,
+            rl.Vector2(element.x, element.y),
+            0.0,
+            scale,
+            self._text_color
+          )
+      elif element.text:
+        # Draw text
+        rl.draw_text_ex(
+          self._font,
+          element.text,
+          rl.Vector2(element.x, element.y),
+          self._font_size,
+          0,
+          self._text_color
+        )
