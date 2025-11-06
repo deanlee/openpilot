@@ -189,52 +189,43 @@ class ModelRenderer(Widget):
     self._update_experimental_gradient()
 
   def _update_experimental_gradient(self):
-    """Pre-calculate experimental mode gradient colors (vectorized, same result as original)."""
+    """Pre-calculate experimental mode gradient colors (vectorized, same result)."""
     if not self._experimental_mode:
       return
 
     max_len = min(len(self._path.projected_points) // 2, len(self._acceleration_x))
     if max_len < 1:
-      self._exp_gradient = Gradient(start=(0.0, 1.0), end=(0.0, 0.0), colors=[], stops=[])
+      self._exp_gradient = Gradient((0, 1), (0, 0), [], [])
       return
 
-    # 1. Generate indices to match the original while loop's logic exactly.
-    # The original loop processes i=0, 2, 4, ... and then the last point if it was skipped.
-    indices = np.arange(0, max_len, 2)
+    # Select indices: 0, 2, 4, ..., plus last if even length
+    idx = np.arange(0, max_len, 2)
     if max_len > 1 and max_len % 2 == 0:
-      indices = np.append(indices, max_len - 1)
+      idx = np.append(idx, max_len - 1)
 
-    # 2. Select the exact same points and acceleration values as the original.
-    points = self._path.projected_points[indices]
-    accel = self._acceleration_x[indices]
+    pts = self._path.projected_points[idx]
+    acc = self._acceleration_x[idx]
 
-    # 3. Filter points within the viewport.
-    track_y = points[:, 1]
-    visible_mask = (track_y >= self._rect.y) & (track_y <= (self._rect.y + self._rect.height))
-    if not visible_mask.any():
-      self._exp_gradient = Gradient(start=(0.0, 1.0), end=(0.0, 0.0), colors=[], stops=[])
+    # Filter visible points (within viewport)
+    y_min, y_max = self._rect.y, self._rect.y + self._rect.height
+    mask = (pts[:, 1] >= y_min) & (pts[:, 1] <= y_max)
+    if not np.any(mask):
+      self._exp_gradient = Gradient((0, 1), (0, 0), [], [])
       return
 
-    points = points[visible_mask]
-    accel = accel[visible_mask]
+    y = pts[mask, 1]
+    acc = acc[mask]
 
-    # 4. Perform all color calculations in vectorized batches.
-    lin_grad_points = 1.0 - (points[:, 1] - self._rect.y) / self._rect.height
-    path_hues = np.clip(60 + accel * 35, 0, 120) / 360.0
-    saturations = np.clip(np.abs(accel * 1.5), 0, 1)
-    lightnesses = np.interp(saturations, [0.0, 1.0], [0.95, 0.62])
-    alphas = np.interp(lin_grad_points, [0.375, 0.75], [0.4, 0.0])
+    # Vectorized color computation
+    lin = 1.0 - (y - y_min) / self._rect.height
+    h = np.clip((60 + acc * 35) / 360.0, 0, 1/3)           # 120° = 1/3 in HSL space
+    s = np.clip(np.abs(acc * 1.5), 0, 1)
+    l = 0.95 - (0.33 * s)                                 # equivalent to np.interp
+    a = np.clip((0.75 - lin) * (0.4 / 0.375), 0, 0.4)      # exact same alpha curve
 
-    # 5. Convert HSL to RGB. This list comprehension remains the most direct way.
-    colors = [self._hsla_to_color(h, s, l, a) for h, s, l, a in zip(path_hues, saturations, lightnesses, alphas)]
+    colors = [self._hsla_to_color(*vals) for vals in zip(h, s, l, a)]
+    self._exp_gradient = Gradient((0, 1), (0, 0), colors, lin.tolist())
 
-    # 6. Store the final gradient.
-    self._exp_gradient = Gradient(
-      start=(0.0, 1.0),
-      end=(0.0, 0.0),
-      colors=colors,
-      stops=lin_grad_points.tolist(),
-    )
 
   def _update_lead_vehicle(self, d_rel, v_rel, point, rect):
     speed_buff, lead_buff = 10.0, 40.0
