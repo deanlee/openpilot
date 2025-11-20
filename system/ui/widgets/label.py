@@ -1,5 +1,6 @@
 from enum import IntEnum
 from collections.abc import Callable
+from dataclasses import dataclass
 from itertools import zip_longest
 from typing import Union
 import pyray as rl
@@ -24,6 +25,156 @@ def _resolve_value(value, default=""):
 class ScrollState(IntEnum):
   STARTING = 0
   SCROLLING = 1
+
+
+@dataclass
+class RenderElement:
+  x: float
+  y: float
+  texture: Union[rl.Texture, None]  # noqa: UP007
+  text: str
+  width: float
+
+
+class TextLayout:
+  def __init__(self):
+    self._text: str = ""
+    self._width: int = 0
+    self._font: rl.Font | None = None
+    self._font_size: int = 0
+    self._max_width: int = 0
+    self._letter_spacing: float = 0.0
+    self._elements: list[RenderElement] = []
+    self._text_padding:int = 0
+    self._elide_right: bool = False
+    self._rect: rl.Rectangle = rl.Rectangle(0, 0, 0, 0)
+
+  def update(self, text: str, font: rl.Font, font_size: int, max_width: int, letter_spacing: float = 0.0):
+    self._elements.clear()
+
+    if not text and not self._icon:
+      return
+
+    content_width = self._rect.width - self._text_padding * 2
+
+    if self._elide_right:
+      text_size = measure_text_cached(self._font, text, self._font_size)
+      content_width = self._rect.width - self._text_padding * 2
+      if self._icon:
+        content_width -= self._icon.width + ICON_PADDING
+      if text_size.x > content_width:
+        ellipsis = "..."
+        left, right = 0, len(text)
+        while left < right:
+          mid = (left + right) // 2
+          candidate = text[:mid] + ellipsis
+          candidate_size = measure_text_cached(self._font, candidate, self._font_size)
+          if candidate_size.x <= content_width:
+            left = mid + 1
+          else:
+            right = mid
+        display_text = text[: left - 1] + ellipsis if left > 0 else ellipsis
+      else:
+        display_text = text
+
+      wrapped_lines = [display_text] if display_text else []
+    else:
+      wrapped_lines = wrap_text(self._font, text, self._font_size, int(content_width)) if text else []
+
+    # Calculate starting Y position (relative to rect origin)
+    if wrapped_lines:
+      first_line_height = measure_text_cached(self._font, wrapped_lines[0], self._font_size).y
+    elif self._icon:
+      first_line_height = self._icon.height
+    else:
+      return
+
+    if self._text_alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
+      current_y = (self._rect.height - first_line_height) / 2
+    else:
+      current_y = 0
+
+    # Process first line with optional icon
+    if wrapped_lines or self._icon:
+      line_elements = []
+      line_width = 0.0
+
+      # Add icon as first element
+      if self._icon:
+        icon_y = current_y + (first_line_height - self._icon.height) / 2
+        line_elements.append(RenderElement(0.0, icon_y, self._icon, "", self._icon.width))
+        line_width += self._icon.width + ICON_PADDING
+
+      # Parse first line (text + emojis)
+      if wrapped_lines:
+        line_text = wrapped_lines[0]
+        line_elems, text_width = self._parse_line_elements(line_text, current_y)
+        line_elements.extend(line_elems)
+        line_width += text_width
+
+      # Apply horizontal alignment
+      self._apply_alignment(line_elements, line_width)
+      self._elements.extend(line_elements)
+      current_y += first_line_height
+
+    # Process remaining lines (no icon)
+    for line_text in wrapped_lines[1:]:
+      line_elems, line_width = self._parse_line_elements(line_text, current_y)
+      self._apply_alignment(line_elems, line_width)
+      self._elements.extend(line_elems)
+      current_y += self._font_size * FONT_SCALE
+
+
+  def _parse_line_elements(self, line_text: str, y: float) -> tuple[list[RenderElement], float]:
+    elements, x, emojis = [], 0.0, find_emoji(line_text)
+
+    if not emojis:
+      w = measure_text_cached(self._font, line_text, self._font_size).x
+      return [RenderElement(x, y, None, line_text, w)], w
+
+    prev = 0
+    for start, end, emoji in emojis:
+      if start > prev:
+        seg = line_text[prev:start]
+        w = measure_text_cached(self._font, seg, self._font_size).x
+        elements.append(RenderElement(x, y, None, seg, w))
+        x += w
+
+      emoji_w = self._font_size * FONT_SCALE
+      elements.append(RenderElement(x, y, emoji_tex(emoji), emoji, emoji_w))
+      x += emoji_w
+      prev = end
+
+    if prev < len(line_text):
+      rem = line_text[prev:]
+      w = measure_text_cached(self._font, rem, self._font_size).x
+      elements.append(RenderElement(x, y, None, rem, w))
+      x += w
+
+    return elements, x
+
+  def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
+    if self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
+      x_base = float(self._text_padding)
+    elif self._text_alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
+      x_base = (self._rect.width - line_width) // 2
+    else:  # RIGHT
+      x_base = int(self._rect.width) - line_width - self._text_padding
+
+    for element in elements:
+      element.x += x_base
+
+  def render(self, rect: rl.Rectangle):
+    # Apply absolute position from self._rect when rendering
+    for element in self._elements:
+      tex = element.texture
+      pos = rl.Vector2(rect.x + element.x, rect.y + element.y)
+      if tex is None:
+        rl.draw_text_ex(self._font, element.text, pos, self._font_size, 0, self._text_color)
+      elif tex is self._icon:
+        rl.draw_texture_v(tex, pos, rl.WHITE)
+      else:
+        rl.draw_texture_ex(tex, pos, 0.0, self._font_size / tex.height * FONT_SCALE, self._text_color)
 
 
 # TODO: merge anything new here to master
