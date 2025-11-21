@@ -1,7 +1,6 @@
 from enum import IntEnum
 from collections.abc import Callable
 from dataclasses import dataclass
-from itertools import zip_longest
 from typing import Union
 import pyray as rl
 
@@ -59,7 +58,7 @@ class TextLayout:
     self._rect: rl.Rectangle = rl.Rectangle(0, 0, 0, 0)
 
   def set_text(self, text: str):
-    if text != self.text:
+    if text != self._text:
       self._text = text
       self._elements.clear()
 
