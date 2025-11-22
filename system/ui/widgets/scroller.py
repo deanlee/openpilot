@@ -120,36 +120,33 @@ class Scroller(Widget):
       self._scroll_filter.x = self.scroll_panel.get_offset()
 
   def _get_scroll(self, visible_items: list[Widget], content_size: float) -> float:
-    scroll_enabled = self._scroll_enabled() if callable(self._scroll_enabled) else self._scroll_enabled
-    self.scroll_panel.set_enabled(scroll_enabled and self.enabled)
+    # enable + update scroll panel
+    enabled = self._scroll_enabled() if callable(self._scroll_enabled) else self._scroll_enabled
+    self.scroll_panel.set_enabled(enabled and self.enabled)
     self.scroll_panel.update(self._rect, content_size)
-    if not self._snap_items:
-      return self.scroll_panel.get_offset()
 
-    # Snap closest item to center
+    offset = self.scroll_panel.get_offset()
+    if not self._snap_items:
+      return offset
+
+    # center position and item center fn
+    horizontal = self._horizontal
     rect = self._rect
-    center_pos = rect.x + rect.width / 2 if self._horizontal else rect.y + rect.height / 2
-    get_center = (
-      (lambda it: it.rect.x + it.rect.width / 2) if self._horizontal else (lambda it: it.rect.y + it.rect.height / 2)
-    )
+    center_pos = (rect.x + rect.width / 2) if horizontal else (rect.y + rect.height / 2)
+    get_center = (lambda it: it.rect.x + it.rect.width / 2) if horizontal else \
+                 (lambda it: it.rect.y + it.rect.height / 2)
+
+    # closest item
     snap_item = min(visible_items, key=lambda it: abs(get_center(it) - center_pos))
 
     if self.is_pressed:
-      # no snapping until released
       self._scroll_snap_filter.x = 0
     else:
-      offset = self.scroll_panel.get_offset()
       snap_delta = (center_pos - get_center(snap_item)) / 10.0
-
-      # Safe boundaries (prevent overshoot)
-      view_size = rect.width if self._horizontal else rect.height
-      upper = -offset / 10.0
-      lower = (view_size - offset - content_size) / 10.0
-
-      snap_delta = max(lower, min(snap_delta, upper))
+      view_size = rect.width if horizontal else rect.height
+      snap_delta = max((view_size - offset - content_size) / 10.0, min(snap_delta, -offset / 10.0))
       self._scroll_snap_filter.update(snap_delta)
 
-    # Apply filtered offset
     self.scroll_panel.set_offset(offset + self._scroll_snap_filter.x)
     return self.scroll_panel.get_offset()
 
