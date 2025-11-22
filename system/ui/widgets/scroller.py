@@ -120,29 +120,22 @@ class Scroller(Widget):
       self._scroll_filter.x = self.scroll_panel.get_offset()
 
   def _get_scroll(self, visible_items: list[Widget], content_size: float) -> float:
-    # Enable scroll and update panel
     scroll_enabled = self._scroll_enabled() if callable(self._scroll_enabled) else self._scroll_enabled
     self.scroll_panel.set_enabled(scroll_enabled and self.enabled)
     self.scroll_panel.update(self._rect, content_size)
-
-    # No snapping -> return raw offset
     if not self._snap_items:
       return self.scroll_panel.get_offset()
 
-    # --- Snapping logic ---
+    # Snap closest item to center
     rect = self._rect
     center_pos = rect.x + rect.width / 2 if self._horizontal else rect.y + rect.height / 2
-
-    # Function to compute item center
     get_center = (
       (lambda it: it.rect.x + it.rect.width / 2) if self._horizontal else (lambda it: it.rect.y + it.rect.height / 2)
     )
-
-    # Pick item closest to center
     snap_item = min(visible_items, key=lambda it: abs(get_center(it) - center_pos))
 
     if self.is_pressed:
-      # Disable smoothing while dragging
+      # no snapping until released
       self._scroll_snap_filter.x = 0
     else:
       offset = self.scroll_panel.get_offset()
@@ -159,7 +152,6 @@ class Scroller(Widget):
     # Apply filtered offset
     self.scroll_panel.set_offset(offset + self._scroll_snap_filter.x)
     return self.scroll_panel.get_offset()
-
 
   def _render(self, _):
     visible_items = [item for item in self._items if item.is_visible]
