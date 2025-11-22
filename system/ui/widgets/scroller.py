@@ -120,30 +120,25 @@ class Scroller(Widget):
       self._scroll_filter.x = self.scroll_panel.get_offset()
 
   def _get_scroll(self, visible_items: list[Widget], content_size: float) -> float:
-    # enable + update scroll panel
-    enabled = self._scroll_enabled() if callable(self._scroll_enabled) else self._scroll_enabled
-    self.scroll_panel.set_enabled(enabled and self.enabled)
+    scroll_enabled = self._scroll_enabled() if callable(self._scroll_enabled) else self._scroll_enabled
+    self.scroll_panel.set_enabled(scroll_enabled and self.enabled)
     self.scroll_panel.update(self._rect, content_size)
 
     offset = self.scroll_panel.get_offset()
     if not self._snap_items:
       return offset
 
-    # center position and item center fn
-    horizontal = self._horizontal
-    rect = self._rect
-    center_pos = (rect.x + rect.width / 2) if horizontal else (rect.y + rect.height / 2)
-    get_center = (lambda it: it.rect.x + it.rect.width / 2) if horizontal else \
+    # Snap closest item to center
+    center_pos = (self._rect.x + self._rect.width / 2) if self._horizontal else (self._rect.y + self._rect.height / 2)
+    get_center = (lambda it: it.rect.x + it.rect.width / 2) if self._horizontal else \
                  (lambda it: it.rect.y + it.rect.height / 2)
-
-    # closest item
     snap_item = min(visible_items, key=lambda it: abs(get_center(it) - center_pos))
 
     if self.is_pressed:
       self._scroll_snap_filter.x = 0
     else:
       snap_delta = (center_pos - get_center(snap_item)) / 10.0
-      view_size = rect.width if horizontal else rect.height
+      view_size = self._rect.width if self._horizontal else self._rect.height
       snap_delta = max((view_size - offset - content_size) / 10.0, min(snap_delta, -offset / 10.0))
       self._scroll_snap_filter.update(snap_delta)
 
