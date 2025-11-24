@@ -133,21 +133,18 @@ class Scroller(Widget):
       self._scroll_snap_filter.x = 0
       return offset
 
-    get_center = lambda item: (item.rect.x + item.rect.width / 2) if self._horizontal else (item.rect.y + item.rect.height / 2)
-    A, S = (self._rect.x, self._rect.width) if self._horizontal else (self._rect.y, self._rect.height)
-    center_pos = A + S / 2
-    snap_item = min(visible_items, key=lambda item: abs(get_center(item) - center_pos))
+    center = (self._rect.x + self._rect.width / 2) if self._horizontal else (self._rect.y + self._rect.height / 2)
+    get_c = lambda i: (i.rect.x + i.rect.width / 2) if self._horizontal else (i.rect.y + i.rect.height / 2)
 
-    delta = (center_pos - get_center(snap_item)) / 10
+    closest = min(visible_items, key=lambda i: abs(get_c(i) - center))
+    pull = (center - get_c(closest)) / 10
 
-    # Clamp within scroll bounds
-    max_left = -offset / 10
-    max_right = (S - offset - content_size) / 10
-    delta = max(min(delta, max_left), max_right)
+    # Clamp pull to avoid overshooting ends
+    max_pull = min(abs(offset), abs(content_size - (self._rect.height if not self._horizontal else self._rect.width) - abs(offset)) / 10)
+    pull = np.clip(pull, -max_pull, max_pull)
 
-    self._scroll_snap_filter.update(delta)
+    self._scroll_snap_filter.update(pull)
     new_offset = offset + self._scroll_snap_filter.x
-
     self.scroll_panel.set_offset(new_offset)
     return new_offset
 
