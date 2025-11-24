@@ -88,6 +88,7 @@ class GuiScrollPanel2:
         # Steady once we are close enough to the target
         if abs(dist) < 1 and abs(self._velocity) < MIN_VELOCITY:
           self.set_offset(target)
+          self._velocity = 0.0
           self._state = ScrollState.STEADY
 
       elif abs(self._velocity) < MIN_VELOCITY:
@@ -119,6 +120,8 @@ class GuiScrollPanel2:
         if mouse_event.left_pressed:
           self._state = ScrollState.PRESSED
           self._initial_click_event = mouse_event
+          self._velocity = 0.0
+          self._velocity_buffer.clear()
 
     elif self._state == ScrollState.PRESSED:
       initial_click_pos = self._get_mouse_pos(cast(MouseEvent, self._initial_click_event))
@@ -129,6 +132,7 @@ class GuiScrollPanel2:
         if out_of_bounds:
           self._state = ScrollState.AUTO_SCROLL
         elif diff <= MIN_DRAG_PIXELS:
+          self._velocity = 0.0
           self._state = ScrollState.STEADY
         else:
           self._state = ScrollState.MANUAL_SCROLL
@@ -187,6 +191,8 @@ class GuiScrollPanel2:
 
     elif self._state == ScrollState.AUTO_SCROLL:
       if mouse_event.left_pressed:
+        self._velocity = 0.0
+        self._velocity_buffer.clear()
         # Decide whether to click or scroll (block click if moving too fast)
         if abs(self._velocity) <= MIN_VELOCITY_FOR_CLICKING:
           # Traveling slow enough, click
@@ -196,7 +202,6 @@ class GuiScrollPanel2:
           # Go straight into manual scrolling to block erroneous input
           self._state = ScrollState.MANUAL_SCROLL
           # Reset velocity for touch down and up events that happen in back-to-back frames
-          self._velocity = 0.0
 
   def _get_mouse_pos(self, mouse_event: MouseEvent) -> float:
     return mouse_event.pos.x if self._horizontal else mouse_event.pos.y
