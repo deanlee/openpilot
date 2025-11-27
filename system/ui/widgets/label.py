@@ -442,7 +442,7 @@ class UnifiedLabel(Widget):
     # Cached data
     self._elements: list[RenderElement] = []
     self._cached_text: str | None = None
-    self._cached_total_height: float | None = None
+    self._cached_height: float | None = None
     self._cached_width: int = -1
 
     # If max_width is set, initialize rect size for Scroller support
@@ -510,23 +510,17 @@ class UnifiedLabel(Widget):
   def _update_text_cache(self, available_width: int):
     """Update cached text processing data."""
     text = self.text
-    if self._cached_text != text:
-      self._elements.clear()
-      self._cached_text = text
+    if (self._cached_text == text and
+        self._cached_width == available_width and
+        self._elements):
+        return  # Cache hit
 
-    # Check if cache is still valid
-    # if (self._cached_text == text and
-    #     self._cached_width == available_width and
-    #     self._cached_wrapped_lines):
-    #   return
-
+    self._elements.clear()
     self._cached_text = text
     self._cached_width = available_width
 
     # Determine wrapping width
-    content_width = available_width - (self._text_padding * 2)
-    if content_width <= 0:
-      content_width = 1
+    content_width = max(1, available_width - self._padding * 2)
 
     # Wrap text if enabled
     if self._wrap_text:
@@ -540,7 +534,7 @@ class UnifiedLabel(Widget):
 
     # Process each line: measure and find emojis
     total_height = len(wrapped_lines) * self._font_size * self._line_height
-    self._cached_total_height = total_height
+    self._cached_height = total_height
 
     self._cached_totol_height = 0.0
     if self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
@@ -554,7 +548,7 @@ class UnifiedLabel(Widget):
       else:
         size = measure_text_cached(self._font, line, self._font_size, self._spacing_pixels)
       if idx == 0:
-        self._cached_total_height = size.y
+        self._cached_height = size.y
       else:
         self._cached_totol_height += size.y * self._line_height
 
@@ -563,7 +557,7 @@ class UnifiedLabel(Widget):
       self._elements.extend(line_elems)
       current_y += size.y * self._line_height
 
-    self._cached_total_height = current_y
+    self._cached_height = current_y
 
   def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
     if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
@@ -643,7 +637,7 @@ class UnifiedLabel(Widget):
     width = max_width if max_width > 0 else (self._max_width if self._max_width else 1000)
     self._update_text_cache(width)
 
-    return self._cached_total_height
+    return self._cached_height
 
   def _render(self, rect: rl.Rectangle):
     """Render the label."""
