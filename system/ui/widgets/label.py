@@ -440,10 +440,8 @@ class UnifiedLabel(Widget):
     self._spacing_pixels = font_size * letter_spacing
 
     # Cached data
+    self._elements: list[RenderElement] = []
     self._cached_text: str | None = None
-    self._cached_wrapped_lines: list[str] = []
-    self._cached_line_sizes: list[rl.Vector2] = []
-    self._cached_line_emojis: list[list[tuple[int, int, str]]] = []
     self._cached_total_height: float | None = None
     self._cached_width: int = -1
 
@@ -512,12 +510,15 @@ class UnifiedLabel(Widget):
   def _update_text_cache(self, available_width: int):
     """Update cached text processing data."""
     text = self.text
+    if self._cached_text != text:
+      self._elements.clear()
+      self._cached_text = text
 
     # Check if cache is still valid
-    if (self._cached_text == text and
-        self._cached_width == available_width and
-        self._cached_wrapped_lines):
-      return
+    # if (self._cached_text == text and
+    #     self._cached_width == available_width and
+    #     self._cached_wrapped_lines):
+    #   return
 
     self._cached_text = text
     self._cached_width = available_width
@@ -529,42 +530,80 @@ class UnifiedLabel(Widget):
 
     # Wrap text if enabled
     if self._wrap_text:
-      self._cached_wrapped_lines = wrap_text(self._font, text, self._font_size, content_width, self._spacing_pixels)
+      wrapped_lines = wrap_text(self._font, text, self._font_size, content_width, self._spacing_pixels)
     else:
       # Split by newlines but don't wrap
-      self._cached_wrapped_lines = text.split('\n') if text else [""]
+      wrapped_lines = text.split('\n') if text else [""]
 
     # Elide lines if needed (for width constraint)
-    self._cached_wrapped_lines = [self._elide_line(line, content_width) for line in self._cached_wrapped_lines]
+    wrapped_lines = [self._elide_line(line, content_width) for line in wrapped_lines]
 
     # Process each line: measure and find emojis
-    self._cached_line_sizes = []
-    self._cached_line_emojis = []
+    total_height = len(wrapped_lines) * self._font_size * self._line_height
+    self._cached_total_height = total_height
 
-    for line in self._cached_wrapped_lines:
-      emojis = find_emoji(line)
-      self._cached_line_emojis.append(emojis)
+    self._cached_totol_height = 0.0
+    if self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
+      current_y = (self._rect.height - total_height) / 2
+    else:
+      current_y = 0
+    for idx, line in enumerate(wrapped_lines):
       # Empty lines should still have height (use font size as line height)
       if not line:
         size = rl.Vector2(0, self._font_size * FONT_SCALE)
       else:
         size = measure_text_cached(self._font, line, self._font_size, self._spacing_pixels)
-      self._cached_line_sizes.append(size)
+      if idx == 0:
+        self._cached_total_height = size.y
+      else:
+        self._cached_totol_height += size.y * self._line_height
 
-    # Calculate total height
-    # Each line contributes its measured height * line_height (matching Label's behavior)
-    # This includes spacing to the next line
-    if self._cached_line_sizes:
-      # Match the rendering logic: first line doesn't get line_height scaling
-      total_height = 0.0
-      for idx, size in enumerate(self._cached_line_sizes):
-        if idx == 0:
-          total_height += size.y
-        else:
-          total_height += size.y * self._line_height
-      self._cached_total_height = total_height
-    else:
-      self._cached_total_height = 0.0
+      line_elems, text_width = self._parse_line_elements(line, current_y)
+      self._apply_alignment(line_elems, text_width)
+      self._elements.extend(line_elems)
+      current_y += size.y * self._line_height
+
+    self._cached_total_height = current_y
+
+  def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
+    if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
+      x_base = float(self._text_padding)
+    elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
+      x_base = (self._rect.width - line_width) // 2
+    else:  # RIGHT
+      x_base = int(self._rect.width) - line_width - self._text_padding
+
+    for element in elements:
+      element.x += x_base
+
+
+  def _parse_line_elements(self, line_text: str, y: float) -> tuple[list[RenderElement], float]:
+    elements, x, emojis = [], 0.0, find_emoji(line_text)
+
+    if not emojis:
+      w = measure_text_cached(self._font, line_text, self._font_size).x
+      return [RenderElement(x, y, None, line_text, w)], w
+
+    prev = 0
+    for start, end, emoji in emojis:
+      if start > prev:
+        seg = line_text[prev:start]
+        w = measure_text_cached(self._font, seg, self._font_size).x
+        elements.append(RenderElement(x, y, None, seg, w))
+        x += w
+
+      emoji_w = self._font_size * FONT_SCALE
+      elements.append(RenderElement(x, y, emoji_tex(emoji), emoji, emoji_w))
+      x += emoji_w
+      prev = end
+
+    if prev < len(line_text):
+      rem = line_text[prev:]
+      w = measure_text_cached(self._font, rem, self._font_size).x
+      elements.append(RenderElement(x, y, None, rem, w))
+      x += w
+
+    return elements, x
 
   def _elide_line(self, line: str, max_width: int, force: bool = False) -> str:
     """Elide a single line if it exceeds max_width. If force is True, always elide even if it fits."""
@@ -604,14 +643,12 @@ class UnifiedLabel(Widget):
     width = max_width if max_width > 0 else (self._max_width if self._max_width else 1000)
     self._update_text_cache(width)
 
-    if self._cached_total_height is not None:
-      return self._cached_total_height
-    return 0.0
+    return self._cached_total_height
 
   def _render(self, rect: rl.Rectangle):
     """Render the label."""
-    if rect.width <= 0 or rect.height <= 0:
-      return
+    # if rect.width <= 0 or rect.height <= 0:
+      # return
 
     # Determine available width
     available_width = rect.width
@@ -621,116 +658,13 @@ class UnifiedLabel(Widget):
     # Update text cache
     self._update_text_cache(int(available_width))
 
-    if not self._cached_wrapped_lines:
-      return
-
-    # Calculate which lines fit in the available height
-    visible_lines: list[str] = []
-    visible_sizes: list[rl.Vector2] = []
-    visible_emojis: list[list[tuple[int, int, str]]] = []
-
-    current_height = 0.0
-    broke_early = False
-    for line, size, emojis in zip(
-      self._cached_wrapped_lines,
-      self._cached_line_sizes,
-      self._cached_line_emojis,
-      strict=True):
-
-      # Calculate height needed for this line
-      # Each line contributes its height * line_height (matching Label's behavior)
-      line_height_needed = size.y * self._line_height
-
-      # Check if this line fits
-      if current_height + line_height_needed > rect.height:
-        # This line doesn't fit
-        if len(visible_lines) == 0:
-          # First line doesn't fit by height - still show it (will be clipped by scissor if needed)
-          # Continue to add this line below
-          pass
-        else:
-          # We have visible lines and this one doesn't fit - mark that we broke early
-          broke_early = True
-          break
-
-      visible_lines.append(line)
-      visible_sizes.append(size)
-      visible_emojis.append(emojis)
-
-      current_height += line_height_needed
-
-    # If we broke early (there are more lines that don't fit) and elide is enabled, elide the last visible line
-    if broke_early and len(visible_lines) > 0 and self._elide:
-      content_width = int(available_width - (self._text_padding * 2))
-      if content_width <= 0:
-        content_width = 1
-
-      last_line_idx = len(visible_lines) - 1
-      last_line = visible_lines[last_line_idx]
-      # Force elide the last line to show "..." even if it fits in width (to indicate more content)
-      elided = self._elide_line(last_line, content_width, force=True)
-      visible_lines[last_line_idx] = elided
-      visible_sizes[last_line_idx] = measure_text_cached(self._font, elided, self._font_size, self._spacing_pixels)
-
-    if not visible_lines:
-      return
-
-    # Calculate total visible text block height
-    # First line is not changed by line_height scaling
-    total_visible_height = 0.0
-    for idx, size in enumerate(visible_sizes):
-      if idx == 0:
-        total_visible_height += size.y
+    # Apply absolute position from rect when rendering
+    for element in self._elements:
+      pos = rl.Vector2(rect.x + element.x, rect.y + element.y)
+      tex = element.texture
+      if tex is None:
+        rl.draw_text_ex(self._font, element.text, pos, self._font_size, 0, self._text_color)
+      elif tex is self._icon:
+        rl.draw_texture_v(tex, pos, rl.WHITE)
       else:
-        total_visible_height += size.y * self._line_height
-
-    # Calculate vertical alignment offset
-    if self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP:
-      start_y = rect.y
-    elif self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM:
-      start_y = rect.y + rect.height - total_visible_height
-    else:  # TEXT_ALIGN_MIDDLE
-      start_y = rect.y + (rect.height - total_visible_height) / 2
-
-    # Render each line
-    current_y = start_y
-    for idx, (line, size, emojis) in enumerate(zip(visible_lines, visible_sizes, visible_emojis, strict=True)):
-      # Calculate horizontal position
-      if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-        line_x = rect.x + self._text_padding
-      elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-        line_x = rect.x + (rect.width - size.x) / 2
-      elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_RIGHT:
-        line_x = rect.x + rect.width - size.x - self._text_padding
-      else:
-        line_x = rect.x + self._text_padding
-
-      # Render line with emojis
-      line_pos = rl.Vector2(line_x, current_y)
-      prev_index = 0
-
-      for start, end, emoji in emojis:
-        # Draw text before emoji
-        text_before = line[prev_index:start]
-        if text_before:
-          rl.draw_text_ex(self._font, text_before, line_pos, self._font_size, self._spacing_pixels, self._text_color)
-          width_before = measure_text_cached(self._font, text_before, self._font_size, self._spacing_pixels)
-          line_pos.x += width_before.x
-
-        # Draw emoji
-        tex = emoji_tex(emoji)
-        emoji_scale = self._font_size / tex.height * FONT_SCALE
-        rl.draw_texture_ex(tex, line_pos, 0.0, emoji_scale, self._text_color)
-        # Emoji width is font_size * FONT_SCALE (as per measure_text_cached)
-        line_pos.x += self._font_size * FONT_SCALE
-        prev_index = end
-
-      # Draw remaining text after last emoji
-      text_after = line[prev_index:]
-      if text_after:
-        rl.draw_text_ex(self._font, text_after, line_pos, self._font_size, self._spacing_pixels, self._text_color)
-
-      # Move to next line (if not last line)
-      if idx < len(visible_lines) - 1:
-        # Use current line's height * line_height for spacing to next line
-        current_y += size.y * self._line_height
+        rl.draw_texture_ex(tex, pos, 0.0, self._font_size / tex.height * FONT_SCALE, self._text_color)
