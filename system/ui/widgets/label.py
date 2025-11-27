@@ -641,8 +641,8 @@ class UnifiedLabel(Widget):
 
   def _render(self, rect: rl.Rectangle):
     """Render the label."""
-    # if rect.width <= 0 or rect.height <= 0:
-      # return
+    if rect.width <= 0 or rect.height <= 0:
+      return
 
     # Determine available width
     available_width = rect.width
