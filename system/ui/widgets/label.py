@@ -1,5 +1,6 @@
 from enum import IntEnum
 from collections.abc import Callable
+from dataclasses import dataclass
 from itertools import zip_longest
 from typing import Union
 import pyray as rl
@@ -388,6 +389,14 @@ class Label(Widget):
         prev_index = end
       rl.draw_text_ex(self._font, text[prev_index:], line_pos, self._font_size, 0, self._text_color)
       text_pos.y += (text_size.y or self._font_size * FONT_SCALE) * self._line_scale
+
+@dataclass
+class RenderElement:
+  x: float
+  y: float
+  texture: Union[rl.Texture, None]  # noqa: UP007
+  text: str
+  width: float
 
 
 class UnifiedLabel(Widget):
