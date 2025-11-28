@@ -545,27 +545,23 @@ class UnifiedLabel(Widget):
     current_y = 0
     self._max_text_width = 0
     for idx, line in enumerate(wrapped_lines):
-      # Empty lines should still have height (use font size as line height)
-      if not line:
-        size = rl.Vector2(0, self._font_size * FONT_SCALE)
-      else:
-        size = measure_text_cached(self._font, line, self._font_size, self._spacing_pixels)
-
+      size = (measure_text_cached(self._font, line, self._font_size, self._spacing_pixels)
+             if line else rl.Vector2(0, self._font_size * FONT_SCALE))
       self._max_text_width = max(self._max_text_width, size.x)
-      line_elems, text_width = self._parse_line_elements(line, current_y)
-      self._apply_alignment(line_elems, text_width)
+      line_elems, line_width = self._parse_line_elements(line, current_y)
+      self._apply_alignment(line_elems, line_width, content_width)
       self._elements.extend(line_elems)
       current_y += size.y * self._line_height
 
     self._cached_height = current_y
 
-  def _apply_alignment(self, elements: list[RenderElement], line_width: float) -> None:
+  def _apply_alignment(self, elements: list[RenderElement], line_width: float, available_width: float) -> None:
     if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-      x_base = float(self._text_padding)
+      x_base = self._text_padding
     elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-      x_base = (self._rect.width - line_width) // 2
+      x_base = (available_width - line_width) * 0.5
     else:  # RIGHT
-      x_base = int(self._rect.width) - line_width - self._text_padding
+      x_base = available_width - line_width - self._text_padding
 
     for element in elements:
       element.x += x_base
