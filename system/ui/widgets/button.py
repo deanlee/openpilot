@@ -98,8 +98,9 @@ class Button(Widget):
     self._border_radius = border_radius
     self._background_color = BUTTON_BACKGROUND_COLORS[self._button_style]
 
-    self._label = Label(text, font_size, font_weight, text_alignment, text_padding=text_padding,
-                        text_color=BUTTON_TEXT_COLOR[self._button_style], icon=icon, elide_right=elide_right)
+    self._label = UnifiedLabel(text, font_size, font_weight, alignment=text_alignment,
+                               alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE, text_padding=text_padding,
+                        text_color=BUTTON_TEXT_COLOR[self._button_style], icon=icon, elide=elide_right)
 
     self._click_callback = click_callback
     self._multi_touch = multi_touch

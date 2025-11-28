@@ -423,7 +423,8 @@ class UnifiedLabel(Widget):
                elide: bool = True,
                wrap_text: bool = True,
                line_height: float = 1.0,
-               letter_spacing: float = 0.0):
+               letter_spacing: float = 0.0,
+               icon: Union[rl.Texture, None] = None):
     super().__init__()
     self._text = text
     self._font_size = font_size
@@ -439,12 +440,15 @@ class UnifiedLabel(Widget):
     self._line_height = line_height * 0.9
     self._letter_spacing = letter_spacing  # 0.1 = 10%
     self._spacing_pixels = font_size * letter_spacing
+    self._icon = icon
 
     # Cached data
     self._elements: list[RenderElement] = []
     self._cached_text: str | None = None
     self._cached_height: float | None = None
     self._cached_width: int = -1
+    self._max_text_width:int = 0
+
 
     # If max_width is set, initialize rect size for Scroller support
     if max_width is not None:
@@ -519,7 +523,9 @@ class UnifiedLabel(Widget):
     self._elements.clear()
 
     # Determine wrapping width
-    content_width = max(1, available_width - self._padding * 2)
+    content_width = max(1, available_width - self._text_padding * 2)
+    if self._icon:
+      content_width -= self._icon.width + ICON_PADDING
 
     # Wrap text if enabled
     if self._wrap_text:
@@ -536,21 +542,16 @@ class UnifiedLabel(Widget):
     self._cached_height = total_height
 
     self._cached_totol_height = 0.0
-    if self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
-      current_y = (self._rect.height - total_height) / 2
-    else:
-      current_y = 0
+    current_y = 0
+    self._max_text_width = 0
     for idx, line in enumerate(wrapped_lines):
       # Empty lines should still have height (use font size as line height)
       if not line:
         size = rl.Vector2(0, self._font_size * FONT_SCALE)
       else:
         size = measure_text_cached(self._font, line, self._font_size, self._spacing_pixels)
-      if idx == 0:
-        self._cached_height = size.y
-      else:
-        self._cached_totol_height += size.y * self._line_height
 
+      self._max_text_width = max(self._max_text_width, size.x)
       line_elems, text_width = self._parse_line_elements(line, current_y)
       self._apply_alignment(line_elems, text_width)
       self._elements.extend(line_elems)
@@ -651,13 +652,30 @@ class UnifiedLabel(Widget):
     # Update text cache
     self._update_text_cache(int(available_width))
 
+    x = rect.x
+    if self._icon:
+      icon_y = self._rect.y + (self._rect.height - self._icon.height) / 2
+      if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
+        icon_x = self._rect.x + self._text_padding
+        x = icon_x + self._icon.width + ICON_PADDING
+      elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
+        icon_x = self._rect.x + (self._rect.width - self._max_text_width) / 2 - (self._icon.width ) / 2
+        x = icon_x + self._icon.width + ICON_PADDING
+      else:
+        icon_x = (self._rect.x + self._rect.width - self._max_text_width - self._text_padding) - ICON_PADDING - self._icon.width
+      rl.draw_texture_v(self._icon, rl.Vector2(icon_x, icon_y), rl.WHITE)
+
+    y = rect.y
+    if self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
+      y += (rect.height - self._cached_height) / 2
+    elif self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM:
+      y += rect.height - self._cached_height
+
     # Apply absolute position from rect when rendering
     for element in self._elements:
-      pos = rl.Vector2(rect.x + element.x, rect.y + element.y)
+      pos = rl.Vector2(x + element.x, y + element.y)
       tex = element.texture
       if tex is None:
         rl.draw_text_ex(self._font, element.text, pos, self._font_size, 0, self._text_color)
-      elif tex is self._icon:
-        rl.draw_texture_v(tex, pos, rl.WHITE)
       else:
         rl.draw_texture_ex(tex, pos, 0.0, self._font_size / tex.height * FONT_SCALE, self._text_color)
