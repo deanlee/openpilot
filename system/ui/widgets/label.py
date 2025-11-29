@@ -446,8 +446,8 @@ class UnifiedLabel(Widget):
     self._elements: list[RenderElement] = []
     self._cached_text: str | None = None
     self._cached_width: int = -1
-    self._cached_height: float | None = None
-    self._cached_content_width:float = 0.0
+    self._cached_height: float = 0.0
+    self._cached_content_width: float = 0.0  # text + icon
 
 
     # If max_width is set, initialize rect size for Scroller support
@@ -527,52 +527,63 @@ class UnifiedLabel(Widget):
     self._cached_width = available_width
     self._elements.clear()
 
-    # Determine wrapping width
-    content_width = max(1, available_width - self._text_padding * 2)
-    if self._icon:
-      content_width -= (self._icon.width + ICON_PADDING)
+    inner_w = max(1, available_width - self._text_padding * 2)
+    icon_w = (self._icon.width + ICON_PADDING) if self._icon else 0
+    text_area_w = inner_w - icon_w
 
-    # Wrap text if enabled
-    if self._wrap_text:
-      wrapped_lines = wrap_text(self._font, text, self._font_size, content_width, self._spacing_pixels)
-    else:
-      # Split by newlines but don't wrap
-      wrapped_lines = text.split('\n') if text else [""]
+    # Wrap
+    lines = (wrap_text(self._font, text, self._font_size, text_area_w, self._spacing_pixels)
+              if self._wrap_text and text_area_w > 0 else text.split("\n"))
 
-    # Elide lines if needed (for width constraint)
-    wrapped_lines = [self._elide_line(line, content_width) for line in wrapped_lines]
+    # Elide
+    if self._elide:
+        lines = [self._elide_line(line, text_area_w) for line in lines]
 
-    # Process each line: measure and find emojis
-    total_height = len(wrapped_lines) * self._font_size * self._line_height
-    self._cached_height = total_height
+    # Measure
+    line_widths = [
+        measure_text_cached(self._font, line, self._font_size, self._spacing_pixels).x
+        if line else 0
+        for line in lines
+    ]
+    max_text_w = max(line_widths, default=0)
+    total_w = max_text_w + icon_w
 
-    current_y = 0
-    self._cached_content_width = 0
-    for idx, line in enumerate(wrapped_lines):
-      size = (measure_text_cached(self._font, line, self._font_size, self._spacing_pixels)
-             if line else rl.Vector2(0, self._font_size * FONT_SCALE))
-      self._cached_content_width = max(self._cached_content_width, size.x)
-      line_elems, line_width = self._parse_line_elements(line, current_y)
-      self._apply_alignment(line_elems, line_width, content_width)
-      self._elements.extend(line_elems)
-      current_y += size.y * self._line_height
-
-    self._cached_height = current_y
-
-  def _apply_alignment(self, elements: list[RenderElement], line_width: float, available_width: float) -> None:
+    # Horizontal block alignment
     if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-      x_base = 0
+        block_x = self._text_padding
     elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-      x_base = (available_width - line_width) * 0.5
-    else:  # RIGHT
-      x_base = available_width - line_width
+        block_x = (available_width - total_w) / 2
+    else:
+        block_x = available_width - total_w - self._text_padding
 
-    for element in elements:
-      element.x += x_base
+    icon_x = block_x
+    text_x = block_x + icon_w
+
+    # Build elements
+    y = 0.0
+    line_h = self._font_size * self._line_height
+
+    for line, w in zip(lines, line_widths):
+        offset = 0.0
+        if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
+            offset = (max_text_w - w) / 2
+        elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_RIGHT:
+            offset = max_text_w - w
+
+        elems, _ = self._parse_line(line, text_x + offset, y)
+        self._elements.extend(elems)
+        y += line_h
+
+    self._cached_height = y
+    self._cached_content_width = total_w + self._text_padding * 2
+
+    # Cache icon position for render
+    self._cached_icon_x = icon_x
 
 
-  def _parse_line_elements(self, line_text: str, y: float) -> tuple[list[RenderElement], float]:
-    elements, x, emojis = [], 0.0, find_emoji(line_text)
+  def _parse_line(self, line_text: str, base_x: float, y: float) -> tuple[list[RenderElement], float]:
+    elements, emojis = [], find_emoji(line_text)
+    x = base_x
 
     if not emojis:
       w = measure_text_cached(self._font, line_text, self._font_size).x
@@ -597,7 +608,7 @@ class UnifiedLabel(Widget):
       elements.append(RenderElement(x, y, None, rem, w))
       x += w
 
-    return elements, x
+    return elements, x - base_x
 
   def _elide_line(self, line: str, max_width: int, force: bool = False) -> str:
     """Elide a single line if it exceeds max_width. If force is True, always elide even if it fits."""
@@ -634,48 +645,35 @@ class UnifiedLabel(Widget):
     Similar to HtmlRenderer.get_total_height().
     """
     # Use max_width if provided, otherwise use self._max_width or a default
-    width = max_width if max_width > 0 else (self._max_width if self._max_width else 1000)
-    self._update_text_cache(width)
-
+    w = max_width or self._max_width or 1000
+    self._update_text_cache(w)
     return self._cached_height
 
   def _render(self, rect: rl.Rectangle):
-    """Render the label."""
     if rect.width <= 0 or rect.height <= 0:
       return
 
-    # Determine available width
-    available_width = rect.width
-    if self._max_width is not None:
-      available_width = min(available_width, self._max_width)
+    width = min(rect.width, self._max_width or rect.width)
+    self._update_text_cache(int(width))
 
-    # Update text cache
-    self._update_text_cache(int(available_width))
+    # Vertical alignment
+    text_y = rect.y
+    if self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
+      text_y += (rect.height - self._cached_height) / 2
+    elif self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM:
+      text_y += rect.height - self._cached_height
 
-    x = rect.x
+    # Icon (vertically centered)
     if self._icon:
-      icon_y = self._rect.y + (self._rect.height - self._icon.height) / 2
-      if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-        icon_x = self._rect.x + self._text_padding
-        x = icon_x + self._icon.width + ICON_PADDING
-      elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-        icon_x = self._rect.x + (self._rect.width - self._cached_content_width) / 2 - (self._icon.width ) / 2
-        x = icon_x + self._icon.width + ICON_PADDING
-      else:
-        icon_x = (self._rect.x + self._rect.width - self._cached_content_width - self._text_padding) - ICON_PADDING - self._icon.width
+      icon_y = rect.y + (rect.height - self._icon.height) / 2
+      icon_x = rect.x + self._cached_icon_x
       rl.draw_texture_v(self._icon, rl.Vector2(icon_x, icon_y), rl.WHITE)
 
-    y = rect.y
-    if self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE:
-      y += (rect.height - self._cached_height) / 2
-    elif self._alignment_vertical == rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM:
-      y += rect.height - self._cached_height
-
-    # Apply absolute position from rect when rendering
-    for element in self._elements:
-      pos = rl.Vector2(x + element.x, y + element.y)
-      tex = element.texture
-      if tex is None:
-        rl.draw_text_ex(self._font, element.text, pos, self._font_size, 0, self._text_color)
+    # Text elements
+    for el in self._elements:
+      pos = rl.Vector2(rect.x + el.x, text_y + el.y)
+      if el.texture:
+        scale = self._font_size / el.texture.height * FONT_SCALE
+        rl.draw_texture_ex(el.texture, pos, 0.0, scale, self._text_color)
       else:
-        rl.draw_texture_ex(tex, pos, 0.0, self._font_size / tex.height * FONT_SCALE, self._text_color)
+        rl.draw_text_ex(self._font, el.text, pos, self._font_size, self._spacing_pixels, self._text_color)
