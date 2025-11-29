@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import cast
 from openpilot.selfdrive.ui.mici.widgets.side_button import SideButton
 from openpilot.system.ui.widgets import Widget, NavWidget, DialogResult
-from openpilot.system.ui.widgets.label import UnifiedLabel, gui_label
+from openpilot.system.ui.widgets.label import Label, gui_label
 from openpilot.system.ui.widgets.mici_keyboard import MiciKeyboard
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.wrap_text import wrap_text
@@ -139,7 +139,7 @@ class BigInputDialog(BigDialogBase):
                minimum_length: int = 1,
                confirm_callback: Callable[[str], None] = None):
     super().__init__(None, None)
-    self._hint_label = UnifiedLabel(hint, font_size=35, text_color=rl.Color(255, 255, 255, int(255 * 0.35)),
+    self._hint_label = Label(hint, font_size=35, text_color=rl.Color(255, 255, 255, int(255 * 0.35)),
                                     font_weight=FontWeight.MEDIUM)
     self._keyboard = MiciKeyboard()
     self._keyboard.set_text(default_text)
@@ -281,7 +281,7 @@ class BigDialogOptionButton(Widget):
 
     self._selected = False
 
-    self._label = UnifiedLabel(option, font_size=70, text_color=rl.Color(255, 255, 255, int(255 * 0.58)),
+    self._label = Label(option, font_size=70, text_color=rl.Color(255, 255, 255, int(255 * 0.58)),
                                font_weight=FontWeight.DISPLAY_REGULAR, alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_TOP)
 
   def set_selected(self, selected: bool):
