@@ -447,11 +447,11 @@ class UnifiedLabel(Widget):
     self._cached_text: str | None = None
     self._cached_height: float | None = None
     self._cached_width: int = -1
-    self._max_text_width:int = 0
+    self._cached_content_width:float = 0.0
 
 
     # If max_width is set, initialize rect size for Scroller support
-    if max_width is not None:
+    if max_width:
       self._rect.width = max_width
       self._rect.height = self.get_content_height(max_width)
 
@@ -464,6 +464,10 @@ class UnifiedLabel(Widget):
   def text(self) -> str:
     """Get the current text content."""
     return str(_resolve_value(self._text))
+
+  def _invalidate_cache(self):
+    self._cached_text = None
+    self._cached_width = -1
 
   def set_text_color(self, color: rl.Color):
     """Update the text color."""
@@ -478,14 +482,14 @@ class UnifiedLabel(Widget):
     if self._font_size != size:
       self._font_size = size
       self._spacing_pixels = size * self._letter_spacing  # Recalculate spacing
-      self._cached_text = None  # Invalidate cache
+      self._invalidate_cache()
 
   def set_letter_spacing(self, letter_spacing: float):
     """Update letter spacing (as percentage, e.g., 0.1 = 10%)."""
     if self._letter_spacing != letter_spacing:
       self._letter_spacing = letter_spacing
       self._spacing_pixels = self._font_size * letter_spacing
-      self._cached_text = None  # Invalidate cache
+      self._invalidate_cache()
 
   def set_font_weight(self, font_weight: FontWeight):
     """Update the font weight."""
@@ -497,6 +501,7 @@ class UnifiedLabel(Widget):
   def set_alignment(self, alignment: int):
     """Update the horizontal text alignment."""
     self._alignment = alignment
+    self._invalidate_cache()
 
   def set_alignment_vertical(self, alignment_vertical: int):
     """Update the vertical text alignment."""
@@ -506,7 +511,7 @@ class UnifiedLabel(Widget):
     """Set the maximum width constraint for wrapping/eliding."""
     if self._max_width != max_width:
       self._max_width = max_width
-      self._cached_text = None  # Invalidate cache
+      self._invalidate_cache()
       # Update rect size for Scroller support
       if max_width is not None:
         self._rect.width = max_width
@@ -525,7 +530,7 @@ class UnifiedLabel(Widget):
     # Determine wrapping width
     content_width = max(1, available_width - self._text_padding * 2)
     if self._icon:
-      content_width -= self._icon.width + ICON_PADDING
+      content_width -= (self._icon.width + ICON_PADDING)
 
     # Wrap text if enabled
     if self._wrap_text:
@@ -541,13 +546,12 @@ class UnifiedLabel(Widget):
     total_height = len(wrapped_lines) * self._font_size * self._line_height
     self._cached_height = total_height
 
-    self._cached_totol_height = 0.0
     current_y = 0
-    self._max_text_width = 0
+    self._cached_content_width = 0
     for idx, line in enumerate(wrapped_lines):
       size = (measure_text_cached(self._font, line, self._font_size, self._spacing_pixels)
              if line else rl.Vector2(0, self._font_size * FONT_SCALE))
-      self._max_text_width = max(self._max_text_width, size.x)
+      self._cached_content_width = max(self._cached_content_width, size.x)
       line_elems, line_width = self._parse_line_elements(line, current_y)
       self._apply_alignment(line_elems, line_width, content_width)
       self._elements.extend(line_elems)
@@ -655,10 +659,10 @@ class UnifiedLabel(Widget):
         icon_x = self._rect.x + self._text_padding
         x = icon_x + self._icon.width + ICON_PADDING
       elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
-        icon_x = self._rect.x + (self._rect.width - self._max_text_width) / 2 - (self._icon.width ) / 2
+        icon_x = self._rect.x + (self._rect.width - self._cached_content_width) / 2 - (self._icon.width ) / 2
         x = icon_x + self._icon.width + ICON_PADDING
       else:
-        icon_x = (self._rect.x + self._rect.width - self._max_text_width - self._text_padding) - ICON_PADDING - self._icon.width
+        icon_x = (self._rect.x + self._rect.width - self._cached_content_width - self._text_padding) - ICON_PADDING - self._icon.width
       rl.draw_texture_v(self._icon, rl.Vector2(icon_x, icon_y), rl.WHITE)
 
     y = rect.y
