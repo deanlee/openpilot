@@ -445,8 +445,8 @@ class UnifiedLabel(Widget):
     # Cached data
     self._elements: list[RenderElement] = []
     self._cached_text: str | None = None
-    self._cached_height: float | None = None
     self._cached_width: int = -1
+    self._cached_height: float | None = None
     self._cached_content_width:float = 0.0
 
 
@@ -496,7 +496,7 @@ class UnifiedLabel(Widget):
     if self._font_weight != font_weight:
       self._font_weight = font_weight
       self._font = gui_app.font(self._font_weight)
-      self._cached_text = None  # Invalidate cache
+      self._invalidate_cache()
 
   def set_alignment(self, alignment: int):
     """Update the horizontal text alignment."""
@@ -561,11 +561,11 @@ class UnifiedLabel(Widget):
 
   def _apply_alignment(self, elements: list[RenderElement], line_width: float, available_width: float) -> None:
     if self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_LEFT:
-      x_base = self._text_padding
+      x_base = 0
     elif self._alignment == rl.GuiTextAlignment.TEXT_ALIGN_CENTER:
       x_base = (available_width - line_width) * 0.5
     else:  # RIGHT
-      x_base = available_width - line_width - self._text_padding
+      x_base = available_width - line_width
 
     for element in elements:
       element.x += x_base
