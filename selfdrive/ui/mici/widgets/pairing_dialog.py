@@ -78,7 +78,7 @@ class PairingDialog(NavWidget):
     self._render_qr_code()
 
     label_x = self._rect.x + 8 + self._rect.height + 24
-    self._pair_label.set_width(int(self._rect.width - label_x))
+    self._pair_label.set_max_width(int(self._rect.width - label_x))
     self._pair_label.set_position(label_x, self._rect.y + 16)
     self._pair_label.render()
 

@@ -295,7 +295,7 @@ class BigMultiToggle(BigToggle):
     self._options = options
     self._select_callback = select_callback
 
-    self._label.set_width(int(self._rect.width - LABEL_HORIZONTAL_PADDING * 2 - self._txt_enabled_toggle.width))
+    self._label.set_max_width(int(self._rect.width - LABEL_HORIZONTAL_PADDING * 2 - self._txt_enabled_toggle.width))
     # TODO: why isn't this automatic?
     self._label.set_font_size(self._get_label_font_size())
 
