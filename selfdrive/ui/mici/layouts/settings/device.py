@@ -91,11 +91,11 @@ class DeviceInfoLayoutMici(Widget):
     header_color = rl.Color(255, 255, 255, int(255 * 0.9))
     subheader_color = rl.Color(255, 255, 255, int(255 * 0.9 * 0.65))
     max_width = int(self._rect.width - 20)
-    self._dongle_id_label = Label("device ID", 48, width=max_width, color=header_color, font_weight=FontWeight.DISPLAY)
-    self._dongle_id_text_label = Label(params.get("DongleId") or 'N/A', 32, width=max_width, color=subheader_color, font_weight=FontWeight.ROMAN)
+    self._dongle_id_label = Label("device ID", 48, width=max_width, text_color=header_color, font_weight=FontWeight.DISPLAY)
+    self._dongle_id_text_label = Label(params.get("DongleId") or 'N/A', 32, width=max_width, text_color=subheader_color, font_weight=FontWeight.ROMAN)
 
-    self._serial_number_label = Label("serial", 48, color=header_color, font_weight=FontWeight.DISPLAY)
-    self._serial_number_text_label = Label(params.get("HardwareSerial") or 'N/A', 32, width=max_width, color=subheader_color, font_weight=FontWeight.ROMAN)
+    self._serial_number_label = Label("serial", 48, text_color=header_color, font_weight=FontWeight.DISPLAY)
+    self._serial_number_text_label = Label(params.get("HardwareSerial") or 'N/A', 32, width=max_width, text_color=subheader_color, font_weight=FontWeight.ROMAN)
 
   def _render(self, _):
     self._dongle_id_label.set_position(self._rect.x + 20, self._rect.y - 10)
