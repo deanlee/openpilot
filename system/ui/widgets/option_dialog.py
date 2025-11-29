@@ -29,7 +29,7 @@ class MultiOptionDialog(Widget):
     self.option_buttons = [Button(option, click_callback=lambda opt=option: self._on_option_clicked(opt),
                                   font_weight=option_font_weight,
                                   text_alignment=rl.GuiTextAlignment.TEXT_ALIGN_LEFT, button_style=ButtonStyle.NORMAL,
-                                  text_padding=50, elide_right=True) for option in options]
+                                  text_padding=50, elide=True) for option in options]
     self.scroller = Scroller(self.option_buttons, spacing=LIST_ITEM_SPACING)
 
     self.cancel_button = Button(lambda: tr("Cancel"), click_callback=lambda: self._set_result(DialogResult.CANCEL))

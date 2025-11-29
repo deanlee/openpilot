@@ -113,7 +113,7 @@ class MiciHomeLayout(Widget):
     self._version_label = Label("", font_size=36, font_weight=FontWeight.ROMAN)
     self._large_version_label = Label("", font_size=64, text_color=rl.GRAY, font_weight=FontWeight.ROMAN)
     self._date_label = Label("", font_size=36, text_color=rl.GRAY, font_weight=FontWeight.ROMAN)
-    self._branch_label = Label("", font_size=36, text_color=rl.GRAY, font_weight=FontWeight.ROMAN, elide_right=False, scroll=True)
+    self._branch_label = Label("", font_size=36, text_color=rl.GRAY, font_weight=FontWeight.ROMAN, elide=False, scroll=True)
     self._version_commit_label = Label("", font_size=36, text_color=rl.GRAY, font_weight=FontWeight.ROMAN)
 
   def show_event(self):
