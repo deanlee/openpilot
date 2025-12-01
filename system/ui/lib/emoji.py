@@ -1,6 +1,7 @@
 import io
 import re
 
+from dataclasses import dataclass
 from PIL import Image, ImageDraw, ImageFont
 import pyray as rl
 
@@ -33,6 +34,12 @@ EMOJI_REGEX = re.compile(
   flags=re.UNICODE
 )
 
+@dataclass(frozen=True, slots=True)
+class TextSegment:
+  content: str = ""
+  texture: rl.Texture | None = None  # Only set for emoji segments
+
+
 def _load_emoji_font() -> ImageFont.FreeTypeFont | None:
   global _emoji_font
   if _emoji_font is None:
@@ -41,6 +48,31 @@ def _load_emoji_font() -> ImageFont.FreeTypeFont | None:
 
 def find_emoji(text):
   return [(m.start(), m.end(), m.group()) for m in EMOJI_REGEX.finditer(text)]
+
+def parse_text_with_emoji(text: str) -> list[TextSegment]:
+  emoji_matches = find_emoji(text)
+
+  if not emoji_matches:
+    return [TextSegment(content=text, start=0, end=len(text), texture=None)]
+
+  segments = []
+  prev_end = 0
+
+  for match in emoji_matches:
+    # Add text before emoji
+    if match.start > prev_end:
+      segments.append(TextSegment(content=text[prev_end:match.start], texture=None))
+
+    # Add emoji
+    segments.append(TextSegment(content="", texture=emoji_tex(match.emoji)))
+
+    prev_end = match.end
+
+  # Add remaining text
+  if prev_end < len(text):
+    segments.append(TextSegment(content=text[prev_end:], texture=None))
+
+  return tuple(segments)
 
 def emoji_tex(emoji):
   if emoji not in _cache:
