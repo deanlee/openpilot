@@ -8,7 +8,7 @@ from openpilot.system.ui.lib.application import gui_app, FontWeight, DEFAULT_TEX
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.utils import GuiStyleContext
-from openpilot.system.ui.lib.emoji import find_emoji, emoji_tex
+from openpilot.system.ui.lib.emoji import find_emoji, emoji_tex, parse_text_with_emoji
 from openpilot.system.ui.lib.wrap_text import wrap_text
 
 ICON_PADDING = 15
@@ -540,28 +540,28 @@ class UnifiedLabel(Widget):
 
     # Wrap text if enabled
     if self._wrap_text:
-      self._cached_wrapped_lines = wrap_text(self._font, text, self._font_size, content_width, self._spacing_pixels)
+      wrapped_lines = wrap_text(self._font, text, self._font_size, content_width, self._spacing_pixels)
     else:
       # Split by newlines but don't wrap
-      self._cached_wrapped_lines = text.split('\n') if text else [""]
+      wrapped_lines = text.split('\n') if text else [""]
 
     # Elide lines if needed (for width constraint)
-    self._cached_wrapped_lines = [self._elide_line(line, content_width) for line in self._cached_wrapped_lines]
+    wrapped_lines = [self._elide_line(line, content_width) for line in wrapped_lines]
 
     if self._scroll:
-      self._cached_wrapped_lines = self._cached_wrapped_lines[:1]  # Only first line for scrolling
+      wrapped_lines = wrapped_lines[:1]  # Only first line for scrolling
 
     # Process each line: measure and find emojis
     self._cached_line_sizes = []
     self._cached_line_emojis = []
 
-    for line in self._cached_wrapped_lines:
-      emojis = find_emoji(line)
-      self._cached_line_emojis.append(emojis)
-      # Empty lines should still have height (use font size as line height)
+    for line in wrapped_lines:
+      segments = parse_text_with_emoji(line)
+      self._cached_wrapped_lines.append(segments)
       if not line:
         size = rl.Vector2(0, self._font_size * FONT_SCALE)
       else:
+        size = sum()
         size = measure_text_cached(self._font, line, self._font_size, self._spacing_pixels)
 
       # This is the only line
