@@ -65,7 +65,7 @@ else:
     """
 
 
-class CameraStrem:
+class CameraStream:
   def __init__(self, name: str, stream_type: VisionStreamType):
     self._name = name
     self.stream_type = stream_type
@@ -73,36 +73,37 @@ class CameraStrem:
     self.frame: VisionBuf | None = None
     self._last_connection_attempt: float = 0.0
     self.available_streams: list[VisionStreamType] = []
-    self._just_conncted = False
+    self._just_connected = False
 
   def _ensure_connection(self) -> bool:
     if not self.client.is_connected():
       self.frame = None
       # Throttle connection attempts
-      current_time = rl.get_time()
-      if current_time - self._last_connection_attempt < CONNECTION_RETRY_INTERVAL:
+      now = rl.get_time()
+      if now - self._last_connection_attempt < CONNECTION_RETRY_INTERVAL:
         return False
-      self._last_connection_attempt = current_time
+      self._last_connection_attempt = now
 
       if not self.client.connect(False) or not self.client.num_buffers:
         return False
 
       cloudlog.debug(f"Connected to {self._name} stream: {self.stream_type}, buffers: {self.client.num_buffers}")
       self.available_streams = self.client.available_streams(self._name, block=False)
-      self._just_conncted = True
+      self._just_connected = True
+    return True
 
   def is_newly_connected(self) -> bool:
-    just_connected = self._just_conncted
-    self._just_conncted = False
-    return just_connected
+    was = self._just_connected
+    self._just_connected = False
+    return was
 
   def recv(self, timeout_ms: int = 0) -> None:
-    self._ensure_connection()
-    frame = self.client.recv(timeout_ms=timeout_ms)
+    if not self._ensure_connection():
+      return None
+    frame = self.client.recv(timeout_ms)
     if frame:
       self.frame = frame
     return self.frame
-
 
   def close(self) -> None:
     self.frame = None
@@ -118,9 +119,9 @@ class CameraView(Widget):
     self._name = name
     # Primary stream
     self._stream_type = stream_type
-    self._client = CameraStrem(name, stream_type)
+    self._client: CameraStream | None = CameraStream(name, stream_type)
     # Target stream for switching
-    self._target_client = None
+    self._target_client: CameraStream | None = None
     self.available_streams: list[VisionStreamType] = []
 
     self._texture_needs_update = True
@@ -149,13 +150,9 @@ class CameraView(Widget):
     ui_state.add_offroad_transition_callback(self._offroad_transition)
 
   def _offroad_transition(self):
-    # Reconnect if not first time going onroad
-    # Prevent old frames from showing when going onroad. Qt has a separate thread
-    # which drains the VisionIpcClient SubSocket for us. Re-connecting is not enough
-    # and only clears internal buffers, not the message queue.
     self.available_streams.clear()
     self._target_client = None
-    self._client = CameraStrem(self._name, self._stream_type)
+    self._client = CameraStream(self._name, self._stream_type)
 
   def _set_placeholder_color(self, color: rl.Color):
     """Set a placeholder color to be drawn when no frame is available."""
@@ -176,7 +173,7 @@ class CameraView(Widget):
     if self._target_client:
       del self._target_client
 
-    self._target_client = CameraStrem(self._name, stream_type)
+    self._target_client = CameraStream(self._name, stream_type)
 
   @property
   def stream_type(self) -> VisionStreamType:
