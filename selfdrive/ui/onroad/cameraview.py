@@ -65,27 +65,68 @@ else:
     """
 
 
+class CameraStrem:
+  def __init__(self, name: str, stream_type: VisionStreamType):
+    self._name = name
+    self.stream_type = stream_type
+    self.client = VisionIpcClient(name, stream_type, conflate=True)
+    self.frame: VisionBuf | None = None
+    self._last_connection_attempt: float = 0.0
+    self.available_streams: list[VisionStreamType] = []
+    self._just_conncted = False
+
+  def _ensure_connection(self) -> bool:
+    if not self.client.is_connected():
+      self.frame = None
+      # Throttle connection attempts
+      current_time = rl.get_time()
+      if current_time - self._last_connection_attempt < CONNECTION_RETRY_INTERVAL:
+        return False
+      self._last_connection_attempt = current_time
+
+      if not self.client.connect(False) or not self.client.num_buffers:
+        return False
+
+      cloudlog.debug(f"Connected to {self._name} stream: {self.stream_type}, buffers: {self.client.num_buffers}")
+      self.available_streams = self.client.available_streams(self._name, block=False)
+      self._just_conncted = True
+
+  def is_newly_connected(self) -> bool:
+    just_connected = self._just_conncted
+    self._just_conncted = False
+    return just_connected
+
+  def recv(self, timeout_ms: int = 0) -> None:
+    self._ensure_connection()
+    frame = self.client.recv(timeout_ms=timeout_ms)
+    if frame:
+      self.frame = frame
+    return self.frame
+
+
+  def close(self) -> None:
+    self.frame = None
+    if self.client:
+      del self.client
+    self.client = None
+
+
 class CameraView(Widget):
   def __init__(self, name: str, stream_type: VisionStreamType):
     super().__init__()
     # TODO: implement a receiver and connect thread
     self._name = name
     # Primary stream
-    self.client = VisionIpcClient(name, stream_type, conflate=True)
     self._stream_type = stream_type
+    self._client = CameraStrem(name, stream_type)
+    # Target stream for switching
+    self._target_client = None
     self.available_streams: list[VisionStreamType] = []
 
-    # Target stream for switching
-    self._target_client: VisionIpcClient | None = None
-    self._target_stream_type: VisionStreamType | None = None
-    self._switching: bool = False
-
     self._texture_needs_update = True
-    self.last_connection_attempt: float = 0.0
     self.shader = rl.load_shader_from_memory(VERTEX_SHADER, FRAME_FRAGMENT_SHADER)
     self._texture1_loc: int = rl.get_shader_location(self.shader, "texture1") if not TICI else -1
 
-    self.frame: VisionBuf | None = None
     self.texture_y: rl.Texture | None = None
     self.texture_uv: rl.Texture | None = None
 
@@ -109,25 +150,25 @@ class CameraView(Widget):
 
   def _offroad_transition(self):
     # Reconnect if not first time going onroad
-    if ui_state.is_onroad() and self.frame is not None:
-      # Prevent old frames from showing when going onroad. Qt has a separate thread
-      # which drains the VisionIpcClient SubSocket for us. Re-connecting is not enough
-      # and only clears internal buffers, not the message queue.
-      self.frame = None
-      self.available_streams.clear()
-      if self.client:
-        del self.client
-      self.client = VisionIpcClient(self._name, self._stream_type, conflate=True)
+    # Prevent old frames from showing when going onroad. Qt has a separate thread
+    # which drains the VisionIpcClient SubSocket for us. Re-connecting is not enough
+    # and only clears internal buffers, not the message queue.
+    self.available_streams.clear()
+    self._target_client = None
+    self._client = CameraStrem(self._name, self._stream_type)
 
   def _set_placeholder_color(self, color: rl.Color):
     """Set a placeholder color to be drawn when no frame is available."""
     self._placeholder_color = color
 
   def switch_stream(self, stream_type: VisionStreamType) -> None:
-    if self._stream_type == stream_type:
+    if self._client.stream_type == stream_type:
+      if self._target_client:
+        del self._target_client
+        self._target_client = None
       return
 
-    if self._switching and self._target_stream_type == stream_type:
+    if self._target_client and self._target_client.stream_time == stream_type:
       return
 
     cloudlog.debug(f'Preparing switch from {self._stream_type} to {stream_type}')
@@ -135,9 +176,7 @@ class CameraView(Widget):
     if self._target_client:
       del self._target_client
 
-    self._target_stream_type = stream_type
-    self._target_client = VisionIpcClient(self._name, stream_type, conflate=True)
-    self._switching = True
+    self._target_client = CameraStrem(self._name, stream_type)
 
   @property
   def stream_type(self) -> VisionStreamType:
@@ -155,20 +194,20 @@ class CameraView(Widget):
     if self.shader and self.shader.id:
       rl.unload_shader(self.shader)
 
-    self.frame = None
     self.available_streams.clear()
-    self.client = None
+    self._client = None
+    self._target_client = None
 
   def __del__(self):
     self.close()
 
   def _calc_frame_matrix(self, rect: rl.Rectangle) -> np.ndarray:
-    if not self.frame:
+    if not self._client.frame:
       return np.eye(3)
 
     # Calculate aspect ratios
     widget_aspect_ratio = rect.width / rect.height
-    frame_aspect_ratio = self.frame.width / self.frame.height
+    frame_aspect_ratio = self._client.frame.width / self._client.frame.height
 
     # Calculate scaling factors to maintain aspect ratio
     zx = min(frame_aspect_ratio / widget_aspect_ratio, 1.0)
@@ -181,28 +220,23 @@ class CameraView(Widget):
     ])
 
   def _render(self, rect: rl.Rectangle):
-    if self._switching:
+    if self._target_client:
       self._handle_switch()
 
-    if not self._ensure_connection():
-      self._draw_placeholder(rect)
-      return
-
     # Try to get a new buffer without blocking
-    buffer = self.client.recv(timeout_ms=0)
+    buffer = self._client.recv(timeout_ms=0)
     if buffer:
       self._texture_needs_update = True
-      self.frame = buffer
-    elif not self.client.is_connected():
-      # ensure we clear the displayed frame when the connection is lost
-      self.frame = None
 
-    if not self.frame:
+    if not buffer:
       self._draw_placeholder(rect)
       return
 
+    if self._client.is_newly_connected():
+      self._initialize_textures()
+
     transform = self._calc_frame_matrix(rect)
-    src_rect = rl.Rectangle(0, 0, float(self.frame.width), float(self.frame.height))
+    src_rect = rl.Rectangle(0, 0, float(self._client.frame.width), float(self._client.frame.height))
     # Flip driver camera horizontally
     if self._stream_type == VisionStreamType.VISION_STREAM_DRIVER:
       src_rect.width = -src_rect.width
@@ -232,23 +266,21 @@ class CameraView(Widget):
 
   def _render_egl(self, src_rect: rl.Rectangle, dst_rect: rl.Rectangle) -> None:
     """Render using EGL for direct buffer access"""
-    if self.frame is None or self.egl_texture is None:
-      return
-
-    idx = self.frame.idx
+    idx = self._client.frame.idx
     egl_image = self.egl_images.get(idx)
 
     # Create EGL image if needed
     if egl_image is None:
-      egl_image = create_egl_image(self.frame.width, self.frame.height, self.frame.stride, self.frame.fd, self.frame.uv_offset)
+      egl_image = create_egl_image(self._client.frame.width, self._client.frame.height, self._client.frame.stride,
+                                   self._client.frame.fd, self._client.frame.uv_offset)
       if egl_image:
         self.egl_images[idx] = egl_image
       else:
         return
 
     # Update texture dimensions to match current frame
-    self.egl_texture.width = self.frame.width
-    self.egl_texture.height = self.frame.height
+    self.egl_texture.width = self._client.frame.width
+    self.egl_texture.height = self._client.frame.height
 
     # Bind the EGL image to our texture
     bind_egl_image_to_texture(self.egl_texture.id, egl_image)
@@ -260,13 +292,14 @@ class CameraView(Widget):
 
   def _render_textures(self, src_rect: rl.Rectangle, dst_rect: rl.Rectangle) -> None:
     """Render using texture copies"""
-    if not self.texture_y or not self.texture_uv or self.frame is None:
+    if not self.texture_y or not self.texture_uv:
       return
 
     # Update textures with new frame data
     if self._texture_needs_update:
-      y_data = self.frame.data[: self.frame.uv_offset]
-      uv_data = self.frame.data[self.frame.uv_offset:]
+      frame = self._client.frame
+      y_data = frame.data[: frame.uv_offset]
+      uv_data = frame.data[frame.uv_offset:]
 
       rl.update_texture(self.texture_y, rl.ffi.cast("void *", y_data.ctypes.data))
       rl.update_texture(self.texture_uv, rl.ffi.cast("void *", uv_data.ctypes.data))
@@ -278,71 +311,25 @@ class CameraView(Widget):
     rl.draw_texture_pro(self.texture_y, src_rect, dst_rect, rl.Vector2(0, 0), 0.0, rl.WHITE)
     rl.end_shader_mode()
 
-  def _ensure_connection(self) -> bool:
-    if not self.client.is_connected():
-      self.frame = None
-      self.available_streams.clear()
-
-      # Throttle connection attempts
-      current_time = rl.get_time()
-      if current_time - self.last_connection_attempt < CONNECTION_RETRY_INTERVAL:
-        return False
-      self.last_connection_attempt = current_time
-
-      if not self.client.connect(False) or not self.client.num_buffers:
-        return False
-
-      cloudlog.debug(f"Connected to {self._name} stream: {self._stream_type}, buffers: {self.client.num_buffers}")
-      self._initialize_textures()
-      self.available_streams = self.client.available_streams(self._name, block=False)
-
-    return True
-
   def _handle_switch(self) -> None:
-    """Check if target stream is ready and switch immediately."""
-    if not self._target_client or not self._switching:
-      return
-
     # Try to connect target if needed
-    if not self._target_client.is_connected():
-      if not self._target_client.connect(False) or not self._target_client.num_buffers:
-        return
+    frame = self._target_client.recv(timeout_ms=0)
+    if frame:
+      # Clean up current resources
+      self.client = self._target_client
+      self._stream_type = self._target_client.stream_type
+      self._texture_needs_update = True
+      self._target_client = None
 
-      cloudlog.debug(f"Target stream connected: {self._target_stream_type}")
-
-    # Check if target has frames ready
-    target_frame = self._target_client.recv(timeout_ms=0)
-    if target_frame:
-      self.frame = target_frame  # Update current frame to target frame
-      self._complete_switch()
-
-  def _complete_switch(self) -> None:
-    """Instantly switch to target stream."""
-    cloudlog.debug(f"Switching to {self._target_stream_type}")
-    # Clean up current resources
-    if self.client:
-      del self.client
-
-    # Switch to target
-    self.client = self._target_client
-    self._stream_type = self._target_stream_type
-    self._texture_needs_update = True
-
-    # Reset state
-    self._target_client = None
-    self._target_stream_type = None
-    self._switching = False
-
-    # Initialize textures for new stream
-    self._initialize_textures()
 
   def _initialize_textures(self):
     self._clear_textures()
     if not TICI:
-      self.texture_y = rl.load_texture_from_image(rl.Image(None, int(self.client.stride),
-        int(self.client.height), 1, rl.PixelFormat.PIXELFORMAT_UNCOMPRESSED_GRAYSCALE))
-      self.texture_uv = rl.load_texture_from_image(rl.Image(None, int(self.client.stride // 2),
-        int(self.client.height // 2), 1, rl.PixelFormat.PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA))
+      frame = self._client.frame
+      self.texture_y = rl.load_texture_from_image(rl.Image(None, int(frame.stride),
+        int(frame.height), 1, rl.PixelFormat.PIXELFORMAT_UNCOMPRESSED_GRAYSCALE))
+      self.texture_uv = rl.load_texture_from_image(rl.Image(None, int(frame.stride // 2),
+        int(frame.height // 2), 1, rl.PixelFormat.PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA))
 
   def _clear_textures(self):
     if self.texture_y and self.texture_y.id:
