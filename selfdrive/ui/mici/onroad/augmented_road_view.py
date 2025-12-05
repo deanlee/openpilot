@@ -355,4 +355,5 @@ if __name__ == "__main__":
           road_camera_view.switch_stream(stream)
       road_camera_view.render(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
   finally:
+    print('here')
     road_camera_view.close()

@@ -105,10 +105,11 @@ class CameraStream:
       self.frame = frame
     return self.frame
 
-  def close(self) -> None:
-    self.frame = None
+  def __del__(self) -> None:
     if self.client:
       del self.client
+
+    self.frame = None
     self.client = None
 
 
@@ -180,6 +181,7 @@ class CameraView(Widget):
     return self._stream_type
 
   def close(self) -> None:
+    print('---delete')
     self._clear_textures()
 
     # Clean up EGL texture
@@ -192,6 +194,7 @@ class CameraView(Widget):
       rl.unload_shader(self.shader)
 
     self.available_streams.clear()
+    print('---delete')
     self._client = None
     self._target_client = None
 
