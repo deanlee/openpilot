@@ -49,6 +49,8 @@ class AugmentedRoadView(CameraView):
     self.alert_renderer = AlertRenderer()
     self.driver_state_renderer = DriverStateRenderer()
 
+    ui_state.add_offroad_transition_callback(self.reset_vipc_client)
+
     # debug
     self._pm = messaging.PubMaster(['uiDebug'])
 
