@@ -562,6 +562,8 @@ class GuiApplication:
         self._modal_overlay = ModalOverlay()
         if hasattr(original_modal.overlay, 'hide_event'):
           original_modal.overlay.hide_event()
+        if hasattr(original_modal.overlay, 'close'):
+          original_modal.overlay.close()
         if original_modal.callback is not None:
           original_modal.callback(result)
       return True

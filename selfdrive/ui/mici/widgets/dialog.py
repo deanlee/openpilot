@@ -2,6 +2,7 @@ import abc
 import math
 import pyray as rl
 from typing import Union
+import weakref
 from collections.abc import Callable
 from typing import cast
 from openpilot.selfdrive.ui.mici.widgets.side_button import SideButton
@@ -23,10 +24,12 @@ PADDING = 20
 
 class BigDialogBase(NavWidget, abc.ABC):
   def __init__(self, right_btn: str | None = None, right_btn_callback: Callable | None = None):
+    print("--BigDialogBase initialized--")
     super().__init__()
     self._ret = DialogResult.NO_ACTION
     self.set_rect(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
-    self.set_back_callback(lambda: setattr(self, '_ret', DialogResult.CANCEL))
+    weak_self = weakref.ref(self)
+    self.set_back_callback(lambda: setattr(weak_self(), '_ret', DialogResult.CANCEL))
 
     self._right_btn = None
     if right_btn:
@@ -40,6 +43,8 @@ class BigDialogBase(NavWidget, abc.ABC):
       # move to right side
       self._right_btn._rect.x = self._rect.x + self._rect.width - self._right_btn._rect.width
 
+  def __del__(self):
+    print("--BigDialogBase deleted--")
   def _render(self, _) -> DialogResult:
     """
     Allows `gui_app.set_modal_overlay(BigDialog(...))`.
