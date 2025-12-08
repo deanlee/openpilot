@@ -245,6 +245,10 @@ class NavWidget(Widget, abc.ABC):
 
     self._set_up = False
 
+  def close(self) -> None:
+    assert(0)
+    self._back_callback = None
+
   @property
   def back_enabled(self) -> bool:
     return self._back_enabled() if callable(self._back_enabled) else self._back_enabled
