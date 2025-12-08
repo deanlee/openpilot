@@ -28,6 +28,9 @@ class DeveloperLayoutMici(NavWidget):
           gui_app.set_modal_overlay(dlg)
 
     def ssh_keys_callback():
+      dlg = BigDialog("Please connect to Wi-Fi to fetch your key", "")
+      gui_app.set_modal_overlay(dlg)
+      return
       github_username = ui_state.params.get("GithubUsername") or ""
       dlg = BigInputDialog("enter GitHub username", github_username, confirm_callback=github_username_callback)
       if not system_time_valid():
