@@ -29,11 +29,18 @@ class MiciFccModal(NavWidget):
 
   def __init__(self, file_path: str | None = None, text: str | None = None):
     super().__init__()
-    self.set_back_callback(lambda: gui_app.set_modal_overlay(None))
+    def callback():
+      gui_app.set_modal_overlay(None)
+    self.set_back_callback(callback)
     self._content = HtmlRenderer(file_path=file_path, text=text)
     self._scroll_panel = GuiScrollPanel2(horizontal=False)
     self._fcc_logo = gui_app.texture("icons_mici/settings/device/fcc_logo.png", 76, 64)
 
+  def close(self):
+    self.set_back_callback(None)
+    print('close')
+  def __del__(self):
+    print("Deleting MiciFccModal")
   def _render(self, rect: rl.Rectangle):
     content_height = self._content.get_total_height(int(rect.width))
     content_height += self._fcc_logo.height + 20
