@@ -28,8 +28,7 @@ class BigDialogBase(NavWidget, abc.ABC):
     super().__init__()
     self._ret = DialogResult.NO_ACTION
     self.set_rect(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
-    weak_self = weakref.ref(self)
-    self.set_back_callback(lambda: setattr(weak_self(), '_ret', DialogResult.CANCEL))
+    self.set_back_callback(lambda: setattr(self, '_ret', DialogResult.CANCEL))
 
     self._right_btn = None
     if right_btn:
@@ -55,6 +54,12 @@ class BigDialogBase(NavWidget, abc.ABC):
       self._right_btn.render()
 
     return self._ret
+
+  def close(self):
+    self.set_back_callback(None)
+    if self._right_btn:
+      self._right_btn.set_click_callback(None)
+      self._right_btn = None
 
 
 class BigDialog(BigDialogBase):
@@ -132,6 +137,12 @@ class BigConfirmationDialogV2(BigDialogBase):
   def _render(self, _) -> DialogResult:
     self._slider.render(self._rect)
     return self._ret
+
+  def close(self):
+    super().close()
+    self._confirm_callback = None
+    self._slider.set_confirm_callback(None)
+    self._slider = None
 
 
 class BigInputDialog(BigDialogBase):
