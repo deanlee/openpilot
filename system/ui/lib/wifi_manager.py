@@ -6,6 +6,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
+from queue import Queue, Empty, Full
 from typing import Any
 
 from jeepney import DBusAddress, new_method_call
@@ -153,7 +154,7 @@ class WifiManager:
     self._ipv4_forward = False
 
     self._last_network_update: float = 0.0
-    self._callback_queue: list[Callable] = []
+    self._callback_queue: Queue[Callable[[], None]] = Queue(maxsize=100)
 
     self._tethering_ssid = "weedle"
     if Params is not None:
@@ -219,12 +220,18 @@ class WifiManager:
 
   def _enqueue_callbacks(self, cbs: list[Callable], *args):
     for cb in cbs:
-      self._callback_queue.append(lambda _cb=cb: _cb(*args))
+      try:
+        self._callback_queue.put_nowait(lambda _cb=cb, _args=args: _cb(*_args))
+      except Full:
+        cloudlog.warning("WifiManager callback queue full; dropping callback")
 
   def process_callbacks(self):
     # Call from UI thread to run any pending callbacks
-    to_run, self._callback_queue = self._callback_queue, []
-    for cb in to_run:
+    while True:
+      try:
+        cb = self._callback_queue.get_nowait()
+      except Empty:
+        break
       cb()
 
   def set_active(self, active: bool):
