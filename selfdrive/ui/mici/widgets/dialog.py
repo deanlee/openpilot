@@ -177,7 +177,14 @@ class BigInputDialog(BigDialogBase):
       self._ret = DialogResult.CONFIRM
       if confirm_callback:
         confirm_callback(self._keyboard.text())
-    self._confirm_callback = confirm_callback_wrapper
+
+    self._user_confirm_callback = confirm_callback
+    self._confirm_callback = self._user_confirm_callback
+
+  def close(self):
+    super().close()
+    self._confirm_callback = None
+    self._user_confirm_callback = None
 
   def _update_state(self):
     super()._update_state()
