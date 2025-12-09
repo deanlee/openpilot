@@ -27,6 +27,7 @@ class GuiScrollPanel:
     self._offset_filter_y = FirstOrderFilter(0.0, 0.1, 1 / gui_app.target_fps)
     self._velocity_filter_y = FirstOrderFilter(0.0, 0.05, 1 / gui_app.target_fps)
     self._last_drag_time: float = 0.0
+    self._pressed_inside: bool = False
 
   def update(self, bounds: rl.Rectangle, content: rl.Rectangle) -> float:
     for mouse_event in gui_app.mouse_events:
@@ -80,40 +81,43 @@ class GuiScrollPanel:
       if rl.check_collision_point_rec(mouse_event.pos, bounds):
         if mouse_event.left_pressed:
           self._start_mouse_y = mouse_event.pos.y
-          # Interrupt scrolling with new drag
-          # TODO: stop scrolling with any tap, need to fix is_touch_valid
+          self._last_mouse_y = mouse_event.pos.y
+          self._last_drag_time = mouse_event.t
+          self._pressed_inside = True
           if abs(self._velocity_filter_y.x) > MIN_VELOCITY_FOR_CLICKING:
             self._scroll_state = ScrollState.DRAGGING_CONTENT
-            # Start velocity at initial measurement for more immediate response
             self._velocity_filter_y.initialized = False
 
-        if mouse_event.left_down:
-          if abs(mouse_event.pos.y - self._start_mouse_y) > DRAG_THRESHOLD:
-            self._scroll_state = ScrollState.DRAGGING_CONTENT
-            # Start velocity at initial measurement for more immediate response
-            self._velocity_filter_y.initialized = False
+      if mouse_event.left_down and self._pressed_inside:
+        if abs(mouse_event.pos.y - self._start_mouse_y) > DRAG_THRESHOLD:
+          self._scroll_state = ScrollState.DRAGGING_CONTENT
+          self._velocity_filter_y.initialized = False
 
     elif self._scroll_state == ScrollState.DRAGGING_CONTENT:
       if mouse_event.left_released:
         self._scroll_state = ScrollState.IDLE
+        self._pressed_inside = False
+        # Clamp offset to bounds immediately after drag ends
+        max_scroll_distance = max(0, content.height - bounds.height)
+        if self._offset_filter_y.x > 0:
+          self._offset_filter_y.x = 0.0
+        elif self._offset_filter_y.x < -max_scroll_distance:
+          self._offset_filter_y.x = -max_scroll_distance
       else:
         delta_y = mouse_event.pos.y - self._last_mouse_y
         above_bounds, below_bounds = self._check_bounds(bounds, content)
-        # Rubber banding effect when out of bands
         if above_bounds or below_bounds:
-          delta_y /= 3
+          delta_y /= RUBBER_BAND_DIVISOR
 
         self._offset_filter_y.x += delta_y
 
-        # Track velocity for inertia
         dt = mouse_event.t - self._last_drag_time
-        if dt > 0:
+        if dt > 1e-4:  # Avoid division by zero
           drag_velocity = delta_y / dt
           self._velocity_filter_y.update(drag_velocity)
 
-        # TODO: just store last mouse event!
-    self._last_drag_time = mouse_event.t
-    self._last_mouse_y = mouse_event.pos.y
+        self._last_drag_time = mouse_event.t
+        self._last_mouse_y = mouse_event.pos.y
 
   def _check_bounds(self, bounds: rl.Rectangle, content: rl.Rectangle) -> tuple[bool, bool]:
     max_scroll_distance = max(0, content.height - bounds.height)
