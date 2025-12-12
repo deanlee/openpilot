@@ -2,6 +2,7 @@ import os
 import threading
 import json
 import pyray as rl
+import weakref
 from enum import IntEnum
 from collections.abc import Callable
 
@@ -17,7 +18,7 @@ from openpilot.selfdrive.ui.mici.onroad.driver_camera_dialog import DriverCamera
 from openpilot.selfdrive.ui.mici.layouts.onboarding import TrainingGuide
 from openpilot.system.ui.lib.application import gui_app, FontWeight, MousePos
 from openpilot.system.ui.lib.multilang import tr
-from openpilot.system.ui.widgets import Widget, NavWidget
+from openpilot.system.ui.widgets import Widget, NavWidget, DialogResult
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.widgets.label import MiciLabel
 from openpilot.system.ui.widgets.html_render import HtmlModal, HtmlRenderer
@@ -29,10 +30,23 @@ class MiciFccModal(NavWidget):
 
   def __init__(self, file_path: str | None = None, text: str | None = None):
     super().__init__()
-    self.set_back_callback(lambda: gui_app.set_modal_overlay(None))
+    self._ret = DialogResult.NO_ACTION
+    self_ref = weakref.ref(self)
+    def confirmed():
+      self_obj = self_ref()
+      if self_obj:
+        self._ret = DialogResult.CONFIRM
+    self.set_back_callback(confirmed)
     self._content = HtmlRenderer(file_path=file_path, text=text)
     self._scroll_panel = GuiScrollPanel2(horizontal=False)
     self._fcc_logo = gui_app.texture("icons_mici/settings/device/fcc_logo.png", 76, 64)
+
+  def _confirmed(self):
+    self._ret = DialogResult.CONFIRM
+
+  def close_event(self):
+    super().close_event()
+    self.set_back_callback(None)
 
   def _render(self, rect: rl.Rectangle):
     content_height = self._content.get_total_height(int(rect.width))
@@ -48,7 +62,7 @@ class MiciFccModal(NavWidget):
 
     rl.draw_texture_ex(self._fcc_logo, fcc_pos, 0.0, 1.0, rl.WHITE)
 
-    return -1
+    return self._ret
 
 
 def _engaged_confirmation_callback(callback: Callable, action_text: str):
@@ -269,7 +283,6 @@ class DeviceLayoutMici(NavWidget):
   def __init__(self, back_callback: Callable):
     super().__init__()
 
-    self._fcc_dialog: HtmlModal | None = None
     self._driver_camera: DriverCameraDialog | None = None
     self._training_guide: TrainingGuide | None = None
 
@@ -351,9 +364,8 @@ class DeviceLayoutMici(NavWidget):
     ui_state.add_offroad_transition_callback(self._offroad_transition)
 
   def _on_regulatory(self):
-    if not self._fcc_dialog:
-      self._fcc_dialog = MiciFccModal(os.path.join(BASEDIR, "selfdrive/assets/offroad/mici_fcc.html"))
-    gui_app.set_modal_overlay(self._fcc_dialog, callback=setattr(self, '_fcc_dialog', None))
+    fcc_dialog = MiciFccModal(os.path.join(BASEDIR, "selfdrive/assets/offroad/mici_fcc.html"))
+    gui_app.set_modal_overlay(fcc_dialog)
 
   def _offroad_transition(self):
     self._power_off_btn.set_visible(ui_state.is_offroad())

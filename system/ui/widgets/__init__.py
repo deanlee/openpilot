@@ -1,5 +1,6 @@
 import abc
 import pyray as rl
+import weakref
 from enum import IntEnum
 from collections.abc import Callable
 from openpilot.common.filter_simple import BounceFilter, FirstOrderFilter
@@ -248,6 +249,10 @@ class NavWidget(Widget, abc.ABC):
 
     self._set_up = False
 
+  def close_event(self):
+    self._back_enabled = True
+    self._back_callback = None
+
   @property
   def back_enabled(self) -> bool:
     return self._back_enabled() if callable(self._back_enabled) else self._back_enabled
@@ -313,14 +318,25 @@ class NavWidget(Widget, abc.ABC):
     # Disable self's scroller while swiping away
     if not self._set_up:
       self._set_up = True
+
+      self_ref = weakref.ref(self)
+
+      def wrap(original_enabled):
+        def _enabled():
+          obj = self_ref()
+          if obj is None:
+            return False  # self is gone -> disable
+
+          base = original_enabled() if callable(original_enabled) else original_enabled
+          return (not obj._swiping_away) and base
+
+        return _enabled
       if hasattr(self, '_scroller'):
         original_enabled = self._scroller._enabled
-        self._scroller.set_enabled(lambda: not self._swiping_away and (original_enabled() if callable(original_enabled) else
-                                                                       original_enabled))
+        self._scroller.set_enabled(wrap(original_enabled))
       elif hasattr(self, '_scroll_panel'):
         original_enabled = self._scroll_panel.enabled
-        self._scroll_panel.set_enabled(lambda: not self._swiping_away and (original_enabled() if callable(original_enabled) else
-                                                                          original_enabled))
+        self._scroll_panel.set_enabled(wrap(original_enabled))
 
     if self._trigger_animate_in:
       self._pos_filter.x = self._rect.height
