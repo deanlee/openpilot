@@ -116,7 +116,15 @@ class BigConfirmationDialogV2(BigDialogBase):
       self._slider = RedBigSlider(title, icon_txt, confirm_callback=self._on_confirm)
     else:
       self._slider = BigSlider(title, icon_txt, confirm_callback=self._on_confirm)
-    self._slider.set_enabled(lambda: not self._swiping_away)
+    self._slider.set_enabled(self._swiping_away)
+
+  def close_event(self):
+    super().close_event()
+    self._confirm_callback = None
+    self._slider.close_event()
+
+  def _is_slider_enabled(self) -> bool:
+    return not self._swiping_away
 
   def _on_confirm(self):
     if self._confirm_callback:

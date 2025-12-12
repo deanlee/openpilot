@@ -37,6 +37,10 @@ class SmallSlider(Widget):
                                alignment=rl.GuiTextAlignment.TEXT_ALIGN_RIGHT,
                                alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE, line_height=0.9)
 
+  def close_event(self):
+    super().close_event()
+    self._confirm_callback = None
+
   def _load_assets(self):
     self.set_rect(rl.Rectangle(0, 0, 316 + self.HORIZONTAL_PADDING * 2, 100))
 
