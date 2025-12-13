@@ -86,7 +86,6 @@ class Scroller(Widget):
 
   def add_widget(self, item: Widget) -> None:
     self._items.append(item)
-    item.set_touch_valid_callback(lambda: self.scroll_panel.is_touch_valid() and self.enabled)
 
   def set_scrolling_enabled(self, enabled: bool | Callable[[], bool]) -> None:
     """Set whether scrolling is enabled (does not affect widget enabled state)."""

@@ -28,7 +28,6 @@ class Widget(abc.ABC):
     self.__tracking_is_pressed = [False] * MAX_TOUCH_SLOTS
     self._enabled: bool | Callable[[], bool] = True
     self._is_visible: bool | Callable[[], bool] = True
-    self._touch_valid_callback: Callable[[], bool] | None = None
     self._click_callback: Callable[[], None] | None = None
     self._multi_touch = False
     self.__was_awake = True
@@ -70,14 +69,6 @@ class Widget(abc.ABC):
     """Set a callback to be called when the widget is clicked."""
     self._click_callback = click_callback
 
-  def set_touch_valid_callback(self, touch_callback: Callable[[], bool]) -> None:
-    """Set a callback to determine if the widget can be clicked."""
-    self._touch_valid_callback = touch_callback
-
-  def _touch_valid(self) -> bool:
-    """Check if the widget can be touched."""
-    return self._touch_valid_callback() if self._touch_valid_callback else True
-
   def set_position(self, x: float, y: float) -> None:
     changed = (self._rect.x != x or self._rect.y != y)
     self._rect = rl.Rectangle(x, y, self._rect.width, self._rect.height)
@@ -112,7 +103,7 @@ class Widget(abc.ABC):
 
   def _process_mouse_events(self) -> None:
     hit_rect = self._hit_rect
-    touch_valid = self._touch_valid()
+    touch_valid = True
 
     for mouse_event in gui_app.mouse_events:
       if not self._multi_touch and mouse_event.slot != 0:
