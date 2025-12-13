@@ -220,6 +220,7 @@ class GuiApplication:
     self._modal_overlay_shown = False
 
     self._mouse = MouseState(self._scale)
+    self.is_scrolling = False
     self._mouse_events: list[MouseEvent] = []
     self._last_mouse_event: MouseEvent = MouseEvent(MousePos(0, 0), 0, False, False, False, 0.0)
 

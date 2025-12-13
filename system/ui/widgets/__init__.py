@@ -103,7 +103,7 @@ class Widget(abc.ABC):
 
   def _process_mouse_events(self) -> None:
     hit_rect = self._hit_rect
-    touch_valid = True
+    touch_valid = gui_app._is_scrolling is False
 
     for mouse_event in gui_app.mouse_events:
       if not self._multi_touch and mouse_event.slot != 0:
