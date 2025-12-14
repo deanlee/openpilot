@@ -114,24 +114,11 @@ void Replay::seekTo(double seconds, bool relative) {
     current_segment_.store(target_segment);
     cur_mono_time_ = route_start_ts_ + target_time * 1e9;
     cur_which_ = cereal::Event::Which::INIT_DATA;
-    seeking_to_.store(target_time, std::memory_order_relaxed);
-    return false;
+    seek_target_segment_.store(target_segment);
+    return true;
   });
 
   seg_mgr_->setCurrentSegment(target_segment);
-  checkSeekProgress();
-}
-
-void Replay::checkSeekProgress() {
-  if (!seg_mgr_->getEventData()->isSegmentLoaded(current_segment_.load())) return;
-
-  double seek_to = seeking_to_.exchange(-1.0, std::memory_order_acquire);
-  if (seek_to >= 0 && onSeekedTo) {
-    onSeekedTo(seek_to);
-  }
-
-  // Resume the interrupted stream
-  interruptStream([]() { return true; });
 }
 
 void Replay::seekToFlag(FindFlag flag) {
@@ -160,8 +147,7 @@ void Replay::handleSegmentMerge() {
   notifyEvent(onSegmentsMerged);
 
   // Interrupt the stream to handle segment merge
-  interruptStream([]() { return false; });
-  checkSeekProgress();
+  interruptStream([]() { return true; });
 }
 
 void Replay::startStream(const std::shared_ptr<Segment> segment) {
@@ -262,6 +248,18 @@ void Replay::streamThread() {
     if (exit_) break;
 
     event_data_ = seg_mgr_->getEventData();
+    int target_seg = seek_target_segment_.load(std::memory_order_relaxed);
+    if (target_seg != -1) {
+      if (event_data_->isSegmentLoaded(target_seg)) {
+        seek_target_segment_.store(-1);
+        if (onSeekedTo) {
+          onSeekedTo((cur_mono_time_ - route_start_ts_) / 1e9);
+        }
+      } else {
+        events_ready_ = false;
+        continue;
+      }
+    }
     const auto &events = event_data_->events;
     auto first = std::upper_bound(events.cbegin(), events.cend(), Event(cur_which_, cur_mono_time_, {}));
     if (first == events.cend()) {
