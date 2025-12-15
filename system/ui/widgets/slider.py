@@ -4,7 +4,7 @@ import pyray as rl
 
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.widgets import Widget
-from openpilot.system.ui.widgets.label import UnifiedLabel
+from openpilot.system.ui.widgets.label import Label
 from openpilot.common.filter_simple import FirstOrderFilter
 
 
@@ -33,7 +33,7 @@ class SmallSlider(Widget):
 
     self._is_dragging_circle = False
 
-    self._label = UnifiedLabel(title, font_size=36, font_weight=FontWeight.MEDIUM, text_color=rl.Color(255, 255, 255, int(255 * 0.65)),
+    self._label = Label(title, font_size=36, font_weight=FontWeight.MEDIUM, text_color=rl.Color(255, 255, 255, int(255 * 0.65)),
                                alignment=rl.GuiTextAlignment.TEXT_ALIGN_RIGHT,
                                alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE, line_height=0.9)
 
@@ -165,7 +165,7 @@ class BigSlider(SmallSlider):
   def __init__(self, title: str, icon: rl.Texture, confirm_callback: Callable | None = None):
     self._icon = icon
     super().__init__(title, confirm_callback=confirm_callback)
-    self._label = UnifiedLabel(title, font_size=48, font_weight=FontWeight.DISPLAY, text_color=rl.Color(255, 255, 255, int(255 * 0.65)),
+    self._label = Label(title, font_size=48, font_weight=FontWeight.DISPLAY, text_color=rl.Color(255, 255, 255, int(255 * 0.65)),
                                alignment=rl.GuiTextAlignment.TEXT_ALIGN_RIGHT, alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE,
                                line_height=0.875)
 

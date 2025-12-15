@@ -3,7 +3,7 @@ from typing import Union
 from enum import Enum
 from collections.abc import Callable
 from openpilot.system.ui.widgets import Widget
-from openpilot.system.ui.widgets.label import MiciLabel
+from openpilot.system.ui.widgets.label import Label
 from openpilot.system.ui.widgets.scroller import DO_ZOOM
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.application import gui_app, FontWeight, MousePos
@@ -118,11 +118,11 @@ class BigButton(Widget):
     self._label_font = gui_app.font(FontWeight.DISPLAY)
     self._value_font = gui_app.font(FontWeight.ROMAN)
 
-    self._label = MiciLabel(text, font_size=self._get_label_font_size(), width=int(self._rect.width - LABEL_HORIZONTAL_PADDING * 2),
-                            font_weight=FontWeight.DISPLAY, color=LABEL_COLOR,
+    self._label = Label(text, font_size=self._get_label_font_size(), max_width=int(self._rect.width - LABEL_HORIZONTAL_PADDING * 2),
+                            font_weight=FontWeight.DISPLAY, text_color=LABEL_COLOR,
                             alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM, wrap_text=True)
-    self._sub_label = MiciLabel(value, font_size=COMPLICATION_SIZE, width=int(self._rect.width - LABEL_HORIZONTAL_PADDING * 2),
-                                font_weight=FontWeight.ROMAN, color=COMPLICATION_GREY,
+    self._sub_label = Label(value, font_size=COMPLICATION_SIZE, max_width=int(self._rect.width - LABEL_HORIZONTAL_PADDING * 2),
+                                font_weight=FontWeight.ROMAN, text_color=COMPLICATION_GREY,
                                 alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM, wrap_text=True)
 
     self._load_images()
@@ -223,17 +223,21 @@ class BigButton(Widget):
 
     # LABEL ------------------------------------------------------------------
     lx = self._rect.x + LABEL_HORIZONTAL_PADDING
-    ly = btn_y + self._rect.height - 33  # - 40# - self._get_label_font_size() / 2
-
+    bottom = btn_y + self._rect.height - 33  # - 40# - self._get_label_font_size() / 2
+    label_width = self._rect.width - LABEL_HORIZONTAL_PADDING * 2
+    label_height = self._label.get_content_height(self._label._max_width)
     if self.value:
-      self._sub_label.set_position(lx, ly)
-      ly -= self._sub_label.font_size + 9
+      sub_label_height = self._sub_label.get_content_height(label_width)
+      self._sub_label.set_rect(rl.Rectangle(lx, bottom- sub_label_height, label_width, sub_label_height))
+      self._label.set_rect(rl.Rectangle(lx, self._sub_label.rect.y - label_height - 9, label_width, label_height))
       self._sub_label.render()
+    else:
+      self._label.set_rect(rl.Rectangle(lx, bottom - label_height, label_width, label_height))
 
     label_color = LABEL_COLOR if self.enabled else rl.Color(255, 255, 255, int(255 * 0.35))
     self._label.set_color(label_color)
-    self._label.set_position(lx, ly)
     self._label.render()
+
 
     # ICON -------------------------------------------------------------------
     if self._txt_icon:
@@ -295,7 +299,7 @@ class BigMultiToggle(BigToggle):
     self._options = options
     self._select_callback = select_callback
 
-    self._label.set_width(int(self._rect.width - LABEL_HORIZONTAL_PADDING * 2 - self._txt_enabled_toggle.width))
+    self._label.set_max_width(int(self._rect.width - LABEL_HORIZONTAL_PADDING * 2 - self._txt_enabled_toggle.width))
     # TODO: why isn't this automatic?
     self._label.set_font_size(self._get_label_font_size())
 

@@ -23,7 +23,7 @@ from openpilot.system.ui.widgets import Widget, DialogResult
 from openpilot.system.ui.widgets.button import (IconButton, SmallButton, WideRoundedButton, SmallerRoundedButton,
                                                 SmallCircleIconButton, WidishRoundedButton, SmallRedPillButton,
                                                 FullRoundedButton)
-from openpilot.system.ui.widgets.label import UnifiedLabel
+from openpilot.system.ui.widgets.label import Label
 from openpilot.system.ui.widgets.slider import LargerSlider, SmallSlider
 from openpilot.selfdrive.ui.mici.layouts.settings.network import WifiUIMici
 from openpilot.selfdrive.ui.mici.widgets.dialog import BigInputDialog
@@ -106,7 +106,7 @@ class StartPage(Widget):
   def __init__(self):
     super().__init__()
 
-    self._title = UnifiedLabel("start", 64, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
+    self._title = Label("start", 64, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
                                font_weight=FontWeight.DISPLAY, alignment=rl.GuiTextAlignment.TEXT_ALIGN_CENTER,
                                alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE)
 
@@ -159,7 +159,7 @@ class TermsHeader(Widget):
   def __init__(self, text: str, icon_texture: rl.Texture):
     super().__init__()
 
-    self._title = UnifiedLabel(text, 36, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
+    self._title = Label(text, 36, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
                                font_weight=FontWeight.BOLD, alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_MIDDLE,
                                line_height=0.8)
     self._icon_texture = icon_texture
@@ -312,13 +312,13 @@ class CustomSoftwareWarningPage(TermsPage):
 
     self._title_header = TermsHeader("use caution installing\n3rd party software",
                                      gui_app.texture("icons_mici/setup/warning.png", 66, 60))
-    self._body = UnifiedLabel("• It has not been tested by comma.\n" +
+    self._body = Label("• It has not been tested by comma.\n" +
                               "• It may not comply with relevant safety standards.\n" +
                               "• It may cause damage to your device and/or vehicle.\n", 36, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
                               font_weight=FontWeight.ROMAN)
 
     self._restore_header = TermsHeader("how to backup &\nrestore", gui_app.texture("icons_mici/setup/restore.png", 60, 60))
-    self._restore_body = UnifiedLabel("To restore your device to a factory state later, use https://flash.comma.ai",
+    self._restore_body = Label("To restore your device to a factory state later, use https://flash.comma.ai",
                                       36, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
                                       font_weight=FontWeight.ROMAN)
 
@@ -353,9 +353,9 @@ class DownloadingPage(Widget):
   def __init__(self):
     super().__init__()
 
-    self._title_label = UnifiedLabel("downloading", 64, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
+    self._title_label = Label("downloading", 64, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
                                      font_weight=FontWeight.DISPLAY)
-    self._progress_label = UnifiedLabel("", 128, text_color=rl.Color(255, 255, 255, int(255 * 0.9 * 0.35)),
+    self._progress_label = Label("", 128, text_color=rl.Color(255, 255, 255, int(255 * 0.9 * 0.35)),
                                         font_weight=FontWeight.ROMAN, alignment_vertical=rl.GuiTextAlignmentVertical.TEXT_ALIGN_BOTTOM)
     self._progress = 0
 
@@ -383,9 +383,9 @@ class FailedPage(Widget):
   def __init__(self, reboot_callback: Callable, retry_callback: Callable, title: str = "download failed"):
     super().__init__()
 
-    self._title_label = UnifiedLabel(title, 64, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
+    self._title_label = Label(title, 64, text_color=rl.Color(255, 255, 255, int(255 * 0.9)),
                                      font_weight=FontWeight.DISPLAY)
-    self._reason_label = UnifiedLabel("", 36, text_color=rl.Color(255, 255, 255, int(255 * 0.9 * 0.65)),
+    self._reason_label = Label("", 36, text_color=rl.Color(255, 255, 255, int(255 * 0.9 * 0.65)),
                                       font_weight=FontWeight.ROMAN)
 
     self._reboot_button = SmallRedPillButton("reboot")
