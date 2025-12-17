@@ -6,7 +6,8 @@ from collections.abc import Callable
 from typing import cast
 from openpilot.selfdrive.ui.mici.widgets.side_button import SideButton
 from openpilot.system.ui.widgets import Widget, NavWidget, DialogResult
-from openpilot.system.ui.widgets.label import UnifiedLabel, gui_label, ScrollableLabel
+from openpilot.system.ui.widgets.label import UnifiedLabel, gui_label
+from openpilot.system.ui.widgets.scrollable_label import ScrollableLabel
 from openpilot.system.ui.widgets.mici_keyboard import MiciKeyboard
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.wrap_text import wrap_text
