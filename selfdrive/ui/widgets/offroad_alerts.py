@@ -115,7 +115,7 @@ class AbstractAlert(Widget, ABC):
     # TODO: just use a Scroller?
     self.content_rect = rl.Rectangle(0, 0, 0, 0)
     self.scroll_panel_rect = rl.Rectangle(0, 0, 0, 0)
-    self.scroll_panel = GuiScrollPanel()
+    self.scroll_panel = GuiScrollPanel(horizontal=False)
 
   def show_event(self):
     self.scroll_panel.set_offset(0)
@@ -154,7 +154,7 @@ class AbstractAlert(Widget, ABC):
   def _render_scrollable_content(self):
     content_total_height = self.get_content_height()
     content_bounds = rl.Rectangle(0, 0, self.scroll_panel_rect.width, content_total_height)
-    scroll_offset = self.scroll_panel.update(self.scroll_panel_rect, content_bounds)
+    scroll_offset = self.scroll_panel.update(self.scroll_panel_rect, content_bounds.height)
 
     rl.begin_scissor_mode(
       int(self.scroll_panel_rect.x),

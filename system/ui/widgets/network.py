@@ -277,7 +277,7 @@ class WifiManagerUI(Widget):
     self._state_network: Network | None = None  # for CONNECTING / NEEDS_AUTH / SHOW_FORGET_CONFIRM / FORGETTING
     self._password_retry: bool = False  # for NEEDS_AUTH
     self.btn_width: int = 200
-    self.scroll_panel = GuiScrollPanel()
+    self.scroll_panel = GuiScrollPanel(horizontal=False)
     self.keyboard = Keyboard(max_text_size=MAX_PASSWORD_LENGTH, min_text_size=MIN_PASSWORD_LENGTH, show_password_toggle=True)
     self._load_icons()
 
@@ -340,7 +340,7 @@ class WifiManagerUI(Widget):
 
   def _draw_network_list(self, rect: rl.Rectangle):
     content_rect = rl.Rectangle(rect.x, rect.y, rect.width, len(self._networks) * ITEM_HEIGHT)
-    offset = self.scroll_panel.update(rect, content_rect)
+    offset = self.scroll_panel.update(rect, content_rect.height)
 
     rl.begin_scissor_mode(int(rect.x), int(rect.y), int(rect.width), int(rect.height))
     for i, network in enumerate(self._networks):

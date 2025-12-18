@@ -126,7 +126,7 @@ class Setup(Widget):
                                                      + "If you'd like to proceed, use https://flash.comma.ai "
                                                      + "to restore your device to a factory state later.",
                                                      68, align=rl.GuiTextAlignment.TEXT_ALIGN_LEFT, padding=60)
-    self._custom_software_warning_body_scroll_panel = GuiScrollPanel()
+    self._custom_software_warning_body_scroll_panel = GuiScrollPanel(horizontal=False)
 
     self._downloading_body_label = Label("Downloading...", TITLE_FONT_SIZE, FontWeight.MEDIUM, padding=20)
 
@@ -306,7 +306,7 @@ class Setup(Widget):
 
   def render_custom_software_warning(self, rect: rl.Rectangle):
     warn_rect = rl.Rectangle(rect.x, rect.y, rect.width, 1500)
-    offset = self._custom_software_warning_body_scroll_panel.update(rect, warn_rect)
+    offset = self._custom_software_warning_body_scroll_panel.update(rect, warn_rect.height)
 
     button_width = (rect.width - MARGIN * 3) / 2
     button_y = rect.height - MARGIN - BUTTON_HEIGHT

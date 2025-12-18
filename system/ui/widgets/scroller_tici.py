@@ -13,7 +13,7 @@ class Scroller(Widget):
     self._items: list[Widget] = []
     self._spacing = spacing
     self._line_separator = line_separator
-    self.scroll_panel = GuiScrollPanel()
+    self.scroll_panel = GuiScrollPanel(horizontal=False)
 
     for item in items:
       self.add_widget(item)
@@ -32,7 +32,7 @@ class Scroller(Widget):
     item_gap = self._spacing + line_h
     content_height = sum(i.rect.height for i in items) + item_gap * (len(items) - 1)
 
-    scroll_y = self.scroll_panel.update(self._rect, rl.Rectangle(0, 0, self._rect.width, content_height))
+    scroll_y = self.scroll_panel.update(self._rect, content_height)
     rect_x, rect_y = int(self._rect.x), int(self._rect.y)
     rect_w, rect_h = int(self._rect.width), int(self._rect.height)
 
