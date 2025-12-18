@@ -254,7 +254,7 @@ class HtmlModal(Widget):
   def __init__(self, file_path: str | None = None, text: str | None = None):
     super().__init__()
     self._content = HtmlRenderer(file_path=file_path, text=text)
-    self._scroll_panel = GuiScrollPanel()
+    self._scroll_panel = GuiScrollPanel(horizontal=False)
     self._ok_button = Button(tr("OK"), click_callback=lambda: gui_app.set_modal_overlay(None), button_style=ButtonStyle.PRIMARY)
 
   def close_event(self):
@@ -272,7 +272,7 @@ class HtmlModal(Widget):
 
     total_height = self._content.get_total_height(int(scrollable_rect.width))
     scroll_content_rect = rl.Rectangle(scrollable_rect.x, scrollable_rect.y, scrollable_rect.width, total_height)
-    scroll_offset = self._scroll_panel.update(scrollable_rect, scroll_content_rect)
+    scroll_offset = self._scroll_panel.update(scrollable_rect, scroll_content_rect.height)
     scroll_content_rect.y += scroll_offset
 
     rl.begin_scissor_mode(int(scrollable_rect.x), int(scrollable_rect.y), int(scrollable_rect.width), int(scrollable_rect.height))

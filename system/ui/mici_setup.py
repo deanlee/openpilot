@@ -18,7 +18,7 @@ from openpilot.common.utils import run_cmd
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.wifi_manager import WifiManager
-from openpilot.system.ui.lib.scroll_panel2 import GuiScrollPanel2
+from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.widgets import Widget, DialogResult
 from openpilot.system.ui.widgets.button import (IconButton, SmallButton, WideRoundedButton, SmallerRoundedButton,
                                                 SmallCircleIconButton, WidishRoundedButton, SmallRedPillButton,
@@ -193,7 +193,7 @@ class TermsPage(Widget):
     super().__init__()
 
     # TODO: use Scroller
-    self._scroll_panel = GuiScrollPanel2(horizontal=False)
+    self._scroll_panel = GuiScrollPanel(horizontal=False)
 
     self._continue_text = continue_text
     self._continue_slider: bool = continue_text in ("reboot", "power off")

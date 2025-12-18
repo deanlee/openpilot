@@ -9,7 +9,7 @@ from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
 from openpilot.common.time_helpers import system_time_valid
 from openpilot.system.ui.widgets.scroller import Scroller
-from openpilot.system.ui.lib.scroll_panel2 import GuiScrollPanel2
+from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.selfdrive.ui.mici.widgets.button import BigButton, BigCircleButton
 from openpilot.selfdrive.ui.mici.widgets.dialog import BigMultiOptionDialog, BigDialog, BigConfirmationDialogV2
 from openpilot.selfdrive.ui.mici.widgets.pairing_dialog import PairingDialog
@@ -31,7 +31,7 @@ class MiciFccModal(NavWidget):
     super().__init__()
     self.set_back_callback(lambda: gui_app.set_modal_overlay(None))
     self._content = HtmlRenderer(file_path=file_path, text=text)
-    self._scroll_panel = GuiScrollPanel2(horizontal=False)
+    self._scroll_panel = GuiScrollPanel(horizontal=False)
     self._fcc_logo = gui_app.texture("icons_mici/settings/device/fcc_logo.png", 76, 64)
 
   def _render(self, rect: rl.Rectangle):

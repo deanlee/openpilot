@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from openpilot.common.filter_simple import FirstOrderFilter, BounceFilter
 from openpilot.system.ui.lib.application import gui_app
-from openpilot.system.ui.lib.scroll_panel2 import GuiScrollPanel2, ScrollState
+from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel, ScrollState
 from openpilot.system.ui.widgets import Widget
 
 ITEM_SPACING = 20
@@ -62,7 +62,7 @@ class Scroller(Widget):
     # when not pressed, snap to closest item to be center
     self._scroll_snap_filter = FirstOrderFilter(0.0, 0.05, 1 / gui_app.target_fps)
 
-    self.scroll_panel = GuiScrollPanel2(self._horizontal, handle_out_of_bounds=not self._snap_items)
+    self.scroll_panel = GuiScrollPanel(self._horizontal, handle_out_of_bounds=not self._snap_items)
     self._scroll_enabled: bool | Callable[[], bool] = True
 
     self._txt_scroll_indicator = gui_app.texture("icons_mici/settings/vertical_scroll_indicator.png", 40, 80)
@@ -110,7 +110,7 @@ class Scroller(Widget):
             self._zoom_filter.update(0.85)
 
     # Cancel auto-scroll if user starts manually scrolling
-    if self._scrolling_to is not None and (self.scroll_panel.state == ScrollState.PRESSED or self.scroll_panel.state == ScrollState.MANUAL_SCROLL):
+    if self._scrolling_to is not None and (self.scroll_panel.state == ScrollState.PRESSED or self.scroll_panel.state == ScrollState.DRAGGING):
       self._scrolling_to = None
 
     if self._scrolling_to is not None:
