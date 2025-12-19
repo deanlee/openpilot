@@ -33,6 +33,7 @@ def _resolve_value(value, default=""):
   return value if value is not None else default
 
 
+# Single line label rendering function
 def gui_label(
   rect: rl.Rectangle,
   text: str,
@@ -173,8 +174,9 @@ class Label(Widget):
 
       cursor_y += line_h
 
+    height = cursor_y if len(lines) > 1 else self._font_size * FONT_SCALE
     self._layout_cache = LayoutCache(
-      raw_text=text, segments=segments, content_width=self.rect.width, content_height=cursor_y - 2
+      raw_text=text, segments=segments, content_width=self.rect.width, content_height=height
     )
 
     # Set widget size if not explicitly set
