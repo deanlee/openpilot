@@ -11,6 +11,7 @@ BACKLIGHT_OFFROAD = 65 if HARDWARE.get_device_type() == "mici" else 50
 
 class BrightnessController:
   def __init__(self):
+    # "wideRoadCameraState",
     self.params = Params()
     self._offroad_brightness: int = BACKLIGHT_OFFROAD
     self._last_brightness: int = 0
@@ -27,7 +28,6 @@ class BrightnessController:
     #   self.light_sensor = max(100.0 - cam_state.exposureValPercent, 0.0)
     # elif not self.sm.alive["wideRoadCameraState"] or not self.sm.valid["wideRoadCameraState"]:
     #   self.light_sensor = -1
-
 
   def set_offroad_brightness(self, brightness: int | None):
     if brightness is None:

@@ -41,7 +41,6 @@ class UIState:
         "carState",
         "driverStateV2",
         "roadCameraState",
-        "wideRoadCameraState",
         "managerState",
         "selfdriveState",
         "longitudinalPlan",
@@ -213,7 +212,7 @@ class Device:
 
     self._update_wakefulness()
 
-   def _update_wakefulness(self):
+  def _update_wakefulness(self):
     # Handle interactive timeout
     ignition_just_turned_off = not ui_state.ignition and self._ignition
     self._ignition = ui_state.ignition
