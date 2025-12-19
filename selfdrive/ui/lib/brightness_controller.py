@@ -16,8 +16,8 @@ class BrightnessController:
     self._offroad_brightness: int = BACKLIGHT_OFFROAD
     self._last_brightness: int = 0
     self._brightness_filter = FirstOrderFilter(BACKLIGHT_OFFROAD, 10.00, 1 / gui_app.target_fps)
-    self._brightness_thread: threading.Thread | None = None
     self.light_sensor: float = -1.0
+    self._brightness_thread: threading.Thread | None = None
 
   def update(self):
     pass
