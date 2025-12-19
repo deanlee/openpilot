@@ -1,18 +1,13 @@
 import pyray as rl
-import numpy as np
 import time
-import threading
 from collections.abc import Callable
 from enum import Enum
 from cereal import messaging, car, log
-from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
 from openpilot.selfdrive.ui.lib.prime_state import PrimeState
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.hardware import HARDWARE, PC
-
-BACKLIGHT_OFFROAD = 65 if HARDWARE.get_device_type() == "mici" else 50
 
 
 class UIStatus(Enum):
@@ -78,7 +73,6 @@ class UIState:
     self.personality: log.LongitudinalPersonality = log.LongitudinalPersonality.standard
     self.has_longitudinal_control: bool = False
     self.CP: car.CarParams | None = None
-    self.light_sensor: float = -1.0
     self._param_update_time: float = 0.0
 
     # Callbacks
@@ -125,13 +119,6 @@ class UIState:
           self.ignition = any(state.ignitionLine or state.ignitionCan for state in panda_states)
     elif self.sm.frame - self.sm.recv_frame["pandaStates"] > 5 * rl.get_fps():
       self.panda_type = log.PandaState.PandaType.unknown
-
-    # Handle wide road camera state updates
-    if self.sm.updated["wideRoadCameraState"]:
-      cam_state = self.sm["wideRoadCameraState"]
-      self.light_sensor = max(100.0 - cam_state.exposureValPercent, 0.0)
-    elif not self.sm.alive["wideRoadCameraState"] or not self.sm.valid["wideRoadCameraState"]:
-      self.light_sensor = -1
 
     # Update started state
     self.started = self.sm["deviceState"].started and self.ignition
@@ -192,10 +179,10 @@ class Device:
     self._prev_timed_out = False
     self._awake: bool = True
 
-    self._offroad_brightness: int = BACKLIGHT_OFFROAD
-    self._last_brightness: int = 0
-    self._brightness_filter = FirstOrderFilter(BACKLIGHT_OFFROAD, 10.00, 1 / gui_app.target_fps)
-    self._brightness_thread: threading.Thread | None = None
+    # self._offroad_brightness: int = BACKLIGHT_OFFROAD
+    # self._last_brightness: int = 0
+    # self._brightness_filter = FirstOrderFilter(BACKLIGHT_OFFROAD, 10.00, 1 / gui_app.target_fps)
+    # self._brightness_thread: threading.Thread | None = None
 
   @property
   def awake(self) -> bool:
@@ -229,37 +216,37 @@ class Device:
     if self._interaction_time <= 0:
       self._reset_interactive_timeout()
 
-    self._update_brightness()
+    # self._update_brightness()
     self._update_wakefulness()
 
-  def set_offroad_brightness(self, brightness: int | None):
-    if brightness is None:
-      brightness = BACKLIGHT_OFFROAD
-    self._offroad_brightness = min(max(brightness, 0), 100)
+  # def set_offroad_brightness(self, brightness: int | None):
+  #   if brightness is None:
+  #     brightness = BACKLIGHT_OFFROAD
+  #   self._offroad_brightness = min(max(brightness, 0), 100)
 
-  def _update_brightness(self):
-    clipped_brightness = self._offroad_brightness
+  # def _update_brightness(self):
+  #   clipped_brightness = self._offroad_brightness
 
-    if ui_state.started and ui_state.light_sensor >= 0:
-      clipped_brightness = ui_state.light_sensor
+  #   if ui_state.started and ui_state.light_sensor >= 0:
+  #     clipped_brightness = ui_state.light_sensor
 
-      # CIE 1931 - https://www.photonstophotos.net/GeneralTopics/Exposure/Psychometric_Lightness_and_Gamma.htm
-      if clipped_brightness <= 8:
-        clipped_brightness = clipped_brightness / 903.3
-      else:
-        clipped_brightness = ((clipped_brightness + 16.0) / 116.0) ** 3.0
+  #     # CIE 1931 - https://www.photonstophotos.net/GeneralTopics/Exposure/Psychometric_Lightness_and_Gamma.htm
+  #     if clipped_brightness <= 8:
+  #       clipped_brightness = clipped_brightness / 903.3
+  #     else:
+  #       clipped_brightness = ((clipped_brightness + 16.0) / 116.0) ** 3.0
 
-      clipped_brightness = float(np.interp(clipped_brightness, [0, 1], [30, 100]))
+  #     clipped_brightness = float(np.interp(clipped_brightness, [0, 1], [30, 100]))
 
-    brightness = round(self._brightness_filter.update(clipped_brightness))
-    if not self._awake:
-      brightness = 0
+  #   brightness = round(self._brightness_filter.update(clipped_brightness))
+  #   if not self._awake:
+  #     brightness = 0
 
-    if brightness != self._last_brightness:
-      if self._brightness_thread is None or not self._brightness_thread.is_alive():
-        self._brightness_thread = threading.Thread(target=HARDWARE.set_screen_brightness, args=(brightness,))
-        self._brightness_thread.start()
-        self._last_brightness = brightness
+  #   if brightness != self._last_brightness:
+  #     if self._brightness_thread is None or not self._brightness_thread.is_alive():
+  #       self._brightness_thread = threading.Thread(target=HARDWARE.set_screen_brightness, args=(brightness,))
+  #       self._brightness_thread.start()
+  #       self._last_brightness = brightness
 
   def _update_wakefulness(self):
     # Handle interactive timeout
