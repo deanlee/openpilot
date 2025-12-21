@@ -48,8 +48,12 @@ class IconLayout(NamedTuple):
   margin_y: int
 
 
-class AlertLayout(NamedTuple):
-  text_rect: rl.Rectangle
+@dataclass
+class AlertLayout:
+  text1: str
+  text2: str
+  text_x: int
+  text_width: int
   icon: IconLayout | None
   bg_height: int
 
@@ -97,6 +101,8 @@ class AlertRenderer(Widget):
                                            letter_spacing=0.025)
 
     self._prev_alert: Alert | None = None
+    self._active_alert: Alert | None = None
+    self._alert_layout: AlertLayout | None = None
     self._text_gen_time = 0
     self._alert_text2_gen = ''
 
@@ -153,7 +159,7 @@ class AlertRenderer(Widget):
     alert = self.get_alert(ui_state.sm)
     return alert or self._prev_alert, alert is None
 
-  def _icon_helper(self, alert: Alert) -> AlertLayout:
+  def _update_layout(self, alert: Alert):
     icon_side = None
     txt_icon = None
     icon_margin_x = 20
@@ -203,23 +209,14 @@ class AlertRenderer(Widget):
     self._last_icon_side = icon_side
 
     # create text rect based on icon presence
-    text_x = self._rect.x + ALERT_MARGIN
-    text_width = self._rect.width - ALERT_MARGIN
-    if icon_side == 'left':
-      text_x = self._rect.x + self._txt_turn_signal_right.width
-      text_width = self._rect.width - ALERT_MARGIN - self._txt_turn_signal_right.width
-    elif icon_side == 'right':
-      text_x = self._rect.x + ALERT_MARGIN
-      text_width = self._rect.width - ALERT_MARGIN - self._txt_turn_signal_right.width
-
-    text_rect = rl.Rectangle(
-      text_x,
-      self._alert_y_filter.x,
-      text_width,
-      self._rect.height,
-    )
+    text_x = txt_icon.width if icon_side == IconSide.left else ALERT_MARGIN
+    text_width = self._rect.width - ALERT_MARGIN - (txt_icon.width if txt_icon else 0)
     icon_layout = IconLayout(txt_icon, icon_side, icon_margin_x, icon_margin_y) if txt_icon is not None and icon_side is not None else None
-    return AlertLayout(text_rect, icon_layout, background_height)
+
+     # TODO: hack
+    t1 = alert.text1.lower().replace('calibrating: ', 'calibrating:\n')
+    t2 = alert.text2.lower()
+    self._alert_layout = AlertLayout(t1, t2, text_x, text_width, icon_layout, background_height)
 
   def _render(self, rect: rl.Rectangle) -> bool:
     alert = self.get_alert(ui_state.sm)
@@ -236,10 +233,14 @@ class AlertRenderer(Widget):
         self._prev_alert = None
         return False
 
-    alert_layout = self._icon_helper(alert)
-    self._draw_background(alert, alert_layout)
-    self._draw_text(alert, alert_layout)
-    self._draw_icons(alert_layout)
+    if alert != self._active_alert:
+      self._active_alert = alert
+      if alert:
+        self._update_layout(alert)
+
+    self._draw_background(alert, self._alert_layout)
+    self._draw_text(self._alert_layout)
+    self._draw_icons(self._alert_layout)
 
     return True
 
@@ -278,17 +279,15 @@ class AlertRenderer(Widget):
                                  int(alert_layout.bg_height - solid_height),
                                  color, translucent_color)
 
-  def _draw_text(self, alert: Alert, alert_layout: AlertLayout) -> None:
+  def _draw_text(self, alert_layout: AlertLayout) -> None:
     icon_side = alert_layout.icon.side if alert_layout.icon is not None else None
 
-    # TODO: hack
-    alert_text1 = alert.text1.lower().replace('calibrating: ', 'calibrating:\n')
     can_draw_second_line = False
     # TODO: there should be a common way to determine font size based on text length to maximize rect
-    if len(alert_text1) <= 12:
+    if len(alert_layout.text1) <= 12:
       can_draw_second_line = True
       font_size = 92 - 10
-    elif len(alert_text1) <= 16:
+    elif len(alert_layout.text1) <= 16:
       can_draw_second_line = True
       font_size = 70
     else:
@@ -300,20 +299,17 @@ class AlertRenderer(Widget):
     color = rl.Color(255, 255, 255, int(255 * 0.9 * self._alpha_filter.x))
 
     text1_y_offset = 11 if font_size >= 70 else 4
-    text_rect1 = rl.Rectangle(
-      alert_layout.text_rect.x,
-      alert_layout.text_rect.y - text1_y_offset,
-      alert_layout.text_rect.width,
-      alert_layout.text_rect.height,
-    )
-    self._alert_text1_label.set_text(alert_text1)
+    text_x = self._rect.x + alert_layout.text_x
+    text_y = self._alert_y_filter.x
+    text_rect1 = rl.Rectangle(text_x, text_y - text1_y_offset, alert_layout.text_width, self._rect.height)
+
+    self._alert_text1_label.set_text(alert_layout.text1)
     self._alert_text1_label.set_text_color(color)
     self._alert_text1_label.set_font_size(font_size)
     self._alert_text1_label.set_alignment(Align.LEFT if icon_side != 'left' else Align.RIGHT)
     self._alert_text1_label.render(text_rect1)
 
-    alert_text2 = alert.text2.lower()
-
+    alert_text2 = alert_layout.text2
     # randomize chars and length for testing
     if DEBUG:
       if time.monotonic() - self._text_gen_time > 0.5:
@@ -322,7 +318,7 @@ class AlertRenderer(Widget):
       alert_text2 = self._alert_text2_gen or alert_text2
 
     if can_draw_second_line and alert_text2:
-      last_line_h = self._alert_text1_label.rect.y + self._alert_text1_label.get_content_height(int(alert_layout.text_rect.width))
+      last_line_h = self._alert_text1_label.rect.y + self._alert_text1_label.get_content_height(alert_layout.text_width)
       last_line_h -= 4
       if len(alert_text2) > 18:
         small_font_size = 36
@@ -330,12 +326,7 @@ class AlertRenderer(Widget):
         small_font_size = 32
       else:
         small_font_size = 40
-      text_rect2 = rl.Rectangle(
-        alert_layout.text_rect.x,
-        last_line_h,
-        alert_layout.text_rect.width,
-        alert_layout.text_rect.height - last_line_h
-      )
+      text_rect2 = rl.Rectangle(text_x, last_line_h, alert_layout.text_width, self._rect.height - last_line_h)
       color = rl.Color(255, 255, 255, int(255 * 0.65 * self._alpha_filter.x))
 
       self._alert_text2_label.set_text(alert_text2)
