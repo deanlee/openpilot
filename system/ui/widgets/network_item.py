@@ -77,4 +77,4 @@ class NetworkItem(Widget):
   def _draw_icon(self, x, y, path):
     if path:
       tex = gui_app.texture(path, ICON_SIZE, ICON_SIZE)
-      rl.draw_texture_v(tex, rl.Vector2(x, y + (ICON_SIZE - tex.height) / 2), rl.WHITE)
+      rl.draw_texture(tex, int(x), int(y + (ICON_SIZE - tex.height) / 2), rl.WHITE)

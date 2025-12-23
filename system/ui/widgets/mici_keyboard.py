@@ -115,19 +115,13 @@ class IconKey(Key):
 
   def _render(self, _):
     scale = np.interp(self._size_filter.x, [CHAR_FONT_SIZE, CHAR_NEAR_FONT_SIZE], [1, 1.5])
-
+    pos_x = self._rect.x + (self._rect.width - self._icon.width * scale) / 2
     if self._vertical_align == "center":
-      dest_rec = rl.Rectangle(self._rect.x + (self._rect.width - self._icon.width * scale) / 2,
-                              self._rect.y + (self._rect.height - self._icon.height * scale) / 2,
-                              self._icon.width * scale, self._icon.height * scale)
-      src_rec = rl.Rectangle(0, 0, self._icon.width, self._icon.height)
-      rl.draw_texture_pro(self._icon, src_rec, dest_rec, rl.Vector2(0, 0), 0, self._color)
-
+      pos_y = self._rect.y + (self._rect.height - self._icon.height * scale) / 2
     elif self._vertical_align == "bottom":
-      dest_rec = rl.Rectangle(self._rect.x + (self._rect.width - self._icon.width * scale) / 2, self._rect.y,
-                              self._icon.width * scale, self._icon.height * scale)
-      src_rec = rl.Rectangle(0, 0, self._icon.width, self._icon.height)
-      rl.draw_texture_pro(self._icon, src_rec, dest_rec, rl.Vector2(0, 0), 0, self._color)
+     pos_y = self._rect.y
+
+    rl.draw_texture_ex(self._icon, rl.Vector2(pos_x, pos_y), 0.0, scale, self._color)
 
     if DEBUG:
       rl.draw_circle(int(self._rect.x), int(self._rect.y), 5, rl.RED)  # Debug: draw circle around key

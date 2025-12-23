@@ -246,7 +246,7 @@ class Scroller(Widget):
       _real_content_size = self._content_size - self._rect.height + self._txt_scroll_indicator.height
       scroll_bar_y = -self._scroll_offset / _real_content_size * self._rect.height
       scroll_bar_y = min(max(scroll_bar_y, self._rect.y), self._rect.y + self._rect.height - self._txt_scroll_indicator.height)
-      rl.draw_texture_ex(self._txt_scroll_indicator, rl.Vector2(self._rect.x, scroll_bar_y), 0, 1.0, rl.WHITE)
+      rl.draw_texture(self._txt_scroll_indicator, int(self._rect.x), int(scroll_bar_y), rl.WHITE)
 
     rl.end_scissor_mode()
 

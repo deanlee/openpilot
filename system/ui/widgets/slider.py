@@ -123,7 +123,7 @@ class SmallSlider(Widget):
 
     bg_txt_x = self._rect.x + (self._rect.width - self._bg_txt.width) / 2
     bg_txt_y = self._rect.y + (self._rect.height - self._bg_txt.height) / 2
-    rl.draw_texture_ex(self._bg_txt, rl.Vector2(bg_txt_x, bg_txt_y), 0.0, 1.0, white)
+    rl.draw_texture(self._bg_txt, int(bg_txt_x), int(bg_txt_y), white)
 
     btn_x = bg_txt_x + self._bg_txt.width - self._circle_bg_txt.width + self._scroll_x_circle_filter.x
     btn_y = self._rect.y + (self._rect.height - self._circle_bg_txt.height) / 2
@@ -139,12 +139,11 @@ class SmallSlider(Widget):
       self._label.render(label_rect)
 
     # circle and arrow
-    rl.draw_texture_ex(self._circle_bg_txt, rl.Vector2(btn_x, btn_y), 0.0, 1.0, white)
+    rl.draw_texture(self._circle_bg_txt, int(btn_x), int(btn_y), white)
 
     arrow_x = btn_x + (self._circle_bg_txt.width - self._circle_arrow_txt.width) / 2
     arrow_y = btn_y + (self._circle_bg_txt.height - self._circle_arrow_txt.height) / 2
-    rl.draw_texture_ex(self._circle_arrow_txt, rl.Vector2(arrow_x, arrow_y), 0.0, 1.0, white)
-
+    rl.draw_texture(self._circle_arrow_txt, int(arrow_x), int(arrow_y), white)
 
 class LargerSlider(SmallSlider):
   def __init__(self, title: str, confirm_callback: Callable | None = None, green: bool = True):

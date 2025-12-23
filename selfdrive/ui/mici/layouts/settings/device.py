@@ -46,7 +46,7 @@ class MiciFccModal(NavWidget):
     scroll_content_rect.y += scroll_offset + self._fcc_logo.height + 20
     self._content.render(scroll_content_rect)
 
-    rl.draw_texture_ex(self._fcc_logo, fcc_pos, 0.0, 1.0, rl.WHITE)
+    rl.draw_texture_v(self._fcc_logo, fcc_pos, rl.WHITE)
 
     return -1
 

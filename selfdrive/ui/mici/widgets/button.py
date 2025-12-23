@@ -240,12 +240,9 @@ class BigButton(Widget):
         rotation = (rl.get_time() - self._rotate_icon_t) * 180
 
       # drop top right with 30px padding
-      x = self._rect.x + self._rect.width - 30 - self._txt_icon.width / 2
-      y = self._rect.y + 30 + self._txt_icon.height / 2
-      source_rec = rl.Rectangle(0, 0, self._txt_icon.width, self._txt_icon.height)
-      dest_rec = rl.Rectangle(int(x), int(y), self._txt_icon.width, self._txt_icon.height)
-      origin = rl.Vector2(self._txt_icon.width / 2, self._txt_icon.height / 2)
-      rl.draw_texture_pro(self._txt_icon, source_rec, dest_rec, origin, rotation, rl.WHITE)
+      x = self._rect.x + self._rect.width - 30 - self._txt_icon.width
+      y = self._rect.y + 30
+      rl.draw_texture_ex(self._txt_icon, rl.Vector2(x, y), rotation, 1.0, rl.WHITE)
 
 
 class BigToggle(BigButton):

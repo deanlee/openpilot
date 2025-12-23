@@ -211,8 +211,8 @@ class DriverCameraDialog(NavWidget):
       fill_opacity = eye_prob
       orange_opacity = 1.0 - eye_prob
 
-      rl.draw_texture_v(self._eye_orange_texture, (eye_x, eye_y), rl.Color(255, 255, 255, int(255 * orange_opacity)))
-      rl.draw_texture_v(self._eye_fill_texture, (eye_x, eye_y), rl.Color(255, 255, 255, int(255 * fill_opacity)))
+      rl.draw_texture(self._eye_orange_texture, int(eye_x), int(eye_y), rl.Color(255, 255, 255, int(255 * orange_opacity)))
+      rl.draw_texture(self._eye_fill_texture, int(eye_x), int(eye_y), rl.Color(255, 255, 255, int(255 * fill_opacity)))
 
     # Draw sunglasses indicator based on sunglasses probability
     # Position glasses centered between the two eyes at top left

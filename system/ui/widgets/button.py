@@ -135,7 +135,7 @@ class Button(Widget):
     if self._icon:
       icon_y = self._rect.y + (self._rect.height - self._icon.height) / 2
       icon_x = self._rect.x + (self._rect.width - self._icon.width) / 2
-      rl.draw_texture_v(self._icon, rl.Vector2(icon_x, icon_y), rl.WHITE if self.enabled else rl.Color(255, 255, 255, 100))
+      rl.draw_texture(self._icon, int(icon_x), int(icon_y), rl.WHITE if self.enabled else rl.Color(255, 255, 255, 100))
     else:
       self._label.render(self._rect)
 
@@ -176,7 +176,7 @@ class ButtonRadio(Button):
     if self._icon and self.selected:
       icon_y = self._rect.y + (self._rect.height - self._icon.height) / 2
       icon_x = self._rect.x + self._rect.width - self._icon.width - self._text_padding - ICON_PADDING
-      rl.draw_texture_v(self._icon, rl.Vector2(icon_x, icon_y), rl.WHITE if self.enabled else rl.Color(255, 255, 255, 100))
+      rl.draw_texture(self._icon, int(icon_x), int(icon_y), rl.WHITE if self.enabled else rl.Color(255, 255, 255, 100))
 
 
 class IconButton(Widget):
