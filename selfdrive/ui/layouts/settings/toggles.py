@@ -42,54 +42,14 @@ class TogglesLayout(Widget):
 
     # param, title, desc, icon, needs_restart
     self._toggle_defs = {
-      "OpenpilotEnabledToggle": (
-        tr_lazy("Enable openpilot"),
-        DESCRIPTIONS["OpenpilotEnabledToggle"],
-        "chffr_wheel.png",
-        True,
-      ),
-      "ExperimentalMode": (
-        tr_lazy("Experimental Mode"),
-        "",
-        "experimental_white.png",
-        False,
-      ),
-      "DisengageOnAccelerator": (
-        tr_lazy("Disengage on Accelerator Pedal"),
-        DESCRIPTIONS["DisengageOnAccelerator"],
-        "disengage_on_accelerator.png",
-        False,
-      ),
-      "IsLdwEnabled": (
-        tr_lazy("Enable Lane Departure Warnings"),
-        DESCRIPTIONS["IsLdwEnabled"],
-        "warning.png",
-        False,
-      ),
-      "AlwaysOnDM": (
-        tr_lazy("Always-On Driver Monitoring"),
-        DESCRIPTIONS["AlwaysOnDM"],
-        "monitoring.png",
-        False,
-      ),
-      "RecordFront": (
-        tr_lazy("Record and Upload Driver Camera"),
-        DESCRIPTIONS["RecordFront"],
-        "monitoring.png",
-        True,
-      ),
-      "RecordAudio": (
-        tr_lazy("Record and Upload Microphone Audio"),
-        DESCRIPTIONS["RecordAudio"],
-        "microphone.png",
-        True,
-      ),
-      "IsMetric": (
-        tr_lazy("Use Metric System"),
-        DESCRIPTIONS["IsMetric"],
-        "metric.png",
-        False,
-      ),
+      "OpenpilotEnabledToggle": (tr_lazy("Enable openpilot"),  "chffr_wheel.png", True),
+      "ExperimentalMode": (tr_lazy("Experimental Mode"), "experimental_white.png",False),
+      "DisengageOnAccelerator": (tr_lazy("Disengage on Accelerator Pedal"), "disengage_on_accelerator.png", False),
+      "IsLdwEnabled": (tr_lazy("Enable Lane Departure Warnings"), "warning.png", False),
+      "AlwaysOnDM": (tr_lazy("Always-On Driver Monitoring"), "monitoring.png", False),
+      "RecordFront": (tr_lazy("Record and Upload Driver Camera"), "monitoring.png", True),
+      "RecordAudio": (tr_lazy("Record and Upload Microphone Audio"), "microphone.png", True),
+      "IsMetric": (tr_lazy("Use Metric System"), "metric.png", False),
     }
 
     self._long_personality_setting = multiple_button_item(
@@ -104,15 +64,11 @@ class TogglesLayout(Widget):
 
     self._toggles = {}
     self._locked_toggles = set()
-    for param, (title, desc, icon, needs_restart) in self._toggle_defs.items():
-      toggle = toggle_item(
-        title,
-        desc,
-        self._params.get_bool(param),
-        callback=lambda state, p=param: self._toggle_callback(state, p),
-        icon=icon,
-      )
-
+    for param, (title, icon, needs_restart) in self._toggle_defs.items():
+      desc = DESCRIPTIONS.get(param, "")
+      toggle = toggle_item(title, desc, self._params.get_bool(param),
+                           callback=lambda state, p=param: self._toggle_callback(state, p),
+                           icon=icon)
       try:
         locked = self._params.get_bool(param + "Lock")
       except UnknownKeyName:
@@ -120,10 +76,9 @@ class TogglesLayout(Widget):
       toggle.action_item.set_enabled(not locked)
 
       # Make description callable for live translation
-      additional_desc = ""
       if needs_restart and not locked:
         additional_desc = tr("Changing this setting will restart openpilot if the car is powered on.")
-      toggle.set_description(lambda og_desc=toggle.description, add_desc=additional_desc: tr(og_desc) + (" " + tr(add_desc) if add_desc else ""))
+        toggle.set_description(lambda og_desc=toggle.description, add_desc=additional_desc: tr(og_desc) + (" " + tr(add_desc) if add_desc else ""))
 
       # track for engaged state updates
       if locked:
@@ -201,7 +156,7 @@ class TogglesLayout(Widget):
 
     # these toggles need restart, block while engaged
     for toggle_def in self._toggle_defs:
-      if self._toggle_defs[toggle_def][3] and toggle_def not in self._locked_toggles:
+      if self._toggle_defs[toggle_def][2] and toggle_def not in self._locked_toggles:
         self._toggles[toggle_def].action_item.set_enabled(not ui_state.engaged)
 
   def _render(self, rect):
@@ -239,7 +194,7 @@ class TogglesLayout(Widget):
       return
 
     self._params.put_bool(param, state)
-    if self._toggle_defs[param][3]:
+    if self._toggle_defs[param][2]:
       self._params.put_bool("OnroadCycleRequested", True)
 
   def _set_longitudinal_personality(self, button_index: int):
