@@ -11,7 +11,7 @@ from openpilot.system.ui.widgets import DialogResult
 
 # Description constants
 DESCRIPTIONS = {
-  'enable_adb': tr_noop(
+  'AdbEnabled': tr_noop(
     "ADB (Android Debug Bridge) allows connecting to your device over USB or over the network. " +
     "See https://docs.comma.ai/how-to/connect-to-comma for more info."
   ),
@@ -19,7 +19,7 @@ DESCRIPTIONS = {
     "Warning: This grants SSH access to all public keys in your GitHub settings. Never enter a GitHub username " +
     "other than your own. A comma employee will NEVER ask you to add their GitHub username."
   ),
-  'alpha_longitudinal': tr_noop(
+  'AlphaLongitudinalEnabled': tr_noop(
     "<b>WARNING: openpilot longitudinal control is in alpha for this car and will disable Automatic Emergency Braking (AEB).</b><br><br>" +
     "On this car, openpilot defaults to the car's built-in ACC instead of openpilot's longitudinal control. " +
     "Enable this to switch to openpilot longitudinal control. Enabling Experimental mode is recommended when enabling openpilot longitudinal control alpha. " +
@@ -33,65 +33,26 @@ class DeveloperLayout(Widget):
     super().__init__()
     self._params = Params()
     self._is_release = self._params.get_bool("IsReleaseBranch")
+    # Toggle definitions: param, title, callback, enabled
+    toogle_defs = {
+      "AdbEnabled": (tr_lazy("Enable ADB"), self._on_enable_adb, ui_state.is_offroad),
+      "SshEnabled": (tr_lazy("Enable SSH"), self._on_enable_ssh, True),
+      "JoystickDebugMode": (tr_lazy("Joystick Debug Mode"), self._on_joystick_debug_mode, ui_state.is_offroad),
+      "LongitudinalManeuverMode": (tr_lazy("Longitudinal Maneuver Mode"), self._on_long_maneuver_mode, True),
+      "AlphaLongitudinalEnabled": (tr_lazy("openpilot Longitudinal Control (Alpha)"), self._on_alpha_long_enabled, lambda: not ui_state.engaged),
+      "ShowDebugInfo": (tr_lazy("UI Debug Mode"), self._on_enable_ui_debug, True),
+    }
 
-    # Build items and keep references for callbacks/state updates
-    self._adb_toggle = toggle_item(
-      tr_lazy("Enable ADB"),
-      description=tr_lazy(DESCRIPTIONS["enable_adb"]),
-      initial_state=self._params.get_bool("AdbEnabled"),
-      callback=self._on_enable_adb,
-      enabled=ui_state.is_offroad,
-    )
+    self._toggles = {}
+    for param, (title, callback, enabled) in toogle_defs.items():
+      toggle = toggle_item(title, DESCRIPTIONS.get(param, ""), self._params.get_bool(param), callback=callback, enabled=enabled)
+      self._toggles[param] = toggle
 
-    # SSH enable toggle + SSH key management
-    self._ssh_toggle = toggle_item(
-      tr_lazy("Enable SSH"),
-      description="",
-      initial_state=self._params.get_bool("SshEnabled"),
-      callback=self._on_enable_ssh,
-    )
-    self._ssh_keys = ssh_key_item(tr_lazy("SSH Keys"), description=tr_lazy(DESCRIPTIONS["ssh_key"]))
-
-    self._joystick_toggle = toggle_item(
-      tr_lazy("Joystick Debug Mode"),
-      description="",
-      initial_state=self._params.get_bool("JoystickDebugMode"),
-      callback=self._on_joystick_debug_mode,
-      enabled=ui_state.is_offroad,
-    )
-
-    self._long_maneuver_toggle = toggle_item(
-      tr_lazy("Longitudinal Maneuver Mode"),
-      description="",
-      initial_state=self._params.get_bool("LongitudinalManeuverMode"),
-      callback=self._on_long_maneuver_mode,
-    )
-
-    self._alpha_long_toggle = toggle_item(
-      tr_lazy("openpilot Longitudinal Control (Alpha)"),
-      description=tr_lazy(DESCRIPTIONS["alpha_longitudinal"]),
-      initial_state=self._params.get_bool("AlphaLongitudinalEnabled"),
-      callback=self._on_alpha_long_enabled,
-      enabled=lambda: not ui_state.engaged,
-    )
-
-    self._ui_debug_toggle = toggle_item(
-      tr_lazy("UI Debug Mode"),
-      description="",
-      initial_state=self._params.get_bool("ShowDebugInfo"),
-      callback=self._on_enable_ui_debug,
-    )
     self._on_enable_ui_debug(self._params.get_bool("ShowDebugInfo"))
 
-    self._scroller = Scroller([
-      self._adb_toggle,
-      self._ssh_toggle,
-      self._ssh_keys,
-      self._joystick_toggle,
-      self._long_maneuver_toggle,
-      self._alpha_long_toggle,
-      self._ui_debug_toggle,
-    ], line_separator=True, spacing=0)
+    widgets = list(self._toggles.values())
+    widgets.insert(2, ssh_key_item(tr_lazy("SSH Keys"), description=tr_lazy(DESCRIPTIONS["ssh_key"])))
+    self._scroller = Scroller(widgets, line_separator=True, spacing=0)
 
     # Toggles should be not available to change in onroad state
     ui_state.add_offroad_transition_callback(self._update_toggles)
@@ -108,37 +69,22 @@ class DeveloperLayout(Widget):
 
     # Hide non-release toggles on release builds
     # TODO: we can do an onroad cycle, but alpha long toggle requires a deinit function to re-enable radar and not fault
-    for item in (self._joystick_toggle, self._long_maneuver_toggle, self._alpha_long_toggle):
-      item.set_visible(not self._is_release)
+    for param in ["JoystickDebugMode", "LongitudinalManeuverMode", "AlphaLongitudinalEnabled"]:
+      self._toggles[param].set_visible(not self._is_release)
 
-    # CP gating
-    if ui_state.CP is not None:
-      alpha_avail = ui_state.CP.alphaLongitudinalAvailable
-      if not alpha_avail or self._is_release:
-        self._alpha_long_toggle.set_visible(False)
+    alpha_avail = ui_state.CP.alphaLongitudinalAvailable if ui_state.CP else False
+    if not alpha_avail or self._is_release:
+      self._toggles["AlphaLongitudinalEnabled"].set_visible(False)
+      if not alpha_avail:
         self._params.remove("AlphaLongitudinalEnabled")
-      else:
-        self._alpha_long_toggle.set_visible(True)
 
-      long_man_enabled = ui_state.has_longitudinal_control and ui_state.is_offroad()
-      self._long_maneuver_toggle.action_item.set_enabled(long_man_enabled)
-      if not long_man_enabled:
-        self._long_maneuver_toggle.action_item.set_state(False)
-        self._params.put_bool("LongitudinalManeuverMode", False)
-    else:
-      self._long_maneuver_toggle.action_item.set_enabled(False)
-      self._alpha_long_toggle.set_visible(False)
+    maneuver_ok = ui_state.has_longitudinal_control and ui_state.is_offroad()
+    self._toggles["LongitudinalManeuverMode"].action_item.set_enabled(maneuver_ok)
+    if not maneuver_ok and self._params.get_bool("LongitudinalManeuverMode"):
+      self._params.put_bool("LongitudinalManeuverMode", False)
 
-    # TODO: make a param control list item so we don't need to manage internal state as much here
     # refresh toggles from params to mirror external changes
-    for key, item in (
-      ("AdbEnabled", self._adb_toggle),
-      ("SshEnabled", self._ssh_toggle),
-      ("JoystickDebugMode", self._joystick_toggle),
-      ("LongitudinalManeuverMode", self._long_maneuver_toggle),
-      ("AlphaLongitudinalEnabled", self._alpha_long_toggle),
-      ("ShowDebugInfo", self._ui_debug_toggle),
-    ):
+    for key, item in self._toggles.items():
       item.action_item.set_state(self._params.get_bool(key))
 
   def _on_enable_ui_debug(self, state: bool):
@@ -155,26 +101,27 @@ class DeveloperLayout(Widget):
   def _on_joystick_debug_mode(self, state: bool):
     self._params.put_bool("JoystickDebugMode", state)
     self._params.put_bool("LongitudinalManeuverMode", False)
-    self._long_maneuver_toggle.action_item.set_state(False)
+    self._toggles["LongitudinalManeuverMode"].action_item.set_state(False)
 
   def _on_long_maneuver_mode(self, state: bool):
     self._params.put_bool("LongitudinalManeuverMode", state)
     self._params.put_bool("JoystickDebugMode", False)
-    self._joystick_toggle.action_item.set_state(False)
+    self._toggles["JoystickDebugMode"].action_item.set_state(False)
 
   def _on_alpha_long_enabled(self, state: bool):
     if state:
+      toggle = self._toggles["AlphaLongitudinalEnabled"]
       def confirm_callback(result: int):
         if result == DialogResult.CONFIRM:
           self._params.put_bool("AlphaLongitudinalEnabled", True)
           self._params.put_bool("OnroadCycleRequested", True)
           self._update_toggles()
         else:
-          self._alpha_long_toggle.action_item.set_state(False)
+          toggle.action_item.set_state(False)
 
       # show confirmation dialog
-      content = (f"<h1>{self._alpha_long_toggle.title}</h1><br>" +
-                 f"<p>{self._alpha_long_toggle.description}</p>")
+      content = (f"<h1>{toggle.title}</h1><br>" +
+                 f"<p>{toggle.description}</p>")
 
       dlg = ConfirmDialog(content, tr("Enable"), rich=True)
       gui_app.set_modal_overlay(dlg, callback=confirm_callback)
