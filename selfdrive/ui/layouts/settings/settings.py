@@ -96,20 +96,9 @@ class SettingsLayout(Widget):
     rl.draw_rectangle_rounded(close_btn_rect, 1.0, 20, close_color)
 
     icon_color = rl.Color(255, 255, 255, 255) if not pressed else rl.Color(220, 220, 220, 255)
-    icon_dest = rl.Rectangle(
-      close_btn_rect.x + (close_btn_rect.width - self._close_icon.width) / 2,
-      close_btn_rect.y + (close_btn_rect.height - self._close_icon.height) / 2,
-      self._close_icon.width,
-      self._close_icon.height,
-    )
-    rl.draw_texture_pro(
-      self._close_icon,
-      rl.Rectangle(0, 0, self._close_icon.width, self._close_icon.height),
-      icon_dest,
-      rl.Vector2(0, 0),
-      0,
-      icon_color,
-    )
+    icon_x = close_btn_rect.x + (close_btn_rect.width - CLOSE_ICON_SIZE) / 2
+    icon_y = close_btn_rect.y + (close_btn_rect.height - CLOSE_ICON_SIZE) / 2
+    rl.draw_texture(self._close_icon, int(icon_x), int(icon_y), icon_color)
 
     # Store close button rect for click detection
     self._close_btn_rect = close_btn_rect
