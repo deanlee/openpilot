@@ -27,7 +27,9 @@ class PanelType(IntEnum):
 @dataclass
 class PanelInfo:
   name: str
-  instance: Widget
+  layout: Widget
+  icon_path: str
+  button_id: str
 
 
 class SettingsLayout(NavWidget):
@@ -35,45 +37,32 @@ class SettingsLayout(NavWidget):
     super().__init__()
     self._params = Params()
     self._current_panel = None  # PanelType.DEVICE
+    self._close_callback: Callable | None = None
 
-    toggles_btn = BigButton("toggles", "", "icons_mici/settings/toggles_icon.png")
-    toggles_btn.set_click_callback(lambda: self._set_current_panel(PanelType.TOGGLES))
-    network_btn = BigButton("network", "", "icons_mici/settings/network/wifi_strength_full.png")
-    network_btn.set_click_callback(lambda: self._set_current_panel(PanelType.NETWORK))
-    device_btn = BigButton("device", "", "icons_mici/settings/device_icon.png")
-    device_btn.set_click_callback(lambda: self._set_current_panel(PanelType.DEVICE))
-    developer_btn = BigButton("developer", "", "icons_mici/settings/developer_icon.png")
-    developer_btn.set_click_callback(lambda: self._set_current_panel(PanelType.DEVELOPER))
+    panels = [
+      PanelInfo("Toggles", TogglesLayoutMici(), "icons_mici/settings/toggles_icon.png", "toggles"),
+      PanelInfo("Network", NetworkLayoutMici(), "icons_mici/settings/network/wifi_strength_full.png", "network"),
+      PanelInfo("Device",   DeviceLayoutMici(),   "icons_mici/settings/device_icon.png", "device"),
+      PanelInfo("Firehose", FirehoseLayout(),     "icons_mici/settings/comma_icon.png", "firehose"),
+      PanelInfo("Developer", DeveloperLayoutMici(), "icons_mici/settings/developer_icon.png", "developer"),
+    ]
 
-    firehose_btn = BigButton("firehose", "", "icons_mici/settings/comma_icon.png")
-    firehose_btn.set_click_callback(lambda: self._set_current_panel(PanelType.FIREHOSE))
+    self._panels: dict[PanelType, PanelInfo] = {}
+    buttons = []
+    for i, panel in enumerate(panels):
+      panel_type = PanelType(i)
+      self.panel_map[panel_type] = panel
 
-    self._scroller = Scroller([
-      toggles_btn,
-      network_btn,
-      device_btn,
-      PairBigButton(),
-      #BigDialogButton("manual", "", "icons_mici/settings/manual_icon.png", "Check out the mici user\nmanual at comma.ai/setup"),
-      firehose_btn,
-      developer_btn,
-    ], snap_items=False)
+      btn = BigButton(panel.button_id, "", panel.icon_path)
+      btn.set_click_callback(lambda pt=panel_type: self._set_current_panel(pt))
+      buttons.append(btn)
+
+    buttons.insert(3, PairBigButton())
+    self.scroller = Scroller(buttons, snap_items=False)
 
     # Set up back navigation
     self.set_back_callback(self.close_settings)
     self.set_back_enabled(lambda: self._current_panel is None)
-
-    self._panels = {
-      PanelType.TOGGLES: PanelInfo("Toggles", TogglesLayoutMici(back_callback=lambda: self._set_current_panel(None))),
-      PanelType.NETWORK: PanelInfo("Network", NetworkLayoutMici(back_callback=lambda: self._set_current_panel(None))),
-      PanelType.DEVICE: PanelInfo("Device", DeviceLayoutMici(back_callback=lambda: self._set_current_panel(None))),
-      PanelType.DEVELOPER: PanelInfo("Developer", DeveloperLayoutMici(back_callback=lambda: self._set_current_panel(None))),
-      PanelType.FIREHOSE: PanelInfo("Firehose", FirehoseLayout(back_callback=lambda: self._set_current_panel(None))),
-    }
-
-    self._font_medium = gui_app.font(FontWeight.MEDIUM)
-
-    # Callbacks
-    self._close_callback: Callable | None = None
 
   def show_event(self):
     super().show_event()
