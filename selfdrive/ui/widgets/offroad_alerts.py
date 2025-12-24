@@ -11,6 +11,7 @@ from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.widgets import Widget
+from openpilot.system.ui.widgets.label import gui_label, Align, VAlign
 from openpilot.system.ui.widgets.html_render import HtmlRenderer
 from openpilot.selfdrive.selfdrived.alertmanager import OFFROAD_ALERTS
 
@@ -59,7 +60,6 @@ class ActionButton(Widget):
     self._text = text
     self._style = style
     self._min_width = min_width
-    self._font = gui_app.font(FontWeight.MEDIUM)
 
   @property
   def text(self) -> str:
@@ -71,17 +71,13 @@ class ActionButton(Widget):
     self._rect.height = AlertConstants.BUTTON_HEIGHT
 
     roundness = AlertConstants.BORDER_RADIUS / self._rect.height
+    color = rl.WHITE if self._style == ButtonStyle.DARK else rl.BLACK
     bg_color = AlertColors.BUTTON if self._style == ButtonStyle.LIGHT else AlertColors.SNOOZE_BG
     if self.is_pressed:
       bg_color = AlertColors.BUTTON_PRESSED if self._style == ButtonStyle.LIGHT else AlertColors.SNOOZE_BG_PRESSED
 
     rl.draw_rectangle_rounded(self._rect, roundness, 10, bg_color)
-
-    # center text
-    color = rl.WHITE if self._style == ButtonStyle.DARK else rl.BLACK
-    text_x = int(self._rect.x + (self._rect.width - text_size.x) // 2)
-    text_y = int(self._rect.y + (self._rect.height - text_size.y) // 2)
-    rl.draw_text_ex(self._font, self.text, rl.Vector2(text_x, text_y), AlertConstants.FONT_SIZE, 0, color)
+    gui_label(self._rect, self.text, AlertConstants.FONT_SIZE, color, FontWeight.MEDIUM, Align.CENTER, VAlign.MIDDLE)
 
 
 class AbstractAlert(Widget, ABC):
