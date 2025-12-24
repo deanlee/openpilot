@@ -7,8 +7,7 @@ from openpilot.selfdrive.ui.widgets.offroad_alerts import UpdateAlert, OffroadAl
 from openpilot.selfdrive.ui.widgets.exp_mode_button import ExperimentalModeButton
 from openpilot.selfdrive.ui.widgets.prime import PrimeWidget
 from openpilot.selfdrive.ui.widgets.setup import SetupWidget
-from openpilot.system.ui.lib.text_measure import measure_text_cached
-from openpilot.system.ui.lib.application import gui_app, FontWeight, MousePos
+from openpilot.system.ui.lib.application import FontWeight, MousePos
 from openpilot.system.ui.lib.multilang import tr, trn
 from openpilot.system.ui.widgets.label import gui_label, Align
 from openpilot.system.ui.widgets import Widget
@@ -116,10 +115,7 @@ class HomeLayout(Widget):
 
   def _draw_badge(self, rect, text, color, active_color, is_active):
     rl.draw_rectangle_rounded(rect, 0.3, 10, active_color if is_active else color)
-    font = gui_app.font(FontWeight.MEDIUM)
-    sz = measure_text_cached(font, text, HEAD_BUTTON_FONT_SIZE)
-    rl.draw_text_ex(font, text, rl.Vector2(rect.x + (rect.width - sz.x)/2, rect.y + (rect.height - sz.y)/2),
-                    HEAD_BUTTON_FONT_SIZE, 0, rl.WHITE)
+    gui_label(rect, text, HEAD_BUTTON_FONT_SIZE, rl.WHITE, FontWeight.MEDIUM, align=Align.CENTER, valign=Align.CENTER)
 
   def _render_header(self):
     version_text_width = self.header_rect.width

@@ -84,10 +84,8 @@ class HudRenderer(Widget):
     controls_state = sm['controlsState']
     car_state = sm['carState']
 
-    v_cruise_cluster = car_state.vCruiseCluster
-    self.set_speed = (
-      controls_state.vCruiseDEPRECATED if v_cruise_cluster == 0.0 else v_cruise_cluster
-    )
+    v_cruise = car_state.vCruiseCluster if car_state.vCruiseCluster != 0 else controls_state.vCruiseDEPRECATED
+    self.set_speed = v_cruise
     self.is_cruise_set = 0 < self.set_speed < SET_SPEED_NA
     self.is_cruise_available = self.set_speed != -1
 
@@ -103,14 +101,8 @@ class HudRenderer(Widget):
   def _render(self, rect: rl.Rectangle) -> None:
     """Render HUD elements to the screen."""
     # Draw the header background
-    rl.draw_rectangle_gradient_v(
-      int(rect.x),
-      int(rect.y),
-      int(rect.width),
-      UI_CONFIG.header_height,
-      COLORS.HEADER_GRADIENT_START,
-      COLORS.HEADER_GRADIENT_END,
-    )
+    rl.draw_rectangle_gradient_v(int(rect.x), int(rect.y), int(rect.width), UI_CONFIG.header_height,
+                                 COLORS.HEADER_GRADIENT_START, COLORS.HEADER_GRADIENT_END)
 
     if self.is_cruise_available:
       self._draw_set_speed(rect)
@@ -123,6 +115,10 @@ class HudRenderer(Widget):
 
   def user_interacting(self) -> bool:
     return self._exp_button.is_pressed
+
+  def _draw_centered_text(self, text: str, font: rl.Font, size: int, center_x: float, center_y: float, color: rl.Color):
+    m = measure_text_cached(font, text, size)
+    rl.draw_text_ex(font, text, rl.Vector2(center_x - m.x / 2, center_y - m.y / 2), size, 0, color)
 
   def _draw_set_speed(self, rect: rl.Rectangle) -> None:
     """Draw the MAX speed indicator box."""
@@ -145,36 +141,16 @@ class HudRenderer(Widget):
       elif ui_state.status == UIStatus.OVERRIDE:
         max_color = COLORS.OVERRIDE
 
-    max_text = tr("MAX")
-    max_text_width = measure_text_cached(self._font_semi_bold, max_text, FONT_SIZES.max_speed).x
-    rl.draw_text_ex(
-      self._font_semi_bold,
-      max_text,
-      rl.Vector2(x + (set_speed_width - max_text_width) / 2, y + 27),
-      FONT_SIZES.max_speed,
-      0,
-      max_color,
-    )
+    center_x = x + set_speed_width / 2
+    self._draw_centered_text(tr("MAX"), self._font_semi_bold, FONT_SIZES.max_speed, center_x, y + 27 + FONT_SIZES.max_speed / 2, max_color)
 
     set_speed_text = CRUISE_DISABLED_CHAR if not self.is_cruise_set else str(round(self.set_speed))
-    speed_text_width = measure_text_cached(self._font_bold, set_speed_text, FONT_SIZES.set_speed).x
-    rl.draw_text_ex(
-      self._font_bold,
-      set_speed_text,
-      rl.Vector2(x + (set_speed_width - speed_text_width) / 2, y + 77),
-      FONT_SIZES.set_speed,
-      0,
-      set_speed_color,
-    )
+    self._draw_centered_text(set_speed_text, self._font_bold, FONT_SIZES.set_speed,
+                             center_x, y + 77 + FONT_SIZES.set_speed / 2, set_speed_color)
 
   def _draw_current_speed(self, rect: rl.Rectangle) -> None:
     """Draw the current vehicle speed and unit."""
-    speed_text = str(round(self.speed))
-    speed_text_size = measure_text_cached(self._font_bold, speed_text, FONT_SIZES.current_speed)
-    speed_pos = rl.Vector2(rect.x + rect.width / 2 - speed_text_size.x / 2, 180 - speed_text_size.y / 2)
-    rl.draw_text_ex(self._font_bold, speed_text, speed_pos, FONT_SIZES.current_speed, 0, COLORS.WHITE)
-
+    x = rect.x + rect.width / 2
+    self._draw_centered_text(str(round(self.speed)), self._font_bold, FONT_SIZES.current_speed, x, 180, COLORS.WHITE)
     unit_text = tr("km/h") if ui_state.is_metric else tr("mph")
-    unit_text_size = measure_text_cached(self._font_medium, unit_text, FONT_SIZES.speed_unit)
-    unit_pos = rl.Vector2(rect.x + rect.width / 2 - unit_text_size.x / 2, 290 - unit_text_size.y / 2)
-    rl.draw_text_ex(self._font_medium, unit_text, unit_pos, FONT_SIZES.speed_unit, 0, COLORS.WHITE_TRANSLUCENT)
+    self._draw_centered_text(unit_text, self._font_medium, FONT_SIZES.speed_unit, x, 290, COLORS.WHITE_TRANSLUCENT)

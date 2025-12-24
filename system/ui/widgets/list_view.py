@@ -211,7 +211,6 @@ class MultipleButtonAction(ItemAction):
     self.button_width = button_width
     self.selected_button = selected_index
     self.callback = callback
-    self._font = gui_app.font(FontWeight.MEDIUM)
 
   def set_selected_button(self, index: int):
     if 0 <= index < len(self.buttons):
@@ -249,11 +248,8 @@ class MultipleButtonAction(ItemAction):
 
       # Draw text
       text = _resolve_value(_text, "")
-      text_size = measure_text_cached(self._font, text, 40)
-      text_x = button_x + (self.button_width - text_size.x) / 2
-      text_y = button_y + (BUTTON_HEIGHT - text_size.y) / 2
       text_color = rl.Color(228, 228, 228, 255) if self.enabled else rl.Color(150, 150, 150, 255)
-      rl.draw_text_ex(self._font, text, rl.Vector2(text_x, text_y), 40, 0, text_color)
+      gui_label(button_rect, text, font_size=40, color=text_color, font_weight=FontWeight.MEDIUM, align=Align.CENTER, valign=VAlign.MIDDLE)
 
   def _handle_mouse_release(self, mouse_pos: MousePos):
     spacing = RIGHT_ITEM_PADDING
