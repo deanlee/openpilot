@@ -68,12 +68,12 @@ class SettingsLayout(NavWidget):
     self._set_current_panel(None)
     self._scroller.show_event()
     if self._current_panel is not None:
-      self._panels[self._current_panel].instance.show_event()
+      self._panels[self._current_panel].layout.show_event()
 
   def hide_event(self):
     super().hide_event()
     if self._current_panel is not None:
-      self._panels[self._current_panel].instance.hide_event()
+      self._panels[self._current_panel].layout.hide_event()
 
   def set_callbacks(self, on_close: Callable):
     self._close_callback = on_close
@@ -86,15 +86,15 @@ class SettingsLayout(NavWidget):
 
   def _draw_current_panel(self):
     panel = self._panels[self._current_panel]
-    panel.instance.render(self._rect)
+    panel.layout.render(self._rect)
 
   def _set_current_panel(self, panel_type: PanelType | None):
     if panel_type != self._current_panel:
       if self._current_panel is not None:
-        self._panels[self._current_panel].instance.hide_event()
+        self._panels[self._current_panel].layout.hide_event()
       self._current_panel = panel_type
       if self._current_panel is not None:
-        self._panels[self._current_panel].instance.show_event()
+        self._panels[self._current_panel].layout.show_event()
 
   def close_settings(self):
     if self._close_callback:
