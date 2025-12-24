@@ -185,25 +185,14 @@ class BaseCameraView(Widget):
     if not self.frame:
       return np.eye(3)
 
-    # Calculate aspect ratios
-    widget_aspect_ratio = rect.width / rect.height
-    frame_aspect_ratio = self.frame.frame.width / self.frame.frame.height
-
-    # Calculate scaling factors to maintain aspect ratio
-    zx = min(frame_aspect_ratio / widget_aspect_ratio, 1.0)
-    zy = min(widget_aspect_ratio / frame_aspect_ratio, 1.0)
-
-    return np.array([
-      [zx, 0.0, 0.0],
-      [0.0, zy, 0.0],
-      [0.0, 0.0, 1.0]
-    ])
+    aspect = (self.frame.frame.width / self.frame.frame.height) / (rect.width / rect.height)
+    return np.array([[min(aspect, 1.0), 0.0, 0.0], [0.0, min(1.0 / aspect, 1.0), 0.0], [0.0, 0.0, 1.0]])
 
   def _render(self, rect: rl.Rectangle):
     if self._ensure_connection():
       if buffer := self.client.recv(timeout_ms=0):
-        self._texture_needs_update = True
         self.frame = Frame(buffer, self.client)
+        self._texture_needs_update = True
 
     if not self.frame:
       self._draw_placeholder(rect)
@@ -286,25 +275,25 @@ class BaseCameraView(Widget):
     pass
 
   def _ensure_connection(self) -> bool:
-    if not self.client.is_connected():
-      # Throttle connection attempts
-      current_time = rl.get_time()
-      if current_time - self.last_connection_attempt < CONNECTION_RETRY_INTERVAL:
-        return False
-      self.last_connection_attempt = current_time
+    if self.client.is_connected() and self.client.num_buffers > 0:
+      return True
 
-      # Only clear frame if it uses the current client to avoid invalid buffer access
-      if self.frame and self.client is self.frame._client:
-        self.frame = None
+    # Throttle connection attempts
+    current_time = rl.get_time()
+    if current_time - self.last_connection_attempt < CONNECTION_RETRY_INTERVAL:
+      return False
+    self.last_connection_attempt = current_time
 
-      if not self.client.connect(False) or not self.client.num_buffers:
-        return False
+    # Only clear frame if it uses the current client to avoid invalid buffer access
+    if self.frame and self.client is self.frame._client:
+      self.frame = None
 
+    if self.client.connect(False) and self.client.num_buffers > 0:
       cloudlog.debug(f"Connected to {self._name} stream: {self._stream_type}, buffers: {self.client.num_buffers}")
       self._initialize_textures()
       self.available_streams = self.client.available_streams(self._name, block=False)
-
-    return True
+      return True
+    return False
 
   def _initialize_textures(self):
       self._clear_textures()
@@ -326,7 +315,7 @@ class BaseCameraView(Widget):
     if TICI:
       for data in self.egl_images.values():
         destroy_egl_image(data)
-      self.egl_images = {}
+      self.egl_images.clear()
 
 
 class CameraView(BaseCameraView):
