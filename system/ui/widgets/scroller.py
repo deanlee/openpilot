@@ -60,6 +60,7 @@ class Scroller(Widget):
     self._item_pos_filter = BounceFilter(0.0, 0.05, 1 / gui_app.target_fps)
 
     # when not pressed, snap to closest item to be center
+    self._snapped: bool = False
     self._scroll_snap_filter = FirstOrderFilter(0.0, 0.05, 1 / gui_app.target_fps)
 
     self.scroll_panel = GuiScrollPanel2(self._horizontal, handle_out_of_bounds=not self._snap_items)
@@ -110,16 +111,15 @@ class Scroller(Widget):
             self._zoom_filter.update(0.85)
 
     # Cancel auto-scroll if user starts manually scrolling
-    if self._scrolling_to is not None and (self.scroll_panel.state == ScrollState.PRESSED or self.scroll_panel.state == ScrollState.MANUAL_SCROLL):
-      self._scrolling_to = None
-
     if self._scrolling_to is not None:
-      self._scroll_filter.update(self._scrolling_to)
-      self.scroll_panel.set_offset(self._scroll_filter.x)
-
-      if abs(self._scroll_filter.x - self._scrolling_to) < 1:
-        self.scroll_panel.set_offset(self._scrolling_to)
+      if self.scroll_panel.state in (ScrollState.PRESSED, ScrollState.MANUAL_SCROLL):
         self._scrolling_to = None
+      else:
+        self._scroll_filter.update(self._scrolling_to)
+        self.scroll_panel.set_offset(self._scroll_filter.x)
+        if abs(self._scroll_filter.x - self._scrolling_to) < 1:
+          self.scroll_panel.set_offset(self._scrolling_to)
+          self._scrolling_to = None
     else:
       # keep current scroll position up to date
       self._scroll_filter.x = self.scroll_panel.get_offset()
@@ -128,27 +128,26 @@ class Scroller(Widget):
     scroll_enabled = self._scroll_enabled() if callable(self._scroll_enabled) else self._scroll_enabled
     self.scroll_panel.set_enabled(scroll_enabled and self.enabled)
     self.scroll_panel.update(self._rect, content_size)
-    if not self._snap_items:
-      return round(self.scroll_panel.get_offset())
-
-    if self.is_pressed:
-      # no snapping until released
+    current_offset = self.scroll_panel.get_offset()
+    if not self._snap_items or self.is_pressed:
+      self._snapped = False
       self._scroll_snap_filter.x = 0
+      return current_offset
+
+    if self._snapped:
+      return current_offset
+
+      # Snap closest item to center
+    center_pos = (self._rect.x + self._rect.width / 2) if self._horizontal else (self._rect.y + self._rect.height / 2)
+    closest_delta = min(([((i.rect.x + i.rect.width/2) if self._horizontal else (i.rect.y + i.rect.height/2)) - center_pos
+                             for i in visible_items]), key=abs, default=0)
+
+    if abs(closest_delta) < 1:
+      self._snapped = True
     else:
-       # Snap closest item to center
-      center_pos = (self._rect.x + self._rect.width / 2) if self._horizontal else (self._rect.y + self._rect.height / 2)
-      closest_delta = float('inf')
-      for item in visible_items:
-        item_center = (item.rect.x + item.rect.width / 2) if self._horizontal else (item.rect.y + item.rect.height / 2)
-        delta = item_center - center_pos
-
-        if abs(delta) < abs(closest_delta):
-          closest_delta = delta
-
-      if closest_delta != float('inf'):
-        # TODO: this doesn't handle two small buttons at the edges well
-        self._scroll_snap_filter.update(-closest_delta / 10)
-        self.scroll_panel.set_offset(self.scroll_panel.get_offset() + self._scroll_snap_filter.x)
+      # TODO: this doesn't handle two small buttons at the edges well
+      self._scroll_snap_filter.update(-closest_delta / 10)
+      self.scroll_panel.set_offset(current_offset + self._scroll_snap_filter.x)
 
     return self.scroll_panel.get_offset()
 
@@ -166,30 +165,21 @@ class Scroller(Widget):
     self._content_size += self._pad_start + self._pad_end
 
     self._scroll_offset = self._get_scroll(self._visible_items, self._content_size)
-
-    rl.begin_scissor_mode(int(self._rect.x), int(self._rect.y),
-                          int(self._rect.width), int(self._rect.height))
-
-    self._item_pos_filter.update(self._scroll_offset)
+    if DO_JELLO:
+      self._item_pos_filter.update(self._scroll_offset)
 
     cur_pos = 0
     for idx, item in enumerate(self._visible_items):
       spacing = self._spacing if (idx > 0) else self._pad_start
       # Nicely lay out items horizontally/vertically
       if self._horizontal:
-        x = self._rect.x + cur_pos + spacing
+        x = self._rect.x + cur_pos + spacing + self._scroll_offset
         y = self._rect.y + (self._rect.height - item.rect.height) / 2
         cur_pos += item.rect.width + spacing
       else:
         x = self._rect.x + (self._rect.width - item.rect.width) / 2
-        y = self._rect.y + cur_pos + spacing
+        y = self._rect.y + cur_pos + spacing + self._scroll_offset
         cur_pos += item.rect.height + spacing
-
-      # Consider scroll
-      if self._horizontal:
-        x += self._scroll_offset
-      else:
-        y += self._scroll_offset
 
       # Add some jello effect when scrolling
       if DO_JELLO:
@@ -211,6 +201,7 @@ class Scroller(Widget):
       item.set_parent_rect(self._rect)
 
   def _render(self, _):
+    rl.begin_scissor_mode(int(self._rect.x), int(self._rect.y), int(self._rect.width), int(self._rect.height))
     for item in self._visible_items:
       # Skip rendering if not in viewport
       if not rl.check_collision_recs(item.rect, self._rect):
