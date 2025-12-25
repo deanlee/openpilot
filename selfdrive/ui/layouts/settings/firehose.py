@@ -27,14 +27,14 @@ INSTRUCTIONS = tr_noop(
 class FirehoseLayout(FirehoseLayoutBase):
   def __init__(self):
     super().__init__()
-    self._scroll_panel = GuiScrollPanel()
+    self._scroll_panel = GuiScrollPanel(horizontal=False)
 
   def _render(self, rect: rl.Rectangle):
     # Calculate content dimensions
     content_rect = rl.Rectangle(rect.x, rect.y, rect.width, self._content_height)
 
     # Handle scrolling and render with clipping
-    scroll_offset = self._scroll_panel.update(rect, content_rect)
+    scroll_offset = self._scroll_panel.update(rect, content_rect.height)
     rl.begin_scissor_mode(int(rect.x), int(rect.y), int(rect.width), int(rect.height))
     self._content_height = self._render_content(rect, scroll_offset)
     rl.end_scissor_mode()

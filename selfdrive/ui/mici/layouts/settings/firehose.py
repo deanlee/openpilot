@@ -11,7 +11,7 @@ from openpilot.selfdrive.ui.ui_state import ui_state, device
 from openpilot.system.athena.registration import UNREGISTERED_DONGLE_ID
 from openpilot.system.ui.lib.application import gui_app, FontWeight, FONT_SCALE
 from openpilot.system.ui.lib.wrap_text import wrap_text
-from openpilot.system.ui.lib.scroll_panel2 import GuiScrollPanel2
+from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.multilang import tr, trn, tr_noop
 from openpilot.system.ui.widgets import Widget, NavWidget
 
@@ -48,7 +48,7 @@ class FirehoseLayoutBase(Widget):
     self._session = requests.Session()  # reuse session to reduce SSL handshake overhead
     self._segment_count = self._get_segment_count()
 
-    self._scroll_panel = GuiScrollPanel2(horizontal=False)
+    self._scroll_panel = GuiScrollPanel(horizontal=False)
     self._content_height = 0
 
     self._running = True

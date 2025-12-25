@@ -1,134 +1,245 @@
+import os
 import math
 import pyray as rl
-from enum import IntEnum
+from collections import deque
+from collections.abc import Callable
+from enum import Enum
+from typing import Optional
 from openpilot.system.ui.lib.application import gui_app, MouseEvent
-from openpilot.common.filter_simple import FirstOrderFilter
+from openpilot.system.hardware import TICI
 
-# Scroll constants for smooth scrolling behavior
-MOUSE_WHEEL_SCROLL_SPEED = 50
-BOUNCE_RETURN_RATE = 5              # ~0.92 at 60fps
-MIN_VELOCITY = 2                    # px/s, changes from auto scroll to steady state
-MIN_VELOCITY_FOR_CLICKING = 2 * 60  # px/s, accepts clicks while auto scrolling below this velocity
-DRAG_THRESHOLD = 12                 # pixels of movement to consider it a drag, not a click
+FRICTION_TIME_CONSTANT = 0.18
+BOUNCE_RETURN_STRENGTH = 12.0
+RUBBER_BAND_RESISTANCE = 0.4
+MAX_OVERSHOOT = 200.0
 
-DEBUG = False
+MOUSE_WHEEL_SPEED = 80.0
+
+MIN_DRAG_THRESHOLD = 10
+MIN_FLING_VELOCITY = 60.0
+MIN_VELOCITY_FOR_CLICK_BLOCK = 180.0
+MAX_VELOCITY = 15000.0
+
+VELOCITY_HISTORY_SIZE = 12 if TICI else 8
+DEBUG = os.getenv("DEBUG_SCROLL", "0") == "1"
 
 
-class ScrollState(IntEnum):
-  IDLE = 0              # Not dragging, content may be bouncing or scrolling with inertia
-  DRAGGING_CONTENT = 1  # User is actively dragging the content
+class ScrollState(Enum):
+  IDLE = 0
+  PRESSED = 1
+  DRAGGING = 2
+  INERTIA = 3
 
 
 class GuiScrollPanel:
-  def __init__(self):
-    self._scroll_state: ScrollState = ScrollState.IDLE
-    self._last_mouse_y: float = 0.0
-    self._start_mouse_y: float = 0.0  # Track the initial mouse position for drag detection
-    self._offset_filter_y = FirstOrderFilter(0.0, 0.1, 1 / gui_app.target_fps)
-    self._velocity_filter_y = FirstOrderFilter(0.0, 0.05, 1 / gui_app.target_fps)
-    self._last_drag_time: float = 0.0
+  def __init__(self, horizontal: bool = True, handle_out_of_bounds: bool = True):
+    self._horizontal = horizontal
+    self._handle_out_of_bounds = handle_out_of_bounds
 
-  def update(self, bounds: rl.Rectangle, content: rl.Rectangle) -> float:
-    for mouse_event in gui_app.mouse_events:
-      if mouse_event.slot == 0:
-        self._handle_mouse_event(mouse_event, bounds, content)
+    self._state = ScrollState.IDLE
+    self._offset = rl.Vector2(0.0, 0.0)
 
-    self._update_state(bounds, content)
+    self._velocity = 0.0
+    self._velocity_history = deque[float](maxlen=VELOCITY_HISTORY_SIZE)
 
-    return float(self._offset_filter_y.x)
+    self._drag_start_offset = 0.0
+    self._drag_start_pos = 0.0
+    self._last_pos = 0.0
+    self._last_time = 0.0
 
-  def _update_state(self, bounds: rl.Rectangle, content: rl.Rectangle):
-    if DEBUG:
-      rl.draw_rectangle_lines(0, 0, abs(int(self._velocity_filter_y.x)), 10, rl.RED)
+    self._enabled: bool | Callable[[], bool] = True
+    self._wheel_accum = 0.0
 
-    # Handle mouse wheel
-    self._offset_filter_y.x += rl.get_mouse_wheel_move() * MOUSE_WHEEL_SCROLL_SPEED
-
-    max_scroll_distance = max(0, content.height - bounds.height)
-    if self._scroll_state == ScrollState.IDLE:
-      above_bounds, below_bounds = self._check_bounds(bounds, content)
-
-      # Decay velocity when idle
-      if abs(self._velocity_filter_y.x) > MIN_VELOCITY:
-        # Faster decay if bouncing back from out of bounds
-        friction = math.exp(-BOUNCE_RETURN_RATE * 1 / gui_app.target_fps)
-        self._velocity_filter_y.x *= friction ** 2 if (above_bounds or below_bounds) else friction
-      else:
-        self._velocity_filter_y.x = 0.0
-
-      if above_bounds or below_bounds:
-        if above_bounds:
-          self._offset_filter_y.update(0)
-        else:
-          self._offset_filter_y.update(-max_scroll_distance)
-
-      self._offset_filter_y.x += self._velocity_filter_y.x / gui_app.target_fps
-
-    elif self._scroll_state == ScrollState.DRAGGING_CONTENT:
-      # Mouse not moving, decay velocity
-      if not len(gui_app.mouse_events):
-        self._velocity_filter_y.update(0.0)
-
-    # Settle to exact bounds
-    if abs(self._offset_filter_y.x) < 1e-2:
-      self._offset_filter_y.x = 0.0
-    elif abs(self._offset_filter_y.x + max_scroll_distance) < 1e-2:
-      self._offset_filter_y.x = -max_scroll_distance
-
-  def _handle_mouse_event(self, mouse_event: MouseEvent, bounds: rl.Rectangle, content: rl.Rectangle):
-    if self._scroll_state == ScrollState.IDLE:
-      if rl.check_collision_point_rec(mouse_event.pos, bounds):
-        if mouse_event.left_pressed:
-          self._start_mouse_y = mouse_event.pos.y
-          # Interrupt scrolling with new drag
-          # TODO: stop scrolling with any tap, need to fix is_touch_valid
-          if abs(self._velocity_filter_y.x) > MIN_VELOCITY_FOR_CLICKING:
-            self._scroll_state = ScrollState.DRAGGING_CONTENT
-            # Start velocity at initial measurement for more immediate response
-            self._velocity_filter_y.initialized = False
-
-        if mouse_event.left_down:
-          if abs(mouse_event.pos.y - self._start_mouse_y) > DRAG_THRESHOLD:
-            self._scroll_state = ScrollState.DRAGGING_CONTENT
-            # Start velocity at initial measurement for more immediate response
-            self._velocity_filter_y.initialized = False
-
-    elif self._scroll_state == ScrollState.DRAGGING_CONTENT:
-      if mouse_event.left_released:
-        self._scroll_state = ScrollState.IDLE
-      else:
-        delta_y = mouse_event.pos.y - self._last_mouse_y
-        above_bounds, below_bounds = self._check_bounds(bounds, content)
-        # Rubber banding effect when out of bands
-        if above_bounds or below_bounds:
-          delta_y /= 3
-
-        self._offset_filter_y.x += delta_y
-
-        # Track velocity for inertia
-        dt = mouse_event.t - self._last_drag_time
-        if dt > 0:
-          drag_velocity = delta_y / dt
-          self._velocity_filter_y.update(drag_velocity)
-
-        # TODO: just store last mouse event!
-    self._last_drag_time = mouse_event.t
-    self._last_mouse_y = mouse_event.pos.y
-
-  def _check_bounds(self, bounds: rl.Rectangle, content: rl.Rectangle) -> tuple[bool, bool]:
-    max_scroll_distance = max(0, content.height - bounds.height)
-    above_bounds = self._offset_filter_y.x > 0
-    below_bounds = self._offset_filter_y.x < -max_scroll_distance
-    return above_bounds, below_bounds
-
-  def is_touch_valid(self):
-    return self._scroll_state == ScrollState.IDLE and abs(self._velocity_filter_y.x) < MIN_VELOCITY_FOR_CLICKING
-
-  def set_offset(self, position: float) -> None:
-    self._offset_filter_y.x = position
-    self._velocity_filter_y.x = 0.0
-    self._scroll_state = ScrollState.IDLE
+  def set_enabled(self, enabled: bool | Callable[[], bool]) -> None:
+    self._enabled = enabled
+    if not self.enabled:
+      self._reset_to_idle()
 
   @property
-  def offset(self) -> float:
-    return float(self._offset_filter_y.x)
+  def enabled(self) -> bool:
+    return self._enabled() if callable(self._enabled) else self._enabled
+
+  def update(self, bounds: rl.Rectangle, content_size: float) -> float:
+    if not self.enabled:
+      self._reset_to_idle()
+
+    bounds_size = bounds.width if self._horizontal else bounds.height
+    max_offset = 0.0
+    min_offset = min(0.0, bounds_size - content_size)
+
+    self._process_inputs(bounds, max_offset, min_offset)
+    self._update_physics(max_offset, min_offset)
+
+    if DEBUG:
+      print(f"[Scroll] State={self._state.name} Offset={self.get_offset():.1f} Vel={self._velocity:.1f}")
+
+    return self.get_offset()
+
+  def _process_inputs(self, bounds: rl.Rectangle, max_offset: float, min_offset: float) -> None:
+    latest_down_pos: Optional[float] = None
+    latest_down_time: float = 0.0
+
+    for event in gui_app.mouse_events:
+      if event.slot != 0:
+        continue
+
+      pos = self._get_mouse_pos(event)
+
+      if event.left_pressed:
+        if rl.check_collision_point_rec(event.pos, bounds):
+          self._state = ScrollState.PRESSED
+          self._drag_start_offset = self.get_offset()
+          self._drag_start_pos = pos
+          self._last_pos = pos
+          self._last_time = event.t
+          self._velocity = 0.0
+          self._velocity_history.clear()
+
+      elif event.left_released:
+        if self._state in (ScrollState.PRESSED, ScrollState.DRAGGING):
+          self._handle_release()
+
+      elif event.left_down and self._state in (ScrollState.PRESSED, ScrollState.DRAGGING):
+        latest_down_pos = pos
+        latest_down_time = event.t
+
+    if latest_down_pos is not None:
+      self._apply_latest_position(latest_down_pos, latest_down_time, max_offset, min_offset)
+
+    # Wheel only when not touching
+    if self._state not in (ScrollState.PRESSED, ScrollState.DRAGGING):
+      wheel = rl.get_mouse_wheel_move()
+      if wheel != 0:
+        delta = wheel * MOUSE_WHEEL_SPEED
+        self._wheel_accum += delta
+        apply = math.copysign(math.floor(abs(self._wheel_accum)), self._wheel_accum)
+        if apply != 0:
+          self._offset_add(apply)
+          self._wheel_accum -= apply
+          self._velocity += apply * gui_app.target_fps * 0.5
+
+  def _apply_latest_position(self, pos: float, time: float, max_offset: float, min_offset: float) -> None:
+    dt = max(time - self._last_time, 1e-6)
+    raw_delta = pos - self._last_pos
+
+    moved_distance = abs(pos - self._drag_start_pos)
+
+    if self._state == ScrollState.PRESSED:
+      if moved_distance < MIN_DRAG_THRESHOLD:
+        # Still deciding — do NOT move content
+        self._last_pos = pos
+        self._last_time = time
+        return
+
+      # Threshold crossed → begin dragging
+      self._state = ScrollState.DRAGGING
+      # Content stays put until now — no sudden jump
+
+    # === DRAGGING: follow finger with rubber banding ===
+    desired_offset = self._drag_start_offset + (pos - self._drag_start_pos)
+
+    overshoot = 0.0
+    if desired_offset > max_offset:
+      overshoot = desired_offset - max_offset
+    elif desired_offset < min_offset:
+      overshoot = desired_offset - min_offset
+
+    resistance = 1.0
+    if overshoot != 0:
+      factor = min(1.0, abs(overshoot) / MAX_OVERSHOOT)
+      resistance = 1.0 - (RUBBER_BAND_RESISTANCE * factor)
+
+    final_delta = raw_delta * resistance
+    self._offset_add(final_delta)
+
+    velocity = final_delta / dt
+    velocity = max(-MAX_VELOCITY, min(MAX_VELOCITY, velocity))
+    self._velocity = velocity
+    self._velocity_history.append(velocity)
+
+    self._last_pos = pos
+    self._last_time = time
+
+  def _handle_release(self) -> None:
+    if len(self._velocity_history) >= 3:
+      recent_vel = sum(list(self._velocity_history)[-3:]) / 3.0
+    elif self._velocity_history:
+      recent_vel = self._velocity_history[-1]
+    else:
+      recent_vel = 0.0
+
+    if abs(recent_vel) >= MIN_FLING_VELOCITY:
+      self._velocity = recent_vel
+      self._state = ScrollState.INERTIA
+    else:
+      self._velocity = 0.0
+      self._state = ScrollState.IDLE
+
+    self._velocity_history.clear()
+
+  def _update_physics(self, max_offset: float, min_offset: float) -> None:
+    dt = rl.get_frame_time()
+    if dt <= 0:
+      dt = 1.0 / gui_app.target_fps
+
+    current = self.get_offset()
+
+    if self._state == ScrollState.INERTIA:
+      decay = math.exp(-dt / FRICTION_TIME_CONSTANT)
+      self._velocity *= decay
+      self._offset_add(self._velocity * dt)
+
+      if abs(self._velocity) < 15.0:
+        self._velocity = 0.0
+        self._state = ScrollState.IDLE
+
+    if self._handle_out_of_bounds:
+      if current > max_offset:
+        overshoot = current - max_offset
+        self._offset_add(-overshoot * BOUNCE_RETURN_STRENGTH * dt)
+        self._velocity *= 0.85
+        if overshoot < 2.0 and abs(self._velocity) < 30:
+          self.set_offset(max_offset)
+          self._reset_to_idle()
+
+      elif current < min_offset:
+        overshoot = current - min_offset
+        self._offset_add(-overshoot * BOUNCE_RETURN_STRENGTH * dt)
+        self._velocity *= 0.85
+        if abs(overshoot) < 2.0 and abs(self._velocity) < 30:
+          self.set_offset(min_offset)
+          self._reset_to_idle()
+
+  def _offset_add(self, delta: float) -> None:
+    if self._horizontal:
+      self._offset.x += delta
+    else:
+      self._offset.y += delta
+
+  def _get_mouse_pos(self, event: MouseEvent) -> float:
+    return event.pos.x if self._horizontal else event.pos.y
+
+  def get_offset(self) -> float:
+    return self._offset.x if self._horizontal else self._offset.y
+
+  def set_offset(self, value: float) -> None:
+    if self._horizontal:
+      self._offset.x = value
+    else:
+      self._offset.y = value
+
+  def _reset_to_idle(self) -> None:
+    self._state = ScrollState.IDLE
+    self._velocity = 0.0
+    self._velocity_history.clear()
+
+  @property
+  def state(self) -> ScrollState:
+    return self._state
+
+  def is_touch_valid(self) -> bool:
+    if self._state == ScrollState.DRAGGING:
+      return False
+    if self._state == ScrollState.INERTIA:
+      return abs(self._velocity) < MIN_VELOCITY_FOR_CLICK_BLOCK
+    return True  # IDLE or PRESSED

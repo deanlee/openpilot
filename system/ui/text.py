@@ -60,8 +60,7 @@ class TextWindow(Widget):
     self._textarea_rect = rl.Rectangle(MARGIN, MARGIN, gui_app.width - MARGIN * 2, gui_app.height - MARGIN * 2)
     self._wrapped_lines = wrap_text(text, FONT_SIZE, self._textarea_rect.width - 20)
     self._content_rect = rl.Rectangle(0, 0, self._textarea_rect.width - 20, len(self._wrapped_lines) * LINE_HEIGHT)
-    self._scroll_panel = GuiScrollPanel()
-    self._scroll_panel._offset_filter_y.x = -max(self._content_rect.height - self._textarea_rect.height, 0)
+    self._scroll_panel = GuiScrollPanel(horizontal=False)
 
     button_text = "Exit" if PC else "Reboot"
     self._button = Button(button_text, click_callback=self._on_button_clicked, button_style=ButtonStyle.TRANSPARENT_WHITE_BORDER, font_size=FONT_SIZE)
@@ -73,7 +72,7 @@ class TextWindow(Widget):
       HARDWARE.reboot()
 
   def _render(self, rect: rl.Rectangle):
-    scroll = self._scroll_panel.update(self._textarea_rect, self._content_rect)
+    scroll = self._scroll_panel.update(self._textarea_rect, self._content_rect.height)
     rl.begin_scissor_mode(int(self._textarea_rect.x), int(self._textarea_rect.y), int(self._textarea_rect.width), int(self._textarea_rect.height))
     for i, line in enumerate(self._wrapped_lines):
       position = rl.Vector2(self._textarea_rect.x, self._textarea_rect.y + scroll + i * LINE_HEIGHT)
