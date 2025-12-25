@@ -88,15 +88,16 @@ class DriverStateRenderer(Widget):
     if DEBUG:
       rl.draw_rectangle_lines_ex(self._rect, 1, rl.RED)
 
+    alpha = int(255 * self._fade_filter.x)
     rl.draw_texture(self._dm_background,
                     int(self._rect.x),
                     int(self._rect.y),
-                    rl.Color(255, 255, 255, int(255 * self._fade_filter.x)))
+                    rl.Color(255, 255, 255, alpha))
 
     rl.draw_texture(self._dm_person,
                     int(self._rect.x + (self._rect.width - self._dm_person.width) / 2),
                     int(self._rect.y + (self._rect.height - self._dm_person.height) / 2),
-                    rl.Color(255, 255, 255, int(255 * 0.9 * self._fade_filter.x)))
+                    rl.Color(255, 255, 255, int(alpha * 0.9)))
 
     if self.effective_active:
       source_rect = rl.Rectangle(0, 0, self._dm_cone.width, self._dm_cone.height)
@@ -114,7 +115,7 @@ class DriverStateRenderer(Widget):
           dest_rect,
           rl.Vector2(dest_rect.width / 2, dest_rect.height / 2),
           self._rotation_filter.x - 90,
-          rl.Color(255, 255, 255, int(255 * self._fade_filter.x * (1 - self._looking_center_filter.x))),
+          rl.Color(255, 255, 255, int(alpha * (1 - self._looking_center_filter.x))),
         )
 
         rl.draw_texture_ex(
@@ -123,7 +124,7 @@ class DriverStateRenderer(Widget):
            int(self._rect.y + (self._rect.height - self._dm_center.height) / 2)),
           0,
           1.0,
-          rl.Color(255, 255, 255, int(255 * self._fade_filter.x * self._looking_center_filter.x)),
+          rl.Color(255, 255, 255, int(alpha * self._looking_center_filter.x)),
         )
 
       else:
