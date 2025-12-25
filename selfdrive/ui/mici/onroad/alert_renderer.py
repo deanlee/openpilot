@@ -1,6 +1,7 @@
 import time
 from enum import StrEnum
 from typing import NamedTuple
+import math
 import pyray as rl
 import random
 import string
@@ -23,6 +24,7 @@ ALERT_FONT_BIG = 88 - 40
 
 SELFDRIVE_STATE_TIMEOUT = 5  # Seconds
 SELFDRIVE_UNRESPONSIVE_TIMEOUT = 10  # Seconds
+BLINK_HZ = 1.33 # 80 BPM
 
 # Constants
 ALERT_COLORS = {
@@ -105,10 +107,7 @@ class AlertRenderer(Widget):
     self._alert_y_filter = BounceFilter(0, 0.1, 1 / gui_app.target_fps)
     self._alpha_filter = FirstOrderFilter(0, 0.05, 1 / gui_app.target_fps)
 
-    self._turn_signal_timer = 0.0
-    self._turn_signal_alpha_filter = FirstOrderFilter(0.0, 0.3, 1 / gui_app.target_fps)
     self._last_icon_side: IconSide | None = None
-
     self._load_icons()
 
   def _load_icons(self):
@@ -197,7 +196,6 @@ class AlertRenderer(Widget):
       background_height = medium_alert_height
 
     else:
-      self._turn_signal_timer = 0.0
       background_height = int(self._rect.height)
 
     self._last_icon_side = icon_side
@@ -239,32 +237,21 @@ class AlertRenderer(Widget):
     alert_layout = self._icon_helper(alert)
     self._draw_background(alert, alert_layout)
     self._draw_text(alert, alert_layout)
-    self._draw_icons(alert_layout)
+    if alert_layout.icon:
+      self._draw_icons(alert_layout.icon)
 
     return True
 
-  def _draw_icons(self, alert_layout: AlertLayout) -> None:
-    if alert_layout.icon is None:
-      return
+  def _get_blink_alpha(self) -> int:
+    val = (math.sin(time.monotonic() * BLINK_HZ * 2 * math.pi) + 1) / 2
+    return int(50 + (205 * val)) # Pulsate between 50 and 255 alpha
 
-    if time.monotonic() - self._turn_signal_timer > TURN_SIGNAL_BLINK_PERIOD:
-      self._turn_signal_timer = time.monotonic()
-      self._turn_signal_alpha_filter.x = 255 * 2
-    else:
-      self._turn_signal_alpha_filter.update(255 * 0.2)
-
-    if alert_layout.icon.side == 'left':
-      pos_x = int(self._rect.x + alert_layout.icon.margin_x)
-    else:
-      pos_x = int(self._rect.x + self._rect.width - alert_layout.icon.margin_x - alert_layout.icon.texture.width)
-
-    if alert_layout.icon.texture not in (self._txt_turn_signal_left, self._txt_turn_signal_right):
-      icon_alpha = 255
-    else:
-      icon_alpha = int(min(self._turn_signal_alpha_filter.x, 255))
-
-    rl.draw_texture(alert_layout.icon.texture, pos_x, int(self._rect.y + alert_layout.icon.margin_y),
-                    rl.Color(255, 255, 255, int(icon_alpha * self._alpha_filter.x)))
+  def _draw_icons(self, icon: IconLayout) -> None:
+    is_blinker = icon.texture in (self._txt_turn_signal_left, self._txt_turn_signal_right)
+    alpha = self._get_blink_alpha() if is_blinker else 255
+    pos_x = self._rect.x + (icon.margin_x if icon.side == 'left' else
+                            self._rect.width - icon.margin_x - icon.texture.width)
+    rl.draw_texture(icon.texture, int(pos_x), int(self._rect.y + icon.margin_y), rl.Color(255, 255, 255, alpha))
 
   def _draw_background(self, alert: Alert, alert_layout: AlertLayout) -> None:
     # draw top gradient for alert text at top
