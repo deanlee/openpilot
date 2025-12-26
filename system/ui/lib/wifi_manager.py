@@ -176,6 +176,18 @@ class WifiManager:
     self._initialize()
     atexit.register(self.stop)
 
+  def _call(self, addr, method, signature=None, body=None):
+    res = self._router_main.send_and_get_reply(new_method_call(addr, method, signature, body))
+    return res.body[0] if res.header.message_type != MessageType.error else None
+
+  def _get_prop(self, path, iface, prop):
+    res = self._router_main.send_and_get_reply(Properties(DBusAddress(path, NM, iface)).get(prop))
+    return res.body[0][1] if res.header.message_type != MessageType.error else None
+
+  def _get_props(self, path, iface):
+    res = self._router_main.send_and_get_reply(Properties(DBusAddress(path, NM, iface)).get_all())
+    return res.body[0] if res.header.message_type != MessageType.error else {}
+
   def _initialize(self):
     def worker():
       self._wait_for_wifi_device()
@@ -307,15 +319,9 @@ class WifiManager:
 
   def _get_adapter(self, adapter_type: int) -> str | None:
     # Return the first NetworkManager device path matching adapter_type
-    try:
-      device_paths = self._router_main.send_and_get_reply(new_method_call(self._nm, 'GetDevices')).body[0]
-      for device_path in device_paths:
-        dev_addr = DBusAddress(device_path, bus_name=NM, interface=NM_DEVICE_IFACE)
-        dev_type = self._router_main.send_and_get_reply(Properties(dev_addr).get('DeviceType')).body[0][1]
-        if dev_type == adapter_type:
-          return str(device_path)
-    except Exception as e:
-      cloudlog.exception(f"Error getting adapter type {adapter_type}: {e}")
+    for path in (self._call(self._nm, 'GetDevices') or []):
+      if self._get_prop(path, NM_DEVICE_IFACE, 'DeviceType') == adapter_type:
+        return str(path)
     return None
 
   def _get_connections(self) -> dict[str, str]:
