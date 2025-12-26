@@ -613,7 +613,7 @@ class WifiManager:
           continue
 
         try:
-          ap = AccessPoint.from_dbus(ap_props.body[0], ap_path, active_ap_path)
+          ap = AccessPoint.from_dbus(ap_props, ap_path, active_ap_path)
           if ap.ssid == "":
             continue
 
