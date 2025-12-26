@@ -195,7 +195,8 @@ class WifiManager:
       self._scan_thread.start()
       self._state_thread.start()
 
-      if Params is not None and self._tethering_ssid not in self._get_connections():
+      self._known_connections = self._get_connections()
+      if Params is not None and self._tethering_ssid not in self._known_connections:
         self._add_tethering_connection()
 
       self._tethering_password = self._get_tethering_password()
