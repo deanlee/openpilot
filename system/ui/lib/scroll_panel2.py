@@ -34,7 +34,7 @@ class GuiScrollPanel2:
     self._handle_out_of_bounds = handle_out_of_bounds
     self._AUTO_SCROLL_TC = AUTO_SCROLL_TC_SNAP if not self._handle_out_of_bounds else AUTO_SCROLL_TC
     self._state = ScrollState.STEADY
-    self._offset: rl.Vector2 = rl.Vector2(0, 0)
+    self._offset: float = 0.0
     self._initial_click_event: MouseEvent | None = None
     self._previous_mouse_event: MouseEvent | None = None
     self._velocity = 0.0  # pixels per second
@@ -53,43 +53,35 @@ class GuiScrollPanel2:
       print('Old state:', self._state)
 
     bounds_size = bounds.width if self._horizontal else bounds.height
-
+    max_offset, min_offset = 0.0, min(0.0, bounds_size - content_size)
     for mouse_event in gui_app.mouse_events:
-      self._handle_mouse_event(mouse_event, bounds, bounds_size, content_size)
+      self._handle_mouse_event(mouse_event, bounds, max_offset, min_offset)
       self._previous_mouse_event = mouse_event
 
-    self._update_state(bounds_size, content_size)
+    self._update_state(max_offset, min_offset)
 
     if DEBUG:
-      print('Velocity:', self._velocity)
-      print('Offset X:', self._offset.x, 'Y:', self._offset.y)
-      print('New state:', self._state)
-      print()
-    return self.get_offset()
+      print(f"State: {self._state} | Off: {self._offset:.1f} | Vel: {self._velocity:.1f}")
+    return self._offset
 
-  def _get_offset_bounds(self, bounds_size: float, content_size: float) -> tuple[float, float]:
-    """Returns (max_offset, min_offset) for the given bounds and content size."""
-    return 0.0, min(0.0, bounds_size - content_size)
-
-  def _update_state(self, bounds_size: float, content_size: float) -> None:
+  def _update_state(self, max_offset: float, min_offset: float) -> None:
     """Runs per render frame, independent of mouse events. Updates auto-scrolling state and velocity."""
     if self._state == ScrollState.AUTO_SCROLL:
-      max_offset, min_offset = self._get_offset_bounds(bounds_size, content_size)
       # simple exponential return if out of bounds
-      out_of_bounds = self.get_offset() > max_offset or self.get_offset() < min_offset
+      out_of_bounds = self._offset > max_offset or self._offset < min_offset
       if out_of_bounds and self._handle_out_of_bounds:
-        target = max_offset if self.get_offset() > max_offset else min_offset
+        target = max_offset if self._offset > max_offset else min_offset
 
         dt = rl.get_frame_time() or 1e-6
         factor = 1.0 - math.exp(-BOUNCE_RETURN_RATE * dt)
 
-        dist = target - self.get_offset()
-        self.set_offset(self.get_offset() + dist * factor)  # ease toward the edge
+        dist = target - self._offset
+        self._offset += dist * factor  # ease toward the edge
         self._velocity *= (1.0 - factor)  # damp any leftover fling
 
         # Steady once we are close enough to the target
         if abs(dist) < 1 and abs(self._velocity) < MIN_VELOCITY:
-          self.set_offset(target)
+          self._offset = target
           self._velocity = 0.0
           self._state = ScrollState.STEADY
 
@@ -99,15 +91,14 @@ class GuiScrollPanel2:
 
       # Update the offset based on the current velocity
       dt = rl.get_frame_time()
-      self.set_offset(self.get_offset() + self._velocity * dt)  # Adjust the offset based on velocity
+      self._offset += self._velocity * dt  # Adjust the offset based on velocity
       alpha = 1 - (dt / (self._AUTO_SCROLL_TC + dt))
       self._velocity *= alpha
 
-  def _handle_mouse_event(self, mouse_event: MouseEvent, bounds: rl.Rectangle, bounds_size: float,
-                          content_size: float) -> None:
-    max_offset, min_offset = self._get_offset_bounds(bounds_size, content_size)
+  def _handle_mouse_event(self, mouse_event: MouseEvent, bounds: rl.Rectangle,
+                          max_offset:float, min_offset: float) -> None:
     # simple exponential return if out of bounds
-    out_of_bounds = self.get_offset() > max_offset or self.get_offset() < min_offset
+    out_of_bounds = self._offset > max_offset or self._offset < min_offset
     if DEBUG:
       print('Mouse event:', mouse_event)
 
@@ -187,9 +178,7 @@ class GuiScrollPanel2:
 
         # Update the offset based on the mouse movement
         # Use internal _offset directly to preserve precision (don't round via get_offset())
-        # TODO: make get_offset return float
-        current_offset = self._offset.x if self._horizontal else self._offset.y
-        self.set_offset(current_offset + delta_x)
+        self._offset += delta_x
 
     elif self._state == ScrollState.AUTO_SCROLL:
       if mouse_event.left_pressed:
@@ -208,13 +197,10 @@ class GuiScrollPanel2:
     return mouse_event.pos.x if self._horizontal else mouse_event.pos.y
 
   def get_offset(self) -> float:
-    return self._offset.x if self._horizontal else self._offset.y
+    return self._offset
 
   def set_offset(self, value: float) -> None:
-    if self._horizontal:
-      self._offset.x = value
-    else:
-      self._offset.y = value
+      self._offset = value
 
   @property
   def state(self) -> ScrollState:
