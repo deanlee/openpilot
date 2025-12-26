@@ -339,12 +339,7 @@ class WifiManager:
     return self._router_main.send_and_get_reply(Properties(self._nm).get('ActiveConnections')).body[0][1]
 
   def _get_connection_settings(self, conn_path: str) -> dict:
-    conn_addr = DBusAddress(conn_path, bus_name=NM, interface=NM_CONNECTION_IFACE)
-    reply = self._router_main.send_and_get_reply(new_method_call(conn_addr, 'GetSettings'))
-    if reply.header.message_type == MessageType.error:
-      cloudlog.warning(f'Failed to get connection settings: {reply}')
-      return {}
-    return dict(reply.body[0])
+    return self._call(DBusAddress(conn_path, NM, NM_CONNECTION_IFACE), 'GetSettings') or {}
 
   def _add_tethering_connection(self):
     connection = {
@@ -425,8 +420,7 @@ class WifiManager:
     def worker():
       conn_path = self._known_connections.get(ssid, None)
       if conn_path is not None:
-        conn_addr = DBusAddress(conn_path, bus_name=NM, interface=NM_CONNECTION_IFACE)
-        self._router_main.send_and_get_reply(new_method_call(conn_addr, 'Delete'))
+        self._call(DBusAddress(conn_path, NM, NM_CONNECTION_IFACE), 'Delete')
 
         if len(self._forgotten):
           self._update_networks()
@@ -446,8 +440,7 @@ class WifiManager:
           return
 
         self._connecting_to_ssid = ssid
-        self._router_main.send(new_method_call(self._nm, 'ActivateConnection', 'ooo',
-                                               (conn_path, self._wifi_device, "/")))
+        self._call(self._nm, 'ActivateConnection', 'ooo', (conn_path, self._wifi_device, "/"))
 
     if block:
       worker()
