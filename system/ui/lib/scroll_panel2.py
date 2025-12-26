@@ -16,6 +16,7 @@ AUTO_SCROLL_TC = 0.18
 BOUNCE_RETURN_RATE = 10.0
 REJECT_DECELERATION_FACTOR = 3
 MAX_SPEED = 10000.0  # px/s
+CLICK_VELOCITY_LIMIT = 120.0  # px/s
 
 DEBUG = os.getenv("DEBUG_SCROLL", "0") == "1"
 
@@ -36,9 +37,9 @@ class GuiScrollPanel2:
     self._state = ScrollState.STEADY
     self._offset: float = 0.0
     self._initial_click_event: MouseEvent | None = None
-    self._previous_mouse_event: MouseEvent | None = None
+    self._prev_mouse: MouseEvent | None = None
     self._velocity = 0.0  # pixels per second
-    self._velocity_buffer: deque[float] = deque(maxlen=12 if TICI else 6)
+    self._vel_buffer: deque[float] = deque(maxlen=12 if TICI else 6)
     self._enabled: bool | Callable[[], bool] = True
 
   def set_enabled(self, enabled: bool | Callable[[], bool]) -> None:
@@ -52,69 +53,34 @@ class GuiScrollPanel2:
     if DEBUG:
       print('Old state:', self._state)
 
+    if not self.enabled:
+      # Reset state if not enabled
+      self._state = ScrollState.STEADY
+      self._velocity = 0.0
+      self._vel_buffer.clear()
+      return self._offset
+
     bounds_size = bounds.width if self._horizontal else bounds.height
     max_offset, min_offset = 0.0, min(0.0, bounds_size - content_size)
     for mouse_event in gui_app.mouse_events:
       self._handle_mouse_event(mouse_event, bounds, max_offset, min_offset)
-      self._previous_mouse_event = mouse_event
+      self._prev_mouse = mouse_event
 
-    self._update_state(max_offset, min_offset)
+    if self._state == ScrollState.AUTO_SCROLL:
+      self._step_physics(max_offset, min_offset)
 
     if DEBUG:
       print(f"State: {self._state} | Off: {self._offset:.1f} | Vel: {self._velocity:.1f}")
     return self._offset
 
-  def _update_state(self, max_offset: float, min_offset: float) -> None:
-    """Runs per render frame, independent of mouse events. Updates auto-scrolling state and velocity."""
-    if self._state == ScrollState.AUTO_SCROLL:
-      # simple exponential return if out of bounds
-      out_of_bounds = self._offset > max_offset or self._offset < min_offset
-      if out_of_bounds and self._handle_out_of_bounds:
-        target = max_offset if self._offset > max_offset else min_offset
-
-        dt = rl.get_frame_time() or 1e-6
-        factor = 1.0 - math.exp(-BOUNCE_RETURN_RATE * dt)
-
-        dist = target - self._offset
-        self._offset += dist * factor  # ease toward the edge
-        self._velocity *= (1.0 - factor)  # damp any leftover fling
-
-        # Steady once we are close enough to the target
-        if abs(dist) < 1 and abs(self._velocity) < MIN_VELOCITY:
-          self._offset = target
-          self._velocity = 0.0
-          self._state = ScrollState.STEADY
-
-      elif abs(self._velocity) < MIN_VELOCITY:
-        self._velocity = 0.0
-        self._state = ScrollState.STEADY
-
-      # Update the offset based on the current velocity
-      dt = rl.get_frame_time()
-      self._offset += self._velocity * dt  # Adjust the offset based on velocity
-      alpha = 1 - (dt / (self._AUTO_SCROLL_TC + dt))
-      self._velocity *= alpha
-
-  def _handle_mouse_event(self, mouse_event: MouseEvent, bounds: rl.Rectangle,
-                          max_offset:float, min_offset: float) -> None:
-    # simple exponential return if out of bounds
+  def _handle_mouse_event(self, mouse_event: MouseEvent, bounds: rl.Rectangle, max_offset:float, min_offset: float) -> None:
     out_of_bounds = self._offset > max_offset or self._offset < min_offset
-    if DEBUG:
-      print('Mouse event:', mouse_event)
-
     mouse_pos = self._get_mouse_pos(mouse_event)
 
-    if not self.enabled:
-      # Reset state if not enabled
-      self._state = ScrollState.STEADY
-      self._velocity = 0.0
-      self._velocity_buffer.clear()
-
-    elif self._state == ScrollState.STEADY:
-      if rl.check_collision_point_rec(mouse_event.pos, bounds):
-        if mouse_event.left_pressed:
-          self._state = ScrollState.PRESSED
-          self._initial_click_event = mouse_event
+    if self._state == ScrollState.STEADY:
+      if mouse_event.left_pressed and rl.check_collision_point_rec(mouse_event.pos, bounds):
+        self._state = ScrollState.PRESSED
+        self._initial_click_event = mouse_event
 
     elif self._state == ScrollState.PRESSED:
       initial_click_pos = self._get_mouse_pos(cast(MouseEvent, self._initial_click_event))
@@ -133,52 +99,9 @@ class GuiScrollPanel2:
 
     elif self._state == ScrollState.MANUAL_SCROLL:
       if mouse_event.left_released:
-        # Touch rejection: when releasing finger after swiping and stopping, panel
-        # reports a few erroneous touch events with high velocity, try to ignore.
-
-        # If velocity decelerates very quickly, assume user doesn't intend to auto scroll
-        high_decel = False
-        if len(self._velocity_buffer) > 2:
-          # We limit max to first half since final few velocities can surpass first few
-          abs_velocity_buffer = [(abs(v), i) for i, v in enumerate(self._velocity_buffer)]
-          max_idx = max(abs_velocity_buffer[:len(abs_velocity_buffer) // 2])[1]
-          min_idx = min(abs_velocity_buffer)[1]
-          if DEBUG:
-            print('min_idx:', min_idx, 'max_idx:', max_idx, 'velocity buffer:', self._velocity_buffer)
-          if (abs(self._velocity_buffer[min_idx]) * REJECT_DECELERATION_FACTOR < abs(self._velocity_buffer[max_idx]) and
-              max_idx < min_idx):
-            if DEBUG:
-              print('deceleration too high, going to STEADY')
-            high_decel = True
-
-        # If final velocity is below some threshold, switch to steady state too
-        low_speed = abs(self._velocity) <= MIN_VELOCITY_FOR_CLICKING * 1.5  # plus some margin
-
-        if out_of_bounds or not (high_decel or low_speed):
-          self._state = ScrollState.AUTO_SCROLL
-        else:
-          # TODO: we should just set velocity and let autoscroll go back to steady. delays one frame but who cares
-          self._velocity = 0.0
-          self._state = ScrollState.STEADY
-        self._velocity_buffer.clear()
+        self._finalize_manual_scroll(out_of_bounds)
       else:
-        # Update velocity for when we release the mouse button.
-        # Do not update velocity on the same frame the mouse was released
-        previous_mouse_pos = self._get_mouse_pos(cast(MouseEvent, self._previous_mouse_event))
-        delta_x = mouse_pos - previous_mouse_pos
-        delta_t = max((mouse_event.t - cast(MouseEvent, self._previous_mouse_event).t), 1e-6)
-        self._velocity = delta_x / delta_t
-        self._velocity = max(-MAX_SPEED, min(MAX_SPEED, self._velocity))
-        self._velocity_buffer.append(self._velocity)
-
-        # rubber-banding: reduce dragging when out of bounds
-        # TODO: this drifts when dragging quickly
-        if out_of_bounds:
-          delta_x *= 0.25
-
-        # Update the offset based on the mouse movement
-        # Use internal _offset directly to preserve precision (don't round via get_offset())
-        self._offset += delta_x
+        self._update_manual_drag(mouse_pos, mouse_event.t, out_of_bounds)
 
     elif self._state == ScrollState.AUTO_SCROLL:
       if mouse_event.left_pressed:
@@ -192,6 +115,66 @@ class GuiScrollPanel2:
           self._state = ScrollState.MANUAL_SCROLL
           # Reset velocity for touch down and up events that happen in back-to-back frames
           self._velocity = 0.0
+
+  def _update_manual_drag(self, m_pos: float, m_t: float, is_oob: bool):
+    if not self._prev_mouse:
+      return
+
+    delta = m_pos - self._get_mouse_pos(self._prev_mouse)
+    dt = max(m_t - self._prev_mouse.t, 1e-6)
+
+    self._velocity = max(-MAX_SPEED, min(MAX_SPEED, delta / dt))
+    self._vel_buffer.append(self._velocity)
+
+    # Rubber-banding
+    if is_oob and self._handle_out_of_bounds:
+      delta *= 0.25
+    self._offset += delta
+
+  def _finalize_manual_scroll(self, is_oob: bool):
+    # Determine if flick is valid or jitter rejection
+    low_speed = abs(self._velocity) < CLICK_VELOCITY_LIMIT * 1.5
+    # Rejection logic: if velocity dropped sharply before release, it's a stop, not a flick
+    high_decel = False
+    if len(self._vel_buffer) >= 4:
+      avg_start = abs(sum(list(self._vel_buffer)[:len(self._vel_buffer)//2]))
+      if abs(self._velocity) * 3.0 < avg_start:
+        high_decel = True
+
+    if is_oob or not (high_decel or low_speed):
+      self._state = ScrollState.AUTO_SCROLL
+    else:
+      self._state = ScrollState.STEADY
+      self._velocity = 0.0
+    self._vel_buffer.clear()
+
+  def _step_physics(self, max_offset: float, min_offset: float) -> None:
+    """Runs per render frame, independent of mouse events. Updates auto-scrolling state and velocity."""
+    # simple exponential return if out of bounds
+    dt = rl.get_frame_time() or 1e-6
+    out_of_bounds = self._offset > max_offset or self._offset < min_offset
+    if out_of_bounds and self._handle_out_of_bounds:
+      target = max_offset if self._offset > max_offset else min_offset
+      factor = 1.0 - math.exp(-BOUNCE_RETURN_RATE * dt)
+
+      dist = target - self._offset
+      self._offset += dist * factor  # ease toward the edge
+      self._velocity *= (1.0 - factor)  # damp any leftover fling
+
+      # Steady once we are close enough to the target
+      if abs(dist) < 1 and abs(self._velocity) < MIN_VELOCITY:
+        self._offset = target
+        self._velocity = 0.0
+        self._state = ScrollState.STEADY
+
+    elif abs(self._velocity) < MIN_VELOCITY:
+      self._velocity = 0.0
+      self._state = ScrollState.STEADY
+
+    # Update the offset based on the current velocity
+    self._offset += self._velocity * dt  # Adjust the offset based on velocity
+    alpha = 1 - (dt / (self._AUTO_SCROLL_TC + dt))
+    self._velocity *= alpha
 
   def _get_mouse_pos(self, mouse_event: MouseEvent) -> float:
     return mouse_event.pos.x if self._horizontal else mouse_event.pos.y
