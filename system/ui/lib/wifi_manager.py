@@ -658,7 +658,6 @@ class WifiManager:
     if ip4config_path != "/":
       addr_data = self._get_prop(ip4config_path, NM_IP4_CONFIG_IFACE, 'AddressData')
       if addr_data and len(addr_data) > 0:
-        # AddressData is a list of dictionaries
         self._ipv4_address = addr_data[0].get('address', (None, ""))[1]
         print(self._ipv4_address)
 
