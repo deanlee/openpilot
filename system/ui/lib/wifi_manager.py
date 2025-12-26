@@ -620,7 +620,7 @@ class WifiManager:
 
       # returns '/' if no active AP
       wifi_addr = DBusAddress(self._wifi_device, NM, interface=NM_WIRELESS_IFACE)
-      active_ap_path = self._router_main.send_and_get_reply(Properties(wifi_addr).get('ActiveAccessPoint')).body[0][1]
+      active_ap_path = self._get_prop(self._wifi_device, NM_WIRELESS_IFACE, 'ActiveAccessPoint')
 
       aps: dict[str, list[AccessPoint]] = {}
       for ap_path in self._call(wifi_addr, 'GetAllAccessPoints') or []:
