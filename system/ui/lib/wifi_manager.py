@@ -493,25 +493,11 @@ class WifiManager:
     threading.Thread(target=worker, daemon=True).start()
 
   def _get_tethering_password(self) -> str:
-    conn_path = self._known_connections.get(self._tethering_ssid, None)
-    if conn_path is None:
-      cloudlog.warning('No tethering connection found')
-      return ''
-
-    reply = self._router_main.send_and_get_reply(new_method_call(
-      DBusAddress(conn_path, bus_name=NM, interface=NM_CONNECTION_IFACE),
-      'GetSecrets', 's', ('802-11-wireless-security',)
-    ))
-
-    if reply.header.message_type == MessageType.error:
-      cloudlog.warning(f'Failed to get tethering password: {reply}')
-      return ''
-
-    secrets = reply.body[0]
-    if '802-11-wireless-security' not in secrets:
-      return ''
-
-    return str(secrets['802-11-wireless-security'].get('psk', ('s', ''))[1])
+    if path := self._known_connections.get(self._tethering_ssid):
+      res = self._call(DBusAddress(path, NM, NM_CONNECTION_IFACE), 'GetSecrets', 's', ('802-11-wireless-security',))
+      if res and '802-11-wireless-security' in res:
+        return str(res['802-11-wireless-security'].get('psk', ('s', ''))[1])
+    return ''
 
   def set_ipv4_forward(self, enabled: bool):
     self._ipv4_forward = enabled
