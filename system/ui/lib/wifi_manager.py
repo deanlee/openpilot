@@ -129,6 +129,7 @@ class AccessPoint:
 class WifiManager:
   def __init__(self):
     self._networks: list[Network] = []  # a network can be comprised of multiple APs
+    self._known_connections: dict[str, str] = {}
     self._active = True  # used to not run when not in settings
     self._exit = False
 
@@ -423,7 +424,7 @@ class WifiManager:
 
   def forget_connection(self, ssid: str, block: bool = False):
     def worker():
-      conn_path = self._get_connections().get(ssid, None)
+      conn_path = self._known_connections.get(ssid, None)
       if conn_path is not None:
         conn_addr = DBusAddress(conn_path, bus_name=NM, interface=NM_CONNECTION_IFACE)
         self._router_main.send_and_get_reply(new_method_call(conn_addr, 'Delete'))
@@ -439,7 +440,7 @@ class WifiManager:
 
   def activate_connection(self, ssid: str, block: bool = False):
     def worker():
-      conn_path = self._get_connections().get(ssid, None)
+      conn_path = self._known_connections.get(ssid, None)
       if conn_path is not None:
         if self._wifi_device is None:
           cloudlog.warning("No WiFi device found")
@@ -475,7 +476,7 @@ class WifiManager:
 
   def set_tethering_password(self, password: str):
     def worker():
-      conn_path = self._get_connections().get(self._tethering_ssid, None)
+      conn_path = self._known_connections.get(self._tethering_ssid, None)
       if conn_path is None:
         cloudlog.warning('No tethering connection found')
         return
@@ -500,7 +501,7 @@ class WifiManager:
     threading.Thread(target=worker, daemon=True).start()
 
   def _get_tethering_password(self) -> str:
-    conn_path = self._get_connections().get(self._tethering_ssid, None)
+    conn_path = self._known_connections.get(self._tethering_ssid, None)
     if conn_path is None:
       cloudlog.warning('No tethering connection found')
       return ''
@@ -638,8 +639,8 @@ class WifiManager:
           # catch all for parsing errors
           cloudlog.exception(f"Failed to parse AP properties for {ap_path}")
 
-      known_connections = self._get_connections()
-      networks = [Network.from_dbus(ssid, ap_list, ssid in known_connections) for ssid, ap_list in aps.items()]
+      self._known_connections = self._get_connections()
+      networks = [Network.from_dbus(ssid, ap_list, ssid in self._known_connections) for ssid, ap_list in aps.items()]
       # sort with quantized strength to reduce jumping
       networks.sort(key=lambda n: (-n.is_connected, -round(n.strength / 100 * 2), n.ssid.lower()))
       self._networks = networks
