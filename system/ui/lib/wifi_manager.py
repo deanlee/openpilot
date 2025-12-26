@@ -605,17 +605,11 @@ class WifiManager:
       # returns '/' if no active AP
       wifi_addr = DBusAddress(self._wifi_device, NM, interface=NM_WIRELESS_IFACE)
       active_ap_path = self._router_main.send_and_get_reply(Properties(wifi_addr).get('ActiveAccessPoint')).body[0][1]
-      ap_paths = self._router_main.send_and_get_reply(new_method_call(wifi_addr, 'GetAllAccessPoints')).body[0]
 
       aps: dict[str, list[AccessPoint]] = {}
-
-      for ap_path in ap_paths:
-        ap_addr = DBusAddress(ap_path, NM, interface=NM_ACCESS_POINT_IFACE)
-        ap_props = self._router_main.send_and_get_reply(Properties(ap_addr).get_all())
-
-        # some APs have been seen dropping off during iteration
-        if ap_props.header.message_type == MessageType.error:
-          cloudlog.warning(f"Failed to get AP properties for {ap_path}")
+      for ap_path in self._call(wifi_addr, 'GetAllAccessPoints') or []:
+        ap_props = self._get_props(ap_path, NM_ACCESS_POINT_IFACE)
+        if not ap_props:
           continue
 
         try:
