@@ -653,26 +653,14 @@ class WifiManager:
       self._enqueue_callbacks(self._networks_updated, self._networks.copy())
 
   def _update_ipv4_address(self):
-    if self._wifi_device is None:
-      cloudlog.warning("No WiFi device found")
-      return
-
     self._ipv4_address = ""
-
-    for conn_path in self._get_active_connections():
-      conn_addr = DBusAddress(conn_path, bus_name=NM, interface=NM_ACTIVE_CONNECTION_IFACE)
-      conn_type = self._router_main.send_and_get_reply(Properties(conn_addr).get('Type')).body[0][1]
-      if conn_type == '802-11-wireless':
-        ip4config_path = self._router_main.send_and_get_reply(Properties(conn_addr).get('Ip4Config')).body[0][1]
-
-        if ip4config_path != "/":
-          ip4config_addr = DBusAddress(ip4config_path, bus_name=NM, interface=NM_IP4_CONFIG_IFACE)
-          address_data = self._router_main.send_and_get_reply(Properties(ip4config_addr).get('AddressData')).body[0][1]
-
-          for entry in address_data:
-            if 'address' in entry:
-              self._ipv4_address = entry['address'][1]
-              return
+    ip4config_path = self._get_prop(self._wifi_device, NM_DEVICE_IFACE, 'Ip4Config')
+    if ip4config_path != "/":
+      addr_data = self._get_prop(ip4config_path, NM_IP4_CONFIG_IFACE, 'AddressData')
+      if addr_data and len(addr_data) > 0:
+        # AddressData is a list of dictionaries
+        self._ipv4_address = addr_data[0].get('address', (None, ""))[1]
+        print(self._ipv4_address)
 
   def __del__(self):
     self.stop()
