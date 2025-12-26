@@ -325,18 +325,11 @@ class WifiManager:
     return None
 
   def _get_connections(self) -> dict[str, str]:
-    settings_addr = DBusAddress(NM_SETTINGS_PATH, bus_name=NM, interface=NM_SETTINGS_IFACE)
-    known_connections = self._router_main.send_and_get_reply(new_method_call(settings_addr, 'ListConnections')).body[0]
-
     conns: dict[str, str] = {}
+    known_connections = self._call(DBusAddress(NM_SETTINGS_PATH, NM, NM_SETTINGS_IFACE), 'ListConnections') or []
     for conn_path in known_connections:
       settings = self._get_connection_settings(conn_path)
-
-      if len(settings) == 0:
-        cloudlog.warning(f'Failed to get connection settings for {conn_path}')
-        continue
-
-      if "802-11-wireless" in settings:
+      if settings and "802-11-wireless" in settings:
         ssid = settings['802-11-wireless']['ssid'][1].decode("utf-8", "replace")
         if ssid != "":
           conns[ssid] = conn_path
