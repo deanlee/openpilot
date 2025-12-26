@@ -176,17 +176,46 @@ class WifiManager:
     self._initialize()
     atexit.register(self.stop)
 
+  # def _call(self, addr, method, signature=None, body=None):
+  #   res = self._router_main.send_and_get_reply(new_method_call(addr, method, signature, body))
+  #   return res.body[0] if res.header.message_type != MessageType.error else None
+
+  # def _get_prop(self, path, iface, prop):
+  #   res = self._router_main.send_and_get_reply(Properties(DBusAddress(path, NM, iface)).get(prop))
+  #   return res.body[0][1] if res.header.message_type != MessageType.error else None
+
+  # def _get_props(self, path, iface):
+  #   res = self._router_main.send_and_get_reply(Properties(DBusAddress(path, NM, iface)).get_all())
+  #   return res.body[0] if res.header.message_type != MessageType.error else {}
+
   def _call(self, addr, method, signature=None, body=None):
-    res = self._router_main.send_and_get_reply(new_method_call(addr, method, signature, body))
-    return res.body[0] if res.header.message_type != MessageType.error else None
+    try:
+      res = self._router_main.send_and_get_reply(new_method_call(addr, method, signature, body), timeout=2.0)
+      if res.header.message_type != MessageType.error and res.body:
+        return res.body[0]
+    except Exception as e:
+      print(e)
+      cloudlog.error(f"WifiManager D-Bus call error ({method}): {e}")
+    return None
 
   def _get_prop(self, path, iface, prop):
-    res = self._router_main.send_and_get_reply(Properties(DBusAddress(path, NM, iface)).get(prop))
-    return res.body[0][1] if res.header.message_type != MessageType.error else None
+    try:
+      res = self._router_main.send_and_get_reply(Properties(DBusAddress(path, NM, iface)).get(prop), timeout=1.0)
+      if res.header.message_type != MessageType.error and res.body:
+        # Properties.get returns (variant_type, value)
+        return res.body[0][1]
+    except Exception as e:
+      cloudlog.debug(f"WifiManager failed to get property {prop}: {e}")
+    return None
 
   def _get_props(self, path, iface):
-    res = self._router_main.send_and_get_reply(Properties(DBusAddress(path, NM, iface)).get_all())
-    return res.body[0] if res.header.message_type != MessageType.error else {}
+    try:
+      res = self._router_main.send_and_get_reply(Properties(DBusAddress(path, NM, iface)).get_all(), timeout=1.0)
+      if res.header.message_type != MessageType.error and res.body:
+        return res.body[0]
+    except Exception as e:
+      cloudlog.debug(f"WifiManager failed to get all properties for {iface}: {e}")
+    return {}
 
   def _initialize(self):
     def worker():
