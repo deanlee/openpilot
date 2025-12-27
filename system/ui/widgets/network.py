@@ -280,7 +280,7 @@ class WifiManagerUI(Widget):
     new_items = {}
     for net in networks:
       item = self._network_items.get(net.ssid) or NetworkItem(
-        net, self._networks_buttons_callback, self._forget_networks_buttons_callback
+        net, self._on_item_click, self._on_item_forget
       )
       item.network = net
       item.set_rect(rl.Rectangle(0, 0, self._rect.width, ITEM_HEIGHT))
@@ -300,13 +300,13 @@ class WifiManagerUI(Widget):
     self.keyboard.reset(min_text_size=MIN_PASSWORD_LENGTH)
     gui_app.set_modal_overlay(self.keyboard, lambda res: res == 1 and self.connect_to_network(network, self.keyboard.text))
 
-  def _networks_buttons_callback(self, network):
+  def _on_item_click(self, network):
     if not network.is_saved and network.security_type != SecurityType.OPEN:
       self._auth_required(network)
     elif not network.is_connected:
       self.connect_to_network(network)
 
-  def _forget_networks_buttons_callback(self, network):
+  def _on_item_forget(self, network):
     dlg = ConfirmDialog(tr("Forget Wi-Fi Network \"{}\"?").format(network.ssid), tr("Forget"), tr("Cancel"))
     gui_app.set_modal_overlay(dlg, lambda res: res == 1 and self.forget_network(network))
 
