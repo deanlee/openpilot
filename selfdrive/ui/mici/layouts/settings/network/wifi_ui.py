@@ -4,11 +4,11 @@ import pyray as rl
 from collections.abc import Callable
 
 from openpilot.common.swaglog import cloudlog
+from openpilot.system.ui.widgets import DialogResult, Widget
 from openpilot.system.ui.widgets.label import Label, Align, VAlign
 from openpilot.system.ui.widgets.scrollable_label import ScrollableLabel
-from openpilot.selfdrive.ui.mici.widgets.dialog import BigMultiOptionDialog, BigInputDialog, BigDialogOptionButton, BigConfirmationDialogV2
+from openpilot.selfdrive.ui.mici.widgets.dialog import BigDialogBase, BigMultiOptionDialog, BigInputDialog, BigDialogOptionButton, BigConfirmationDialogV2
 from openpilot.system.ui.lib.application import gui_app, MousePos, FontWeight
-from openpilot.system.ui.widgets import Widget, NavWidget
 from openpilot.system.ui.lib.wifi_manager import WifiManager, Network, SecurityType
 
 
@@ -162,10 +162,9 @@ class ConnectButton(Widget):
 class ForgetButton(Widget):
   HORIZONTAL_MARGIN = 8
 
-  def __init__(self, forget_network: Callable, open_network_manage_page):
+  def __init__(self, forget_network: Callable):
     super().__init__()
     self._forget_network = forget_network
-    self._open_network_manage_page = open_network_manage_page
 
     self._bg_txt = gui_app.texture("icons_mici/settings/network/new/forget_button.png", 100, 100)
     self._bg_pressed_txt = gui_app.texture("icons_mici/settings/network/new/forget_button_pressed.png", 100, 100)
@@ -176,7 +175,7 @@ class ForgetButton(Widget):
     super()._handle_mouse_release(mouse_pos)
     dlg = BigConfirmationDialogV2("slide to forget", "icons_mici/settings/network/new/trash.png", red=True,
                                   confirm_callback=self._forget_network)
-    gui_app.set_modal_overlay(dlg, callback=self._open_network_manage_page)
+    gui_app.push_modal_overlay(dlg)
 
   def _render(self, _):
     bg_txt = self._bg_pressed_txt if self.is_pressed else self._bg_txt
@@ -187,23 +186,17 @@ class ForgetButton(Widget):
     rl.draw_texture(self._trash_txt, trash_x, trash_y, rl.WHITE)
 
 
-class NetworkInfoPage(NavWidget):
-  def __init__(self, wifi_manager, connect_callback: Callable, forget_callback: Callable, open_network_manage_page: Callable):
+class NetworkInfoPage(BigDialogBase):
+  def __init__(self, wifi_manager, connect_callback: Callable, forget_callback: Callable):
     super().__init__()
     self._wifi_manager = wifi_manager
-
-    self.set_rect(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
-
     self._wifi_icon = WifiIcon()
-    self._forget_btn = ForgetButton(lambda: forget_callback(self._network.ssid) if self._network is not None else None,
-                                    open_network_manage_page)
+    self._forget_btn = ForgetButton(lambda: forget_callback(self._network.ssid) if self._network is not None else None)
     self._connect_btn = ConnectButton()
     self._connect_btn.set_click_callback(lambda: connect_callback(self._network.ssid) if self._network is not None else None)
 
     self._title = ScrollableLabel("", 64, FontWeight.DISPLAY, rl.Color(255, 255, 255, int(255 * 0.9)), valign=VAlign.MIDDLE)
     self._subtitle = Label("", size=36, weight=FontWeight.ROMAN, color=rl.Color(255, 255, 255, int(255 * 0.9 * 0.65)), valign=VAlign.MIDDLE)
-
-    self.set_back_callback(lambda: gui_app.set_modal_overlay(None))
 
     # State
     self._network: Network | None = None
@@ -213,7 +206,12 @@ class NetworkInfoPage(NavWidget):
     super().show_event()
     self._title.reset_scroll()
 
+  def close_event(self):
+    # do nothing special on close
+    pass
+
   def update_networks(self, networks: dict[str, Network]):
+    self._result = DialogResult.NO_ACTION
     # update current network from latest scan results
     for ssid, network in networks.items():
       if self._network is not None and ssid == self._network.ssid:
@@ -221,7 +219,7 @@ class NetworkInfoPage(NavWidget):
         break
     else:
       # network disappeared, close page
-      gui_app.set_modal_overlay(None)
+      self.set_result(DialogResult.CANCEL)
 
   def _update_state(self):
     super()._update_state()
@@ -304,8 +302,6 @@ class NetworkInfoPage(NavWidget):
         self._forget_btn.rect.height,
       ))
 
-    return -1
-
 
 class WifiUIMici(BigMultiOptionDialog):
   # Wait this long after user interacts with widget to update network list
@@ -317,7 +313,7 @@ class WifiUIMici(BigMultiOptionDialog):
     # Set up back navigation
     self.set_back_callback(back_callback)
 
-    self._network_info_page = NetworkInfoPage(wifi_manager, self._connect_to_network, self._forget_network, self._open_network_manage_page)
+    self._network_info_page = NetworkInfoPage(wifi_manager, self._connect_to_network, self._forget_network)
     self._network_info_page.set_connecting(lambda: self._connecting)
 
     self._loading_animation = LoadingAnimation()
@@ -350,7 +346,7 @@ class WifiUIMici(BigMultiOptionDialog):
 
   def _open_network_manage_page(self, result=None):
     self._network_info_page.update_networks(self._networks)
-    gui_app.set_modal_overlay(self._network_info_page)
+    gui_app.push_modal_overlay(self._network_info_page)
 
   def _forget_network(self, ssid: str):
     network = self._networks.get(ssid)
@@ -426,7 +422,7 @@ class WifiUIMici(BigMultiOptionDialog):
     dlg = BigInputDialog(hint, "", minimum_length=8,
                          confirm_callback=lambda _password: self._connect_with_password(ssid, _password))
     # go back to the manage network page
-    gui_app.set_modal_overlay(dlg, self._open_network_manage_page)
+    gui_app.push_modal_overlay(dlg, self._open_network_manage_page)
 
   def _on_activated(self):
     self._connecting = None

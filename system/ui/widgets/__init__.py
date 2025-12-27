@@ -34,6 +34,9 @@ class Widget(abc.ABC):
     self.__was_awake = True
     self._transparent_for_input = transparent_for_input
 
+  def __del__(self):
+    print(f"Widget __del__: {self.__class__.__name__}")
+
   @property
   def rect(self) -> rl.Rectangle:
     return self._rect
@@ -185,7 +188,28 @@ class Widget(abc.ABC):
     """Optionally handle hide event. Parent must manually call this"""
 
   def close_event(self):
-    """Optionally handle close event. Parent must manually call this"""
+    # cleanup callbacks
+    self._enabled = False
+    self._is_visible = False
+    self._touch_valid_callback = None
+    self._click_callback = None
+
+
+class DialogBase(Widget, abc.ABC):
+  """
+  A base class for modal dialogs.
+  """
+  def __init__(self):
+    super().__init__()
+    self.set_rect(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
+    self._ret: DialogResult = DialogResult.NO_ACTION
+
+  def set_result(self, result: DialogResult) -> None:
+    self._ret = result
+    gui_app.pop_modal_overlay()
+
+  def result(self) -> DialogResult:
+    return self._ret
 
 
 SWIPE_AWAY_THRESHOLD = 80  # px to dismiss after releasing
@@ -248,12 +272,24 @@ class NavWidget(Widget, abc.ABC):
     self._nav_bar = NavBar()
 
     self._nav_bar_y_filter = FirstOrderFilter(0.0, 0.1, 1 / gui_app.target_fps)
+    self._origin_scroller_enable: bool | Callable[[], bool] = None
 
     self._set_up = False
+
+  def close_event(self):
+    super().close_event()
+    if s := self._get_scroller():
+      s.set_enabled(self._origin_scroller_enable)
+    self._back_callback = None
+    self._back_enabled = False
+    self._origin_scroller_enable = None
 
   @property
   def back_enabled(self) -> bool:
     return self._back_enabled() if callable(self._back_enabled) else self._back_enabled
+
+  def _get_scroller(self):
+    return getattr(self, '_scroller', getattr(self, '_scroll_panel', None))
 
   def set_back_enabled(self, enabled: bool | Callable[[], bool]) -> None:
     self._back_enabled = enabled
@@ -278,12 +314,9 @@ class NavWidget(Widget, abc.ABC):
       scroller_at_top = False
       vertical_scroller = False
       # TODO: -20? snapping in WiFi dialog can make offset not be positive at the top
-      if hasattr(self, '_scroller'):
-        scroller_at_top = self._scroller.scroll_panel.get_offset() >= -20 and not self._scroller._horizontal
-        vertical_scroller = not self._scroller._horizontal
-      elif hasattr(self, '_scroll_panel'):
-        scroller_at_top = self._scroll_panel.get_offset() >= -20 and not self._scroll_panel._horizontal
-        vertical_scroller = not self._scroll_panel._horizontal
+      if s := self._get_scroller():
+        scroller_at_top = s.scroll_panel.get_offset() >= -20 and not s._horizontal
+        vertical_scroller = not s._horizontal
 
       # Vertical scrollers need to be at the top to swipe away to prevent erroneous swipes
       if (not vertical_scroller and in_dismiss_area) or scroller_at_top:
@@ -320,15 +353,12 @@ class NavWidget(Widget, abc.ABC):
     # Disable self's scroller while swiping away
     if not self._set_up:
       self._set_up = True
-      if hasattr(self, '_scroller'):
-        original_enabled = self._scroller._enabled
-        self._scroller.set_enabled(lambda: not self._swiping_away and (original_enabled() if callable(original_enabled) else
-                                                                       original_enabled))
-      elif hasattr(self, '_scroll_panel'):
-        original_enabled = self._scroll_panel.enabled
-        self._scroll_panel.set_enabled(lambda: not self._swiping_away and (original_enabled() if callable(original_enabled) else
-                                                                          original_enabled))
-
+      if s := self._get_scroller():
+        self._origin_scroller_enable = s.enabled
+        s.set_enabled(
+          lambda: not self._swiping_away
+          and (self._origin_scroller_enable() if callable(self._origin_scroller_enable) else self._origin_scroller_enable)
+        )
     if self._trigger_animate_in:
       self._pos_filter.x = self._rect.height
       self._nav_bar_y_filter.x = -NAV_BAR_MARGIN - NAV_BAR_HEIGHT

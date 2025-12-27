@@ -7,7 +7,7 @@ from openpilot.system.ui.lib.application import gui_app, FontWeight, FONT_SCALE
 from openpilot.system.ui.lib.multilang import tr
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.wrap_text import wrap_text
-from openpilot.system.ui.widgets import Widget
+from openpilot.system.ui.widgets import Widget, DialogBase, DialogResult
 from openpilot.system.ui.widgets.button import Button, ButtonStyle
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 
@@ -250,12 +250,12 @@ class HtmlRenderer(Widget):
     return self._normal_font
 
 
-class HtmlModal(Widget):
+class HtmlModal(DialogBase):
   def __init__(self, file_path: str | None = None, text: str | None = None):
     super().__init__()
     self._content = HtmlRenderer(file_path=file_path, text=text)
     self._scroll_panel = GuiScrollPanel()
-    self._ok_button = Button(tr("OK"), click_callback=lambda: gui_app.set_modal_overlay(None), button_style=ButtonStyle.PRIMARY)
+    self._ok_button = Button(tr("OK"), click_callback=lambda: self.set_result(DialogResult.CONFIRM), button_style=ButtonStyle.PRIMARY)
 
   def close_event(self):
     self._ok_button.set_click_callback(None)

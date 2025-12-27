@@ -1,7 +1,7 @@
 import pyray as rl
 from openpilot.system.ui.lib.application import FontWeight
 from openpilot.system.ui.lib.multilang import tr_lazy
-from openpilot.system.ui.widgets import Widget, DialogResult
+from openpilot.system.ui.widgets import DialogBase, DialogResult
 from openpilot.system.ui.widgets.button import Button, ButtonStyle
 from openpilot.system.ui.widgets.label import gui_label, Align
 from openpilot.system.ui.widgets.scroller_tici import Scroller
@@ -16,14 +16,13 @@ ITEM_SPACING = 50
 LIST_ITEM_SPACING = 25
 
 
-class MultiOptionDialog(Widget):
+class MultiOptionDialog(DialogBase):
   def __init__(self, title, options, current="", option_font_weight=FontWeight.MEDIUM):
     super().__init__()
     self.title = title
     self.options = options
     self.current = current
     self.selection = current
-    self._result: DialogResult = DialogResult.NO_ACTION
 
     # Create scroller with option buttons
     self.option_buttons = [Button(option, click_callback=lambda opt=option: self._on_option_clicked(opt),
@@ -31,11 +30,8 @@ class MultiOptionDialog(Widget):
                                   text_padding=50, elide_right=True) for option in options]
     self.scroller = Scroller(self.option_buttons, spacing=LIST_ITEM_SPACING)
 
-    self.cancel_button = Button(tr_lazy("Cancel"), click_callback=lambda: self._set_result(DialogResult.CANCEL))
-    self.select_button = Button(tr_lazy("Select"), click_callback=lambda: self._set_result(DialogResult.CONFIRM), button_style=ButtonStyle.PRIMARY)
-
-  def _set_result(self, result: DialogResult):
-    self._result = result
+    self.cancel_button = Button(tr_lazy("Cancel"), click_callback=lambda: self.set_result(DialogResult.CANCEL))
+    self.select_button = Button(tr_lazy("Select"), click_callback=lambda: self.set_result(DialogResult.CONFIRM), button_style=ButtonStyle.PRIMARY)
 
   def close_event(self):
     self.cancel_button.set_click_callback(None)
@@ -79,5 +75,3 @@ class MultiOptionDialog(Widget):
     select_rect = rl.Rectangle(content_rect.x + button_w + BUTTON_SPACING, button_y, button_w, BUTTON_HEIGHT)
     self.select_button.set_enabled(self.selection != self.current)
     self.select_button.render(select_rect)
-
-    return self._result

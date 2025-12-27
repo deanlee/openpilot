@@ -8,7 +8,7 @@ import pyray as rl
 from openpilot.common.basedir import BASEDIR
 from openpilot.system.ui.lib.application import FontWeight, gui_app
 from openpilot.system.ui.lib.multilang import tr
-from openpilot.system.ui.widgets import Widget
+from openpilot.system.ui.widgets import Widget, DialogBase, DialogResult
 from openpilot.system.ui.widgets.button import Button, ButtonStyle
 from openpilot.system.ui.widgets.label import Label, Align
 from openpilot.selfdrive.ui.ui_state import ui_state
@@ -36,7 +36,7 @@ class OnboardingState(IntEnum):
   DECLINE = 2
 
 
-class TrainingGuide(Widget):
+class TrainingGuide(DialogBase):
   def __init__(self, completed_callback=None):
     super().__init__()
     self._completed_callback = completed_callback
@@ -82,6 +82,7 @@ class TrainingGuide(Widget):
       # Finished?
       if self._step >= len(self._image_paths):
         self._step = 0
+        self.set_result(DialogResult.CONFIRM)
         if self._completed_callback:
           self._completed_callback()
 
@@ -174,7 +175,7 @@ class DeclinePage(Widget):
     self._text.render(text_rect)
 
 
-class OnboardingWindow(Widget):
+class OnboardingWindow(DialogBase):
   def __init__(self):
     super().__init__()
     self._accepted_terms: bool = ui_state.params.get("HasAcceptedTerms") == terms_version
@@ -201,11 +202,11 @@ class OnboardingWindow(Widget):
     ui_state.params.put("HasAcceptedTerms", terms_version)
     self._state = OnboardingState.ONBOARDING
     if self._training_done:
-      gui_app.set_modal_overlay(None)
+      self.set_result(DialogResult.CONFIRM)
 
   def _on_completed_training(self):
     ui_state.params.put("CompletedTrainingVersion", training_version)
-    gui_app.set_modal_overlay(None)
+    self.set_result(DialogResult.CONFIRM)
 
   def _render(self, _):
     if self._training_guide is None:
@@ -217,4 +218,3 @@ class OnboardingWindow(Widget):
       self._training_guide.render(self._rect)
     elif self._state == OnboardingState.DECLINE:
       self._decline_page.render(self._rect)
-    return -1

@@ -169,7 +169,7 @@ class SoftwareLayout(Widget):
         ui_state.params.put_bool("DoUninstall", True)
 
     dialog = ConfirmDialog(tr("Are you sure you want to uninstall?"), tr("Uninstall"))
-    gui_app.set_modal_overlay(dialog, callback=handle_uninstall_confirmation)
+    gui_app.push_modal_overlay(dialog, callback=handle_uninstall_confirmation)
 
   def _on_install_update(self):
     # Trigger reboot to install update
@@ -198,4 +198,4 @@ class SoftwareLayout(Widget):
         self._branch_btn.action_item.set_value(selection)
         os.system("pkill -SIGUSR1 -f system.updated.updated")
 
-    gui_app.set_modal_overlay(branch_dlg, callback=handle_selection)
+    gui_app.push_modal_overlay(branch_dlg, callback=handle_selection)

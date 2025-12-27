@@ -7,7 +7,7 @@ import pyray as rl
 from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.ui.lib.application import FontWeight, gui_app
-from openpilot.system.ui.widgets import Widget
+from openpilot.system.ui.widgets import Widget, DialogBase, DialogResult
 from openpilot.system.ui.widgets.button import SmallButton, SmallCircleIconButton
 from openpilot.system.ui.widgets.label import Label, Align
 from openpilot.system.ui.widgets.slider import SmallSlider
@@ -326,7 +326,7 @@ class TrainingGuideAttentionNotice(SetupTermsPage):
     ))
 
 
-class TrainingGuide(Widget):
+class TrainingGuide(DialogBase):
   def __init__(self, completed_callback=None):
     super().__init__()
     self._completed_callback = completed_callback
@@ -359,6 +359,7 @@ class TrainingGuide(Widget):
       self._steps[self._step].show_event()
     else:
       self._step = 0
+      self.set_result(DialogResult.CONFIRM)
       if self._completed_callback:
         self._completed_callback()
 
@@ -434,7 +435,7 @@ class TermsPage(SetupTermsPage):
     ))
 
 
-class OnboardingWindow(Widget):
+class OnboardingWindow(DialogBase):
   def __init__(self):
     super().__init__()
     self._accepted_terms: bool = ui_state.params.get("HasAcceptedTerms") == terms_version
@@ -469,7 +470,7 @@ class OnboardingWindow(Widget):
 
   def close(self):
     ui_state.params.put_bool("IsDriverViewEnabled", False)
-    gui_app.set_modal_overlay(None)
+    self.set_result(DialogResult.CONFIRM)
 
   def _on_terms_accepted(self):
     ui_state.params.put("HasAcceptedTerms", terms_version)

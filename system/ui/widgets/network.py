@@ -183,7 +183,7 @@ class AdvancedNetworkSettings(Widget):
     self._keyboard.reset(min_text_size=0)
     self._keyboard.set_title(tr("Enter APN"), tr("leave blank for automatic configuration"))
     self._keyboard.set_text(current_apn)
-    gui_app.set_modal_overlay(self._keyboard, update_apn)
+    gui_app.push_modal_overlay(self._keyboard, update_apn)
 
   def _toggle_cellular_metered(self):
     metered = self._cellular_metered_action.get_state()
@@ -215,11 +215,11 @@ class AdvancedNetworkSettings(Widget):
 
       self._keyboard.reset(min_text_size=0)
       self._keyboard.set_title(tr("Enter password"), tr("for \"{}\"").format(ssid))
-      gui_app.set_modal_overlay(self._keyboard, enter_password)
+      gui_app.push_modal_overlay(self._keyboard, enter_password)
 
     self._keyboard.reset(min_text_size=1)
     self._keyboard.set_title(tr("Enter SSID"), "")
-    gui_app.set_modal_overlay(self._keyboard, connect_hidden)
+    gui_app.push_modal_overlay(self._keyboard, connect_hidden)
 
   def _edit_tethering_password(self):
     def update_password(result):
@@ -233,7 +233,7 @@ class AdvancedNetworkSettings(Widget):
     self._keyboard.reset(min_text_size=MIN_PASSWORD_LENGTH)
     self._keyboard.set_title(tr("Enter new tethering password"), "")
     self._keyboard.set_text(self._wifi_manager.tethering_password)
-    gui_app.set_modal_overlay(self._keyboard, update_password)
+    gui_app.push_modal_overlay(self._keyboard, update_password)
 
   def _update_state(self):
     self._wifi_manager.process_callbacks()
@@ -298,7 +298,7 @@ class WifiManagerUI(Widget):
   def _auth_required(self, network: Network, wrong: bool = False):
     self.keyboard.set_title(tr("Wrong password") if wrong else tr("Enter password"), tr("for \"{}\"").format(network.ssid))
     self.keyboard.reset(min_text_size=MIN_PASSWORD_LENGTH)
-    gui_app.set_modal_overlay(self.keyboard, lambda res: res == 1 and self.connect_to_network(network, self.keyboard.text))
+    gui_app.push_modal_overlay(self.keyboard, lambda res: res == 1 and self.connect_to_network(network, self.keyboard.text))
 
   def _on_item_click(self, network):
     if not network.is_saved and network.security_type != SecurityType.OPEN:
@@ -308,7 +308,7 @@ class WifiManagerUI(Widget):
 
   def _on_item_forget(self, network):
     dlg = ConfirmDialog(tr("Forget Wi-Fi Network \"{}\"?").format(network.ssid), tr("Forget"), tr("Cancel"))
-    gui_app.set_modal_overlay(dlg, lambda res: res == 1 and self.forget_network(network))
+    gui_app.push_modal_overlay(dlg, lambda res: res == 1 and self.forget_network(network))
 
   def connect_to_network(self, network: Network, password=''):
     if item := self._network_items.get(network.ssid):

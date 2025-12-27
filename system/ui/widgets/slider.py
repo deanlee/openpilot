@@ -43,6 +43,9 @@ class SmallSlider(Widget):
     self._circle_bg_txt = gui_app.texture("icons_mici/setup/small_slider/slider_red_circle.png", 100, 100)
     self._circle_arrow_txt = gui_app.texture("icons_mici/setup/small_slider/slider_arrow.png", 37, 32)
 
+  def set_confirm_callback(self, confirm_callback: Callable | None):
+    self._confirm_callback = confirm_callback
+
   @property
   def confirmed(self) -> bool:
     return self._confirmed_time > 0.0

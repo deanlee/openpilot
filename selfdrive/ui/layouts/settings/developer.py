@@ -124,7 +124,7 @@ class DeveloperLayout(Widget):
                  f"<p>{toggle.description}</p>")
 
       dlg = ConfirmDialog(content, tr("Enable"), rich=True)
-      gui_app.set_modal_overlay(dlg, callback=confirm_callback)
+      gui_app.push_modal_overlay(dlg, callback=confirm_callback)
 
     else:
       self._params.put_bool("AlphaLongitudinalEnabled", False)

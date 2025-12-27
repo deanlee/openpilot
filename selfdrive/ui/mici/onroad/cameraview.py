@@ -142,9 +142,6 @@ class BaseCameraView(Widget):
       self.egl_texture = rl.load_texture_from_image(temp_image)
       rl.unload_image(temp_image)
 
-    #TODO: move to AugmentedCameraView, CameraView should be generic, no dependency on ui_state
-    ui_state.add_offroad_transition_callback(self._offroad_transition)
-
   def _offroad_transition(self):
     self.frame = None
     self.client = VisionIpcClient(self._name, self._stream_type, conflate=True)
@@ -179,6 +176,7 @@ class BaseCameraView(Widget):
     self.client = None
 
   def __del__(self):
+    super().__del__()
     self.close()
 
   def _calc_frame_matrix(self, rect: rl.Rectangle) -> np.ndarray:

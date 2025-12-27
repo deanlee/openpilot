@@ -11,7 +11,7 @@ from openpilot.common.time_helpers import system_time_valid
 from openpilot.system.ui.widgets.scroller import Scroller
 from openpilot.system.ui.lib.scroll_panel2 import GuiScrollPanel2
 from openpilot.selfdrive.ui.mici.widgets.button import BigButton, BigCircleButton
-from openpilot.selfdrive.ui.mici.widgets.dialog import BigMultiOptionDialog, BigDialog, BigConfirmationDialogV2
+from openpilot.selfdrive.ui.mici.widgets.dialog import BigDialogBase, BigMultiOptionDialog, BigDialog, BigConfirmationDialogV2
 from openpilot.selfdrive.ui.mici.widgets.pairing_dialog import PairingDialog
 from openpilot.selfdrive.ui.mici.onroad.driver_camera_dialog import DriverCameraDialog
 from openpilot.selfdrive.ui.mici.layouts.onboarding import TrainingGuide
@@ -20,16 +20,15 @@ from openpilot.system.ui.lib.multilang import tr
 from openpilot.system.ui.widgets import Widget, NavWidget
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.widgets.label import Label
-from openpilot.system.ui.widgets.html_render import HtmlModal, HtmlRenderer
+from openpilot.system.ui.widgets.html_render import HtmlRenderer
 from openpilot.system.athena.registration import UNREGISTERED_DONGLE_ID
 
 
-class MiciFccModal(NavWidget):
+class MiciFccModal(BigDialogBase):
   BACK_TOUCH_AREA_PERCENTAGE = 0.1
 
   def __init__(self, file_path: str | None = None, text: str | None = None):
     super().__init__()
-    self.set_back_callback(lambda: gui_app.set_modal_overlay(None))
     self._content = HtmlRenderer(file_path=file_path, text=text)
     self._scroll_panel = GuiScrollPanel2(horizontal=False)
     self._fcc_logo = gui_app.texture("icons_mici/settings/device/fcc_logo.png", 76, 64)
@@ -47,8 +46,6 @@ class MiciFccModal(NavWidget):
     self._content.render(scroll_content_rect)
 
     rl.draw_texture_ex(self._fcc_logo, fcc_pos, 0.0, 1.0, rl.WHITE)
-
-    return -1
 
 
 def _engaged_confirmation_callback(callback: Callable, action_text: str):
@@ -75,10 +72,10 @@ def _engaged_confirmation_callback(callback: Callable, action_text: str):
     dlg: BigConfirmationDialogV2 | BigDialog = BigConfirmationDialogV2(f"slide to\n{action_text.lower()}", icon, red=red,
                                                                        exit_on_confirm=action_text == "reset",
                                                                        confirm_callback=confirm_callback)
-    gui_app.set_modal_overlay(dlg)
+    gui_app.push_modal_overlay(dlg)
   else:
     dlg = BigDialog(f"Disengage to {action_text}", "")
-    gui_app.set_modal_overlay(dlg)
+    gui_app.push_modal_overlay(dlg)
 
 
 class DeviceInfoLayoutMici(Widget):
@@ -144,7 +141,7 @@ class PairBigButton(BigButton):
       dlg = BigDialog(tr("Device must be registered with the comma.ai backend to pair"), "")
     else:
       dlg = PairingDialog()
-    gui_app.set_modal_overlay(dlg)
+    gui_app.push_modal_overlay(dlg)
 
 
 UPDATER_TIMEOUT = 10.0  # seconds to wait for updater to respond
@@ -170,7 +167,7 @@ class UpdateOpenpilotBigButton(BigButton):
   def _handle_mouse_release(self, mouse_pos: MousePos):
     if not system_time_valid():
       dlg = BigDialog(tr("Please connect to Wi-Fi to update"), "")
-      gui_app.set_modal_overlay(dlg)
+      gui_app.push_modal_overlay(dlg)
       return
 
     self.set_enabled(False)
@@ -268,10 +265,6 @@ class DeviceLayoutMici(NavWidget):
   def __init__(self, back_callback: Callable):
     super().__init__()
 
-    self._fcc_dialog: HtmlModal | None = None
-    self._driver_camera: DriverCameraDialog | None = None
-    self._training_guide: TrainingGuide | None = None
-
     def power_off_callback():
       ui_state.params.put_bool("DoShutdown", True)
 
@@ -313,7 +306,7 @@ class DeviceLayoutMici(NavWidget):
       current_language = next(name for name, lang in self._languages.items() if lang == current_language_name)
 
       dlg = BigMultiOptionDialog(list(self._languages), default=current_language, right_btn_callback=selected_language_callback)
-      gui_app.set_modal_overlay(dlg)
+      gui_app.push_modal_overlay(dlg)
 
     # lang_button = BigButton("change language", "", "icons_mici/settings/device/language.png")
     # lang_button.set_click_callback(language_callback)
@@ -350,25 +343,17 @@ class DeviceLayoutMici(NavWidget):
     ui_state.add_offroad_transition_callback(self._offroad_transition)
 
   def _on_regulatory(self):
-    if not self._fcc_dialog:
-      self._fcc_dialog = MiciFccModal(os.path.join(BASEDIR, "selfdrive/assets/offroad/mici_fcc.html"))
-    gui_app.set_modal_overlay(self._fcc_dialog, callback=setattr(self, '_fcc_dialog', None))
+    dlg = MiciFccModal(os.path.join(BASEDIR, "selfdrive/assets/offroad/mici_fcc.html"))
+    gui_app.push_modal_overlay(dlg)
 
   def _offroad_transition(self):
     self._power_off_btn.set_visible(ui_state.is_offroad())
 
   def _show_driver_camera(self):
-    if not self._driver_camera:
-      self._driver_camera = DriverCameraDialog()
-    gui_app.set_modal_overlay(self._driver_camera, callback=lambda result: setattr(self, '_driver_camera', None))
+    gui_app.push_modal_overlay(DriverCameraDialog())
 
   def _on_review_training_guide(self):
-    if not self._training_guide:
-      def completed_callback():
-        gui_app.set_modal_overlay(None)
-
-      self._training_guide = TrainingGuide(completed_callback=completed_callback)
-    gui_app.set_modal_overlay(self._training_guide, callback=lambda result: setattr(self, '_training_guide', None))
+    gui_app.push_modal_overlay(TrainingGuide())
 
   def _load_languages(self):
     with open(os.path.join(BASEDIR, "selfdrive/ui/translations/languages.json")) as f:

@@ -39,7 +39,7 @@ class MainLayout(Widget):
     # Start onboarding if terms or training not completed
     self._onboarding_window = OnboardingWindow()
     if not self._onboarding_window.completed:
-      gui_app.set_modal_overlay(self._onboarding_window)
+      gui_app.push_modal_overlay(self._onboarding_window)
 
   def _render(self, _):
     self._handle_onroad_transition()

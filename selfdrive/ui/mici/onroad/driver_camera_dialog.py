@@ -3,11 +3,12 @@ from cereal import log, messaging
 from msgq.visionipc import VisionStreamType
 from openpilot.selfdrive.ui.mici.onroad.cameraview import CameraView
 from openpilot.selfdrive.ui.mici.onroad.driver_state import DriverStateRenderer
+from openpilot.selfdrive.ui.mici.widgets.dialog import BigDialogBase
 from openpilot.selfdrive.ui.ui_state import ui_state, device
 from openpilot.selfdrive.selfdrived.events import EVENTS, ET
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.multilang import tr
-from openpilot.system.ui.widgets import NavWidget
+from openpilot.system.ui.widgets import DialogResult
 from openpilot.system.ui.widgets.label import gui_label, Align, VAlign
 
 EventName = log.OnroadEvent.EventName
@@ -24,7 +25,7 @@ class DriverCameraView(CameraView):
     return base
 
 
-class DriverCameraDialog(NavWidget):
+class DriverCameraDialog(BigDialogBase):
   def __init__(self, no_escape=False):
     super().__init__()
     self._camera_view = DriverCameraView("camerad", VisionStreamType.VISION_STREAM_DRIVER)
@@ -33,9 +34,7 @@ class DriverCameraDialog(NavWidget):
     self.driver_state_renderer.load_icons()
     self._pm: messaging.PubMaster | None = None
     if not no_escape:
-      # TODO: this can grow unbounded, should be given some thought
-      device.add_interactive_timeout_callback(lambda: gui_app.set_modal_overlay(None))
-    self.set_back_callback(lambda: gui_app.set_modal_overlay(None))
+      device.add_interactive_timeout_callback(self._on_interactive_timeout)
     self.set_back_enabled(not no_escape)
 
     # Load eye icons
@@ -46,6 +45,13 @@ class DriverCameraDialog(NavWidget):
     self._glasses_size = 171
 
     self._load_eye_textures()
+
+  def close_event(self):
+    super().close_event()
+    device.remove_interactive_timeout_callback(self._on_interactive_timeout)
+
+  def _on_interactive_timeout(self):
+    self.set_result(DialogResult.CANCEL)
 
   def show_event(self):
     super().show_event()
@@ -63,13 +69,6 @@ class DriverCameraDialog(NavWidget):
   def _handle_mouse_release(self, _):
     ui_state.params.remove("DriverTooDistracted")
 
-  def __del__(self):
-    self.close()
-
-  def close(self):
-    if self._camera_view:
-      self._camera_view.close()
-
   def _update_state(self):
     if self._camera_view:
       self._camera_view._update_state()
@@ -86,7 +85,7 @@ class DriverCameraDialog(NavWidget):
       gui_label(rect, tr("camera starting"), font_size=54, font_weight=FontWeight.BOLD, align=Align.CENTER)
       rl.end_scissor_mode()
       self._publish_alert_sound(None)
-      return -1
+      return
 
     driver_data = self._draw_face_detection(rect)
     if driver_data is not None:
@@ -104,7 +103,6 @@ class DriverCameraDialog(NavWidget):
     self._render_dm_alerts(rect)
 
     rl.end_scissor_mode()
-    return -1
 
   def _publish_alert_sound(self, dm_state):
     """Publish selfdriveState with only alertSound field set"""
@@ -227,9 +225,6 @@ if __name__ == "__main__":
   gui_app.init_window("Driver Camera View (mici)")
 
   driver_camera_view = DriverCameraDialog()
-  try:
-    for _ in gui_app.render():
-      ui_state.update()
-      driver_camera_view.render(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
-  finally:
-    driver_camera_view.close()
+  for _ in gui_app.render():
+    ui_state.update()
+    driver_camera_view.render(rl.Rectangle(0, 0, gui_app.width, gui_app.height))

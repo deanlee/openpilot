@@ -210,8 +210,7 @@ class GuiApplication:
     self._last_fps_log_time: float = time.monotonic()
     self._frame = 0
     self._window_close_requested = False
-    self._modal_overlay = ModalOverlay()
-    self._modal_overlay_shown = False
+    self._modal_overlay: list[ModalOverlay]= []
     self._modal_overlay_tick: Callable[[], None] | None = None
 
     self._mouse = MouseState(self._scale)
@@ -328,19 +327,23 @@ class GuiApplication:
     print(f"{green}UI window ready in {elapsed_ms:.1f} ms{reset}")
     sys.exit(0)
 
-  def set_modal_overlay(self, overlay, callback: Callable | None = None):
-    if self._modal_overlay.overlay is not None:
-      if hasattr(self._modal_overlay.overlay, 'hide_event'):
-        self._modal_overlay.overlay.hide_event()
-      if hasattr(self._modal_overlay.overlay, 'close_event'):
-        self._modal_overlay.overlay.close_event()
+  def push_modal_overlay(self, overlay, callback: Callable | None = None):
+    self._modal_overlay.append(ModalOverlay(overlay=overlay, callback=callback))
+    if overlay:
+      overlay.set_rect(rl.Rectangle(0, 0, self._width, self._height))
+      getattr(overlay, 'show_event', lambda: None)()
 
-      if self._modal_overlay.callback is not None:
-        self._modal_overlay.callback(-1)
+  def pop_modal_overlay(self):
+    if len(self._modal_overlay) == 0:
+      return
+    modal = self._modal_overlay.pop()
+    getattr(modal.overlay, 'hide_event', lambda: None)()
+    getattr(modal.overlay, 'close_event', lambda: None)()
+    if modal.callback:
+      res = getattr(modal.overlay, 'result', lambda: -1)()
+      modal.callback(res)
 
-    self._modal_overlay = ModalOverlay(overlay=overlay, callback=callback)
-
-  def set_modal_overlay_tick(self, tick_function: Callable | None):
+  def push_modal_overlay_tick(self, tick_function: Callable | None):
     self._modal_overlay_tick = tick_function
 
   def set_should_render(self, should_render: bool):
@@ -481,9 +484,6 @@ class GuiApplication:
 
         # Handle modal overlay rendering and input processing
         if self._handle_modal_overlay():
-          # Allow a Widget to still run a function while overlay is shown
-          if self._modal_overlay_tick is not None:
-            self._modal_overlay_tick()
           yield False
         else:
           yield True
@@ -544,34 +544,16 @@ class GuiApplication:
     return self._height
 
   def _handle_modal_overlay(self) -> bool:
-    if self._modal_overlay.overlay:
-      if hasattr(self._modal_overlay.overlay, 'render'):
-        result = self._modal_overlay.overlay.render(rl.Rectangle(0, 0, self.width, self.height))
-      elif callable(self._modal_overlay.overlay):
-        result = self._modal_overlay.overlay()
-      else:
-        raise Exception
-
-      # Send show event to Widget
-      if not self._modal_overlay_shown and hasattr(self._modal_overlay.overlay, 'show_event'):
-        self._modal_overlay.overlay.show_event()
-        self._modal_overlay_shown = True
-
-      if result >= 0:
-        # Clear the overlay and execute the callback
-        original_modal = self._modal_overlay
-        self._modal_overlay = ModalOverlay()
-        if hasattr(original_modal.overlay, 'hide_event'):
-          original_modal.overlay.hide_event()
-        if hasattr(original_modal.overlay, 'close_event'):
-          original_modal.overlay.close_event()
-
-        if original_modal.callback is not None:
-          original_modal.callback(result)
-      return True
-    else:
-      self._modal_overlay_shown = False
+    if len(self._modal_overlay) == 0:
       return False
+
+    modal = self._modal_overlay[-1]
+    if hasattr(modal.overlay, 'render'):
+      modal.overlay.render(rl.Rectangle(0, 0, self.width, self.height))
+    # Allow a Widget to still run a function while overlay is shown
+    if self._modal_overlay_tick is not None:
+      self._modal_overlay_tick()
+    return True
 
   def _load_fonts(self):
     for font_weight_file in FontWeight:

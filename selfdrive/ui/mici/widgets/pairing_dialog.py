@@ -7,19 +7,18 @@ from openpilot.common.api import Api
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.params import Params
 from openpilot.selfdrive.ui.ui_state import ui_state
-from openpilot.system.ui.widgets import NavWidget
+from openpilot.selfdrive.ui.mici.widgets.dialog import BigDialogBase
 from openpilot.system.ui.lib.application import FontWeight, gui_app
 from openpilot.system.ui.widgets.label import Label
 
 
-class PairingDialog(NavWidget):
+class PairingDialog(BigDialogBase):
   """Dialog for device pairing with QR code."""
 
   QR_REFRESH_INTERVAL = 300  # 5 minutes in seconds
 
   def __init__(self):
     super().__init__()
-    self.set_back_callback(lambda: gui_app.set_modal_overlay(None))
     self._params = Params()
     self._qr_texture: rl.Texture | None = None
     self._last_qr_generation = float("-inf")
@@ -72,7 +71,7 @@ class PairingDialog(NavWidget):
     if ui_state.prime_state.is_paired():
       self._playing_dismiss_animation = True
 
-  def _render(self, rect: rl.Rectangle) -> int:
+  def _render(self, rect: rl.Rectangle):
     self._check_qr_refresh()
 
     self._render_qr_code()
@@ -84,8 +83,6 @@ class PairingDialog(NavWidget):
 
     rl.draw_texture_ex(self._txt_pair, rl.Vector2(label_x, self._rect.y + self._rect.height - self._txt_pair.height - 16),
                        0.0, 1.0, rl.Color(255, 255, 255, int(255 * 0.35)))
-
-    return -1
 
   def _render_qr_code(self) -> None:
     if not self._qr_texture:
@@ -99,9 +96,10 @@ class PairingDialog(NavWidget):
     pos = rl.Vector2(self._rect.x + 8, self._rect.y)
     rl.draw_texture_ex(self._qr_texture, pos, 0.0, scale, rl.WHITE)
 
-  def __del__(self):
-    if self._qr_texture and self._qr_texture.id != 0:
-      rl.unload_texture(self._qr_texture)
+    def __del__(self):
+      super().__del__()
+      if self._qr_texture and self._qr_texture.id != 0:
+        rl.unload_texture(self._qr_texture)
 
 
 if __name__ == "__main__":

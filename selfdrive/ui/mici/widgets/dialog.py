@@ -18,21 +18,20 @@ from openpilot.selfdrive.ui.mici.widgets.button import BigButton
 from openpilot.selfdrive.ui.mici.widgets.side_button import SideButton
 
 DEBUG = False
-
 PADDING = 20
 
 
 class BigDialogBase(NavWidget, abc.ABC):
   def __init__(self, right_btn: str | None = None, right_btn_callback: Callable | None = None):
     super().__init__()
-    self._ret = DialogResult.NO_ACTION
+    self._result = DialogResult.NO_ACTION
     self.set_rect(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
-    self.set_back_callback(lambda: setattr(self, '_ret', DialogResult.CANCEL))
+    self.set_back_callback(lambda: self.set_result(DialogResult.CANCEL))
 
     self._right_btn = None
     if right_btn:
       def right_btn_callback_wrapper():
-        gui_app.set_modal_overlay(None)
+        self.set_result(DialogResult.CANCEL)
         if right_btn_callback:
           right_btn_callback()
 
@@ -41,16 +40,23 @@ class BigDialogBase(NavWidget, abc.ABC):
       # move to right side
       self._right_btn._rect.x = self._rect.x + self._rect.width - self._right_btn._rect.width
 
-  def _render(self, _) -> DialogResult:
-    """
-    Allows `gui_app.set_modal_overlay(BigDialog(...))`.
-    The overlay runner keeps calling until result != NO_ACTION.
-    """
+  def set_result(self, result: DialogResult):
+    self._result = result
+    gui_app.pop_modal_overlay()
+
+  def result(self) -> DialogResult:
+    return self._result
+
+  def close_event(self):
+    super().close_event()
+    self.set_back_callback(None)
+    if self._right_btn:
+      self._right_btn.set_click_callback(None)
+
+  def _render(self, _):
     if self._right_btn:
       self._right_btn.set_position(self._right_btn._rect.x, self._rect.y)
       self._right_btn.render()
-
-    return self._ret
 
 
 class BigDialog(BigDialogBase):
@@ -63,7 +69,7 @@ class BigDialog(BigDialogBase):
     self._title = title
     self._description = description
 
-  def _render(self, _) -> DialogResult:
+  def _render(self, _):
     super()._render(_)
 
     # draw title
@@ -93,8 +99,6 @@ class BigDialog(BigDialogBase):
     # TODO: text align doesn't seem to work properly with newlines
     gui_label(desc_rect, desc_wrapped, 30, font_weight=FontWeight.MEDIUM, align=Align.CENTER)
 
-    return self._ret
-
 
 class BigConfirmationDialogV2(BigDialogBase):
   def __init__(self, title: str, icon: str, red: bool = False,
@@ -112,20 +116,26 @@ class BigConfirmationDialogV2(BigDialogBase):
       self._slider = BigSlider(title, icon_txt, confirm_callback=self._on_confirm)
     self._slider.set_enabled(lambda: not self._swiping_away)
 
+  def close_event(self):
+    super().close_event()
+    self._confirm_callback = None
+    self._slider.set_confirm_callback(None)
+    self._slider.set_enabled(False)
+
   def _on_confirm(self):
+    if self._exit_on_confirm:
+      self.set_result(DialogResult.CONFIRM)
+
     if self._confirm_callback:
       self._confirm_callback()
-    if self._exit_on_confirm:
-      self._ret = DialogResult.CONFIRM
 
   def _update_state(self):
     super()._update_state()
     if self._swiping_away and not self._slider.confirmed:
       self._slider.reset()
 
-  def _render(self, _) -> DialogResult:
+  def _render(self, _):
     self._slider.render(self._rect)
-    return self._ret
 
 
 class BigInputDialog(BigDialogBase):
@@ -140,6 +150,7 @@ class BigInputDialog(BigDialogBase):
     super().__init__(None, None)
     self._hint_label = Label(hint, size=35, color=rl.Color(255, 255, 255, int(255 * 0.35)), weight=FontWeight.MEDIUM)
     self._keyboard = MiciKeyboard()
+    self._keyboard.set_rect(rl.Rectangle(0, 0, gui_app.width, gui_app.height))
     self._keyboard.set_text(default_text)
     self._minimum_length = minimum_length
 
@@ -156,10 +167,14 @@ class BigInputDialog(BigDialogBase):
     self._top_right_button_rect = rl.Rectangle(0, 0, 0, 0)
 
     def confirm_callback_wrapper():
-      self._ret = DialogResult.CONFIRM
+      self.set_result(DialogResult.CONFIRM)
       if confirm_callback:
         confirm_callback(self._keyboard.text())
     self._confirm_callback = confirm_callback_wrapper
+
+  def close_event(self):
+    super().close_event()
+    self._confirm_callback = None
 
   def _update_state(self):
     super()._update_state()
@@ -248,7 +263,7 @@ class BigInputDialog(BigDialogBase):
       rl.draw_texture(self._enter_img, int(self._rect.x + 15), int(text_field_rect.y), color)
 
     # keyboard goes over everything
-    self._keyboard.render(self._rect)
+    self._keyboard.render()
 
     # draw debugging rect bounds
     if DEBUG:
@@ -256,8 +271,6 @@ class BigInputDialog(BigDialogBase):
       rl.draw_rectangle_lines_ex(text_rect, 1, rl.Color(0, 255, 0, 255))
       rl.draw_rectangle_lines_ex(self._top_right_button_rect, 1, rl.Color(0, 255, 0, 255))
       rl.draw_rectangle_lines_ex(self._top_left_button_rect, 1, rl.Color(0, 255, 0, 255))
-
-    return self._ret
 
   def _handle_mouse_press(self, mouse_pos: MousePos):
     super()._handle_mouse_press(mouse_pos)
@@ -413,8 +426,6 @@ class BigMultiOptionDialog(BigDialogBase):
     super()._render(_)
     self._scroller.render(self._rect)
 
-    return self._ret
-
 
 class BigDialogButton(BigButton):
   def __init__(self, text: str, value: str = "", icon: Union[str, rl.Texture] = "", description: str = ""):
@@ -425,4 +436,4 @@ class BigDialogButton(BigButton):
     super()._handle_mouse_release(mouse_pos)
 
     dlg = BigDialog(self.text, self._description)
-    gui_app.set_modal_overlay(dlg)
+    gui_app.push_modal_overlay(dlg)

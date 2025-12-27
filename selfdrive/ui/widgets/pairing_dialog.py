@@ -6,7 +6,7 @@ import time
 from openpilot.common.api import Api
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.params import Params
-from openpilot.system.ui.widgets import Widget
+from openpilot.system.ui.widgets import DialogBase, DialogResult
 from openpilot.system.ui.lib.application import FontWeight, gui_app
 from openpilot.system.ui.lib.multilang import tr
 from openpilot.system.ui.lib.wrap_text import wrap_text
@@ -15,7 +15,7 @@ from openpilot.system.ui.widgets.button import IconButton
 from openpilot.selfdrive.ui.ui_state import ui_state
 
 
-class PairingDialog(Widget):
+class PairingDialog(DialogBase):
   """Dialog for device pairing with QR code."""
 
   QR_REFRESH_INTERVAL = 300  # 5 minutes in seconds
@@ -26,7 +26,7 @@ class PairingDialog(Widget):
     self.qr_texture: rl.Texture | None = None
     self.last_qr_generation = float('-inf')
     self._close_btn = IconButton(gui_app.texture("icons/close.png", 80, 80))
-    self._close_btn.set_click_callback(lambda: gui_app.set_modal_overlay(None))
+    self._close_btn.set_click_callback(lambda: self.set_result(DialogResult.CONFIRM))
 
   def close_event(self):
     self._close_btn.set_click_callback(None)
@@ -72,7 +72,7 @@ class PairingDialog(Widget):
 
   def _update_state(self):
     if ui_state.prime_state.is_paired():
-      gui_app.set_modal_overlay(None)
+      self.set_result(DialogResult.CONFIRM)
 
   def _render(self, rect: rl.Rectangle) -> int:
     rl.clear_background(rl.Color(224, 224, 224, 255))
@@ -158,6 +158,7 @@ class PairingDialog(Widget):
     rl.draw_texture_pro(self.qr_texture, source, rect, rl.Vector2(0, 0), 0, rl.WHITE)
 
   def __del__(self):
+    super().__del__()
     if self.qr_texture and self.qr_texture.id != 0:
       rl.unload_texture(self.qr_texture)
 

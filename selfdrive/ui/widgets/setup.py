@@ -15,7 +15,6 @@ class SetupWidget(Widget):
   def __init__(self):
     super().__init__()
     self._open_settings_callback = None
-    self._pairing_dialog: PairingDialog | None = None
     self._pair_device_btn = Button(tr_lazy("Pair device"), self._show_pairing, button_style=ButtonStyle.PRIMARY)
     self._open_settings_btn = Button(tr_lazy("Open"), lambda: self._open_settings_callback() if self._open_settings_callback else None,
                                      button_style=ButtonStyle.PRIMARY)
@@ -89,13 +88,7 @@ class SetupWidget(Widget):
   def _show_pairing(self):
     if not system_time_valid():
       dlg = alert_dialog(tr("Please connect to Wi-Fi to complete initial pairing"))
-      gui_app.set_modal_overlay(dlg)
+      gui_app.push_modal_overlay(dlg)
       return
 
-    if not self._pairing_dialog:
-      self._pairing_dialog = PairingDialog()
-    gui_app.set_modal_overlay(self._pairing_dialog, lambda result: setattr(self, '_pairing_dialog', None))
-
-  def __del__(self):
-    if self._pairing_dialog:
-      del self._pairing_dialog
+    gui_app.push_modal_overlay(PairingDialog())

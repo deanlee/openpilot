@@ -84,15 +84,15 @@ class DeviceLayout(Widget):
         multilang.change_language(selected_language)
         self._update_calib_description()
 
-    gui_app.set_modal_overlay(dlg, callback=handle_language_selection)
+    gui_app.push_modal_overlay(dlg, callback=handle_language_selection)
 
   def _show_driver_camera(self):
     driver_camera = DriverCameraDialog()
-    gui_app.set_modal_overlay(driver_camera)
+    gui_app.push_modal_overlay(driver_camera)
 
   def _reset_calibration_prompt(self):
     if ui_state.engaged:
-      gui_app.set_modal_overlay(alert_dialog(tr("Disengage to Reset Calibration")))
+      gui_app.push_modal_overlay(alert_dialog(tr("Disengage to Reset Calibration")))
       return
 
     def reset_calibration(result: int):
@@ -109,7 +109,7 @@ class DeviceLayout(Widget):
       self._update_calib_description()
 
     dialog = ConfirmDialog(tr("Are you sure you want to reset calibration?"), tr("Reset"))
-    gui_app.set_modal_overlay(dialog, callback=reset_calibration)
+    gui_app.push_modal_overlay(dialog, callback=reset_calibration)
 
   def _update_calib_description(self):
     desc = tr(DESCRIPTIONS['reset_calibration'])
@@ -161,11 +161,11 @@ class DeviceLayout(Widget):
 
   def _reboot_prompt(self):
     if ui_state.engaged:
-      gui_app.set_modal_overlay(alert_dialog(tr("Disengage to Reboot")))
+      gui_app.push_modal_overlay(alert_dialog(tr("Disengage to Reboot")))
       return
 
     dialog = ConfirmDialog(tr("Are you sure you want to reboot?"), tr("Reboot"))
-    gui_app.set_modal_overlay(dialog, callback=self._perform_reboot)
+    gui_app.push_modal_overlay(dialog, callback=self._perform_reboot)
 
   def _perform_reboot(self, result: int):
     if not ui_state.engaged and result == DialogResult.CONFIRM:
@@ -173,25 +173,22 @@ class DeviceLayout(Widget):
 
   def _power_off_prompt(self):
     if ui_state.engaged:
-      gui_app.set_modal_overlay(alert_dialog(tr("Disengage to Power Off")))
+      gui_app.push_modal_overlay(alert_dialog(tr("Disengage to Power Off")))
       return
 
     dialog = ConfirmDialog(tr("Are you sure you want to power off?"), tr("Power Off"))
-    gui_app.set_modal_overlay(dialog, callback=self._perform_power_off)
+    gui_app.push_modal_overlay(dialog, callback=self._perform_power_off)
 
   def _perform_power_off(self, result: int):
     if not ui_state.engaged and result == DialogResult.CONFIRM:
       self._params.put_bool_nonblocking("DoShutdown", True)
 
   def _pair_device(self):
-    gui_app.set_modal_overlay(PairingDialog())
+    gui_app.push_modal_overlay(PairingDialog())
 
   def _on_regulatory(self):
     fcc_dialog = HtmlModal(os.path.join(BASEDIR, "selfdrive/assets/offroad/fcc.html"))
-    gui_app.set_modal_overlay(fcc_dialog)
+    gui_app.push_modal_overlay(fcc_dialog)
 
   def _on_review_training_guide(self):
-    def completed_callback():
-      gui_app.set_modal_overlay(None)
-    training_guide = TrainingGuide(completed_callback=completed_callback)
-    gui_app.set_modal_overlay(training_guide)
+    gui_app.push_modal_overlay(TrainingGuide())

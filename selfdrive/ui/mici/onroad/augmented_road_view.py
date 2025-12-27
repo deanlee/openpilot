@@ -160,6 +160,7 @@ class AugmentedRoadView(CameraView):
 
     self._fade_texture = gui_app.texture("icons_mici/onroad/onroad_fade.png")
 
+    ui_state.add_offroad_transition_callback(self._offroad_transition)
     # debug
     self._pm = messaging.PubMaster(['uiDebug'])
 

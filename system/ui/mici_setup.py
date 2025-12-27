@@ -529,7 +529,7 @@ class Setup(Widget):
       lambda: self.state in (SetupState.NETWORK_SETUP, SetupState.NETWORK_SETUP_CUSTOM_SOFTWARE)
     )
     self._prev_has_internet = False
-    gui_app.set_modal_overlay_tick(self._modal_overlay_tick)
+    gui_app.push_modal_overlay_tick(self._modal_overlay_tick)
 
     self._start_page = StartPage()
     self._start_page.set_click_callback(self._getting_started_button_callback)
@@ -550,7 +550,7 @@ class Setup(Widget):
   def _modal_overlay_tick(self):
     has_internet = self._network_monitor.network_connected.is_set()
     if has_internet and not self._prev_has_internet:
-      gui_app.set_modal_overlay(None)
+      gui_app.pop_modal_overlay()
     self._prev_has_internet = has_internet
 
   def _update_state(self):
@@ -645,7 +645,7 @@ class Setup(Widget):
         self._set_state(SetupState.SOFTWARE_SELECTION)
 
     keyboard = BigInputDialog("custom software URL", confirm_callback=handle_keyboard_result)
-    gui_app.set_modal_overlay(keyboard, callback=handle_keyboard_exit)
+    gui_app.push_modal_overlay(keyboard, callback=handle_keyboard_exit)
 
   def use_openpilot(self):
     if os.path.isdir(INSTALL_PATH) and os.path.isfile(VALID_CACHE_PATH):

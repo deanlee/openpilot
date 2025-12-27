@@ -6,7 +6,7 @@ import pyray as rl
 
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.multilang import tr_lazy
-from openpilot.system.ui.widgets import Widget
+from openpilot.system.ui.widgets import DialogBase, DialogResult
 from openpilot.system.ui.widgets.button import ButtonStyle, Button
 from openpilot.system.ui.widgets.inputbox import InputBox
 from openpilot.system.ui.widgets.label import Label, Align
@@ -57,7 +57,7 @@ KEYBOARD_LAYOUTS = {
 }
 
 
-class Keyboard(Widget):
+class Keyboard(DialogBase):
   def __init__(self, max_text_size: int = 255, min_text_size: int = 0, password_mode: bool = False, show_password_toggle: bool = False):
     super().__init__()
     self._layout_name: Literal["lowercase", "uppercase", "numbers", "specials"] = "lowercase"
@@ -77,7 +77,6 @@ class Keyboard(Widget):
     self._backspace_press_time: float = 0.0
     self._backspace_last_repeat: float = 0.0
 
-    self._render_return_status = -1
     self._cancel_button = Button(tr_lazy("Cancel"), self._cancel_button_callback)
 
     self._eye_button = Button("", self._eye_button_callback, button_style=ButtonStyle.TRANSPARENT)
@@ -127,11 +126,11 @@ class Keyboard(Widget):
 
   def _cancel_button_callback(self):
     self.clear()
-    self._render_return_status = 0
+    self.set_result(DialogResult.CANCEL)
 
   def _key_callback(self, k):
     if k == ENTER_KEY:
-      self._render_return_status = 1
+      self.set_result(DialogResult.CONFIRM)
     else:
       self.handle_key_press(k)
 
@@ -197,8 +196,6 @@ class Keyboard(Widget):
           self._all_keys[key].set_enabled(is_enabled)
           self._all_keys[key].render(key_rect)
 
-    return self._render_return_status
-
   def _render_input_area(self, input_rect: rl.Rectangle):
     if self._show_password_toggle:
       self._input_box.set_password_mode(self._password_mode)
@@ -250,7 +247,7 @@ class Keyboard(Widget):
   def reset(self, min_text_size: int | None = None):
     if min_text_size is not None:
       self._min_text_size = min_text_size
-    self._render_return_status = -1
+    self._result = DialogResult.NO_ACTION
     self._last_shift_press_time = 0
     self._backspace_pressed = False
     self._backspace_press_time = 0.0
